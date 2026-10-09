@@ -12,7 +12,7 @@ Substituída: D-9 (não se aplica a visuais; features do mockup agora são imple
 - D-...-fidelity-3: implementar TODAS as features do mockup omitidas antes, com dados reais do bridge e backend novo onde preciso. Excluídas (todos): "Prova senza schermo", badge "attiva ora", udev one-click, reinício de fontes de sensor além do Libre.
 - D-...-fidelity-4: doers comparam mockup × app com gap/shoot.mjs (extensível); galeria lado a lado ao fim, aprovada pelo usuário.
 - D-...-fidelity-5: Connect em tela cheia (hero, dispositivos, passos, temas recentes reais); "Chiudi" vai ao editor.
-- D-...-fidelity-6: topbar do mockup (breadcrumb, "Non salvato", versão, chip da tela, "In diretta"); Salva laranja permanece.
+- D-...-fidelity-6: topbar do mockup (breadcrumb, "Non salvato", versão, chip da tela, "In diretta" verde); Salva continua visível (Ctrl+S) como botão secundário discreto, não laranja.
 - D-...-fidelity-7: painéis laterais redimensionáveis (separator com teclado/aria, mín/máx, duplo clique reseta, persistido).
 - D-...-fidelity-8: preview do inspector = objeto sozinho via novo comando Rust/Tauri (+ equivalente no demo).
 - D-...-fidelity-9: tipografia do mockup (13px Sans, títulos 11px caixa alta, Mono para valores/prefixos); woff2 verificados no WebView2.
