@@ -15,6 +15,10 @@ use tao::platform::run_return::EventLoopExtRunReturn;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
 use tray_icon::{Icon, MouseButton, TrayIconBuilder, TrayIconEvent};
 
+/// The tray icon's pictures, shared with Studio's tray.
+#[path = "../../../apps/bezel-studio/src-tauri/src/tray_icon.rs"]
+mod tray_picture;
+
 enum Action {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
@@ -94,12 +98,12 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     );
     let quit = MenuItem::new(if italian { "Esci" } else { "Quit" }, true, None);
     menu.append_items(&[&open, &quit])?;
-    let pixels = image::load_from_memory(include_bytes!(
-        "../../../apps/bezel-studio/src-tauri/icons/tray.png"
-    ))?
-    .into_rgba8();
-    let (width, height) = pixels.dimensions();
-    let icon = Icon::from_rgba(pixels.into_raw(), width, height)?;
+    let scale = event_loop
+        .primary_monitor()
+        .map_or(1.0, |monitor| monitor.scale_factor());
+    let (rgba, width, height) =
+        tray_picture::tray_rgba(scale).context("the tray icon's picture cannot be read")?;
+    let icon = Icon::from_rgba(rgba, width, height)?;
     let tray = TrayIconBuilder::new()
         .with_id("bezel-light")
         .with_tooltip("Bezel Light")

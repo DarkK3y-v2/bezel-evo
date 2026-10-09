@@ -180,8 +180,14 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
                 crate::show_main_window(tray.app_handle());
             }
         });
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
+    // The dedicated tray picture for the main display's scale.
+    let scale = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map_or(1.0, |monitor| monitor.scale_factor());
+    if let Some((rgba, width, height)) = crate::tray_icon::tray_rgba(scale) {
+        builder = builder.icon(tauri::image::Image::new_owned(rgba, width, height));
     }
     builder.build(app)?;
     Ok(items)

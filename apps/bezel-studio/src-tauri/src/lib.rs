@@ -32,6 +32,7 @@ pub mod studio;
 pub mod texts;
 pub mod thumbnails;
 mod tray;
+pub mod tray_icon;
 pub mod udev_help;
 pub mod video;
 
