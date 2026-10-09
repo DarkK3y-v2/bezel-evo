@@ -1,0 +1,27 @@
+/* The card's inspector (artboards CardFaces, CardMotion, CardTriggers). */
+
+/* A card's faces: chips (the one in view pressed, with its badge) and the face being edited. */
+.face-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.face-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.04em; cursor: pointer; }
+.face-chip:hover { border-color: var(--accent); }
+.face-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.face-chip:disabled { opacity: 0.45; cursor: default; }
+.face-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face-add { justify-content: center; width: 42px; padding: 0; color: var(--accent-ink); }
+.face-add svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.face-editor { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.face-editor .field { margin: 0; }
+.face-editor .field input[type="text"] { background: var(--surface); font-family: var(--font-mono); }
+.face-tools { display: flex; gap: 6px; }
+.face-tools .text-button { flex: 1 1 auto; min-width: 0; background: var(--surface); }
+.face-tools .icon-button { flex: none; background: var(--surface); }
+.play-button { width: 100%; min-height: 36px; margin-top: 6px; font-weight: 600; }
+.play-button svg { color: var(--accent-ink); }
+
+/* Triggers: one card per rule; no "active now" badge (the Studio cannot know). */
+.trigger-rule { margin-top: 10px; padding: 8px 12px 4px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.trigger-rule-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.trigger-rule .trigger-rule-head h4 { margin: 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.trigger-rule-head .icon-button { width: 28px; min-height: 28px; border-color: transparent; background: transparent; }
+.trigger-rule .field input[type="text"], .trigger-rule .field input[type="number"], .trigger-rule .field select { background: var(--surface); }
+.trigger-add { width: 100%; margin-top: 10px; }

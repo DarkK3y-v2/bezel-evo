@@ -1,0 +1,67 @@
+/* Inspector (artboards Main, Graph*, Player*): the theme's properties, the
+   video background and its framing, an object's head, preview, tabs and
+   sections. */
+
+.background-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 16px 0 6px; flex-wrap: wrap; }
+.inspector .background-heading h3 { margin: 0; }
+.background-heading .text-button { font-size: 0.75rem; padding: 4px 8px; }
+.bg-video { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; margin: 4px 0 8px; }
+.bg-video .thumb { width: 96px; height: 54px; border-radius: 6px; background: var(--screen) center / contain no-repeat; border: 1px solid var(--border); }
+.video-status { margin: 0 0 8px; }
+
+/* The Framing group of a video background. */
+.inspector .framing { margin: 4px 0 12px; padding: 10px 12px 4px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.inspector .framing h3 { margin: 0 0 8px; }
+.framing .hint { margin: 2px 0 8px; }
+.framing-toggle { width: 100%; justify-content: center; border-color: var(--accent); font-weight: 600; }
+.framing-toggle svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.framing-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.framing-choice { width: 100%; }
+.framing-choice button { flex: 1 1 auto; white-space: nowrap; }
+.framing-choice button + button { border-left: 1px solid var(--border); }
+.framing-choice button[aria-pressed="true"] { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* Rotation: Auto (with the angle it found) on top, the four angles below. */
+.framing-choice.framing-rotation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.framing-choice.framing-rotation button:first-child { grid-column: 1 / -1; border-bottom: 1px solid var(--border); }
+.framing-choice.framing-rotation button:nth-child(2) { border-left: 0; }
+.framing-zoom { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; align-items: end; }
+.framing-zoom input[type="number"] { width: 100%; margin-bottom: 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); }
+.framing .field output { font-variant-numeric: tabular-nums; color: var(--text); }
+.color-field.opaque { grid-template-columns: 40px 1fr; }
+.framing .button-row { margin-bottom: 8px; }
+.framing-note { padding: 6px 8px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; background: var(--surface); }
+
+/* ------------------------------------------------------------ inspector -- */
+.inspector h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+.inspector h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 16px 0 6px; }
+.inspector .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+
+/* Object properties (artboards CardFaces/CardMotion/CardTriggers, Graph*, Player*):
+   kind and name, the live preview, Data/Look tabs (a card: Faces, Motion,
+   Triggers, Look), then position and actions for every tab. */
+.inspector-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.inspector-tile { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-ink); }
+.inspector-tile svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.inspector-title { display: grid; gap: 2px; min-width: 0; }
+.inspector .inspector-title h2 { margin: 0; color: var(--text); font-size: 0.95rem; letter-spacing: 0; text-transform: none; }
+.inspector-title .hint { margin: 0; font-size: 0.8rem; }
+.property-identity .field { margin-bottom: 10px; }
+.inspector-preview { margin: 0 0 12px; padding: 8px 10px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--screen); }
+.inspector-preview-label { margin: 0 0 6px; color: var(--screen-thumb-ink); font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.inspector-preview-stage { display: grid; place-items: center; min-height: 40px; }
+.inspector-preview-stage canvas { display: block; max-width: 100%; }
+.inspector-preview-stage .inspector-preview-off { margin: 0; color: var(--screen-thumb-ink); font-size: 0.8rem; }
+.inspector-tabs { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--seg-track); }
+.inspector-tabs [role="tab"] { flex: 1 1 0; min-width: 0; min-height: 30px; padding: 4px 2px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-size: 0.8rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.inspector-tabs [role="tab"]:hover { color: var(--text); }
+.inspector-tabs [role="tab"][aria-selected="true"] { background: var(--seg-thumb); color: var(--text); font-weight: 600; box-shadow: var(--seg-shadow); }
+.inspector-tabs [role="tab"]:focus-visible { outline-offset: 0; }
+.property-section { margin-top: 18px; }
+.inspector .property-section > h3 { margin: 0 0 8px; }
+.inspector > .property-section { padding-top: 14px; border-top: 1px solid var(--border); }
+.inspector > .inspector-tabs + .inspector-panel > .property-section:first-child { margin-top: 14px; }
+.property-section-body { padding: 0; }
+.property-section-body h4 { margin: 12px 0 8px; font-size: .75rem; color: var(--muted); }
+.property-section-body h4:first-child { margin-top: 0; }
+.property-section-body .actions { margin-top: 0; }

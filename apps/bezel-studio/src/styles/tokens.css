@@ -1,0 +1,86 @@
+/* Tokens (D-2026-10-09-studio-redesign-4/-5): the only sheet with :root and
+   with colour values. Every colour lives in this block (light) or in the
+   dark block below; the other sheets only use var(--…). The accent is the
+   same in both. */
+:root {
+  color-scheme: light dark;
+  --accent: #FF9248;
+  --accent-text: #1A0E05;
+  --accent-soft: #FFE6D4;
+  --accent-ink: #A6460F;
+  --focus-ring: var(--accent-ink);
+  --bg: #EEF0F2;
+  --surface: #FFFFFF;
+  --surface-2: #F5F6F7;
+  --surface-3: #E4E7EA;
+  --text: #15191C;
+  --muted: #545C64;
+  --border: #D3D8DD;
+  --ok: #047857;
+  --ok-soft: #D1FAE5;
+  --info: #0369A1;
+  --info-soft: #E0F2FE;
+  --warn: #92400E;
+  --danger: #B91C1C;
+  --danger-text: #FFFFFF;
+  --select: var(--accent);
+  --marquee: color-mix(in srgb, var(--accent) 14%, transparent);
+  --guide: #DB2777;
+  --switch-on: var(--accent);
+  --seg-track: var(--surface-3);
+  --seg-thumb: var(--surface);
+  --seg-shadow: 0 1px 2px rgb(15 23 42 / 12%);
+  --signal-ok: #22C55E;
+  --signal-ok-halo: rgb(34 197 94 / 25%);
+  --signal-warn: #F59E0B;
+  --signal-error: #EF4444;
+  /* The screen itself is dark in both schemes. */
+  --screen: #000000;
+  --screen-ring: #23282E;
+  --bezel-from: #23282E;
+  --bezel-to: #0B0D0F;
+  --screen-thumb: #0F1214;
+  --screen-thumb-ink: #AEB5BD;
+  --screen-chip: rgb(15 18 20 / 88%);
+  --screen-chip-ink: #E8EAED;
+  --screen-tile: #15191C;
+  --screen-tile-ink: #FFFFFF;
+  --handle: #FFFFFF;
+  --framing-line: #FFFFFF;
+  --menu-shadow: rgb(0 0 0 / 40%);
+  --radius: 10px;
+  --shadow: 0 1px 2px rgb(15 18 20 / 6%), 0 8px 24px rgb(15 18 20 / 8%);
+  --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* The transition of the controls that react to the pointer. */
+  --motion-ui: border-color 120ms ease, background 120ms ease, color 120ms ease, left 120ms ease;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent-soft: #2B2114;
+    --accent-ink: #FFB27A;
+    --focus-ring: var(--accent);
+    --bg: #0B0D0F;
+    --surface: #121518;
+    --surface-2: #15191C;
+    --surface-3: #1D2227;
+    --text: #E8EAED;
+    --muted: #8B939C;
+    --border: #262B31;
+    --ok: #34D399;
+    --ok-soft: #10261C;
+    --info: #7DD3FC;
+    --info-soft: #1A2430;
+    --warn: #F5B83D;
+    --danger: #FCA5A5;
+    --danger-text: #1A0E05;
+    --guide: #F472B6;
+    --seg-track: var(--bg);
+    --seg-thumb: var(--surface-3);
+    --seg-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+  }
+}

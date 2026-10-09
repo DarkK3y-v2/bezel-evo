@@ -1,9 +1,11 @@
 // Static guards of the window's look (D-2026-10-09-studio-redesign-4/-6):
-// the CSP stays exactly as it is, no font is fetched from Google, every colour
-// of styles.css is a token (a hex value lives only in the light `:root` block
-// or in the dark `:root` inside `@media (prefers-color-scheme: dark)`), and
-// the IBM Plex faces it declares are the bundled files, in the weights that
-// ship (400, 500, 600).
+// the CSP stays exactly as it is, no font is fetched from Google, the sheets
+// of src/styles/ are linked once each in the contract's order, every colour
+// is a token (`:root` and hex values live only in tokens.css: the light
+// `:root` block and the dark one inside `@media (prefers-color-scheme:
+// dark)`), no sheet imports another, every selector of an area sheet names
+// a class or an id, and the IBM Plex faces are the bundled files, in the
+// weights that ship (400, 500, 600).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -13,7 +15,12 @@ import { fileURLToPath } from 'node:url';
 const APP = fileURLToPath(new URL('../../', import.meta.url));
 const SRC = join(APP, 'src');
 const CONF = join(APP, 'src-tauri', 'tauri.conf.json');
-const STYLES = join(SRC, 'styles.css');
+const STYLES = join(SRC, 'styles');
+const INDEX = join(SRC, 'index.html');
+/** The sheets, in the order index.html links them (the cascade's order). */
+const SHEETS = ['tokens', 'base', 'shell', 'library', 'inspector', 'card', 'screen', 'connect'];
+/** The sheets of one area each: their rules only style that area's classes and ids. */
+const AREA_SHEETS = ['shell', 'library', 'inspector', 'card', 'screen', 'connect'];
 
 const CSP =
   "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; " +
@@ -102,7 +109,54 @@ function isTokenBlock(rule) {
   return rule.within.length === 1 && /^@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)$/.test(rule.within[0]);
 }
 
-const rules = flatten(parseRules(readFileSync(STYLES, 'utf8')));
+/** The rules of each sheet, by name. */
+const sheets = Object.fromEntries(SHEETS.map((name) => [name, flatten(parseRules(readFileSync(join(STYLES, `${name}.css`), 'utf8')))]));
+const rules = Object.values(sheets).flat();
+
+/** The selectors of a prelude, split at its top-level commas. */
+function selectors(prelude) {
+  const out = [];
+  let depth = 0;
+  let from = 0;
+  for (let i = 0; i < prelude.length; i += 1) {
+    if ('(['.includes(prelude[i])) depth += 1;
+    if (')]'.includes(prelude[i])) depth -= 1;
+    if (prelude[i] === ',' && depth === 0) {
+      out.push(prelude.slice(from, i).trim());
+      from = i + 1;
+    }
+  }
+  return [...out, prelude.slice(from).trim()];
+}
+
+test('src/styles/ holds exactly the sheets of the contract, and index.html links each once, in order', () => {
+  assert.deepEqual(readdirSync(STYLES).sort(), SHEETS.map((name) => `${name}.css`).sort());
+  assert.equal(existsSync(join(SRC, 'styles.css')), false, 'the single sheet is gone');
+  const links = [...readFileSync(INDEX, 'utf8').matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(links, SHEETS.map((name) => `styles/${name}.css`));
+});
+
+test('no sheet imports another', () => {
+  const offenders = SHEETS.filter((name) => /@import\b/i.test(readFileSync(join(STYLES, `${name}.css`), 'utf8')));
+  assert.deepEqual(offenders, []);
+});
+
+test('tokens.css holds only the two token blocks, and :root lives nowhere else', () => {
+  assert.deepEqual(sheets.tokens.filter((rule) => !isTokenBlock(rule)).map((rule) => rule.prelude), []);
+  const elsewhere = SHEETS.filter((name) => name !== 'tokens').flatMap((name) => sheets[name].filter((rule) => /:root\b/.test(rule.prelude)).map((rule) => `${name}: ${rule.prelude}`));
+  assert.deepEqual(elsewhere, []);
+});
+
+test('every selector of an area sheet names a class or an id', () => {
+  const offenders = AREA_SHEETS.flatMap((name) => sheets[name]
+    .filter((rule) => !rule.prelude.startsWith('@'))
+    .flatMap((rule) => selectors(rule.prelude).filter((selector) => !/[.#][A-Za-z_-]/.test(selector)).map((selector) => `${name}: ${selector}`)));
+  assert.deepEqual(offenders, []);
+});
+
+test('the selector check splits at top-level commas only', () => {
+  assert.deepEqual(selectors('.a, :is(.b, c) d, [x="1,2"]'), ['.a', ':is(.b, c) d', '[x="1,2"]']);
+});
 
 test('the CSP of tauri.conf.json is the fixed one', () => {
   const conf = JSON.parse(readFileSync(CONF, 'utf8'));
@@ -115,14 +169,14 @@ test('no file under src/ nor tauri.conf.json mentions a Google Fonts host', () =
   assert.deepEqual(offenders.map((path) => relative(APP, path)), []);
 });
 
-test('styles.css has both token blocks, and the accent is defined once', () => {
+test('the sheets have both token blocks, and the accent is defined once', () => {
   const tokens = rules.filter(isTokenBlock);
   assert.equal(tokens.length, 2, 'a light :root and a dark :root');
   const accents = tokens.flatMap((rule) => declarations(rule.body)).filter(([property]) => property === '--accent');
   assert.deepEqual(accents, [['--accent', '#FF9248']]);
 });
 
-test('no hex colour in a declaration of styles.css outside the token blocks', () => {
+test('no hex colour in a declaration of any sheet outside the token blocks', () => {
   const offenders = rules
     .filter((rule) => !isTokenBlock(rule))
     .flatMap((rule) => declarations(rule.body).filter(([, value]) => HEX.test(value)).map(([property, value]) => `${rule.prelude} { ${property}: ${value} }`));
@@ -135,8 +189,8 @@ test('every @font-face url() is a bundled file and every font-weight is 400, 500
   const urls = faces.flatMap((rule) => [...rule.body.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)].map((match) => match[2]));
   assert.ok(urls.length >= faces.length);
   for (const url of urls) {
-    assert.match(url, /^assets\/fonts\/ibm-plex\/[\w-]+\.woff2$/);
-    assert.ok(existsSync(join(SRC, url)), `${url} exists`);
+    assert.match(url, /^\.\.\/assets\/fonts\/ibm-plex\/[\w-]+\.woff2$/);
+    assert.ok(existsSync(join(STYLES, url)), `${url} exists`);
   }
   for (const rule of faces) assert.match(rule.body, /font-display\s*:\s*swap/);
   const weights = rules.flatMap((rule) => declarations(rule.body).filter(([property]) => property === 'font-weight').map(([, value]) => [rule.prelude, value]));
