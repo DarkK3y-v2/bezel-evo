@@ -5,7 +5,8 @@
 // server so a leftover one cannot serve another checkout.
 import { defineConfig } from '@playwright/test';
 
-const PORT = Number(process.env.BEZEL_E2E_PORT) || 1430;
+// A run's own port: E2E_PORT (scripts/e2e-slot.mjs sets it), else BEZEL_E2E_PORT, else 1430.
+const PORT = Number(process.env.E2E_PORT) || Number(process.env.BEZEL_E2E_PORT) || 1430;
 
 /** A project in `colorScheme` and `locale`. The same two settings go in its
  *  metadata: the JSON report keeps a project's metadata but not its `use`,
