@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-6 (2026-10-09): Topbar segue o mockup: breadcrumb "Temi › {tema}", chip "Non salvato", versão sob o logo, chip da tela (nome + resolução · porta em mono) e "In diretta" verde. O botão Salva laranja PERMANECE (escolha explícita do usuário).

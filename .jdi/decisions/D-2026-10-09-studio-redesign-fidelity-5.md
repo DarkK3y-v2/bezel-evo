@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-5 (2026-10-09): Connect vira estado de tela cheia como no mockup (hero, lista de dispositivos, passos, temas recentes com dados reais); "Chiudi" leva ao editor; o rótulo neutro de D-13 permanece.

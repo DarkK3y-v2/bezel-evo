@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-1 (2026-10-09): Objetivo = paridade visual com o canvas, artboard por artboard; substitui o "restyle incremental preservando DOM" da phase studio-redesign. DOM, estrutura de painéis e ids PODEM mudar; os specs e2e são atualizados para acompanhar, sem enfraquecer asserções.

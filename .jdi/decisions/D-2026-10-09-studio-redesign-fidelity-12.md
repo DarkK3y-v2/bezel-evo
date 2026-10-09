@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-12 (2026-10-09): Tema claro continua obrigatório com axe passando em light e dark; só tokens (D-4), i18n en/pt-BR/it com paridade (D-7) e "Card" permanece "Card".

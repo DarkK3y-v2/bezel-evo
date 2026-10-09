@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-2 (2026-10-09): Elementos visuais nunca são omitidos (ícones, miniaturas, rótulos, cabeçalhos de seção, contagens, valores mono, ilustrações, dicas); D-9 da phase anterior não se aplica mais a visuais.

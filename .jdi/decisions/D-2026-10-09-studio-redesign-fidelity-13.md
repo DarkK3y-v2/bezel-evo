@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-13 (2026-10-09): Corrigir o bug de truncamento em Layers ("Backgr…", "CPU An…"): nomes devem usar a largura disponível da linha, com ellipsis apenas quando realmente exceder.

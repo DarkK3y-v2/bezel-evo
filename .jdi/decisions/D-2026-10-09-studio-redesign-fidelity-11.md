@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-11 (2026-10-09): Ícone de tray dedicado: marca simplificada legível em 16/20/24/32px em barras claras e escuras do Windows, gerada por scripts/build-icons.mjs com teste de dimensões, usada no tray Light (crates/bezel-cli/src/light_tray.rs) e no tray do Studio. Substitui o uso do ícone completo reduzido (tray.png atual).

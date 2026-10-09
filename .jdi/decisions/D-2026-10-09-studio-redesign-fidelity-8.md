@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-8 (2026-10-09): Preview do inspector mostra o objeto selecionado SOZINHO com todas as propriedades aplicadas, renderizado por um NOVO comando Rust/Tauri dedicado que desenha só aquele elemento com o renderer existente; o backend demo ganha equivalente. Substitui o recorte de #preview.

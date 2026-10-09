@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-9 (2026-10-09): Tipografia como no mockup: base 13px Plex Sans; títulos de seção 11px caixa alta (.06em, muted); Plex Mono para valores, rótulos técnicos e prefixos inline (X/Y/L/A, min/max, chaves de sensor). Verificar que os woff2 carregam de fato no WebView2 (Tauri), não só no Chromium. D-6 (fontes locais, CSP) vale.

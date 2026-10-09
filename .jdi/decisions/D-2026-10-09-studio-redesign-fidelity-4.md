@@ -1,0 +1,1 @@
+D-2026-10-09-studio-redesign-fidelity-4 (2026-10-09): Verificação visual: cada doer compara screenshots mockup × app e itera, usando gap/shoot.mjs (extensível com mais estados). Ao fim da phase, uma página de galeria mostra todos os pares lado a lado e o usuário aprova (item MANUAL do DoD).
