@@ -1,6 +1,6 @@
 // Italian strings. Keys must match en.js and pt-BR.js (checked by tests/ui/i18n.test.mjs).
 export default {
-  "app.version": "v{version}",
+  "app.version": "{version}",
   "app.title": "Bezel Evo {version}",
   "inspector.individualCorners": "Angoli singoli",
   "inspector.topLeft": "In alto a sinistra (px)",
@@ -1059,7 +1059,7 @@ export default {
   "toast.videoAddedNoFfmpeg": "Video “{name}” aggiunto: {details}. Senza ffmpeg non ha una copertina.",
   "top.edit": "Modifica",
   "top.horizontalHint": "Schermo orizzontale: più largo che alto",
-  "top.live": "Diretta",
+  "top.live": "In diretta",
   "top.liveHint": "Mostra questo tema sullo schermo mentre lo modifichi",
   "top.noScreen": "Nessuno schermo collegato",
   "top.orientation": "Orientamento dello schermo",

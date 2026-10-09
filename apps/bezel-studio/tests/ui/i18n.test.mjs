@@ -626,7 +626,8 @@ test('the messages a GIF or collection helper is given name only keys of both di
 test('index.html has no text of its own but the brand', () => {
   const html = readFileSync(new URL('index.html', src), 'utf8');
   const texts = [...html.matchAll(/>([^<>]+)</g)].map((m) => m[1].trim()).filter((text) => /\p{L}/u.test(text));
-  assert.deepEqual([...new Set(texts)], ['Bezel Evo']);
+  // The brand: the title, and the topbar's with its second word in the accent (artboard Main).
+  assert.deepEqual([...new Set(texts)], ['Bezel Evo', 'Bezel', 'Evo']);
   const attrs = [...html.matchAll(/\s(?:title|alt|placeholder|aria-label)="([^"]*)"/g)].map((m) => m[1]).filter((v) => /\p{L}/u.test(v));
   assert.deepEqual(attrs, []);
 });

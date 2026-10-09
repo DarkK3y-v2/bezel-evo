@@ -10,7 +10,7 @@ import { createScreenPanel } from './ui/screen-panel.js';
 import { openVideoPreview } from './ui/video-preview.js';
 import { createInspector } from './ui/inspector.js';
 import { createConfirm, createStoragePanel, formatBytes, wireSubtabs } from './ui/storage.js';
-import { el, icon } from './ui/dom.js';
+import { applyIcons, el, icon } from './ui/dom.js';
 import { ICONS } from './ui/icons.js';
 import { askChoice } from './ui/dialog.js';
 import { createPreferences } from './ui/preferences.js';
@@ -29,6 +29,8 @@ import { backgroundOf, droppable, fileNameOf, videoFacts } from './editor/backgr
 import { framingOf, framingPercents } from './editor/video-framing.js';
 import { deviceLabel, liveScreenIn } from './live-screen.js';
 import { libreStatus } from './libre-status.js';
+import { timeAgo } from './relative-time.js';
+import { wirePanelResizers } from './ui/panel-resizer.js';
 
 const bridge = createBridge(window);
 const $ = (id) => document.getElementById(id);
@@ -43,6 +45,7 @@ t.has = (key) => current.has(key);
 
 document.documentElement.lang = locale;
 applyTranslations(document, t);
+applyIcons(document, ICONS);
 
 const state = {
   screens: [],
@@ -78,6 +81,11 @@ const state = {
   // What Auto turns the video background (`video_auto`), for the theme,
   // video and screen named by `key`; `value` is null until it is known.
   auto: { key: null, value: null },
+  // When the theme being edited was last saved (ms since the epoch): its
+  // file's date, or now once saved here; null for one never saved.
+  savedAt: null,
+  // Frames a second the live screen shows (the sample's `liveFps`).
+  liveFps: null,
 };
 
 function toast(message) {
@@ -465,12 +473,12 @@ function refreshChrome(reason) {
   reportUnsaved();
   $('undo').disabled = !store.canUndo();
   $('redo').disabled = !store.canRedo();
-  $('copy').disabled = !store.getState().selection.length;
-  $('paste').disabled = !store.canPaste();
   if (reason === 'copy') return;
   if (document.activeElement !== $('theme-name')) $('theme-name').value = theme.name;
-  $('save').classList.toggle('dirty', store.isDirty());
+  $('unsaved-chip').hidden = !store.isDirty();
   $('status-main').textContent = store.isDirty() ? t('status.unsaved') : t('status.saved');
+  renderSavedAt();
+  renderLegend(theme);
   canvasView.setCanvasSize(theme.canvas);
   refreshOrientation(theme);
   canvasView.drawOverlay();
@@ -486,6 +494,22 @@ function refreshChrome(reason) {
 }
 
 store.subscribe((_, reason) => refreshChrome(reason));
+
+/** "last saved 4 min ago" (or "not saved yet") after the save state, in the statusbar. */
+function renderSavedAt() {
+  $('status-saved-at').textContent = state.savedAt === null
+    ? t('shell.notSavedYet')
+    : t('shell.lastSaved', { when: timeAgo(state.savedAt, Date.now(), locale) });
+}
+setInterval(renderSavedAt, 30_000);
+
+/** The device's size and turn under it: `480 × 1920 · turned 180°`. */
+function renderLegend(theme) {
+  const { width, height } = theme.canvas;
+  $('stage-legend').textContent = isTurned(theme.orientation)
+    ? t('shell.legendTurned', { width, height, degrees: 180 })
+    : t('shell.legend', { width, height });
+}
 
 // Clock and sensor elements change every refresh even without edits.
 function scheduleTick() {
@@ -529,6 +553,10 @@ async function sampleLoop() {
       await loadCatalog();
     }
     library.updateReadings(s.readings, Date.now());
+    if ((s.liveFps ?? null) !== state.liveFps) {
+      state.liveFps = s.liveFps ?? null;
+      renderScreenPill();
+    }
     if (!switchingScreen && screen === state.screen) syncLive(s);
     lastSample = s;
     sensorStatus.update({ health: libreStatus(state.catalog, s.readings), sampleMillis: s.sampleMillis, sampledAt: Date.now(), readings: s.readings, catalog: state.catalog, error: null });
@@ -557,6 +585,7 @@ function renderScreenSelect() {
   const current = state.screens.find((s) => s.key === state.screen);
   select.title = current ? deviceLabel(current, t) : state.screen ?? '';
   $('screen-dot').className = `dot${state.live ? ' live' : current?.state === 'awake' ? ' awake' : ''}`;
+  renderScreenChip(current);
   let device = t('top.noScreen');
   if (state.screenError) device = t('status.devicesError', { message: errorText(t, state.screenError) });
   else if (state.restarting) device = t('restart.running');
@@ -564,6 +593,7 @@ function renderScreenSelect() {
   else if (current && state.live && state.liveVideo?.state === 'missing') device = t('status.liveVideoMissing');
   else if (current) device = state.live ? t('status.live') : t(`screen.state.${current.state}`);
   $('status-device').textContent = device;
+  renderScreenPill();
   library.setScreens(state.screens, state.screen);
   screenPanel.render(state.screens, state.screen, state.live, state.brightness, state.desktopMode, { restarting: state.restarting, hung: state.hung });
   renderConnect();
@@ -571,6 +601,19 @@ function renderScreenSelect() {
   standby.update();
   inspector.contextChanged();
   void refreshAuto();
+}
+
+/** The topbar's screen chip: its name, and its size and port in mono, over the select. */
+function renderScreenChip(current) {
+  const model = current?.models?.length === 1 ? current.models[0] : null;
+  $('screen-chip-name').textContent = current ? (model?.name ?? deviceLabel(current, t)) : t('top.noScreen');
+  $('screen-chip-meta').textContent = model ? t('shell.screenSize', { width: model.width, height: model.height, port: current.key }) : '';
+}
+
+/** The statusbar's screen pill: green with the live frame rate while live. */
+function renderScreenPill() {
+  $('status-screen').dataset.tone = state.live ? 'ok' : '';
+  $('status-fps').textContent = state.live && Number.isFinite(state.liveFps) ? t('shell.fps', { fps: Math.round(state.liveFps) }) : '';
 }
 
 /** The stage's "Connect your smart screen" while no screen can be used. */
@@ -758,9 +801,22 @@ async function restartScreen(key) {
 }
 
 // ----------------------------------------------------------- themes ----
+/** The themes last listed. */
+let listedThemes = [];
+
+/** The date of the edited theme's file, from the themes listed. */
+function savedAtFrom(themes) {
+  const entry = themes.find((th) => th.location === state.location);
+  if (entry && Number.isFinite(entry.modifiedMs)) state.savedAt = entry.modifiedMs;
+  renderSavedAt();
+}
+
 async function refreshThemes() {
   try {
-    library.renderThemes(await bridge.listThemes());
+    const themes = await bridge.listThemes();
+    listedThemes = themes;
+    library.renderThemes(themes);
+    if (!store.isDirty()) savedAtFrom(themes);
   } catch (e) {
     fail(e);
   }
@@ -818,6 +874,8 @@ async function openTheme(location) {
   try {
     const theme = await bridge.openTheme(location);
     state.location = location;
+    state.savedAt = null;
+    savedAtFrom(listedThemes);
     library.showImportReport(null);
     store.load(theme);
     await refreshAssets();
@@ -836,6 +894,7 @@ async function newTheme(axis) {
     const orientation = orientationOf(axis, isTurned(store.getState().theme.orientation));
     store.load(await bridge.newTheme(state.screen, t('themes.untitled'), orientation));
     state.location = null;
+    state.savedAt = null;
     library.showImportReport(null);
     await refreshAssets();
     canvasView.fit();
@@ -851,6 +910,7 @@ async function importTheme() {
     if (!result) return;
     store.load(result.theme);
     state.location = null;
+    state.savedAt = null;
     await refreshAssets();
     canvasView.fit();
     const warnings = result.warnings ?? [];
@@ -1059,6 +1119,7 @@ async function save(saveAs = false) {
     const saved = await bridge.saveTheme(store.getState().theme, saveAs);
     if (!saved) return false;
     state.location = saved.location;
+    state.savedAt = Date.now();
     store.markSaved();
     toast(t('toast.saved'));
     refreshThemes();
@@ -1082,19 +1143,32 @@ bridge.onQuitRequested(async () => {
 
 // ---------------------------------------------------------- chrome -----
 // The editor's own controls bring it back from the storage manager.
-for (const id of ['undo', 'redo', 'copy', 'paste', 'zoom-in', 'zoom-out', 'zoom-fit', 'orient-vertical', 'orient-horizontal', 'orient-turn']) {
+for (const id of ['undo', 'redo', 'grid-toggle', 'zoom-in', 'zoom-out', 'zoom-fit', 'orient-vertical', 'orient-horizontal', 'orient-turn']) {
   $(id).addEventListener('click', () => {
     if (storageWide()) $('subtab-device').click();
   });
 }
 $('undo').addEventListener('click', () => store.undo());
 $('redo').addEventListener('click', () => store.redo());
-$('copy').addEventListener('click', () => store.copySelection());
-$('paste').addEventListener('click', () => store.paste());
 $('save').addEventListener('click', () => save());
 $('zoom-in').addEventListener('click', () => canvasView.setZoom(canvasView.zoom() * 1.25));
 $('zoom-out').addEventListener('click', () => canvasView.setZoom(canvasView.zoom() / 1.25));
 $('zoom-fit').addEventListener('click', () => canvasView.fit());
+// "Show guides and grid": a grid over the canvas, remembered.
+const GRID_KEY = 'bezel.showGrid';
+function showGrid(on) {
+  $('stage').classList.toggle('show-grid', on);
+  $('grid-toggle').setAttribute('aria-pressed', String(on));
+  try { localStorage.setItem(GRID_KEY, on ? '1' : '0'); } catch { /* the choice lasts this session */ }
+}
+showGrid((() => { try { return localStorage.getItem(GRID_KEY) === '1'; } catch { return false; } })());
+$('grid-toggle').addEventListener('click', () => showGrid($('grid-toggle').getAttribute('aria-pressed') !== 'true'));
+$('crumb-themes').addEventListener('click', () => {
+  library.selectTab('themes');
+  $('tab-themes').focus();
+});
+// The side panels' widths (D-...-fidelity-7): separators to drag or key, remembered.
+wirePanelResizers({ workspace, storage: window.localStorage });
 // Vertical | Horizontal keep the 180° turn; the turn keeps the axis.
 function turnTheme(axis, turned) {
   store.dispatch('setOrientation', { orientation: orientationOf(axis, turned) });
@@ -1152,6 +1226,7 @@ function setLocale(next) {
   collection.retranslate();
   if (canvasView.framing()) $('overlay').setAttribute('aria-label', t('framing.surface'));
   sensorStatus.close();
+  applyIcons(document, ICONS);
   refreshChrome('select');
   renderScreenSelect();
   renderNow();

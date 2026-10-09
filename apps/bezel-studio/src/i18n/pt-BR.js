@@ -1,6 +1,6 @@
 // Portuguese (Brazil) strings. Keys must match en.js (checked by tests/ui/i18n.test.mjs).
 export default {
-  "app.version": "v{version}",
+  "app.version": "{version}",
   "app.title": "Bezel Evo {version}",
   "inspector.individualCorners": "Cantos individuais",
   "inspector.topLeft": "Superior esquerdo (px)",

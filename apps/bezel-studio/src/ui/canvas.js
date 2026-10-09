@@ -65,15 +65,31 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   }
 
   function layout() {
-    box.style.width = `${Math.round(size.width * zoom)}px`;
-    box.style.height = `${Math.round(size.height * zoom)}px`;
+    // Exact, not rounded: the box and the overlay scale by the same zoom.
+    box.style.width = `${size.width * zoom}px`;
+    box.style.height = `${size.height * zoom}px`;
     drawOverlay();
   }
 
+  /**
+   * The room the canvas has: the stage less its padding (the floating bars'
+   * room), the bezel's frame and the legend under it.
+   */
+  function room() {
+    const style = getComputedStyle(scroll);
+    const frame = bezel.parentElement?.closest('.stage-frame');
+    const legend = frame?.querySelector('.stage-legend');
+    const below = legend ? legend.offsetHeight + (parseFloat(getComputedStyle(frame).rowGap) || 0) : 0;
+    return {
+      width: scroll.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - (bezel.offsetWidth - box.offsetWidth),
+      height: scroll.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - (bezel.offsetHeight - box.offsetHeight) - below,
+    };
+  }
+
   function fit() {
-    const pad = 96;
-    const w = Math.max(scroll.clientWidth - pad, 50);
-    const h = Math.max(scroll.clientHeight - pad, 50);
+    const space = room();
+    const w = Math.max(space.width, 50);
+    const h = Math.max(space.height, 50);
     zoom = Math.min(Math.max(Math.min(w / size.width, h / size.height), MIN_ZOOM), MAX_ZOOM);
     fitting = true;
     layout();

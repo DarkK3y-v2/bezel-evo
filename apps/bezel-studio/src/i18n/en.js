@@ -1,6 +1,6 @@
 // English strings. Keys must match pt-BR.js (checked by tests/ui/i18n.test.mjs).
 export default {
-  "app.version": "v{version}",
+  "app.version": "{version}",
   "app.title": "Bezel Evo {version}",
   "inspector.individualCorners": "Individual corners",
   "inspector.topLeft": "Top left (px)",
