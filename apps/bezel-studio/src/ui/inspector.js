@@ -13,15 +13,13 @@ import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
 import { createTabMemory, previewCrop, tabAfterKey, tabsOf } from '../inspector-tabs.js';
+import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
 /** "Frame on canvas": a frame's corners around a move cross. */
 const FRAME_ICON = ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5', 'M12 8v8', 'M8 12h8'];
 /** A group: two boxes in a dashed frame. */
 const GROUP_ICON = ['M4 4h4', 'M16 4h4v4', 'M20 16v4h-4', 'M8 20H4v-4', 'M8 8h5v5H8z', 'M11 11h5v5h-5z'];
-const CHEVRON_LEFT = ['M15 18l-6-6 6-6'];
-const CHEVRON_RIGHT = ['M9 18l6-6-6-6'];
-const PLUS = ['M12 5v14', 'M5 12h14'];
 /** The tallest the live preview is drawn, CSS pixels. */
 const PREVIEW_HEIGHT = 120;
 
@@ -33,6 +31,12 @@ const NO_VIDEO_ACTIONS = Object.freeze({
   openStorage: () => {},
   setFraming: () => {},
   openGuide: () => {},
+});
+
+/** What the inspector asks the app, when nothing is given. */
+const NO_HOST = Object.freeze({
+  lastSample: () => null,
+  renderElement: async () => null,
 });
 
 /**
@@ -47,6 +51,10 @@ const NO_VIDEO_ACTIONS = Object.freeze({
  *   video is sent), frame it on the canvas, and open the ffmpeg guide
  * @param {() => HTMLCanvasElement|null} [deps.frame] the canvas the rendered
  *   frame is drawn on; the live preview copies the selected object from it
+ * @param {object|null} [deps.bridge] the backend, for what the inspector reads itself
+ * @param {{lastSample: () => object|null, renderElement: (id: string, opts?: {max?: number, motion?: boolean}) => Promise<object|null>}} [deps.host]
+ *   the last sample read (sensor values, apps, media) and an element of the
+ *   edited theme rendered alone
  */
 /** Buttons of one choice (`aria-pressed`), each with a stable id so focus stays on it. */
 function choice(id, label, value, options, onChange) {
@@ -57,7 +65,7 @@ function choice(id, label, value, options, onChange) {
   return el('div', { class: 'field' }, [el('span', { text: label }), group]);
 }
 
-export function createInspector({ root, store, t, sensors, minRefresh, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, frame: frameCanvas = () => document.getElementById('preview') }) {
+export function createInspector({ root, store, t, sensors, minRefresh, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, frame: frameCanvas = () => document.getElementById('preview'), bridge = null, host = NO_HOST }) {
   const update = (id, patch) => store.dispatch('update', { id, patch });
   // A framing slider being dragged: its moves are one gesture (one undo
   // step), and the form is not drawn again under the pointer meanwhile.
@@ -569,102 +577,6 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     });
   }
 
-  /** The faces of a card as chips: the one in view is pressed and says so; "+" adds one. */
-  function faceChips(e) {
-    const c = e.card;
-    const chips = c.faces.map((name, i) => {
-      const active = i === c.activeFace;
-      return el('button', {
-        type: 'button', class: 'face-chip', dataset: { face: String(i) }, 'aria-pressed': String(active), 'aria-current': active ? 'true' : null,
-        title: active ? t('layers.inViewHint') : null, onclick: () => !active && store.dispatch('cardFace', { id: e.id, face: i }),
-      }, [
-        el('span', { class: 'face-chip-name', text: name }),
-        active && el('span', { class: 'face-badge', 'aria-hidden': 'true', text: t('layers.inView') }),
-      ]);
-    });
-    const add = el('button', {
-      type: 'button', class: 'face-chip face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16,
-      onclick: () => store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }),
-    }, [icon(PLUS, 18)]);
-    return el('div', { class: 'face-chips', role: 'group', 'aria-label': t('card.activeFace') }, [...chips, add]);
-  }
-
-  /** A card's rule list: when an app runs, plays or comes forward, show a face (no "active now": the Studio cannot know). */
-  function triggerForm(e) {
-    const c = e.card;
-    const rules = c.triggers ?? [];
-    const change = (i, patch) => update(e.id, { card: { triggers: rules.map((r, n) => n === i ? { ...r, ...patch } : r) } });
-    const faceOptions = c.faces.map((name, n) => [String(n), name]);
-    const rule = (r, i) => el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('trigger.rule', { value: i + 1 }) }, [
-      el('div', { class: 'trigger-rule-head' }, [
-        el('h4', { text: t('trigger.rule', { value: i + 1 }) }),
-        el('button', { type: 'button', class: 'icon-button danger', 'aria-label': t('trigger.remove'), title: t('trigger.remove'), onclick: () => update(e.id, { card: { triggers: rules.filter((_, n) => n !== i) } }) }, [icon(ICONS.trash, 16)]),
-      ]),
-      selectField(t('trigger.condition'), r.source, ['process', 'processClosed', 'foreground', 'mediaPlaying'].map(v => [v, t(`trigger.${v}`)]), source => change(i, { source, app: r.app || (source === 'mediaPlaying' ? '' : 'Spotify') })),
-      textField(t('trigger.app'), r.app, app => { if (app.trim() || r.source === 'mediaPlaying') change(i, { app: app.slice(0, 160) }); }),
-      selectField(t('trigger.face'), String(r.face), faceOptions, face => change(i, { face: Number(face) })),
-      el('div', { class: 'field-row' }, [
-        numberField(t('trigger.priority'), r.priority ?? 0, priority => change(i, { priority: Math.max(0, Math.min(100, Math.round(priority))) }), { min: 0, max: 100 }),
-        numberField(t('trigger.return'), r.returnSeconds ?? 0, returnSeconds => change(i, { returnSeconds: Math.max(0, Math.min(300, Math.round(returnSeconds))) }), { min: 0, max: 300 }),
-      ]),
-      selectField(t('trigger.returnFace'), r.returnFace == null ? 'previous' : String(r.returnFace), [['previous', t('trigger.previous')], ...faceOptions], v => change(i, { returnFace: v === 'previous' ? null : Number(v) })),
-    ]);
-    const add = () => update(e.id, { card: { triggers: [...rules, { source: 'mediaPlaying', app: 'Spotify', face: c.activeFace, priority: 0, returnSeconds: 3 }] } });
-    return [
-      section('triggers', t('trigger.title'), [
-        el('p', { class: 'hint', text: t('trigger.help') }),
-        ...rules.map(rule),
-        el('button', { type: 'button', class: 'text-button trigger-add', disabled: rules.length >= 32 || c.faces.length < 2, onclick: add }, [icon(PLUS, 16), t('trigger.add')]),
-      ]),
-    ];
-  }
-
-  /** How a card's faces change: timed rotation and the transition, with a try on the next face. */
-  function motionForm(e) {
-    const c = e.card;
-    const transition = c.transition && c.transition.effect !== 'none' ? c.transition : null;
-    const effect = value => update(e.id, { card: { transition: { effect: value, direction: c.transition?.direction ?? 'left', durationMs: c.transition?.durationMs ?? 650, includeBase: c.transition?.includeBase ?? true } } });
-    return [
-      section('rotation', t('card.rotation'), [
-        checkField(t('card.autoRotate'), c.rotationSeconds != null, enabled => update(e.id, { card: { rotationSeconds: enabled ? 10 : null } })),
-        c.rotationSeconds != null && numberField(t('card.rotationSeconds'), c.rotationSeconds, value => update(e.id, { card: { rotationSeconds: Math.max(5, Math.min(3600, Math.round(value))) } }), { min: 5, max: 3600, step: 1 }),
-        c.rotationSeconds != null && el('p', { class: 'hint', text: t('card.rotationHelp') }),
-      ]),
-      section('animation', t('card.animation'), [
-        selectField(t('card.effect'), c.transition?.effect ?? 'none', ['none', 'fade', 'slide', 'flip'].map(value => [value, t(`card.effect.${value}`)]), effect),
-        transition && rangeField(t('card.duration'), transition.durationMs, durationMs => update(e.id, { card: { transition: { durationMs } } }), { min: 150, max: 1500, step: 50, format: value => `${value} ms` }),
-        transition && selectField(t('card.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => update(e.id, { card: { transition: { direction } } })),
-        transition && checkField(t('card.includeBase'), transition.includeBase, includeBase => update(e.id, { card: { transition: { includeBase } } })),
-        el('button', { type: 'button', class: 'text-button play-button', disabled: c.faces.length < 2, onclick: () => store.dispatch('cardFace', { id: e.id, face: (c.activeFace + 1) % c.faces.length }) }, [icon(ICONS.play, 16), t('card.animateNext')]),
-        el('p', { class: 'hint', text: t('card.animationHelp') }),
-      ]),
-    ];
-  }
-
-  /** The Faces, Motion and Triggers tabs of a card (artboards CardFaces, CardMotion, CardTriggers). */
-  function cardForm(e) {
-    const c = e.card;
-    const command = (name, args = {}) => () => store.dispatch(name, { id: e.id, ...args });
-    const tool = (key, paths, onclick, disabled, extra = '') => el('button', { type: 'button', class: `icon-button ${extra}`.trim(), 'aria-label': t(key), title: t(key), disabled, onclick }, [icon(paths, 16)]);
-    const faces = [
-      section('faces', t('card.faces'), [faceChips(e), el('p', { class: 'hint', text: t('card.facesHint') })]),
-      el('div', { class: 'face-editor' }, [
-        textField(t('card.faceTitle'), c.faces[c.activeFace], name => {
-          if (!name.trim()) return;
-          const names = [...c.faces]; names[c.activeFace] = name.trim().slice(0, 32);
-          update(e.id, { card: { faces: names } });
-        }),
-        el('div', { class: 'face-tools' }, [
-          tool('card.previous', CHEVRON_LEFT, command('reorderCardFace', { direction: -1 }), c.activeFace === 0),
-          tool('card.next', CHEVRON_RIGHT, command('reorderCardFace', { direction: 1 }), c.activeFace === c.faces.length - 1),
-          el('button', { type: 'button', class: 'text-button', disabled: c.faces.length >= 16, onclick: command('duplicateCardFace') }, [icon(ICONS.copy, 16), t('card.duplicateFace')]),
-          tool('card.removeFace', ICONS.trash, command('removeCardFace'), c.faces.length <= 1, 'danger'),
-        ]),
-      ]),
-      el('p', { class: 'hint', text: t('card.help') }),
-    ];
-    return { faces, motion: motionForm(e), triggers: triggerForm(e) };
-  }
   function membershipForm(e, theme) {
     if (e.card) return [];
     const cards = theme.elements.filter(p => p.card);
@@ -678,6 +590,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       parent && selectField(t('card.face'), e.cardMember.face === null ? '' : String(e.cardMember.face), [['', t('card.base')], ...parent.card.faces.map((name, i) => [String(i), name])], value => store.dispatch('attachCard', { ids: [e.id], parent: parent.id, face: value === '' ? null : Number(value) })),
     ].filter(Boolean);
   }
+
+  /** The Faces, Motion and Triggers tabs of a card (ui/inspector-card.js). */
+  const cardPanels = (e) => Object.fromEntries(CARD_TABS.map((tab) => [tab, renderCardPanel(tab, { element: e, t, store, update, section })]));
 
   /** A titled group of fields; nothing when it has no fields. */
   function section(key, label, nodes) {
@@ -796,7 +711,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` }),
       checkField(t('inspector.visible'), e.visible !== false, v => update(e.id, { visible: v })),
     ])];
-    const panels = e.card ? { ...cardForm(e), look } : {
+    const panels = e.card ? { ...cardPanels(e), look } : {
       data: [
         section('content', t('inspector.content'), [!e.isGroup && showAs(e, theme), ...(specific.content ?? [])]),
         section('membership', t('inspector.membership'), membershipForm(e, theme)),

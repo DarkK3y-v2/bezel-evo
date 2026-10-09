@@ -2,18 +2,24 @@
 // button whose label says how the reader is doing; it opens a small dialog
 // with each hardware group's state and "Restart", which restarts only the
 // Libre reader (D-2026-10-09-studio-redesign-10). Escape or a click outside
-// closes it; Escape gives the focus back to the dot.
+// closes it; Escape gives the focus back to the dot. It also owns the
+// sensors' statusbar chip (how long a sample took) and the restart itself.
 import { el } from './dom.js';
+import { libreStatus } from '../libre-status.js';
 
 /**
  * @param {{
  *   t: (k: string, p?: object) => string,
+ *   bridge: { restartLibre: () => Promise<unknown> },
+ *   notify: (message: string) => void,
+ *   fail: (error: unknown) => void,
+ *   root: HTMLElement,
  *   onOpenSensors: () => void,
- * }} deps
- * @returns {{ update: (health: {state: string, failed: string[], hardware?: {name: string, ok: boolean}[]} | null, restarting: boolean) => void, close: () => void }}
+ * }} deps `root` is `#status-libre`, the dot's wrapper
+ * @returns {{ update: (sample: {health: {state: string, failed: string[], hardware?: {name: string, ok: boolean}[]} | null, sampleMillis?: number, sampledAt?: number, readings?: object|null, catalog?: object[], error?: unknown}) => void, close: () => void }}
  */
-export function createSensorStatus({ t, onOpenSensors }) {
-  const wrap = document.getElementById('status-libre');
+export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensors }) {
+  const wrap = root;
   const toggle = document.getElementById('status-libre-toggle');
   const popover = document.getElementById('libre-popover');
   const list = document.getElementById('libre-hardware');
@@ -88,16 +94,55 @@ export function createSensorStatus({ t, onOpenSensors }) {
   });
   window.addEventListener('resize', () => isOpen() && place());
 
+  /** The popover's state: the last health, kept while the reader restarts. */
+  function show(health, restarting) {
+    // While the reader restarts there are no readings: the list keeps the last one.
+    last = { health: restarting && health && last.health ? last.health : health, restarting };
+    wrap.hidden = !health;
+    if (!health) {
+      close();
+      return;
+    }
+    if (isOpen()) render();
+  }
+
+  // The dot, its label and title, and the restart button.
+  let restarting = false;
+  let catalog = [];
+  function paint(health) {
+    show(health, restarting);
+    if (!health) return;
+    const status = restarting ? 'restarting' : health.state;
+    document.getElementById('status-libre-dot').dataset.state = status;
+    document.getElementById('status-libre-label').textContent = t(`status.libre.${status}`);
+    toggle.title = health.failed.length
+      ? t('status.libreMissing', { hardware: health.failed.join(', ') })
+      : t('status.libre.ok');
+    document.getElementById('restart-libre').disabled = restarting;
+  }
+
+  document.getElementById('restart-libre').addEventListener('click', async () => {
+    if (restarting) return;
+    restarting = true;
+    paint(libreStatus(catalog, null));
+    try {
+      await bridge.restartLibre();
+      notify(t('status.libreRestarted'));
+    } catch (e) {
+      fail(e);
+    } finally {
+      restarting = false;
+    }
+  });
+
   return {
-    update(health, restarting) {
-      // While the reader restarts there are no readings: the list keeps the last one.
-      last = { health: restarting && health && last.health ? last.health : health, restarting };
-      wrap.hidden = !health;
-      if (!health) {
-        close();
-        return;
-      }
-      if (isOpen()) render();
+    /** A sample was read (or failed: `error`): the sensors chip and the dot follow it. */
+    update({ health, sampleMillis, readings = null, catalog: list, error = null }) {
+      catalog = list ?? catalog;
+      document.getElementById('status-sensors').textContent = error
+        ? t('status.sensorsError')
+        : t('status.sensors', { ms: Math.round(sampleMillis) });
+      paint(health === undefined ? libreStatus(catalog, error ? null : readings) : health);
     },
     close,
   };

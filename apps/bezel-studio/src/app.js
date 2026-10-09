@@ -6,6 +6,7 @@ import { createStore } from './editor/store.js';
 import { isHorizontal, isTurned, orientationOf } from './editor/geometry.js';
 import { createCanvasView } from './ui/canvas.js';
 import { createLibrary } from './ui/library.js';
+import { createScreenPanel } from './ui/screen-panel.js';
 import { openVideoPreview } from './ui/video-preview.js';
 import { createInspector } from './ui/inspector.js';
 import { createConfirm, createStoragePanel, formatBytes, wireSubtabs } from './ui/storage.js';
@@ -172,15 +173,25 @@ const library = createLibrary({
     mediaSubtab: (name) => {
       if (name === 'collection') void collection.show();
     },
+    showSensors: (keys) => bridge.showSensors(keys).catch((e) => fail(e)),
+    themeThumbnail: (location) => bridge.themeThumbnail(location),
+    rememberThemeFilter: ({ scope, axis }) => bridge.setThemeFilter(scope, axis).catch(() => {}),
+    duplicateTheme: (location, name) => bridge.duplicateTheme(location, name).then(() => refreshThemes()).catch((e) => fail(e)),
+  },
+  bridge,
+});
+
+// Screen › Settings (artboard Screen): each screen's card, autostart and desktop mode.
+const screenPanel = createScreenPanel({
+  root: $('screen-panel'),
+  t,
+  actions: {
     setBrightness: (screen, percent) => bridge.setBrightness(screen, percent).then(() => { state.brightness[screen] = percent; }).catch((e) => fail(e)),
     release: (screen) => bridge.release(screen).then(() => setLive(false)).catch((e) => fail(e)),
     setAutostart: (on) => bridge.setAutostart(on).then(() => { state.autostart = on; }).catch((e) => fail(e)),
     autostart: () => state.autostart,
     leaveDesktopMode: (panel) => leaveDesktopMode(panel),
-    showSensors: (keys) => bridge.showSensors(keys).catch((e) => fail(e)),
     restart: (screen) => restartScreen(screen),
-    themeThumbnail: (location) => bridge.themeThumbnail(location),
-    rememberThemeFilter: ({ scope, axis }) => bridge.setThemeFilter(scope, axis).catch(() => {}),
   },
 });
 
@@ -273,6 +284,12 @@ const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const motionAllowed = () => !document.hidden && !reducedMotion?.matches;
 
 const inspector = createInspector({
+  bridge,
+  // The last sample read, and an element of the edited theme rendered alone (D-8).
+  host: {
+    lastSample: () => lastSample,
+    renderElement: (id, opts) => bridge.renderElement(store.getState().theme, id, opts),
+  },
   searchCities: (query) => bridge.searchWeatherCities(query),
   root: $('inspector'),
   editIcon: (id, asset, paint) => editIcon(id, asset, paint),
@@ -494,6 +511,9 @@ async function loadCatalog() {
   }
 }
 
+/** The last sample read, for the inspector (sensor values, apps, media). */
+let lastSample = null;
+
 async function sampleLoop() {
   const screen = state.screen;
   try {
@@ -508,44 +528,18 @@ async function sampleLoop() {
       for (const key of unlisted) askedSensors.add(key);
       await loadCatalog();
     }
-    library.updateReadings(s.readings);
+    library.updateReadings(s.readings, Date.now());
     if (!switchingScreen && screen === state.screen) syncLive(s);
-    $('status-sensors').textContent = t('status.sensors', { ms: Math.round(s.sampleMillis) });
-    updateLibreStatus(s.readings);
-  } catch {
-    $('status-sensors').textContent = t('status.sensorsError');
-    updateLibreStatus(null);
+    lastSample = s;
+    sensorStatus.update({ health: libreStatus(state.catalog, s.readings), sampleMillis: s.sampleMillis, sampledAt: Date.now(), readings: s.readings, catalog: state.catalog, error: null });
+  } catch (e) {
+    sensorStatus.update({ health: libreStatus(state.catalog, null), readings: null, catalog: state.catalog, error: e });
   }
   setTimeout(sampleLoop, 1000);
 }
 
-let libreRestarting = false;
-const sensorStatus = createSensorStatus({ t, onOpenSensors: () => library.selectTab('sensors') });
-function updateLibreStatus(readings) {
-  const health = libreStatus(state.catalog, readings);
-  sensorStatus.update(health, libreRestarting);
-  if (!health) return;
-  const status = libreRestarting ? 'restarting' : health.state;
-  $('status-libre-dot').dataset.state = status;
-  $('status-libre-label').textContent = t(`status.libre.${status}`);
-  $('status-libre-toggle').title = health.failed.length
-    ? t('status.libreMissing', { hardware: health.failed.join(', ') })
-    : t('status.libre.ok');
-  $('restart-libre').disabled = libreRestarting;
-}
-$('restart-libre').addEventListener('click', async () => {
-  if (libreRestarting) return;
-  libreRestarting = true;
-  updateLibreStatus(null);
-  try {
-    await bridge.restartLibre();
-    toast(t('status.libreRestarted'));
-  } catch (e) {
-    fail(e);
-  } finally {
-    libreRestarting = false;
-  }
-});
+// The sensors chip, the Libre dot, its popover and the restart (artboard SensorStatus).
+const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: () => library.selectTab('sensors') });
 
 // ---------------------------------------------------------- screens ----
 const currentScreen = () => state.screens.find((s) => s.key === state.screen) ?? null;
@@ -570,7 +564,8 @@ function renderScreenSelect() {
   else if (current && state.live && state.liveVideo?.state === 'missing') device = t('status.liveVideoMissing');
   else if (current) device = state.live ? t('status.live') : t(`screen.state.${current.state}`);
   $('status-device').textContent = device;
-  library.renderScreen(state.screens, state.screen, state.live, state.brightness, state.desktopMode, { restarting: state.restarting, hung: state.hung });
+  library.setScreens(state.screens, state.screen);
+  screenPanel.render(state.screens, state.screen, state.live, state.brightness, state.desktopMode, { restarting: state.restarting, hung: state.hung });
   renderConnect();
   storage.update();
   standby.update();
@@ -1151,6 +1146,7 @@ function setLocale(next) {
   applyTranslations(document, t);
   library.setCatalog(labelledCatalog());
   library.retranslate();
+  screenPanel.retranslate();
   storage.retranslate();
   standby.retranslate();
   collection.retranslate();
