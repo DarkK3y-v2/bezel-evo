@@ -15,13 +15,6 @@ import { wireLayerDrag } from './layer-drag.js';
 
 export { axisOf };
 
-// Layers: a group, a card's shared base and one of its faces.
-const GROUP_ICON = ['M3 3h8v8H3z', 'M13 13h8v8h-8z', 'M11 7h4v6'];
-// Media: "Use as background" and "Put on screen".
-const BACKGROUND_ICON = ['M3 5h18v14H3z', 'M3 15l5-5 4 4 3-3 6 6'];
-const PLACE_ICON = ['M4 4h16v16H4z', 'M12 8v8', 'M8 12h8'];
-const BASE_ICON = ['m12 4 8 4-8 4-8-4 8-4z', 'M4 12l8 4 8-4'];
-const FACE_ICON = ['M4 6h16v12H4z', 'M8 10h8'];
 
 const CATEGORY_ORDER = ['cpu', 'gpu', 'memory', 'disk', 'network', 'board', 'system'];
 
@@ -229,7 +222,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   function layerRow(e, index, total, neighbors = null) {
     const selected = store.getState().selection.includes(e.id);
     const widget = widgetOf(e);
-    const kind = e.isGroup ? GROUP_ICON : ICONS[widget] ?? ICONS.shape;
+    const kind = e.isGroup ? ICONS.group : ICONS[widget] ?? ICONS.shape;
     const name = editing === e.id
       ? el('input', {
         type: 'text', value: e.name, 'aria-label': t('inspector.name'), class: 'layer-name',
@@ -254,7 +247,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       }, [e.name, el('small', { text: t(`widget.${widget}`) })]);
     const btn = (label, paths, onclick, disabled = false, pressed = null, extra = '') => el('button', { type: 'button', class: `icon-button layer-tool${extra}`, title: label, 'aria-label': label, disabled, 'aria-pressed': pressed === null ? null : String(pressed), onclick }, [icon(paths, 16)]);
     return el('li', { dataset: { elementId: e.id }, class: `layer-row${e.card || e.isGroup ? ' layer-container' : ''}${selected ? ' selected' : ''}${e.visible === false ? ' hidden-el' : ''}` }, [
-      ...(e.card || e.isGroup ? [el('button',{type:'button',class:'icon-button layer-fold','aria-label':t(collapsedLayers.has(e.id)?'layers.expand':'layers.collapse'),'aria-expanded':String(!collapsedLayers.has(e.id)),onclick:()=>{if(collapsedLayers.has(e.id))collapsedLayers.delete(e.id);else collapsedLayers.add(e.id);renderLayers();}},[icon(collapsedLayers.has(e.id)?['M9 6l6 6-6 6']:['M6 9l6 6 6-6'],14)])] : []),
+      ...(e.card || e.isGroup ? [el('button',{type:'button',class:'icon-button layer-fold','aria-label':t(collapsedLayers.has(e.id)?'layers.expand':'layers.collapse'),'aria-expanded':String(!collapsedLayers.has(e.id)),onclick:()=>{if(collapsedLayers.has(e.id))collapsedLayers.delete(e.id);else collapsedLayers.add(e.id);renderLayers();}},[icon(collapsedLayers.has(e.id)?ICONS.chevronRight:ICONS.chevronDown,14)])] : []),
       el('span', { class: 'layer-kind', 'aria-hidden': 'true' }, [icon(kind, 16)]),
       name,
       btn(e.visible === false ? t('layers.show') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
@@ -305,7 +298,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
             });
           return el('li', { class: `layer-group${active ? ' active-face' : ''}`, dataset: { face: face === null ? 'base' : face } }, [
             el('div', { class: 'layer-group-heading',dataset:{dropCard:card.id,dropFace:face===null?'base':face} }, [
-              icon(face === null ? BASE_ICON : FACE_ICON, 14),
+              icon(face === null ? ICONS.base : ICONS.face, 14),
               heading,
               active && el('span', { class: 'face-badge', title: t('layers.inViewHint'), text: t('layers.inView') }),
               el('small', { text: String(elements.length) }),
@@ -516,8 +509,8 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       ]),
       el('div', { class: 'actions' }, [
         moving && action(t('videoPreview.open'), ICONS.play, () => actions.previewVideo(a)),
-        action(t('media.useBackground'), BACKGROUND_ICON, () => store.dispatch('setTheme', { patch: { background: backgroundOf(a) } })),
-        a.kind === 'image' && action(t('media.addImage'), PLACE_ICON, () => {
+        action(t('media.useBackground'), ICONS.background, () => store.dispatch('setTheme', { patch: { background: backgroundOf(a) } })),
+        a.kind === 'image' && action(t('media.addImage'), ICONS.place, () => {
           const { x, y } = center();
           store.dispatch('add', { widget: 'image', x, y });
           const id = store.getState().selection[0];

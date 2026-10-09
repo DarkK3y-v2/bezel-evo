@@ -24,20 +24,47 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-/** An inline SVG icon from path data (decorative). */
+const SVG = 'http://www.w3.org/2000/svg';
+
+/** Fills `svg` with the paths of an icon. */
+function draw(svg, paths) {
+  svg.replaceChildren(...[].concat(paths).map((d) => {
+    const p = document.createElementNS(SVG, 'path');
+    p.setAttribute('d', d);
+    return p;
+  }));
+}
+
+/**
+ * An inline SVG icon from path data (decorative): one of ui/icons.js's
+ * ICONS, drawn with the `ic` class (base.css: stroke in the current colour).
+ */
 export function icon(paths, size = 18) {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('class', 'ic');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('width', String(size));
   svg.setAttribute('height', String(size));
   svg.setAttribute('aria-hidden', 'true');
-  for (const d of [].concat(paths)) {
-    const p = document.createElementNS(ns, 'path');
-    p.setAttribute('d', d);
-    svg.append(p);
-  }
+  draw(svg, paths);
   return svg;
+}
+
+/**
+ * Draws every `<svg data-icon="name">` under `root` (index.html's icons)
+ * from `icons`, so a symbol is defined once, in ui/icons.js.
+ * @param {ParentNode} root
+ * @param {Record<string, string[]>} icons
+ */
+export function applyIcons(root, icons) {
+  for (const svg of root.querySelectorAll('svg[data-icon]')) {
+    const paths = icons[svg.dataset.icon];
+    if (!paths) throw new Error(`unknown icon ${svg.dataset.icon}`);
+    svg.classList.add('ic');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    draw(svg, paths);
+  }
 }
 
 /** `document.getElementById`, typed loosely. */

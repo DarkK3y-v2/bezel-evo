@@ -8,7 +8,7 @@
 .face-chip:disabled { opacity: 0.45; cursor: default; }
 .face-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .face-add { justify-content: center; width: 42px; padding: 0; color: var(--accent-ink); }
-.face-add svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
 .face-editor { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .face-editor .field { margin: 0; }
 .face-editor .field input[type="text"] { background: var(--surface); font-family: var(--font-mono); }

@@ -5,9 +5,6 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { checkField, numberField, rangeField, selectField, textField } from './fields.js';
 
-const CHEVRON_LEFT = ['M15 18l-6-6 6-6'];
-const CHEVRON_RIGHT = ['M9 18l6-6-6-6'];
-const PLUS = ['M12 5v14', 'M5 12h14'];
 
 /** The tabs of a card this module draws, in order. */
 export const CARD_TABS = Object.freeze(['faces', 'motion', 'triggers']);
@@ -28,7 +25,7 @@ function faceChips({ element: e, t, store }) {
   const add = el('button', {
     type: 'button', class: 'face-chip face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16,
     onclick: () => store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }),
-  }, [icon(PLUS, 18)]);
+  }, [icon(ICONS.plus, 18)]);
   return el('div', { class: 'face-chips', role: 'group', 'aria-label': t('card.activeFace') }, [...chips, add]);
 }
 
@@ -57,7 +54,7 @@ function triggerForm({ element: e, t, update, section }) {
     section('triggers', t('trigger.title'), [
       el('p', { class: 'hint', text: t('trigger.help') }),
       ...rules.map(rule),
-      el('button', { type: 'button', class: 'text-button trigger-add', disabled: rules.length >= 32 || c.faces.length < 2, onclick: add }, [icon(PLUS, 16), t('trigger.add')]),
+      el('button', { type: 'button', class: 'text-button trigger-add', disabled: rules.length >= 32 || c.faces.length < 2, onclick: add }, [icon(ICONS.plus, 16), t('trigger.add')]),
     ]),
   ];
 }
@@ -99,8 +96,8 @@ function facesForm(ctx) {
         update(e.id, { card: { faces: names } });
       }),
       el('div', { class: 'face-tools' }, [
-        tool('card.previous', CHEVRON_LEFT, command('reorderCardFace', { direction: -1 }), c.activeFace === 0),
-        tool('card.next', CHEVRON_RIGHT, command('reorderCardFace', { direction: 1 }), c.activeFace === c.faces.length - 1),
+        tool('card.previous', ICONS.chevronLeft, command('reorderCardFace', { direction: -1 }), c.activeFace === 0),
+        tool('card.next', ICONS.chevronRight, command('reorderCardFace', { direction: 1 }), c.activeFace === c.faces.length - 1),
         el('button', { type: 'button', class: 'text-button', disabled: c.faces.length >= 16, onclick: command('duplicateCardFace') }, [icon(ICONS.copy, 16), t('card.duplicateFace')]),
         tool('card.removeFace', ICONS.trash, command('removeCardFace'), c.faces.length <= 1, 'danger'),
       ]),

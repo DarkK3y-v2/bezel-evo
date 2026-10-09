@@ -14,7 +14,7 @@
 .inspector .framing h3 { margin: 0 0 8px; }
 .framing .hint { margin: 2px 0 8px; }
 .framing-toggle { width: 100%; justify-content: center; border-color: var(--accent); font-weight: 600; }
-.framing-toggle svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 .framing-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
 .framing-choice { width: 100%; }
 .framing-choice button { flex: 1 1 auto; white-space: nowrap; }
@@ -42,7 +42,7 @@
    Triggers, Look), then position and actions for every tab. */
 .inspector-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .inspector-tile { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-ink); }
-.inspector-tile svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
 .inspector-title { display: grid; gap: 2px; min-width: 0; }
 .inspector .inspector-title h2 { margin: 0; color: var(--text); font-size: 0.95rem; letter-spacing: 0; text-transform: none; }
 .inspector-title .hint { margin: 0; font-size: 0.8rem; }

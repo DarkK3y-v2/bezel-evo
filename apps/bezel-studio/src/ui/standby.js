@@ -24,7 +24,7 @@ import {
 
 /** The icon of each choice. */
 const CHOICE_ICONS = Object.freeze({
-  keep: ['M4 5h16v11H4z', 'M9 20h6', 'M12 16v4'],
+  keep: ICONS.monitor,
   off: ICONS.power,
   video: ICONS.film,
   album: ICONS.image,

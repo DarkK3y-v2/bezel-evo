@@ -55,7 +55,7 @@
 .libre-popover-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--border); font-size: 0.8rem; line-height: 1.45; }
 .libre-popover-note[hidden] { display: none; }
 .libre-popover-actions { display: flex; justify-content: flex-end; gap: 8px; }
-.libre-popover-actions .primary-button svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.libre-popover-actions .primary-button svg { width: 16px; height: 16px; }
 .libre-popover-actions .primary-button { display: inline-flex; align-items: center; gap: 8px; }
 .libre-popover-actions .primary-button:disabled { cursor: wait; }
 .udev-command { display: grid; gap: 6px; justify-items: start; margin: 8px 0; }

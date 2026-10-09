@@ -16,10 +16,6 @@ import { createTabMemory, previewCrop, tabAfterKey, tabsOf } from '../inspector-
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
-/** "Frame on canvas": a frame's corners around a move cross. */
-const FRAME_ICON = ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5', 'M12 8v8', 'M8 12h8'];
-/** A group: two boxes in a dashed frame. */
-const GROUP_ICON = ['M4 4h4', 'M16 4h4v4', 'M20 16v4h-4', 'M8 20H4v-4', 'M8 8h5v5H8z', 'M11 11h5v5h-5z'];
 /** The tallest the live preview is drawn, CSS pixels. */
 const PREVIEW_HEIGHT = 120;
 
@@ -183,7 +179,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const nodes = [
       el('button', {
         type: 'button', id: 'framing-canvas', class: 'text-button framing-toggle', 'aria-pressed': String(Boolean(context.framing)), onclick: () => video.setFraming(!context.framing),
-      }, [icon(FRAME_ICON, 16), t('framing.onCanvas')]),
+      }, [icon(ICONS.frame, 16), t('framing.onCanvas')]),
       el('p', { class: 'hint', text: t('framing.onCanvasHint') }),
       choice('framing-rotation', t('framing.rotation'), f.rotation === null ? 'auto' : String(f.rotation), [
         ['auto', autoLabel],
@@ -686,7 +682,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function header(e, widget, group) {
     return [
       el('div', { class: 'inspector-head' }, [
-        el('span', { class: 'inspector-tile' }, [icon(e.isGroup ? GROUP_ICON : ICONS[widget] ?? ICONS.shape, 18)]),
+        el('span', { class: 'inspector-tile' }, [icon(e.isGroup ? ICONS.groupFrame : ICONS[widget] ?? ICONS.shape, 18)]),
         el('div', { class: 'inspector-title' }, [
           el('h2', { text: t(`widget.${widget}`) }),
           group && el('p', { class: 'hint', text: t('inspector.inGroup', { name: group.name }) }),

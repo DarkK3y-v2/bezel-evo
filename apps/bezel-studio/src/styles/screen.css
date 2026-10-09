@@ -23,7 +23,7 @@
 .brightness-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .brightness-value { font-family: var(--font-mono); font-weight: 500; font-variant-numeric: tabular-nums; }
 .brightness-row { display: flex; align-items: center; gap: 10px; color: var(--muted); }
-.brightness-row svg, .screen-advanced svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.brightness-row svg, .screen-advanced svg { flex: none; }
 .brightness-row input { flex: 1 1 auto; min-width: 0; }
 .screen-advanced { display: grid; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
 .screen-advanced .text-button, .screen-advanced .primary-button { justify-content: flex-start; min-height: 34px; padding: 0 12px; font-weight: 600; text-align: left; }
@@ -49,7 +49,7 @@
 
 .storage-job { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent-soft); }
 .job-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.job-head svg { flex: none; fill: none; stroke: var(--accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.job-head svg { flex: none; color: var(--accent-ink); }
 .job-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-status { display: flex; justify-content: space-between; gap: 8px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .job-phase { font-weight: 600; }
@@ -67,7 +67,7 @@
 .medium, .boot-slot { display: grid; gap: 6px; }
 .medium + .medium { padding-top: 12px; border-top: 1px solid var(--border); }
 .medium h3, .boot-slot h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.9rem; }
-.medium h3 svg, .stored-file > svg, .drop-icon svg, .boot-icon svg { flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.medium h3 svg, .stored-file > svg, .drop-icon svg, .boot-icon svg { flex: none; }
 .medium h3 svg { color: var(--accent-ink); }
 .medium > .hint, .boot-slot > .hint { margin: 0; }
 .usage-card { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
@@ -142,7 +142,7 @@
 /* Without a picture, a file's kind tints its tile: videos blue, pictures amber. */
 .file-thumb[data-kind="video"]:not(.has-picture) { background: var(--info-soft); color: var(--info); }
 .file-thumb[data-kind="image"]:not(.has-picture) { background: var(--accent-soft); color: var(--accent-ink); }
-.file-thumb svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
 .file-thumb img { display: none; width: 100%; height: 100%; object-fit: contain; }
 .file-thumb.has-picture img { display: block; }
 .file-thumb.has-picture svg { display: none; }
@@ -181,7 +181,7 @@
 .standby { display: grid; gap: 8px; margin-top: 4px; padding-top: 12px; }
 .standby[aria-busy="true"] .standby-options { cursor: progress; }
 .standby-head, .standby-field-head { position: relative; display: flex; align-items: center; gap: 6px; }
-.standby-head > svg { flex: none; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.standby-head > svg { flex: none; color: var(--muted); }
 .standby-head h3 { flex: 1; margin: 0; color: var(--muted); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .standby-field-head label, .standby-field-head h3 { flex: 1; }
 .standby-field-head .dialog-subtitle { margin: 4px 0; }
@@ -193,13 +193,13 @@
   display: grid; grid-template-columns: 16px 16px minmax(0, 1fr); align-items: start; gap: 2px 10px; width: 100%; min-height: 40px;
   padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); text-align: left; cursor: pointer;
 }
-.standby-radio > svg { margin-top: 2px; fill: none; stroke: var(--accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.standby-radio > svg { margin-top: 2px; color: var(--accent-ink); }
 .standby-radio:hover:not([aria-disabled="true"]) { border-color: var(--accent); }
 .standby-radio[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 .standby-mark { width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--surface); }
 .standby-radio[aria-checked="true"] .standby-mark { border: 5px solid var(--accent); background: var(--surface); }
 .standby-radio[aria-disabled="true"] { border-style: dashed; background: transparent; color: var(--muted); cursor: not-allowed; }
-.standby-radio[aria-disabled="true"] > svg { stroke: var(--muted); }
+.standby-radio[aria-disabled="true"] > svg { color: var(--muted); }
 .standby-label { font-weight: 600; overflow-wrap: anywhere; }
 .standby-detail { grid-column: 3; color: var(--muted); font-size: 0.8rem; font-weight: 400; line-height: 1.4; overflow-wrap: anywhere; }
 .standby-option > .help-button { margin-top: 10px; }
@@ -221,14 +221,14 @@
 .album-photos { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 4px; max-height: min(40vh, 360px); overflow: auto; }
 .album-photo { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 .album-thumb { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 6px; background: var(--screen-thumb); color: var(--screen-thumb-ink); overflow: hidden; }
-.album-thumb svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
 .album-thumb img { display: none; width: 100%; height: 100%; object-fit: cover; }
 .album-thumb.has-picture img { display: block; }
 .album-thumb.has-picture svg { display: none; }
 .album-info { display: grid; gap: 1px; min-width: 0; }
 .album-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .album-info small { color: var(--muted); font-variant-numeric: tabular-nums; }
-.album-photo .icon-button svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 .album-need { margin: 0; }
 .standby-dialog .field-error:empty { display: none; }
 .album-preview { display: grid; justify-items: center; gap: 6px; margin: 4px 0 12px; padding: 12px; border-radius: var(--radius); background: var(--surface-3); }

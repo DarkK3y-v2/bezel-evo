@@ -21,13 +21,6 @@ import { ICONS } from './icons.js';
 export function createScreenPanel({ root, t, actions }) {
   let args = [[], null, false, {}, [], {}];
 
-  /** Glyphs of the Screen settings (24x24, stroked). */
-  const SCREEN_GLYPHS = {
-    dim: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M12 5v1', 'M12 18v1', 'M5 12h1', 'M18 12h1'],
-    bright: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2', 'M12 20v2', 'M2 12h2', 'M20 12h2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
-    handBack: ['M15 3h6v6', 'M10 14 21 3', 'M21 14v7H3V3h7'],
-  };
-
   /** "Start with the computer" as a toggle row: a native checkbox drawn as a switch. */
   function autostartField() {
     const input = el('input', { type: 'checkbox', checked: Boolean(actions.autostart()) });
@@ -109,7 +102,7 @@ export function createScreenPanel({ root, t, actions }) {
     slider.addEventListener('change', () => actions.setBrightness(s.key, Number(slider.value)));
     return el('div', { class: 'brightness' }, [
       el('div', { class: 'brightness-head' }, [el('span', { class: 'section-label', 'aria-hidden': 'true', text: t('screen.brightness') }), out]),
-      el('div', { class: 'brightness-row' }, [icon(SCREEN_GLYPHS.dim, 16), slider, icon(SCREEN_GLYPHS.bright, 16)]),
+      el('div', { class: 'brightness-row' }, [icon(ICONS.sunDim, 16), slider, icon(ICONS.sunBright, 16)]),
     ]);
   }
 
@@ -122,7 +115,7 @@ export function createScreenPanel({ root, t, actions }) {
       note,
       el('div', { class: 'screen-advanced', role: 'group', 'aria-label': t('screen.advanced') }, [
         el('span', { class: 'section-label', 'aria-hidden': 'true', text: t('screen.advanced') }),
-        el('button', { type: 'button', class: 'text-button', onclick: () => actions.release(s.key) }, [icon(SCREEN_GLYPHS.handBack, 16), el('span', { text: t('screen.release') })]),
+        el('button', { type: 'button', class: 'text-button', onclick: () => actions.release(s.key) }, [icon(ICONS.handBack, 16), el('span', { text: t('screen.release') })]),
         button,
       ]),
     ]);

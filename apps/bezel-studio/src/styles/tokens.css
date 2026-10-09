@@ -8,16 +8,31 @@
   --accent-text: #1A0E05;
   --accent-soft: #FFE6D4;
   --accent-ink: #A6460F;
+  --accent-line: #F5C9A8;
   --focus-ring: var(--accent-ink);
   --bg: #EEF0F2;
   --surface: #FFFFFF;
   --surface-2: #F5F6F7;
   --surface-3: #E4E7EA;
+  /* The window's chrome (topbar, rail, statusbar) and the fields' well. */
+  --chrome: #F7F8F9;
+  --well: #F0F2F4;
   --text: #15191C;
+  --text-2: #2A3036;
+  --text-3: #3B434B;
   --muted: #545C64;
+  /* Secondary readouts (counts, legends, mono keys): still 4.5:1 on every surface. */
+  --dim: #5E6770;
+  /* Decorative strokes only (separators, chevrons, disabled glyphs): never text. */
+  --faint: #A3ABB3;
   --border: #D3D8DD;
+  /* Dividers between regions; chips and tiles. */
+  --line: #E1E5E9;
+  --border-2: #DADFE4;
   --ok: #047857;
   --ok-soft: #D1FAE5;
+  --ok-ink: #047857;
+  --ok-line: #A7F3D0;
   --info: #0369A1;
   --info-soft: #E0F2FE;
   --warn: #92400E;
@@ -39,6 +54,10 @@
   --screen-ring: #23282E;
   --bezel-from: #23282E;
   --bezel-to: #0B0D0F;
+  --bezel-face: #16191C;
+  --bezel-line: #2A3036;
+  /* The stage's dot grid. */
+  --dot: #CDD3D9;
   --screen-thumb: #0F1214;
   --screen-thumb-ink: #AEB5BD;
   --screen-chip: rgb(15 18 20 / 88%);
@@ -49,35 +68,54 @@
   --framing-line: #FFFFFF;
   --menu-shadow: rgb(0 0 0 / 40%);
   --radius: 10px;
+  /* Typography (D-2026-10-09-studio-redesign-fidelity-9): 13px Sans, 11px caps titles, Mono readouts. */
+  --fs-base: 13px;
+  --fs-small: 11.5px;
+  --fs-caps: 11px;
+  --fs-title: 15px;
+  --caps-spacing: 0.06em;
+  --ic-stroke: 1.75;
   --shadow: 0 1px 2px rgb(15 18 20 / 6%), 0 8px 24px rgb(15 18 20 / 8%);
   --font-sans: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   /* The transition of the controls that react to the pointer. */
   --motion-ui: border-color 120ms ease, background 120ms ease, color 120ms ease, left 120ms ease;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", monospace;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent-soft: #2B2114;
+    --accent-soft: #1F1813;
     --accent-ink: #FFB27A;
+    --accent-line: #4A3424;
     --focus-ring: var(--accent);
     --bg: #0B0D0F;
     --surface: #121518;
     --surface-2: #15191C;
     --surface-3: #1D2227;
+    --chrome: #101316;
+    --well: #0F1214;
     --text: #E8EAED;
+    --text-2: #D5D9DE;
+    --text-3: #AEB5BD;
     --muted: #8B939C;
+    --dim: #7F8890;
+    --faint: #4A525A;
     --border: #262B31;
+    --line: #1D2227;
+    --border-2: #23282E;
     --ok: #34D399;
-    --ok-soft: #10261C;
+    --ok-soft: #0F2219;
+    --ok-ink: #6EE7B7;
+    --ok-line: #1F4D3B;
     --info: #7DD3FC;
     --info-soft: #1A2430;
     --warn: #F5B83D;
     --danger: #FCA5A5;
     --danger-text: #1A0E05;
     --guide: #F472B6;
+    --dot: #1E2328;
     --seg-track: var(--bg);
     --seg-thumb: var(--surface-3);
     --seg-shadow: 0 1px 2px rgb(0 0 0 / 40%);

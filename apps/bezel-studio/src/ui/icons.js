@@ -1,46 +1,119 @@
-// Icon path data (24x24, stroked).
+// The icon catalogue: every symbol of the design canvas (the 17 artboards of
+// "Bezel Evo — proposta UI/UX") and of the app, once each. 24×24, stroked
+// with the current colour (`icon()` in dom.js gives every one the `ic`
+// class: fill none, round caps, base.css's stroke width). A value is the
+// list of path data of one symbol; a dot is a zero-length segment (`h.01`).
+// A module never redefines one of these: a symbol it lacks goes here.
+
+const rect = (x, y, w, h, r = 0) => (r
+  ? `M${x + r} ${y}h${w - 2 * r}a${r} ${r} 0 0 1 ${r} ${r}v${h - 2 * r}a${r} ${r} 0 0 1-${r} ${r}h-${w - 2 * r}a${r} ${r} 0 0 1-${r}-${r}v-${h - 2 * r}a${r} ${r} 0 0 1 ${r}-${r}z`
+  : `M${x} ${y}h${w}v${h}h-${w}z`);
+const circle = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0-${2 * r} 0`;
 
 export const ICONS = Object.freeze({
-  text: ['M5 6h14', 'M12 6v13', 'M9 19h6'],
-  value: ['M5 4h4v16H5z', 'M13 4h6', 'M13 9h4', 'M13 14h6', 'M13 19h3'],
-  player: ['M9 18V5l11-2v13', 'M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3', 'M20 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3'],
-  weather: ['M5 17a4 4 0 1 1 1-8 6 6 0 0 1 11 1 4 4 0 1 1 1 7H5', 'M8 20l-1 2', 'M14 20l-1 2'],
-  clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7v5l3 2'],
-  image: ['M4 5h16v14H4z', 'M4 16l5-5 4 4 3-3 4 4', 'M15 9h.01'],
-  shape: ['M5 5h14v14H5z'],
-  card: ['M3 5h18v14H3z', 'M7 9h10', 'M7 13h6'],
-  bar: ['M4 10h16v4H4z', 'M4 10h9v4H4z'],
-  ring: ['M12 3a9 9 0 1 1-9 9', 'M12 3a9 9 0 0 1 9 9'],
-  needle: ['M4 17a8 8 0 0 1 16 0', 'M12 17l4-6'],
-  graph: ['M3 20h18', 'M4 16l4-5 4 3 4-7 4 4'],
-  eye: ['M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
-  eyeOff: ['M3 3l18 18', 'M10.6 10.6a3 3 0 0 0 4.2 4.2', 'M9.4 5.2A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.8', 'M6.2 6.2A17 17 0 0 0 2 12s4 7 10 7a9.8 9.8 0 0 0 4.3-1'],
-  lock: ['M6 11h12v10H6z', 'M8 11V7a4 4 0 0 1 8 0v4'],
-  unlock: ['M6 11h12v10H6z', 'M8 11V7a4 4 0 0 1 7.7-1.5'],
+  // ------------------------------------------------------- widget kinds --
+  text: ['M5 6V4h14v2', 'M12 4v16', 'M9 20h6'],
+  value: ['M4 18V6', 'M8 18V10', 'M12 18V4', 'M16 18v-6', 'M20 18V8'],
+  clock: [circle(12, 12, 8), 'M12 8v4l3 2'],
+  weather: ['M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9H7z'],
+  ring: ['M12 4a8 8 0 1 0 8 8'],
+  bar: [rect(3, 9, 18, 6, 3), 'M6 12h7'],
+  needle: ['M4 17a8 8 0 0 1 16 0', 'M12 17l4-5'],
+  graph: ['m3 17 5-6 4 3 4-7 5 5'],
+  image: [rect(3, 5, 18, 14, 2), 'm21 16-5-5-8 8'],
+  player: ['M9 18V6l10-2v12', circle(6.5, 18, 2.5), circle(16.5, 16, 2.5)],
+  shape: [rect(4, 4, 16, 16, 3)],
+  card: [rect(5, 3, 14, 18, 2), 'M9 8h6', 'M9 12h6'],
+  group: [rect(3, 3, 8, 8, 1.5), rect(13, 13, 8, 8, 1.5), 'M11 7h4v6'],
+  // A card's shared base and one of its faces (Layers).
+  base: ['m12 4 8 4-8 4-8-4 8-4z', 'M4 12l8 4 8-4'],
+  face: ['M4 6h16', 'M4 6v12h16V6', 'M8 10h8'],
+
+  // -------------------------------------------------------------- panels --
+  widgets: [rect(4, 4, 7, 7, 1.5), rect(13, 4, 7, 7, 1.5), rect(4, 13, 7, 7, 1.5), 'M16.5 13v7', 'M13 16.5h7'],
+  sensors: ['M3 12h4l3-7 4 14 3-7h4'],
+  layers: ['m12 3 9 5-9 5-9-5 9-5z', 'm3 13 9 5 9-5'],
+  themes: [rect(7, 3, 10, 18, 2), 'M3 7v10', 'M21 7v10'],
+  media: [rect(3, 5, 18, 14, 2), circle(9, 10, 1.5), 'm21 16-5-5-8 8'],
+  screen: [rect(7, 2, 10, 20, 2), 'M11 18h2'],
+  vertical: [rect(7.5, 3, 9, 18, 2)],
+  horizontal: [rect(3, 7.5, 18, 9, 2)],
+  // New theme, vertical or horizontal (Themes).
+  newVertical: [rect(7.5, 3, 9, 18, 2), 'M12 9v6', 'M9 12h6'],
+  newHorizontal: [rect(3, 7.5, 18, 9, 2), 'M12 9v6', 'M9 12h6'],
+
+  // ------------------------------------------------------------- actions --
+  undo: ['M9 14 4 9l5-5', 'M4 9h10a6 6 0 0 1 0 12h-3'],
+  redo: ['m15 14 5-5-5-5', 'M20 9H10a6 6 0 0 0 0 12h3'],
+  refresh: ['M20 12a8 8 0 1 1-2.34-5.66', 'M20 4v5h-5'],
+  grid: ['M4 9h16', 'M4 15h16', 'M9 4v16', 'M15 4v16'],
+  minus: ['M5 12h14'],
+  plus: ['M12 5v14', 'M5 12h14'],
+  close: ['M6 6l12 12', 'M18 6 6 18'],
+  copy: [rect(8, 8, 12, 12, 2), 'M16 8V4H4v12h4'],
+  paste: ['M9 5H5v16h14V5h-4', rect(9, 3, 6, 4, 1)],
+  trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
+  more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
+  drag: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
+  search: [circle(11, 11, 7), 'm20 20-3.5-3.5'],
+  sliders: ['M4 6h9', 'M17 6h3', 'M15 4v4', 'M4 12h3', 'M11 12h9', 'M9 10v4', 'M4 18h11', 'M19 18h1', 'M17 16v4'],
+  upload: ['M12 15V3', 'M7 8l5-5 5 5', 'M5 21h14'],
+  download: ['M12 4v12', 'M7 11l5 5 5-5', 'M5 20h14'],
+  dropHint: ['M9 4v12', 'M5 12l4 4 4-4', 'M15 20h5'],
+  play: ['M7 5v14l11-7z'],
+  pause: [rect(6, 5, 4, 14, 1), rect(14, 5, 4, 14, 1)],
+  stop: [rect(6, 6, 12, 12)],
+  power: ['M12 3v9', 'M6.3 6.3a8 8 0 1 0 11.4 0'],
+  handBack: ['M15 3h6v6', 'M10 14 21 3', 'M21 14v7H3V3h7'],
+  rename: ['M4 20h4L19 9l-4-4L4 16z', 'M13 7l4 4'],
+  link: ['M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1', 'M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1'],
+  sweep: ['M14 4l-5 9', 'M5 13h8l1 7H4z', 'M8 17v3', 'M11 17v3'],
+  box: ['M4 7h16v13H4z', 'M3 4h18v3H3z', 'M10 11h4'],
+  // Media: use as the background, put on the screen; the inspector frames a video on the canvas.
+  background: [rect(3, 5, 18, 14), 'M3 15l5-5 4 4 3-3 6 6'],
+  place: [rect(4, 4, 16, 16), 'M12 8v8', 'M8 12h8'],
+  frame: ['M4 9V4h5', 'M15 4h5v5', 'M20 15v5h-5', 'M9 20H4v-5', 'M12 8v8', 'M8 12h8'],
+  // The inspector's tile for a plain group: two boxes in a dashed frame.
+  groupFrame: ['M4 4h4', 'M16 4h4v4', 'M20 16v4h-4', 'M8 20H4v-4', rect(8, 8, 5, 5), rect(11, 11, 5, 5)],
+  live: ['M5 12a7 7 0 0 1 14 0', 'M8.5 12a3.5 3.5 0 0 1 7 0', 'M12 12h.01'],
+  spinner: ['M21 12a9 9 0 1 1-6.2-8.6'],
+
+  // ---------------------------------------------------------- navigation --
+  chevronDown: ['m6 9 6 6 6-6'],
+  chevronRight: ['m9 6 6 6-6 6'],
+  chevronLeft: ['m15 18-6-6 6-6'],
+  expandAll: ['m7 9 5-5 5 5', 'M7 15l5 5 5-5'],
+  collapseAll: ['m7 4 5 5 5-5', 'M7 20l5-5 5 5'],
+  arrowLeft: ['M19 12H5', 'M11 6l-6 6 6 6'],
+  arrowRight: ['M5 12h14', 'M13 6l6 6-6 6'],
   up: ['M12 19V5', 'M6 11l6-6 6 6'],
   down: ['M12 5v14', 'M6 13l6 6 6-6'],
-  copy: ['M9 9h11v11H9z', 'M5 15H4V4h11v1'],
-  trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
-  alignLeft: ['M4 4v16', 'M8 7h10v4H8z', 'M8 14h6v4H8z'],
-  alignCenterX: ['M12 3v18', 'M6 7h12v4H6z', 'M8 14h8v4H8z'],
-  alignRight: ['M20 4v16', 'M6 7h10v4H6z', 'M10 14h6v4h-6z'],
-  alignTop: ['M4 4h16', 'M7 8h4v10H7z', 'M14 8h4v6h-4z'],
-  alignCenterY: ['M3 12h18', 'M7 6h4v12H7z', 'M14 8h4v8h-4z'],
-  alignBottom: ['M4 20h16', 'M7 6h4v10H7z', 'M14 10h4v6h-4z'],
-  distributeX: ['M4 4v16', 'M20 4v16', 'M10 8h4v8h-4z'],
-  distributeY: ['M4 4h16', 'M4 20h16', 'M8 10h8v4H8z'],
-  vertical: ['M8 3h8v18H8z'],
-  horizontal: ['M3 8h18v8H3z'],
-  warning: ['M12 3 2 21h20z', 'M12 10v5', 'M12 18h.01'],
-  close: ['M6 6l12 12', 'M18 6 6 18'],
-  play: ['M7 4.5v15l12-7.5z'],
-  stop: ['M6 6h12v12H6z'],
-  power: ['M12 3v8', 'M6.3 6.3a8 8 0 1 0 11.4 0'],
-  upload: ['M12 16V4', 'M7 9l5-5 5 5', 'M4 16v4h16v-4'],
-  refresh: ['M20 12a8 8 0 1 1-2.34-5.66', 'M20 4v5h-5'],
-  film: ['M4 5h16v14H4z', 'M8 5v14', 'M16 5v14', 'M4 9h4', 'M4 15h4', 'M16 9h4', 'M16 15h4'],
-  card: ['M8 3h9l3 3v15H4V7z', 'M9 7v3', 'M12 7v3', 'M15 7v3'],
-  chip: ['M7 7h10v10H7z', 'M10 3v4', 'M14 3v4', 'M10 17v4', 'M14 17v4', 'M3 10h4', 'M3 14h4', 'M17 10h4', 'M17 14h4'],
-  info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v6', 'M12 7.5h.01'],
-  sliders: ['M4 6h9', 'M17 6h3', 'M15 4v4', 'M4 12h3', 'M11 12h9', 'M9 10v4', 'M4 18h11', 'M19 18h1', 'M17 16v4'],
+
+  // ----------------------------------------------------------- alignment --
+  alignLeft: ['M4 3v18', 'M8 7h10', 'M8 15h6'],
+  alignCenterX: ['M12 3v18', 'M6 7h12', 'M8 15h8'],
+  alignRight: ['M20 3v18', 'M6 7h10', 'M10 15h6'],
+  alignTop: ['M3 4h18', 'M7 8v10', 'M15 8v6'],
+  alignCenterY: ['M3 12h18', 'M7 6v12', 'M15 8v8'],
+  alignBottom: ['M3 20h18', 'M7 6v10', 'M15 10v6'],
+  distributeX: ['M4 4v16', 'M20 4v16', rect(10, 8, 4, 8)],
+  distributeY: ['M4 4h16', 'M4 20h16', rect(8, 10, 8, 4)],
+
+  // --------------------------------------------------------------- state --
+  eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', circle(12, 12, 3)],
+  eyeOff: ['M3 3l18 18', 'M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.8', 'M6.6 6.6C3.6 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6'],
+  lock: [rect(5, 11, 14, 10, 2), 'M8 11V7a4 4 0 0 1 8 0v4'],
+  unlock: [rect(5, 11, 14, 10, 2), 'M8 11V7a4 4 0 0 1 7.5-2'],
+  warning: ['M12 9v4', 'M12 17h.01', 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'],
+  info: [circle(12, 12, 9), 'M12 8h.01', 'M11 12h1v4h1'],
+  history: [circle(12, 12, 9), 'M12 7v5l3 2'],
+
+  // ------------------------------------------------- hardware and media --
+  chip: [rect(6, 6, 12, 12, 2), 'M9 2v4', 'M15 2v4', 'M9 18v4', 'M15 18v4', 'M2 9h4', 'M2 15h4', 'M18 9h4', 'M18 15h4'],
+  sdCard: ['M8 3h9l3 3v15H4V7z', 'M9 7v3', 'M12 7v3', 'M15 7v3'],
+  film: [rect(4, 5, 16, 14), 'M8 5v14', 'M16 5v14', 'M4 9h4', 'M4 15h4', 'M16 9h4', 'M16 15h4'],
+  video: [rect(3, 6, 13, 12, 2), 'm16 10 5-3v10l-5-3'],
+  sunDim: [circle(12, 12, 3), 'M12 5v1', 'M12 18v1', 'M5 12h1', 'M18 12h1'],
+  monitor: [rect(4, 5, 16, 11), 'M9 20h6', 'M12 16v4'],
+  sunBright: [circle(12, 12, 4), 'M12 2v2', 'M12 20v2', 'M2 12h2', 'M20 12h2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
 });

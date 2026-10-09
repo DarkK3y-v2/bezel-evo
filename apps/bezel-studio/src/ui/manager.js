@@ -20,13 +20,7 @@ const DRAG_THRESHOLD = 4;
 /** The order of the side toolbar. */
 const ACTIONS = Object.freeze(['move', 'copy', 'rename', 'preview', 'play', 'background', 'boot', 'associate', 'delete']);
 /** Icons of the manager's own actions (24x24, stroked). */
-export const GLYPHS = Object.freeze({
-  move: ['M4 12h14', 'M13 6l6 6-6 6'],
-  rename: ['M4 20h4L19 9l-4-4L4 16z', 'M13 7l4 4'],
-  link: ['M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1', 'M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1'],
-  sweep: ['M14 4l-5 9', 'M5 13h8l1 7H4z', 'M8 17v3', 'M11 17v3'],
-  box: ['M4 7h16v13H4z', 'M3 4h18v3H3z', 'M10 11h4'],
-});
+export const GLYPHS = Object.freeze({ move: ICONS.arrowRight, rename: ICONS.rename, link: ICONS.link, sweep: ICONS.sweep, box: ICONS.box });
 const ACTION_ICONS = Object.freeze({
   move: GLYPHS.move, copy: ICONS.copy, rename: GLYPHS.rename, preview: ICONS.film, play: ICONS.play, background: ICONS.film, boot: ICONS.power, associate: GLYPHS.link, delete: ICONS.trash,
 });
@@ -352,7 +346,7 @@ export function createManagerView({ t, locale, bridge, host }) {
     const capacity = medium === 'internal' ? data.internal : data.card;
     const id = `storage-${medium}-title`;
     columns[medium] = { buttons: {}, listbox: null, slot: null, count: null };
-    const head = el('div', { class: 'column-head' }, [el('h3', { id }, [icon(medium === 'sd' ? ICONS.card : ICONS.chip, 16), t(`storage.medium.${medium}`)])]);
+    const head = el('div', { class: 'column-head' }, [el('h3', { id }, [icon(medium === 'sd' ? ICONS.sdCard : ICONS.chip, 16), t(`storage.medium.${medium}`)])]);
     const children = [head];
     if (!capacity) {
       children.push(el('p', { class: 'empty-note', text: t('storage.noCard') }));

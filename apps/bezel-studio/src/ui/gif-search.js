@@ -236,7 +236,7 @@ export function createGifSearch({ t, bridge, locale, onCollected = () => {} }) {
       ui.trigger.submit(parts.query.value);
     } }, [
       parts.kinds,
-      el('label', { class: 'search gif-query' }, [parts.query]),
+      el('label', { class: 'search-box gif-query' }, [parts.query]),
       el('label', { class: 'switch gif-explicit' }, [
         parts.explicit,
         el('span', { class: 'track', 'aria-hidden': 'true' }, [el('span', { class: 'thumb' })]),
