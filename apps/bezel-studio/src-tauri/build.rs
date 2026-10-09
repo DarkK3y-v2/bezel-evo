@@ -24,6 +24,7 @@ const COMMANDS: &[&str] = &[
     "release_screen",
     "save_theme",
     "list_themes",
+    "duplicate_theme",
     "open_theme",
     "new_theme",
     "import_theme",

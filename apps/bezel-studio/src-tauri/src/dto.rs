@@ -428,6 +428,9 @@ pub struct ThemeEntryDto {
     pub diagonal_hundredths: Option<u16>,
     /// Changes whenever its files do: the UI asks for its thumbnail again.
     pub revision: String,
+    /// When its files last changed, milliseconds since the Unix epoch;
+    /// `None` when the system keeps no such time.
+    pub modified_ms: Option<u64>,
 }
 
 impl From<&ThemeEntry> for ThemeEntryDto {
@@ -445,6 +448,7 @@ impl From<&ThemeEntry> for ThemeEntryDto {
             diagonal_hundredths: made_for(&models),
             models: models.iter().map(|m| m.id.0).collect(),
             revision: format!("{:016x}", e.revision),
+            modified_ms: e.modified_ms,
         }
     }
 }

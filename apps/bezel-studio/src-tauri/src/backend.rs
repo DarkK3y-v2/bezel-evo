@@ -916,6 +916,30 @@ impl Backend {
             .collect()
     }
 
+    /// Copies the library theme at `location` into the user's folder as a
+    /// new theme named `name` (the UI's translated "Copy of …"), assets and
+    /// all, and lists the copy. The original is only read: a bundled theme
+    /// is never written. `notInLibrary` for a theme the library does not
+    /// allow, `invalidInput` for an empty name.
+    pub fn duplicate_theme(&self, location: &str, name: &str) -> UiResult<ThemeEntryDto> {
+        let source = ThemeLocation(location.to_string());
+        if !self.library.allows(&source) {
+            return Err(UiError::new(ErrorCode::NotInLibrary).arg("location", source.0));
+        }
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(UiError::new(ErrorCode::InvalidInput).arg("detail", "an empty theme name"));
+        }
+        let (mut theme, assets) = self.store.load(&source)?;
+        theme.name = name.to_string();
+        let copy = self.library.new_location(name);
+        self.store.save(&copy, &theme, &assets)?;
+        self.library
+            .entry(&copy)
+            .map(|entry| ThemeEntryDto::from(&entry))
+            .ok_or_else(|| UiError::new(ErrorCode::ThemeFile).arg("detail", copy.0))
+    }
+
     /// The thumbnail of a library theme as a PNG `data:` URL, drawn at
     /// `time` when it is not kept yet, outside the session's lock. `None`
     /// when the theme cannot be drawn: the gallery shows its placeholder.
@@ -1983,6 +2007,73 @@ mod tests {
         );
         f.backend.set_live(false, None, TIME).unwrap();
         assert_eq!(f.backend.sample().live_fps, None, "nothing live");
+    }
+
+    #[test]
+    fn duplicating_copies_into_the_user_folder_and_never_writes_a_bundled_theme() {
+        let mut f = fixture("duplicate");
+        let bundled = f.root.join("bundled");
+        let shipped = ThemeLocation(bundled.join("Aurora.bezeltheme").display().to_string());
+        let mut theme = Theme::blank("Aurora", Size::new(480, 1920), Orientation::Landscape);
+        theme.refresh_seconds = 2.0;
+        FsThemeStore
+            .save(&shipped, &theme, &Default::default())
+            .unwrap();
+        f.backend.library = ThemeLibrary::new(f.root.join("themes"), vec![bundled]);
+        let before = (
+            crate::library::revision(&shipped),
+            std::fs::read(&shipped.0).unwrap(),
+        );
+        let copy = f
+            .backend
+            .duplicate_theme(&shipped.0, " Copia di Aurora ")
+            .unwrap();
+        assert_eq!(copy.name, "Copia di Aurora");
+        assert!(!copy.bundled);
+        assert!(copy.modified_ms.is_some());
+        assert!(
+            Path::new(&copy.location).starts_with(f.root.join("themes")),
+            "{}",
+            copy.location
+        );
+        assert_ne!(copy.location, shipped.0);
+        let after = (
+            crate::library::revision(&shipped),
+            std::fs::read(&shipped.0).unwrap(),
+        );
+        assert_eq!(before, after, "the bundled theme is untouched");
+        let opened = f.backend.open(&copy.location).unwrap();
+        assert_eq!(
+            (opened.name.as_str(), opened.refresh_seconds),
+            ("Copia di Aurora", 2.0)
+        );
+        let again = f
+            .backend
+            .duplicate_theme(&shipped.0, "Copia di Aurora")
+            .unwrap();
+        assert_ne!(again.location, copy.location, "a free name each time");
+        assert_eq!(f.backend.themes().len(), 3);
+        let json = serde_json::to_value(&copy).unwrap();
+        assert!(json["modifiedMs"].is_u64());
+        let elsewhere = f.root.join("Desktop").join("x.bezeltheme");
+        let refused = f
+            .backend
+            .duplicate_theme(&elsewhere.display().to_string(), "X")
+            .unwrap_err();
+        assert_eq!(refused.code(), "notInLibrary");
+        let empty = f.backend.duplicate_theme(&shipped.0, "  ").unwrap_err();
+        assert_eq!(empty.code(), "invalidInput");
+        let missing = bundled_missing(&f);
+        assert!(f.backend.duplicate_theme(&missing, "M").is_err());
+    }
+
+    /// A location inside the bundled folder where no theme is.
+    fn bundled_missing(f: &Fixture) -> String {
+        f.root
+            .join("bundled")
+            .join("gone.bezeltheme")
+            .display()
+            .to_string()
     }
 
     #[test]

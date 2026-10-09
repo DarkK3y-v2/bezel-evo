@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEMO_AWAY_SAMPLES, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoElementSide, demoFits, demoIsolate, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
+import { DEMO_AWAY_SAMPLES, DEMO_DAY_S, DEMO_THEME_AGE_S, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoElementSide, demoFits, demoIsolate, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
 import { DEMO_ACTIVITY, DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY, DEMO_LIVE_FPS } from '../../src/demo-data.js';
 import { DEMO_GIF_OVERLAP, DEMO_GIF_PAGES, DEMO_GIF_PAGE_SIZE, DEMO_REFUSED_KEY, demoContentId, demoGifPage, demoGifSlug } from '../../src/demo-gifs.js';
 
@@ -69,6 +69,33 @@ test('saving, listing and opening themes', async () => {
   assert.equal((await demo.openTheme('demo://Mine')).orientation, 'landscape');
   assert.equal((await demo.newTheme()).elements.length, 0);
   assert.equal((await demo.newTheme('k', 'Novo')).name, 'Novo');
+});
+
+test('library themes say when they changed and duplicate into new user themes', async () => {
+  let clock = 1000;
+  const demo = createDemoBackend('turing88', { now: () => clock });
+  const listed = await demo.listThemes();
+  assert.equal(listed[0].modifiedMs, (1000 - DEMO_THEME_AGE_S) * 1000, 'Demo: minutes ago');
+  assert.equal(listed[1].modifiedMs, (1000 - DEMO_THEME_AGE_S - DEMO_DAY_S) * 1000, 'the next a day earlier');
+  clock = 5000;
+  const copy = await demo.duplicateTheme('demo://Demo', ' Copia di Demo ');
+  assert.equal(copy.name, 'Copia di Demo');
+  assert.equal(copy.location, 'demo://Copia di Demo');
+  assert.equal(copy.bundled, false);
+  assert.equal(copy.modifiedMs, 5_000_000);
+  assert.deepEqual(copy.models, ['turing-8.8', 'turing-usb-8.8']);
+  const again = await demo.duplicateTheme('demo://Demo', 'Copia di Demo');
+  assert.equal(again.location, 'demo://Copia di Demo-2', 'a free name each time');
+  const all = await demo.listThemes();
+  assert.deepEqual(all.slice(-2), [copy, again]);
+  assert.equal(all[0].bundled, true, 'the original stays as it was');
+  assert.equal((await demo.openTheme(copy.location)).name, 'Copia di Demo');
+  await assert.rejects(demo.duplicateTheme('demo://nope', 'X'), (e) => e.code === 'notInLibrary');
+  await assert.rejects(demo.duplicateTheme('demo://Demo', '  '), (e) => e.code === 'invalidInput');
+  const { theme } = await demo.session();
+  clock = 6000;
+  await demo.saveTheme({ ...theme, name: 'Copia di Demo' }, false);
+  assert.equal((await demo.listThemes()).find((e) => e.location === copy.location).modifiedMs, 6_000_000, 'saving changes it');
 });
 
 test('library themes name their screens and have thumbnails, but one', async () => {

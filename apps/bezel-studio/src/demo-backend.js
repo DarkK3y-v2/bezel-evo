@@ -224,6 +224,11 @@ export function demoThumbnail(theme) {
   return `data:image/svg+xml,${encodeURIComponent(svg).replace(/\(/g, '%28').replace(/\)/g, '%29')}`;
 }
 
+/** How long before the demo started its own theme was last changed, seconds. */
+export const DEMO_THEME_AGE_S = 240;
+/** A day, seconds: the demo's library themes were changed a day apart. */
+export const DEMO_DAY_S = 86_400;
+
 /** Samples a live screen that dropped (the `flaky` scenario) reports it away. */
 export const DEMO_AWAY_SAMPLES = 2;
 
@@ -1155,10 +1160,16 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let autostart = false;
   // The library: `Demo` first (the session's), the other screens' themes,
   // then what the user saves; each with the revision of its "files".
+  // Each was last changed some days before the demo started, `Demo` minutes before.
+  const changedAgo = (index) => Math.round((now() - DEMO_THEME_AGE_S - index * DEMO_DAY_S) * 1000);
   const saved = [
-    { location: 'demo://Demo', theme: structuredClone(DEMO_THEME), bundled: true, revision: 1 },
-    ...DEMO_LIBRARY.map((entry) => ({ location: `demo://${entry.theme.name}`, theme: structuredClone(entry.theme), bundled: entry.bundled, drawable: entry.drawable !== false, revision: 1 })),
+    { location: 'demo://Demo', theme: structuredClone(DEMO_THEME), bundled: true, revision: 1, modifiedMs: changedAgo(0) },
+    ...DEMO_LIBRARY.map((entry, i) => ({ location: `demo://${entry.theme.name}`, theme: structuredClone(entry.theme), bundled: entry.bundled, drawable: entry.drawable !== false, revision: 1, modifiedMs: changedAgo(i + 1) })),
   ];
+  /** A library theme as `listThemes` lists it. */
+  const listed = (s) => ({
+    name: s.theme.name, location: s.location, canvas: { ...s.theme.canvas }, orientation: s.theme.orientation, bundled: s.bundled, ...demoFits(s.theme), revision: String(s.revision), modifiedMs: s.modifiedMs,
+  });
   // Which themes the Themes tab lists, as remembered.
   let themeFilter = { scope: null, axis: 'all' };
   const images = [];
@@ -1481,13 +1492,25 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       theme = structuredClone(next);
       const location = `demo://${next.name}`;
       const at = saved.findIndex((s) => s.location === location);
-      if (saveAs || at < 0) saved.push({ location, theme: structuredClone(next), bundled: false, revision: 1 });
-      else Object.assign(saved[at], { theme: structuredClone(next), drawable: true, revision: saved[at].revision + 1 });
+      const modifiedMs = Math.round(now() * 1000);
+      if (saveAs || at < 0) saved.push({ location, theme: structuredClone(next), bundled: false, revision: 1, modifiedMs });
+      else Object.assign(saved[at], { theme: structuredClone(next), drawable: true, revision: saved[at].revision + 1, modifiedMs });
       return Promise.resolve({ location });
     },
-    listThemes: () => Promise.resolve(saved.map((s) => ({
-      name: s.theme.name, location: s.location, canvas: { ...s.theme.canvas }, orientation: s.theme.orientation, bundled: s.bundled, ...demoFits(s.theme), revision: String(s.revision),
-    }))),
+    listThemes: () => Promise.resolve(saved.map(listed)),
+    /** Copies a library theme as a new user theme named `name`, like `duplicate_theme`. */
+    duplicateTheme: (location, name) => {
+      const found = saved.find((s) => s.location === location);
+      if (!found) return Promise.reject(Object.assign(new Error(`${location} is not in the theme library; import it instead`), { code: 'notInLibrary', args: { location } }));
+      const trimmed = String(name ?? '').trim();
+      if (!trimmed) return Promise.reject(Object.assign(new Error('invalid input: an empty theme name'), { code: 'invalidInput', args: { detail: 'an empty theme name' } }));
+      const free = (n) => `demo://${trimmed}${n === 1 ? '' : `-${n}`}`;
+      let n = 1;
+      while (saved.some((s) => s.location === free(n))) n += 1;
+      const copy = { location: free(n), theme: { ...structuredClone(found.theme), name: trimmed }, bundled: false, drawable: found.drawable, revision: 1, modifiedMs: Math.round(now() * 1000) };
+      saved.push(copy);
+      return Promise.resolve(listed(copy));
+    },
     /** A library theme's thumbnail; `null` for one that cannot be drawn. */
     themeThumbnail: (location) => {
       const found = saved.find((s) => s.location === location);

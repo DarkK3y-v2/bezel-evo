@@ -339,6 +339,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::release_screen,
             commands::save_theme,
             commands::list_themes,
+            commands::duplicate_theme,
             commands::open_theme,
             commands::new_theme,
             commands::import_theme,

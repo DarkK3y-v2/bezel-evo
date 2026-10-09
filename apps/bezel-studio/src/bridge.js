@@ -268,6 +268,11 @@ export const PROGRESS_EVENT = 'storage-progress';
  */
 
 /**
+ * @typedef {{
+ *   name: string, location: string, canvas: {width: number, height: number},
+ *   orientation: 'portrait'|'reverse-portrait'|'landscape'|'reverse-landscape', bundled: boolean,
+ *   models: string[], diagonalHundredths: number|null, revision: string, modifiedMs: number|null,
+ * }} ThemeEntryDto A theme of the library (see `listThemes`).
  * @typedef {{source: string, title: string, artist: string, playing: boolean}} MediaSessionDto
  * @typedef {{available: boolean, foreground: string|null, applications: string[], media: MediaSessionDto[]}} ActivityDto
  * @typedef {{
@@ -444,7 +449,24 @@ function tauriBridge(invoke, tauri = {}) {
     release: (screen) => invoke('release_screen', { screen }),
     restartScreen: (screen) => invoke('restart_screen', { screen }),
     saveTheme: (theme, saveAs) => invoke('save_theme', { theme, saveAs }),
+    /**
+     * The theme library: `list_themes`. Each entry is `{name, location,
+     * canvas, orientation, bundled, models, diagonalHundredths, revision,
+     * modifiedMs}`; `modifiedMs` is when its files last changed (ms since
+     * the epoch, the folder's or its newest file's for a theme folder), or
+     * `null` when the system keeps no such time.
+     * @returns {Promise<ThemeEntryDto[]>}
+     */
     listThemes: () => invoke('list_themes'),
+    /**
+     * Copies a library theme into the user's folder as a new theme named
+     * `name` (the UI's translated "Copy of …"): `duplicate_theme {location,
+     * name}`. The original is only read (a bundled theme is never written).
+     * Answers the copy's entry, like `listThemes`'. Rejects `notInLibrary`
+     * for a theme the library does not hold, `invalidInput` for an empty name.
+     * @returns {Promise<ThemeEntryDto>}
+     */
+    duplicateTheme: (location, name) => invoke('duplicate_theme', { location, name }),
     openTheme: (location) => invoke('open_theme', { location }),
     newTheme: (screen, name, orientation) => invoke('new_theme', { screen, name, orientation }),
     importTheme: () => invoke('import_theme'),

@@ -26,6 +26,7 @@
     "allow-release-screen",
     "allow-save-theme",
     "allow-list-themes",
+    "allow-duplicate-theme",
     "allow-open-theme",
     "allow-new-theme",
     "allow-import-theme",

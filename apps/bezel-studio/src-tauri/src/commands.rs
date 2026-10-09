@@ -337,6 +337,17 @@ pub async fn list_themes(state: State<'_, Shared>) -> UiResult<Vec<ThemeEntryDto
     blocking(&state, |b| Ok(b.themes())).await
 }
 
+/// Copies a library theme into the user's folder as a new theme named
+/// `name` (the UI translates "Copy of …"); a bundled theme is only read.
+#[tauri::command]
+pub async fn duplicate_theme(
+    state: State<'_, Shared>,
+    location: String,
+    name: String,
+) -> UiResult<ThemeEntryDto> {
+    blocking(&state, move |b| b.duplicate_theme(&location, &name)).await
+}
+
 /// The thumbnail of a library theme as a PNG `data:` URL, drawn off the
 /// session's lock when it is not kept yet; `None` when the theme cannot be
 /// drawn (the gallery shows its placeholder).
