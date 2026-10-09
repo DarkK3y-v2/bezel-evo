@@ -56,7 +56,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - shoot.mjs reutilizável: sobe os próprios servidores, roteia `fonts.googleapis/gstatic` para os woff2 locais e preenche os mockups com o `renderVals()` do DCLogic via `dc-shim` (`{{…}}`, `sc-for`, `sc-if`). Se algum artboard não renderizar, cai para estático e marca na saída. `e2e-slot.mjs` + `E2E_PORT` em `playwright.config.mjs`.
 - **Dependencies:** none
 - **Test:** G1 (static-guards, i18n, relative-time); `npm test` completo (specs divididas sem mudar asserções)
-- **Status:** pending
+- **Status:** completed
 
 #### T-3: Backend — preview isolado, contratos de dados, ícone de tray
 - **Specialist:** jdi-doer-bezel

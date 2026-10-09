@@ -1,2 +1,7 @@
 gap/mock/
 gap/app/
+# scripts/fidelity/shoot.mjs output
+gap/dark/
+gap/light/
+gap/manifest.json
+gap/gallery/
