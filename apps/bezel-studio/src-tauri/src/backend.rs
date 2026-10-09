@@ -18,7 +18,7 @@ use bezel_core::domain::discovery::Screen;
 use bezel_core::domain::geometry::Orientation;
 use bezel_core::domain::screen::{Brightness, Confirm};
 use bezel_core::domain::sensor::{SensorKey, Wanted};
-use bezel_core::domain::theme::{Background, MIN_REFRESH_SECONDS, Theme};
+use bezel_core::domain::theme::{Background, ElementId, MIN_REFRESH_SECONDS, Theme};
 use bezel_core::ports::{
     DesktopModeHid, DeviceBus, ScreenConnector, ScreenLink, SensorSource, ThemeLocation, ThemeStore,
 };
@@ -33,6 +33,7 @@ use crate::dto::{
     ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto, ThemeEntryDto,
     ThemeFilterDto, VideoAutoDto,
 };
+use crate::element_preview::{fit_within, side_of};
 use crate::library::ThemeLibrary;
 use crate::media::{extension_of, is_animated_gif, kind_of, thumbnail_data_url};
 pub use crate::messages::UiResult;
@@ -845,6 +846,30 @@ impl Backend {
             );
         }
         Ok(bytes)
+    }
+
+    /// Takes the UI's theme and draws its element `element` on its own, as
+    /// the inspector previews it (D-2026-10-09-studio-redesign-fidelity-8):
+    /// [`frame_bytes`] of the element alone on a transparent canvas, its
+    /// longest side at most `max` ([`side_of`]), drawn by the session's
+    /// renderer from the last sample at `now`
+    /// ([`Studio::element_preview`]). `invalidInput` when the theme has no
+    /// such element.
+    pub fn render_element(
+        &self,
+        theme: &ThemeDto,
+        element: u32,
+        max: Option<u32>,
+        time: LocalTime,
+        now: Instant,
+        motion: Motion,
+    ) -> UiResult<Vec<u8>> {
+        let theme = theme_of(theme)?;
+        let mut studio = self.studio();
+        studio.set_theme(theme);
+        let (frame, change) = studio.element_preview(ElementId(element), time, now, motion)?;
+        drop(studio);
+        Ok(frame_bytes(&fit_within(frame, side_of(max)), change))
     }
 
     /// Takes the UI's theme and says what Auto turns its video background
@@ -1768,6 +1793,168 @@ mod tests {
                 .render(&bad, TIME, Instant::now(), Motion::Allowed)
                 .is_err()
         );
+    }
+
+    /// The element preview's pixels, from [`frame_bytes`].
+    fn element_pixels(f: &Fixture, theme: &Theme, id: u32, max: Option<u32>) -> UiResult<Frame> {
+        let bytes = f.backend.render_element(
+            &ThemeDto::from(theme),
+            id,
+            max,
+            TIME,
+            Instant::now(),
+            Motion::Reduced,
+        )?;
+        let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let height = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        assert_eq!(&bytes[8..12], &STILL.to_le_bytes(), "nothing moves");
+        Ok(Frame::from_rgba(Size::new(width, height), bytes[12..].to_vec()).unwrap())
+    }
+
+    /// How many pixels of `frame` are `color`.
+    fn count(frame: &Frame, color: Rgba) -> usize {
+        frame
+            .as_rgba()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| **p == [color.r, color.g, color.b, color.a])
+            .count()
+    }
+
+    fn landscape(elements: Vec<bezel_core::domain::theme::Element>) -> Theme {
+        let mut theme = Theme::blank("Parts", Size::new(480, 1920), Orientation::Landscape);
+        theme.background = Background::Color(Rgba::opaque(9, 9, 9));
+        theme.elements = elements;
+        theme
+    }
+
+    #[test]
+    fn an_element_preview_draws_only_that_element_on_transparency() {
+        use crate::element_preview::tests::shape;
+        use bezel_core::domain::theme::{BoxF, ElementKind, ShapeKind};
+        let (red, blue) = (Rgba::opaque(255, 0, 0), Rgba::opaque(0, 0, 255));
+        let mut ring = shape(1, BoxF::new(100.0, 100.0, 50.0, 40.0), red);
+        if let ElementKind::Shape { shape, .. } = &mut ring.kind {
+            *shape = ShapeKind::Ellipse;
+        }
+        let over = shape(2, BoxF::new(90.0, 90.0, 200.0, 200.0), blue);
+        let f = fixture("element-alone");
+        let theme = landscape(vec![ring.clone(), over]);
+        let frame = element_pixels(&f, &theme, 1, None).unwrap();
+        assert_eq!(frame.size(), Size::new(50, 40), "just the element's box");
+        assert_eq!(frame.pixel(25, 20), Some(red), "its own color");
+        assert_eq!(
+            frame.pixel(0, 0).map(|p| p.a),
+            Some(0),
+            "transparent around it"
+        );
+        assert_eq!(count(&frame, blue), 0, "the element above it is not drawn");
+        assert!(
+            !frame
+                .as_rgba()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|p| p[..3] == [9, 9, 9]),
+            "nor the theme's background"
+        );
+        // Its properties apply: another color, another size.
+        let mut green = ring.clone();
+        if let ElementKind::Shape { fill, .. } = &mut green.kind {
+            *fill = Some(bezel_core::domain::theme::Paint::solid(Rgba::opaque(
+                0, 255, 0,
+            )));
+        }
+        green.frame.width = 80.0;
+        let changed = element_pixels(&f, &landscape(vec![green]), 1, None).unwrap();
+        assert_eq!(changed.size(), Size::new(80, 40));
+        assert_eq!(changed.pixel(40, 20), Some(Rgba::opaque(0, 255, 0)));
+        assert_eq!(count(&changed, red), 0);
+        // At most `max` pixels on its longest side, never enlarged.
+        let small = element_pixels(&f, &theme, 1, Some(20)).unwrap();
+        assert_eq!(small.size(), Size::new(20, 16));
+        assert_eq!(small.pixel(10, 8), Some(red));
+        let err = element_pixels(&f, &theme, 7, None).unwrap_err();
+        assert_eq!(err.code(), "invalidInput");
+    }
+
+    #[test]
+    fn an_element_preview_shows_the_value_its_binding_reads() {
+        use bezel_core::domain::theme::{
+            Binding, BoxF, Direction, Element, ElementId, ElementKind, Paint,
+        };
+        let f = fixture("element-value");
+        f.backend.studio().sample().unwrap();
+        let fill = Rgba::opaque(0, 200, 0);
+        let bar = |max: f64| Element {
+            is_group: false,
+            group_parent: None,
+            card: None,
+            card_member: None,
+            id: ElementId(1),
+            name: "CPU".into(),
+            frame: BoxF::new(0.0, 0.0, 200.0, 10.0),
+            opacity: 1.0,
+            visible: true,
+            locked: false,
+            kind: ElementKind::Bar {
+                binding: Binding {
+                    key: SensorKey::new(bezel_core::domain::sensor::keys::CPU_TEMPERATURE).unwrap(),
+                    min: 0.0,
+                    max,
+                },
+                direction: Direction::LeftToRight,
+                fill: Paint::solid(fill),
+                track: None,
+                radius: 0.0,
+                segments: None,
+            },
+        };
+        let full = count(
+            &element_pixels(&f, &landscape(vec![bar(100.0)]), 1, None).unwrap(),
+            fill,
+        );
+        let tenth = count(
+            &element_pixels(&f, &landscape(vec![bar(1000.0)]), 1, None).unwrap(),
+            fill,
+        );
+        assert_eq!(full, 92 * 10, "46 °C of 100 fills 46 % of the bar");
+        assert!(tenth < full, "a wider range fills less: {tenth} < {full}");
+    }
+
+    #[test]
+    fn a_card_preview_shows_its_base_and_active_face_only() {
+        use crate::element_preview::tests::shape;
+        use bezel_core::domain::theme::{BoxF, Card, CardMember, ElementId};
+        let (base, a, b) = (
+            Rgba::opaque(40, 40, 40),
+            Rgba::opaque(255, 0, 0),
+            Rgba::opaque(0, 255, 0),
+        );
+        let mut card = shape(1, BoxF::new(10.0, 10.0, 100.0, 100.0), base);
+        card.card = Some(Card {
+            triggers: Vec::new(),
+            faces: vec!["A".into(), "B".into()],
+            active_face: 1,
+            rotation_seconds: Some(5),
+            transition: None,
+        });
+        let member = |id, face, color| {
+            let mut e = shape(id, BoxF::new(30.0, 30.0, 20.0, 20.0), color);
+            e.card_member = Some(CardMember {
+                parent: ElementId(1),
+                face: Some(face),
+            });
+            e
+        };
+        let f = fixture("element-card");
+        let theme = landscape(vec![card, member(2, 0, a), member(3, 1, b)]);
+        let frame = element_pixels(&f, &theme, 1, None).unwrap();
+        assert_eq!(frame.size(), Size::new(100, 100));
+        assert_eq!(frame.pixel(30, 30), Some(b), "the active face");
+        assert_eq!(count(&frame, a), 0, "not the other face");
+        assert_eq!(frame.pixel(5, 5), Some(base), "over the card's base");
     }
 
     #[test]

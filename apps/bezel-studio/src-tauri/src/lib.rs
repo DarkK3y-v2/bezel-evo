@@ -17,6 +17,7 @@ pub mod debug;
 mod deliveries;
 pub mod diag;
 pub mod dto;
+pub mod element_preview;
 pub mod gifs;
 pub mod library;
 pub mod manager;
@@ -329,6 +330,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::search_weather_cities,
             commands::editor_session,
             commands::render_preview,
+            commands::render_element_preview,
             commands::video_auto,
             commands::open_guide,
             commands::push_theme,

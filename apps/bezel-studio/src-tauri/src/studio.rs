@@ -75,7 +75,7 @@ use bezel_core::domain::poster::PosterSpec;
 use bezel_core::domain::reconnect::{Reconnect, worth_reconnecting};
 use bezel_core::domain::screen::Brightness;
 use bezel_core::domain::sensor::{Quantities, SensorInfo, Snapshot, Wanted};
-use bezel_core::domain::theme::{AssetRef, Background, Theme, refresh_interval};
+use bezel_core::domain::theme::{AssetRef, Background, ElementId, Theme, refresh_interval};
 use bezel_core::ports::{
     FrameRenderer, MediaLocation, MediaTranscoder, ScreenLink, SensorSource, ThemeLocation,
     ThemeStore, VideoFrames,
@@ -564,6 +564,10 @@ pub struct Studio {
     performance: crate::performance::Performance,
     shared_sensors: bezel_sensors::SharedSensors,
     shared_renderer: SharedRenderer,
+    /// The session's renderer for the inspector's previews of one element
+    /// ([`Self::element_preview`]): the same fonts and images, its own
+    /// scene, so they never touch the theme's card transitions.
+    element_renderer: SharedRenderer,
     serial_counter: Arc<std::sync::atomic::AtomicU64>,
     selected_screen: Option<String>,
     documents: BTreeMap<String, Studio>,
@@ -822,6 +826,7 @@ impl Studio {
         language: Language,
         theme: Theme,
     ) -> Self {
+        let element_renderer = SharedRenderer::document(Arc::clone(&shared_renderer.inner));
         let shared_renderer = SharedRenderer::document(shared_renderer.inner);
         let posters = posters_of(&theme);
         let mut runtime = ThemeRuntime::new(theme, BTreeMap::new(), language);
@@ -833,6 +838,7 @@ impl Studio {
             renderer: Box::new(shared_renderer.clone()),
             shared_sensors,
             shared_renderer,
+            element_renderer,
             serial_counter: Arc::new(std::sync::atomic::AtomicU64::new(1)),
             selected_screen: None,
             documents: BTreeMap::new(),
@@ -1363,6 +1369,30 @@ impl Studio {
             Playing::Video | Playing::Poster => None,
         };
         Ok((frame, sooner(gifs, again)))
+    }
+
+    /// The inspector's preview of the element `id` of the edited theme on
+    /// its own ([`crate::element_preview::isolate`]) at `now`, drawn by the
+    /// session's renderer from the last sample, and when it next changes
+    /// (`None`: nothing moves). `motion` lets the renderer animate as the
+    /// theme's preview does. `InvalidInput` when the theme has no such
+    /// element.
+    pub fn element_preview(
+        &mut self,
+        id: ElementId,
+        time: LocalTime,
+        now: Instant,
+        motion: Motion,
+    ) -> Result<(Frame, Option<Duration>)> {
+        let theme = crate::element_preview::isolate(self.runtime.theme(), id)
+            .ok_or_else(|| BezelError::InvalidInput(format!("no element {} in the theme", id.0)))?;
+        self.element_renderer
+            .set_motion(matches!(motion, Motion::Allowed));
+        let clock = self.clock(now);
+        let (frame, change) =
+            self.runtime
+                .preview_detached(&mut self.element_renderer, &theme, time, clock)?;
+        Ok((frame, change.map(|at| at.saturating_sub(clock))))
     }
 
     /// Pause card timers in preview and Live while a card's objects are edited.

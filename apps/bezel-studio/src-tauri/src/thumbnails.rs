@@ -24,6 +24,7 @@ use bezel_core::ports::{FrameRenderer, SensorSource, ThemeLocation, ThemeStore};
 use image::{DynamicImage, ImageFormat, RgbaImage};
 
 use crate::diag::{self, DiagCode};
+use crate::element_preview::fit_within;
 use crate::library::{Fnv, revision};
 use crate::texts::language_slug;
 
@@ -32,7 +33,7 @@ pub const THUMBNAIL_SIDE: u32 = 360;
 
 /// Changes whenever thumbnails are drawn differently: the older ones in the
 /// cache are then drawn again.
-const FORMAT: &[u8] = b"bezel-thumbnail-1";
+const FORMAT: &[u8] = b"bezel-thumbnail-2";
 
 /// Most samples taken to fill a theme's graphs before it is drawn.
 const MAX_SAMPLES: usize = 600;
@@ -71,18 +72,15 @@ fn hash_of(text: &str) -> u64 {
     Fnv::new().field(text.as_bytes()).finish()
 }
 
-/// `frame` reduced to fit [`THUMBNAIL_SIDE`] (never enlarged), as a PNG.
-fn reduce(frame: &Frame) -> Option<Vec<u8>> {
-    let size = frame.size();
-    let image = RgbaImage::from_raw(size.width, size.height, frame.as_rgba().to_vec())?;
-    let image = DynamicImage::ImageRgba8(image);
-    let small = if size.width.max(size.height) > THUMBNAIL_SIDE {
-        image.thumbnail(THUMBNAIL_SIDE, THUMBNAIL_SIDE)
-    } else {
-        image
-    };
+/// `frame` reduced to fit [`THUMBNAIL_SIDE`] (never enlarged,
+/// [`fit_within`]), as a PNG.
+fn reduce(frame: Frame) -> Option<Vec<u8>> {
+    let small = fit_within(frame, THUMBNAIL_SIDE);
+    let size = small.size();
+    let image = RgbaImage::from_raw(size.width, size.height, small.as_rgba().to_vec())?;
     let mut png = Cursor::new(Vec::new());
-    DynamicImage::ImageRgb8(small.to_rgb8())
+    DynamicImage::ImageRgba8(image)
+        .to_rgb8()
         .write_to(&mut png, ImageFormat::Png)
         .ok()?;
     Some(png.into_inner())
@@ -154,7 +152,7 @@ impl Thumbnails {
             .load(location)
             .and_then(|(theme, assets)| self.render(theme, assets, language, time));
         match drawn {
-            Ok(frame) => reduce(&frame),
+            Ok(frame) => reduce(frame),
             Err(_) => {
                 diag::report(DiagCode::NoThumbnail);
                 None
@@ -359,7 +357,7 @@ pub(crate) mod tests {
             .collect();
         assert_eq!(kept.len(), 1, "{kept:?}");
         // A hit reads the kept file: drawn again, it would not be this one.
-        let marker = reduce(&Frame::filled(
+        let marker = reduce(Frame::filled(
             Size::new(4, 4),
             bezel_core::domain::frame::Rgba::opaque(0, 0, 255),
         ))

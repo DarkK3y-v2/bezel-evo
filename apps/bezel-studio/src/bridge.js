@@ -339,6 +339,28 @@ function tauriBridge(invoke, tauri = {}) {
       return { ...frame, millis: performance.now() - started };
     },
     /**
+     * One element of the theme on its own, for the inspector's preview
+     * (D-2026-10-09-studio-redesign-fidelity-8): `render_element_preview
+     * {theme, element, max, motion}`. Only that element is drawn (a group
+     * with its children, a card with its base and the members of its active
+     * face, no rotation, trigger or transition), with every property as the
+     * theme has it and the values its sensors read now, on a transparent
+     * canvas just the size of its box, in the theme's orientation (no
+     * screen rotation), reduced so its longest side is at most `max` (16 to
+     * 2048; never enlarged). The answer is a `PreviewFrameDto` (the same
+     * 12-byte header as `render`), with `pixels` the same RGBA as `rgba`.
+     * Rejects `invalidInput` when the theme has no element `elementId`.
+     * @param {object} theme
+     * @param {number} elementId
+     * @param {{max?: number, motion?: boolean}} [options]
+     * @returns {Promise<PreviewFrameDto & {pixels: Uint8ClampedArray}>}
+     */
+    renderElement: async (theme, elementId, { max = 512, motion = true } = {}) => {
+      const started = performance.now();
+      const frame = parseFrame(await invoke('render_element_preview', { theme, element: elementId, max, motion }));
+      return { ...frame, pixels: frame.rgba, millis: performance.now() - started };
+    },
+    /**
      * What Auto resolves to for the theme's video background: `video_auto
      * {theme}` (the theme as edited, unsaved edits included). Rejects only
      * like every command (`{code, args, message}`, e.g. `invalidInput` for

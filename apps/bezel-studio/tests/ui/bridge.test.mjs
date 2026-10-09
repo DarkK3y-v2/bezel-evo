@@ -137,6 +137,25 @@ test('tauri mode maps every call to its command', async () => {
   assert.deepEqual(calls[12][1], { screen: 'k', name: 'Novo', orientation: 'landscape' });
 });
 
+test('tauri mode maps the redesign contracts to their commands', async () => {
+  const calls = [];
+  const invoke = async (cmd, args) => {
+    calls.push([cmd, args]);
+    return cmd === 'render_element_preview' ? frameBytes(2, 1, 40).buffer : null;
+  };
+  const bridge = createBridge({ ...page(), __TAURI__: { core: { invoke } } });
+  const theme = { name: 'x' };
+  const frame = await bridge.renderElement(theme, 7);
+  assert.deepEqual([frame.width, frame.height, frame.nextMs], [2, 1, 40]);
+  assert.equal(frame.pixels, frame.rgba, 'the same RGBA under both names');
+  assert.ok(frame.millis >= 0);
+  await bridge.renderElement(theme, 3, { max: 128, motion: false });
+  assert.deepEqual(calls, [
+    ['render_element_preview', { theme, element: 7, max: 512, motion: true }],
+    ['render_element_preview', { theme, element: 3, max: 128, motion: false }],
+  ]);
+});
+
 test('tauri mode maps the storage manager to its commands, with their arguments', async () => {
   const calls = [];
   const invoke = async (cmd, args) => {

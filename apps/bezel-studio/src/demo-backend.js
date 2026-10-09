@@ -119,6 +119,69 @@ export function demoNextChange(theme, ms) {
   return gif ? DEMO_GIF_FRAME_MS - (Math.floor(ms) % DEMO_GIF_FRAME_MS) : null;
 }
 
+/** The longest side of an element's preview when none is asked for, like the backend's. */
+export const DEMO_ELEMENT_SIDE = 512;
+/** The range the longest side asked for is clamped to, like the backend's. */
+export const DEMO_ELEMENT_SIDES = Object.freeze({ min: 16, max: 2048 });
+
+/** The longest side of an element's preview: `max` clamped (the default when absent). */
+export function demoElementSide(max) {
+  const side = Number.isFinite(max) ? max : DEMO_ELEMENT_SIDE;
+  return Math.min(DEMO_ELEMENT_SIDES.max, Math.max(DEMO_ELEMENT_SIDES.min, side));
+}
+
+/** Whole pixels from 1 to the largest side, like the backend's canvas of an element. */
+const elementPixels = (length) => (Number.isFinite(length) ? Math.min(DEMO_ELEMENT_SIDES.max, Math.max(1, Math.trunc(length))) : 1);
+
+/**
+ * `theme` cut down to the element `id`, like the backend's
+ * `element_preview::isolate`: only it and what it holds (a group's
+ * children, a card's base and the members of its active face), moved onto a
+ * transparent canvas just the size of their boxes (groups draw nothing; an
+ * empty group keeps its own box). The element itself shows even when hidden
+ * and leaves its group or card; what it holds keeps its own visibility. A
+ * card keeps its active face (no rotation, trigger or transition). `null`
+ * when the theme has no element `id`.
+ */
+export function demoIsolate(theme, id) {
+  const root = theme?.elements?.find((e) => e.id === id);
+  if (!root) return null;
+  const kept = new Set([id]);
+  const activeOf = (parent) => theme.elements.find((e) => e.id === parent)?.card?.activeFace ?? 0;
+  const owned = (e) => kept.has(e.groupParent) || (e.cardMember != null && kept.has(e.cardMember.parent)
+    && (e.cardMember.face == null || e.cardMember.face === activeOf(e.cardMember.parent)));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const e of theme.elements) if (!kept.has(e.id) && owned(e)) { kept.add(e.id); grew = true; }
+  }
+  const elements = theme.elements.filter((e) => kept.has(e.id)).map((e) => structuredClone(e));
+  const drawn = elements.filter((e) => !e.isGroup).map((e) => e.frame);
+  const boxes = drawn.length ? drawn : [root.frame];
+  const left = Math.floor(Math.min(...boxes.map((b) => b.x)));
+  const top = Math.floor(Math.min(...boxes.map((b) => b.y)));
+  const right = Math.ceil(Math.max(...boxes.map((b) => b.x + b.width)));
+  const bottom = Math.ceil(Math.max(...boxes.map((b) => b.y + b.height)));
+  for (const e of elements) {
+    e.frame = { ...e.frame, x: e.frame.x - left, y: e.frame.y - top };
+    if (e.card) {
+      delete e.card.triggers;
+      delete e.card.rotationSeconds;
+      delete e.card.transition;
+    }
+    if (e.id === id) {
+      delete e.groupParent;
+      delete e.cardMember;
+      e.visible = true;
+    }
+  }
+  return {
+    ...theme,
+    canvas: { width: elementPixels(right - left), height: elementPixels(bottom - top) },
+    background: { type: 'color', color: '#00000000' },
+    elements,
+  };
+}
+
 /**
  * The demo models a theme fits (its canvas is the panel turned the theme's
  * way up, like the core's rule) and the diagonal of the screen it was made
@@ -1350,6 +1413,25 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       const frame = renderApprox(playback.theme, t, video, transitions);
       const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, millis: performance.now() - started, nextMs: due.length ? Math.min(...due) : null });
+    },
+    /**
+     * One element of the theme on its own, like `render_element_preview` (see
+     * the bridge): drawn by the demo's renderer at the element's own values,
+     * reduced so its longest side is at most `max`. The backend's `motion`
+     * moves card transitions and videos, which an element alone never
+     * plays; a GIF still says when it changes.
+     */
+    renderElement: (next, elementId, { max = DEMO_ELEMENT_SIDE } = {}) => {
+      const started = performance.now();
+      const alone = demoIsolate(next, elementId);
+      if (!alone) {
+        const detail = `no element ${elementId} in the theme`;
+        return Promise.reject(Object.assign(new Error(`invalid input: ${detail}`), { code: 'invalidInput', args: { detail } }));
+      }
+      const t = now();
+      const { width, height } = alone.canvas;
+      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)));
+      return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: demoNextChange(alone, t * 1000), millis: performance.now() - started });
     },
     /** What Auto is for the theme's video background, like `video_auto`. */
     videoAuto: (next) => Promise.resolve(autoOf(next)),

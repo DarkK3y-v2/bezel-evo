@@ -15,6 +15,7 @@ const COMMANDS: &[&str] = &[
     "search_weather_cities",
     "editor_session",
     "render_preview",
+    "render_element_preview",
     "video_auto",
     "open_guide",
     "push_theme",

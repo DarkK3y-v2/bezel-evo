@@ -319,18 +319,21 @@ function drawCardTransition(ctx, theme, parent, transition, t) {
 
 /**
  * Renders a theme to RGBA pixels; `video` is the video background's picture
- * the demo backend chose (see `drawBackdrop`), if any.
+ * the demo backend chose (see `drawBackdrop`), if any. `scale` (at most 1)
+ * reduces the picture: the canvas shrinks, the theme is drawn the same.
  * @returns {{width:number, height:number, rgba: Uint8ClampedArray}}
  */
-export function renderApprox(theme, t, video = null, transitions = new Map()) {
-  const { width, height } = theme.canvas;
+export function renderApprox(theme, t, video = null, transitions = new Map(), scale = 1) {
+  const width = Math.max(1, Math.round(theme.canvas.width * scale));
+  const height = Math.max(1, Math.round(theme.canvas.height * scale));
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
   const device = theme.background.type === 'deviceVideo';
   const windows = theme.elements.some((e) => isShown(theme, e) && e.kind.type === 'shape' && e.kind.videoWindow);
   if (device) {
     ctx.fillStyle = windows ? color(theme.background.color) : '#1f2330';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, theme.canvas.width, theme.canvas.height);
   } else drawBackdrop(ctx, theme.background, theme.canvas, video);
   for (const e of theme.elements) {
     if (e.isGroup) continue;

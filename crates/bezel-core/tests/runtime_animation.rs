@@ -289,3 +289,29 @@ fn sharing_preview_keeps_the_animation_boundary_and_live_cadence() {
     assert!(!runtime.render_reused());
     assert_eq!(renderer.drawn, vec![ms(25), ms(40)]);
 }
+
+#[test]
+fn a_detached_preview_draws_another_theme_on_its_own_clock() {
+    let mut rt = runtime(vec![image(1, "assets/logo.png")]);
+    let mut r = Clockwork::new(ms(100));
+    rt.preview(&mut r, TIME, ms(5_000)).expect("preview");
+    let mut gif = image(2, "assets/spin.gif");
+    gif.frame = BoxF::new(0.0, 0.0, 64.0, 64.0);
+    let mut apart = theme(vec![gif]);
+    apart.canvas = Size::new(64, 64);
+    let (frame, change) = rt
+        .preview_detached(&mut r, &apart, TIME, ms(250))
+        .expect("detached");
+    assert_eq!(frame.size(), Size::new(64, 64), "the other theme's canvas");
+    assert_eq!(r.drawn.last(), Some(&ms(250)), "drawn at the time asked");
+    assert_eq!(change, Some(ms(300)), "its GIF's next frame");
+    assert!(r.asked.contains(&"assets/spin.gif".to_string()));
+    let (_, still) = rt
+        .preview_detached(&mut r, &theme(vec![]), TIME, ms(250))
+        .expect("still");
+    assert_eq!(still, None, "nothing moves");
+    // The running theme keeps its own clock and frames.
+    let (_, again) = rt.preview(&mut r, TIME, ms(5_000)).expect("preview");
+    assert_eq!(again, None);
+    assert_eq!(rt.theme().elements[0].id, ElementId(1));
+}
