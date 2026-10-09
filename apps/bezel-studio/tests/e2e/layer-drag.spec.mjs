@@ -26,12 +26,12 @@ test('layer row dragging reorders with Undo, cancellation, and outside-canvas de
   await rows.first().locator('.layer-name').click();
   await expect(page.locator('.sel-box')).toHaveCount(1);
   // Clicking controls outside the stage keeps the current object selected.
-  await page.locator('#copy').click();
+  await page.locator('#grid-toggle').click();
   await expect(page.locator('.sel-box')).toHaveCount(1);
   const stage = await page.locator('#stage-scroll').boundingBox();
   await page.mouse.click(stage.x + 8, stage.y + 8);
   await expect(page.locator('.sel-box')).toHaveCount(0);
-  await expect(page.locator('#copy')).toBeDisabled();
+  await expect(page.locator('#inspector h2').first()).toHaveText(t('inspector.theme'));
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
   await dragRow(page, rows.last(), rows.first());
   expect(await ids()).toEqual([original.at(-1), ...original.slice(0, -1)]);

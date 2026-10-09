@@ -43,7 +43,7 @@ test('the floating bars over the stage edit and zoom', async ({ page, t }) => {
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   const stage = page.locator('#stage');
-  for (const id of ['undo', 'redo', 'copy', 'paste', 'zoom-in', 'zoom-out', 'zoom-fit', 'orient-vertical', 'orient-horizontal', 'orient-turn']) {
+  for (const id of ['undo', 'redo', 'grid-toggle', 'zoom-in', 'zoom-out', 'zoom-fit', 'orient-vertical', 'orient-horizontal', 'orient-turn']) {
     await expect(stage.locator(`#${id}`)).toHaveCount(1);
   }
   await expect(page.locator('.topbar #undo')).toHaveCount(0);

@@ -2,7 +2,7 @@ import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 async function setup(page, t) {
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await page.locator('#copy').focus();
+  await page.locator('#grid-toggle').focus();
   await page.keyboard.press('Control+a'); await page.keyboard.press('Delete');
   await expect(page.locator('.sel-box')).toHaveCount(0);
 }
@@ -76,7 +76,7 @@ test('ordinary groups select by canvas, transform together and expose individual
   const space = await point(page, -20, 90); await page.mouse.click(space.x, space.y);
   const member = await point(page, 60, 140); await page.mouse.click(member.x, member.y);
   await expect(page.locator('#inspector h2')).toHaveText(t('widget.group'));
-  await page.locator('#copy').focus(); await page.keyboard.press('ArrowRight');
+  await page.locator('#grid-toggle').focus(); await page.keyboard.press('ArrowRight');
   await expect(page.locator('#inspector').getByRole('spinbutton', { name: t('inspector.x'), exact: true })).toHaveValue('41');
   await field(page, t, 'width', 420);
   // Members are independently editable via the tree.
@@ -84,7 +84,7 @@ test('ordinary groups select by canvas, transform together and expose individual
   await expect(page.locator('#inspector h2')).toHaveText(t('widget.shape'));
   await expect(page.locator('#inspector').getByRole('spinbutton', { name: t('inspector.width'), exact: true })).toHaveValue('160');
   await page.locator('[data-group-id] > .layer-list:not(.layer-children) > .layer-row .layer-name').click();
-  await page.locator('#copy').focus(); await page.keyboard.press('Control+Shift+g');
+  await page.locator('#grid-toggle').focus(); await page.keyboard.press('Control+Shift+g');
   await expect(page.locator('[data-group-id]')).toHaveCount(0);
   await expect(page.locator('.sel-box')).toHaveCount(2);
   await page.locator('#undo').click(); await expect(page.locator('[data-group-id]')).toHaveCount(1);

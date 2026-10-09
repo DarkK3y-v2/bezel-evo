@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, copyAndPaste } from './helpers.mjs';
 
 test('stored screen video becomes theme background with loop, windows and linear transparency', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -28,7 +28,7 @@ test('stored screen video becomes theme background with loop, windows and linear
   await detail.getByLabel(t('shape.fadeAngle'), { exact: true }).press('Tab');
   const start = detail.getByRole('slider', { name: new RegExp(t('shape.fadeStart')) });
   await start.fill('80'); await start.dispatchEvent('change');
-  await page.locator('#copy').click(); await page.locator('#paste').click();
+  await copyAndPaste(page);
   await expect(window).toBeChecked();
   await expect(detail.getByLabel(t('shape.fadeAngle'), { exact: true })).toHaveValue('90');
   await expect(start).toHaveValue('80');

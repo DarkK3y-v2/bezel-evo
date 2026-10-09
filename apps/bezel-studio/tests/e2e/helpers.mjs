@@ -70,3 +70,19 @@ export const clickAddWidget = (page, t, widget) => page.getByRole('button', { na
 
 /** Opens the inspector's tab named by the translation `key`. */
 export const openInspectorTab = (page, t, key) => page.locator('#inspector').getByRole('tab', { name: t(key), exact: true }).click();
+
+/** Copies and pastes the selection with the keyboard, from a neutral control of the stage's bar. */
+export async function copyAndPaste(page) {
+  await page.locator('#grid-toggle').focus();
+  await page.keyboard.press('Control+c');
+  await page.keyboard.press('Control+v');
+}
+
+/**
+ * Starts the page with the side panels at `widths` (`{library, inspector}`,
+ * CSS px), as remembered by panel-sizes.js: a spec that measures the canvas
+ * does not depend on the panels' starting widths.
+ */
+export async function setPanelWidths(page, widths) {
+  await page.addInitScript((saved) => localStorage.setItem('bezel.panelWidths', JSON.stringify(saved)), widths);
+}

@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, copyAndPaste } from './helpers.mjs';
 
 test('ring arc gradient, full-scale test, copy and Undo', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -18,7 +18,7 @@ test('ring arc gradient, full-scale test, copy and Undo', async ({ page, t }) =>
   await colorInput('ring.endColor').press('Tab');
   await detail.getByRole('slider', { name: new RegExp(t('ring.transition')) }).fill('25');
   await detail.getByRole('slider', { name: new RegExp(t('ring.transition')) }).dispatchEvent('change');
-  await page.locator('#copy').click(); await page.locator('#paste').click();
+  await copyAndPaste(page);
   await expect(checkbox).toBeChecked();
   await expect(colorInput('ring.startColor')).toHaveValue('#0000ff');
   await expect(colorInput('ring.endColor')).toHaveValue('#ff0000');

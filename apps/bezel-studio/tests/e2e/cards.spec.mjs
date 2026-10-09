@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, copyAndPaste } from './helpers.mjs';
 
 test('card faces, shared base, grouping and clipboard are editable', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -65,7 +65,7 @@ test('card faces, shared base, grouping and clipboard are editable', async ({ pa
   await expect(inView).toHaveAttribute('data-face', '2');
   await detail.getByRole('button', { name: t('card.previous'), exact: true }).click();
   await expect(inView).toHaveAttribute('data-face', '1');
-  await page.locator('#copy').click(); await page.locator('#paste').click();
+  await copyAndPaste(page);
   await expect(detail).toContainText(t('inspector.multi', { count: 6 }));
   await page.locator('#undo').click();
   await selectCard();

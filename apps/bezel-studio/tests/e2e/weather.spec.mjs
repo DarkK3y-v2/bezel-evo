@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, copyAndPaste } from './helpers.mjs';
 
 test('weather city selection, appearance options and Undo', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -22,7 +22,7 @@ test('weather city selection, appearance options and Undo', async ({ page, t }) 
   await detail.getByRole('checkbox', { name: t('weather.icon'), exact: true }).uncheck();
   await page.locator('#undo').click();
   await expect(detail.getByRole('checkbox', { name: t('weather.icon'), exact: true })).toBeChecked();
-  await page.locator('#copy').click(); await page.locator('#paste').click();
+  await copyAndPaste(page);
   await expect(detail).toContainText(t('weather.location', { city: 'Milano' }));
   await detail.getByRole('tab', { name: t('inspector.tab.data'), exact: true }).click();
   await expect(detail.getByRole('checkbox', { name: t('inspector.fahrenheit'), exact: true })).toBeChecked();
