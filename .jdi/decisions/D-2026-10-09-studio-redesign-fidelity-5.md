@@ -1,1 +1,1 @@
-D-2026-10-09-studio-redesign-fidelity-5 (2026-10-09): Connect vira estado de tela cheia como no mockup (hero, lista de dispositivos, passos, temas recentes com dados reais); "Chiudi" leva ao editor; o rótulo neutro de D-13 permanece.
+D-2026-10-09-studio-redesign-fidelity-5 (2026-10-09): Revista pelo usuário: o artboard Connect sai do escopo desta phase. O cartão Connect atual (T-7 da studio-redesign, rótulo neutro D-13) fica como está; nada de tela cheia, detecção `unbound`/WinUSB nem "Temi recenti" no Connect. Registrado em todos.

@@ -5,33 +5,33 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 
 ## Locked decisions (from CONTEXT.md)
 - Herdadas: D-4 (tokens, acento único), D-5 (claro+escuro), D-6 (fontes locais, CSP), D-7 (i18n, "Card"), D-8 (SVG inline, a11y), D-10 (reiniciar = só Libre), D-13. D-9 substituída.
-- fidelity-1 paridade por artboard (DOM/ids podem mudar, specs sem enfraquecer) · -2 nada visual omitido · -3 todas as features do mockup com dados reais (exclusões: "Prova senza schermo", "attiva ora", udev one-click, reinício além do Libre) · -4 shoot.mjs + galeria aprovada · -5 Connect tela cheia, "Chiudi" → editor · -6 topbar do mockup, Salva secundário discreto (Ctrl+S) · -7 painéis redimensionáveis · -8 preview = objeto isolado via comando Rust (+ demo) · -9 tipografia 13px/11px caps/Mono · -10 dot grid, legenda, "Adatta" · -11 ícone de tray dedicado 16/20/24/32 · -12 light+dark+axe, tokens, en/pt-BR/it · -13 truncamento em Layers.
+- fidelity-1 paridade por artboard (DOM/ids podem mudar, specs sem enfraquecer) · -2 nada visual omitido · -3 todas as features do mockup com dados reais (exclusões: "Prova senza schermo", "attiva ora", udev one-click, reinício além do Libre) · -4 shoot.mjs + galeria aprovada · -5 Connect FORA do escopo (cartão atual inalterado) · -6 topbar do mockup, Salva secundário discreto (Ctrl+S) · -7 painéis redimensionáveis · -8 preview = objeto isolado via comando Rust (+ demo) · -9 tipografia 13px/11px caps/Mono · -10 dot grid, legenda, "Adatta" · -11 ícone de tray dedicado 16/20/24/32 · -12 light+dark+axe, tokens, en/pt-BR/it · -13 truncamento em Layers.
 - Refinamento de forma (não de regra) pedido pelo orquestrador: os tokens de D-4 passam a viver em `src/styles/tokens.css` (único arquivo com `:root`), demais CSS por área.
 
 ## Desvios da estrutura sugerida (justificados)
-1. **Backend (E) sobe para a Wave 1, em paralelo à fundação (T-3).** Assim as quatro tasks de UI testam contra bridge + demo reais e não contra stubs: sem isso, o preview isolado, os chips de app do Player, o "fps" e os temas recentes só seriam testáveis na integração. O tempo não aumenta porque T-3 corre junto com T-1.
+1. **Backend (E) sobe para a Wave 1, em paralelo à fundação (T-3).** Assim as quatro tasks de UI testam contra bridge + demo reais e não contra stubs: sem isso, o preview isolado, os chips de app do Player, o "fps" só seriam testáveis na integração. O tempo não aumenta porque T-3 corre junto com T-1.
 2. **Fundação = 2 tasks sequenciais do mesmo agente** (T-1 é um refactor sem mudança visual e T-2 traz o visual da shell), para que cada commit seja verificável: T-1 tem de deixar screenshots e suíte idênticos.
-3. **O inspector vira 2 agentes (T-5 núcleo, T-7 Card), e Screen/Storage se junta a Connect/SensorStatus (T-6).** C tinha 8 artboards e seria o caminho crítico. Com o split ficam A=5, C1=5, C2=3 e BD=4, mais equilibrado. Assim também cabe no limite de 8 tasks.
+3. **O inspector vira 2 agentes (T-5 núcleo, T-7 Card), e Screen/Storage se junta a SensorStatus (T-6; Connect saiu do escopo por D-5 revista).** C tinha 8 artboards e seria o caminho crítico. Com o split ficam A=5, C1=5, C2=3 e BD=4, mais equilibrado. Assim também cabe no limite de 8 tasks.
 
 ## Contratos compartilhados (fixados aqui; T-1/T-3 implementam, wave 2 só consome)
 **Bridge (T-3; erros reaproveitam códigos existentes, `backend-codes.json` inalterado):**
 - `renderElement(theme, elementId, { max = 512, motion = true } = {})` → `invoke('render_element_preview', {theme, element, max, motion})` → `{width, height, nextMs, pixels, millis}` (mesmo header de 12 bytes de `render_preview`). Só o elemento (grupo: filhos; card: membros da face ativa) com as propriedades aplicadas. Fundo transparente, sem rotação da tela, lado maior ≤ `max`.
-- `listDevices()` + `unbound: [{usb:'vid:pid', name: string|null, reason:'noDriver'}]` (Windows: modelo do catálogo sem driver utilizável, via `nusb` DeviceInfo driver; outros SOs: `[]`).
+- ~~`listDevices().unbound`~~ removido (Connect fora do escopo, D-5 revista).
 - `sample()` + `liveFps: number|null` + `activity: {available, foreground: string|null, applications: string[], media: [{source, title, artist, playing}]}|null` (do `Snapshot`; sem capa).
 - `listThemes()`: cada entrada + `modifiedMs: number|null` · `duplicateTheme(location, name)` → `invoke('duplicate_theme', …)` → `ThemeEntryDto` (o nome vem traduzido da UI).
-- Demo: tudo acima em `?demo=turing88` (Spotify tocando, Chrome aberto, fps quando ao vivo, temas com datas) + novo `?demo=nodriver`.
+- Demo: tudo acima em `?demo=turing88` (Spotify tocando, Chrome aberto, fps quando ao vivo, temas com datas) (sem `?demo=nodriver`).
 
 **Host (T-1/T-2 em `app.js`; `app.js` fica congelado na wave 2):**
 - `createLibrary({…, bridge, actions: {…, duplicateTheme}})`, `library.updateReadings(readings, at)`.
 - `createInspector({…, bridge, host: {lastSample(), renderElement(id, opts)}})`; o Card fica em `ui/inspector-card.js` com `renderCardPanel(tab, ctx)` para as abas `faces|motion|triggers`.
 - `createScreenPanel({…})` (`ui/screen-panel.js`, extraído de library.js) com `render(screens, screen, live, brightness, desktopMode, extra)`.
-- `createConnect({t, bridge, notify, errorText, deviceLabel, host: {useScreen, openTheme, importTheme, openEditor, openScreenPanel}})`. `update({screens, desktopMode, unbound, screenError, denied, current})` devolve `{fullscreen}`, e app.js põe `body[data-view=connect|editor]`.
+- Connect: sem contrato novo; `ui/connect.js` e seus estilos/chaves ficam como estão (D-5 revista).
 - `createSensorStatus({t, bridge, notify, fail, root: #status-libre, onOpenSensors})` é dono do chip de sensores, do popover e do reinício. `update({health, sampleMillis, sampledAt, readings, catalog, error})`.
 
 **CSS** (`src/styles/`, linkados nesta ordem em index.html): `tokens` (W1, único com `:root`/hex) · `base` (reset, tipografia, primitivos, W1) · `shell` (W1) · `library` (T-4) · `inspector` (T-5) · `card` (T-7) · `screen` + `connect` (T-6). Nenhuma cor nova fora de tokens.css; variações via `color-mix()` de tokens; falta de token → anotar para T-8.
 **i18n:** os bases `en/pt-BR/it.js` ficam congelados após T-2. As chaves novas vão em `src/i18n/areas/{area}.js` (`{en, 'pt-BR', it}` lado a lado), mesclados em `i18n/index.js` com erro em chave duplicada. Prefixos: shell `shell.` · library `widgets. sensorsPanel. layersPanel. mediaPanel. themesPanel.` · inspector `insp.` · card `cardInsp.` · screen `screenPanel. storagePanel.` · connect `connectView. sensorChip.`. Para mudar texto existente: chave nova + troca de uso (T-8 remove órfãs).
 **Ícones/primitivos:** `ui/icons.js` (todos os ícones dos 17 artboards, colhidos em T-2), `ui/fields.js` e `ui/dom.js` são da W1 e ficam congelados. Ícone faltante → constante local no módulo da área.
-**Fidelidade:** `scripts/fidelity/shoot.mjs --area <a> [--artboard X] [--scheme dark|light]` usa receitas em `scripts/fidelity/recipes/{shell,library,inspector,card,screen,connect}.mjs` (uma por dono).
+**Fidelidade:** `scripts/fidelity/shoot.mjs --area <a> [--artboard X] [--scheme dark|light]` usa receitas em `scripts/fidelity/recipes/{shell,library,inspector,card,screen}.mjs` (uma por dono; Connect fora da galeria, D-5 revista).
 
 ## Guardrails (valem como acceptance de TODA task; citados como "G")
 - G1 `npm run test:unit` verde (linhas ≥ 80%; lógica nova pura fora de `src/ui/`, com teste).
@@ -59,10 +59,10 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 
 #### T-3: Backend — preview isolado, contratos de dados, ícone de tray
 - **Specialist:** jdi-doer-bezel
-- **Files modified:** `apps/bezel-studio/src-tauri/src/{commands,backend,studio,dto,lib,library,tray,performance}.rs`, `apps/bezel-studio/src-tauri/src/element_preview.rs` (novo), `apps/bezel-studio/src-tauri/capabilities/default.json` (se exigir), `crates/bezel-core/src/domain/discovery.rs`, `crates/bezel-devices/src/**` (enumeração `unbound`), `crates/bezel-cli/src/light_tray.rs`, `apps/bezel-studio/scripts/build-icons.mjs`, `apps/bezel-studio/src-tauri/icons/tray-{16,20,24,32}.png`, `apps/bezel-studio/src/{bridge,demo-backend,demo-data,demo-render}.js`, `apps/bezel-studio/tests/ui/{bridge,demo-backend,app-icons}.test.mjs`
+- **Files modified:** `apps/bezel-studio/src-tauri/src/{commands,backend,studio,dto,lib,library,tray,performance}.rs`, `apps/bezel-studio/src-tauri/src/element_preview.rs` (novo), `apps/bezel-studio/src-tauri/capabilities/default.json` (se exigir), `crates/bezel-cli/src/light_tray.rs`, `apps/bezel-studio/scripts/build-icons.mjs`, `apps/bezel-studio/src-tauri/icons/tray-{16,20,24,32}.png`, `apps/bezel-studio/src/{bridge,demo-backend,demo-data,demo-render}.js`, `apps/bezel-studio/tests/ui/{bridge,demo-backend,app-icons}.test.mjs`
 - **Acceptance:**
   - `render_element_preview` + `renderElement` conforme contrato. Testes Rust: (a) pixels fora do elemento transparentes e um elemento sobreposto ausente; (b) mudar cor/tamanho/valor muda o resultado; card renderiza só a face ativa. O demo tem o mesmo comportamento, com teste em `demo-backend.test`.
-  - `unbound`, `liveFps`, `activity`, `modifiedMs` e `duplicate_theme` com testes Rust (classificação `unbound` como função pura com enumerador injetado; duplicar nunca escreve em tema bundled) e demo equivalente (`?demo=nodriver`); `bridge.test` cobre os nomes/args de invoke.
+  - `liveFps`, `activity`, `modifiedMs` e `duplicate_theme` com testes Rust (duplicar nunca escreve em tema bundled) e demo equivalente; `bridge.test` cobre os nomes/args de invoke.
   - `build-icons.mjs` gera o tray dedicado (matriz simplificada, legível em barra clara e escura). `app-icons.test` confere 16/20/24/32 px e que `light_tray.rs` e `tray.rs` referenciam o novo asset. `cargo test --workspace`, `clippy -D warnings`, `fmt --check` e `llvm-cov ≥ 80%` verdes.
 - **Dependencies:** none
 - **Test:** `cargo test/clippy/fmt/llvm-cov --workspace`; G1
@@ -105,12 +105,12 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Test:** G1, G2, G3
 - **Status:** pending
 
-#### T-6 (B+D): Screen, Storage, Connect em tela cheia, SensorStatus
+#### T-6 (B+D): Screen, Storage, SensorStatus (Connect fora do escopo)
 - **Specialist:** jdi-doer-bezel
-- **Files modified:** `src/ui/{screen-panel,storage,manager,standby,udev,connect,sensor-status}.js`, `src/{storage-breakdown,recent-themes}.js` (novos, puros), `src/{standby,storage-manager,libre-status}.js`, `src/styles/{screen,connect}.css`, `src/i18n/areas/{screen,connect}.js`, `scripts/fidelity/recipes/{screen,connect}.mjs`, `tests/ui/{storage,storage-manager,standby,libre-status,storage-breakdown,recent-themes}.test.mjs`, `tests/e2e/{storage,storage-manager,standby,connect,libre,scenarios-screen,features-016-screen}.spec.mjs`
+- **Files modified:** `src/ui/{screen-panel,storage,manager,standby,udev,sensor-status}.js`, `src/storage-breakdown.js` (novos, puros), `src/{standby,storage-manager,libre-status}.js`, `src/styles/{screen,connect}.css`, `src/i18n/areas/{screen,connect}.js`, `scripts/fidelity/recipes/screen.mjs`, `tests/ui/{storage,storage-manager,standby,libre-status,storage-breakdown}.test.mjs`, `tests/e2e/{storage,storage-manager,standby,libre,scenarios-screen,features-016-screen}.spec.mjs`
 - **Acceptance:**
-  - G1–G8 nos artboards Screen, Storage, Connect, SensorStatus. Storage: cartões interna/SD, barra por tipo (Video/Immagini/Altro somados de `managerOverview.files`), slot "All'accensione" com o arquivo `protected==='boot'`, chips Tutti/SD/Interna. Screen: card do dispositivo com porta, W×H e protocolo mono.
-  - Connect (D-5): tela cheia via `{fullscreen}`, com hero "PASSO 1 DI 2", lista com spinner e "USB · seriale · HID", linhas reais (incluindo `unbound` → "Come risolvere" com `udev.js`/guia), "Usa questo schermo" (`useScreen`), 3 passos, "Temi recenti" de `listThemes().modifiedMs` (abre o tema) e "Chiudi" → editor. SensorStatus: 4 estados do chip (ok com ms, âmbar com N faltando, vermelho com reinício direto, girando), popover com linha por hardware (valor + fonte), "ultima lettura N s fa", Escape devolve o foco.
+  - G1–G8 nos artboards Screen, Storage, SensorStatus. NÃO tocar em `ui/connect.js`, no cartão Connect nem em `connect.spec` (D-5 revista). Storage: cartões interna/SD, barra por tipo (Video/Immagini/Altro somados de `managerOverview.files`), slot "All'accensione" com o arquivo `protected==='boot'`, chips Tutti/SD/Interna. Screen: card do dispositivo com porta, W×H e protocolo mono.
+  - SensorStatus: 4 estados do chip (ok com ms, âmbar com N faltando, vermelho com reinício direto, girando), popover com linha por hardware (valor + fonte), "ultima lettura N s fa", Escape devolve o foco.
   - Regressão read-only: `shell`, `scenarios-shell`, `live-screen-controls`, `device-label-020`, `multi-screen`.
 - **Dependencies:** T-2
 - **Test:** G1, G2, G3
@@ -145,7 +145,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - Arquivos congelados na Wave 2 (sem dono): `app.js`, `bridge.js`, `demo-*.js`, `i18n/{index,en,pt-BR,it}.js`, `styles/{tokens,base,shell}.css`, `ui/{fields,icons,dom,canvas,object-menu,dialog,dragdrop,video-preview}.js`, `editor/{widgets,geometry,snap,background,video-framing}.js`, `e2e/helpers.mjs`, `playwright.config.mjs`, Rust. Se uma mudança neles for inevitável, o agente anota o patch exato no seu bloco do SUMMARY e a T-8 aplica.
 
 ## Files modified (all tasks)
-- `apps/bezel-studio/src/{index.html,app.js,bridge.js,demo-backend.js,demo-data.js,demo-render.js,relative-time.js,panel-sizes.js,library-model.js,element-preview.js,storage-breakdown.js,recent-themes.js,card-rules.js,inspector-tabs.js,theme-filter.js,collection.js,standby.js,storage-manager.js,libre-status.js}`
+- `apps/bezel-studio/src/{index.html,app.js,bridge.js,demo-backend.js,demo-data.js,demo-render.js,relative-time.js,panel-sizes.js,library-model.js,element-preview.js,storage-breakdown.js,card-rules.js,inspector-tabs.js,theme-filter.js,collection.js,standby.js,storage-manager.js,libre-status.js}`
 - `apps/bezel-studio/src/styles/*.css`, `src/i18n/{index,en,pt-BR,it}.js`, `src/i18n/areas/*.js`, `src/editor/{layers,store,cards,card-motion,card-timer}.js`
 - `apps/bezel-studio/src/ui/{library,inspector,inspector-card,screen-panel,themes-dialog,sensor-status,connect,storage,manager,standby,udev,collection,icon-picker,gif-search,layer-drag,canvas,object-menu,fields,icons,dom}.js`
 - `apps/bezel-studio/tests/ui/*.test.mjs` e `tests/e2e/*.spec.mjs` (listados por task), `playwright.config.mjs`, `scripts/{e2e-slot,build-icons}.mjs`, `scripts/fidelity/**`
@@ -155,5 +155,5 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - Unit + guardas + paridade/prefixo i18n: `npm run test:unit` (linhas ≥ 80%; `src/ui/**`, `app.js` e `demo-render.js` fora da cobertura)
 - E2E + axe (light-pt, dark-pt, light-en, dark-en): `npm test`; nas worktrees, `node scripts/e2e-slot.mjs <specs>`
 - Rust: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --check`, `cargo llvm-cov --workspace` (≥ 80%)
-- Manual: galeria (T-8); WebView2 fontes (T-2); tray em barra clara/escura e `unbound` com tela real (T-3/T-8, hardware)
+- Manual: galeria (T-8); WebView2 fontes (T-2); tray em barra clara/escura (T-3/T-8)
 - Minimum coverage: 80% (PROJECT.md)

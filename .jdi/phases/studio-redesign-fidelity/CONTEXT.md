@@ -11,7 +11,7 @@ Substituída: D-9 (não se aplica a visuais; features do mockup agora são imple
 - D-...-fidelity-2: nenhum elemento visual omitido (ícones, miniaturas, rótulos, cabeçalhos, contagens, valores mono, ilustrações, dicas).
 - D-...-fidelity-3: implementar TODAS as features do mockup omitidas antes, com dados reais do bridge e backend novo onde preciso. Excluídas (todos): "Prova senza schermo", badge "attiva ora", udev one-click, reinício de fontes de sensor além do Libre.
 - D-...-fidelity-4: doers comparam mockup × app com gap/shoot.mjs (extensível); galeria lado a lado ao fim, aprovada pelo usuário.
-- D-...-fidelity-5: Connect em tela cheia (hero, dispositivos, passos, temas recentes reais); "Chiudi" vai ao editor.
+- D-...-fidelity-5 (revista): Connect FORA do escopo; o cartão atual não muda (ver todos).
 - D-...-fidelity-6: topbar do mockup (breadcrumb, "Non salvato", versão, chip da tela, "In diretta" verde); Salva continua visível (Ctrl+S) como botão secundário discreto, não laranja.
 - D-...-fidelity-7: painéis laterais redimensionáveis (separator com teclado/aria, mín/máx, duplo clique reseta, persistido).
 - D-...-fidelity-8: preview do inspector = objeto sozinho via novo comando Rust/Tauri (+ equivalente no demo).
@@ -69,4 +69,4 @@ Substituída: D-9 (não se aplica a visuais; features do mockup agora são imple
 - Para o planner (galeria): os mockups renderizam sem runtime DC e `{{…}}` aparece literal. Sugestão: a galeria lê valores de exemplo do script DCLogic de cada artboard e os substitui antes do screenshot; se inviável, aceitar renderização estática (layout vale como referência) e anotar na página.
 - Painéis laterais: escala do canvas e seleção de workspace nos e2e dependem das larguras; fixar largura padrão nos specs.
 - Preview isolado exige comando Tauri novo + equivalente no backend demo (D-8).
-- Gates ao fim de cada wave; itens do GAPS.md (Shell, Widget, Inspector, Card, Livelli, Connect, outros painéis, tray) mapeiam para waves.
+- Gates ao fim de cada wave; itens do GAPS.md (Shell, Widget, Inspector, Card, Livelli, outros painéis (Connect fora do escopo), tray) mapeiam para waves.
