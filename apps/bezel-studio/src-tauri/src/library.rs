@@ -35,6 +35,9 @@ pub struct ThemeEntry {
     pub bundled: bool,
     /// What its files are now ([`revision`]).
     pub revision: u64,
+    /// When its files last changed, milliseconds since the Unix epoch
+    /// ([`modified_ms`]).
+    pub modified_ms: Option<u64>,
 }
 
 /// The catalog models whose panel `theme` fits: its canvas is the panel
@@ -145,6 +148,46 @@ pub fn revision(location: &ThemeLocation) -> Option<u64> {
     Some(hash.finish())
 }
 
+/// When the files of the theme at `location` last changed, milliseconds
+/// since the Unix epoch: the file's modification time, or the latest of a
+/// theme folder's and of its files'. `None` when nothing is there or the
+/// system keeps no such time.
+pub fn modified_ms(location: &ThemeLocation) -> Option<u64> {
+    let root = Path::new(&location.0);
+    let meta = std::fs::metadata(root).ok()?;
+    let mut paths = Vec::new();
+    if meta.is_dir() {
+        files_in(root, 0, &mut paths);
+    }
+    let latest = paths
+        .iter()
+        .take(MAX_REVISION_FILES)
+        .filter_map(|path| std::fs::metadata(path).ok())
+        .chain(std::iter::once(meta))
+        .map(|meta| modified_nanos(&meta))
+        .max()
+        .filter(|nanos| *nanos > 0)?;
+    u64::try_from(latest / 1_000_000).ok()
+}
+
+/// The theme at `location` as the library lists it, `bundled` or not;
+/// `None` (reported) when its manifest cannot be read.
+fn entry_at(location: ThemeLocation, bundled: bool) -> Option<ThemeEntry> {
+    match load_manifest(&location) {
+        Ok(theme) => Some(ThemeEntry {
+            revision: revision(&location).unwrap_or_default(),
+            modified_ms: modified_ms(&location),
+            location,
+            theme,
+            bundled,
+        }),
+        Err(_) => {
+            diag::report(DiagCode::ThemeSkipped);
+            None
+        }
+    }
+}
+
 /// The folders themes are read from.
 #[derive(Debug, Clone)]
 pub struct ThemeLibrary {
@@ -234,6 +277,15 @@ impl ThemeLibrary {
         user
     }
 
+    /// The theme at `location` as [`Self::list`] lists it; `None` when the
+    /// library does not allow it or its manifest cannot be read.
+    pub fn entry(&self, location: &ThemeLocation) -> Option<ThemeEntry> {
+        if !self.allows(location) {
+            return None;
+        }
+        entry_at(location.clone(), self.is_bundled(location))
+    }
+
     /// The video every theme of the library plays as its background (the
     /// storage manager protects them, D-2026-09-30-storage-manager-9): read
     /// from their manifests alone.
@@ -307,21 +359,7 @@ fn scan(dir: &Path, bundled: bool) -> Vec<ThemeEntry> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| is_native(p))
-        .filter_map(|path| {
-            let location = ThemeLocation(path.display().to_string());
-            match load_manifest(&location) {
-                Ok(theme) => Some(ThemeEntry {
-                    revision: revision(&location).unwrap_or_default(),
-                    location,
-                    theme,
-                    bundled,
-                }),
-                Err(_) => {
-                    diag::report(DiagCode::ThemeSkipped);
-                    None
-                }
-            }
-        })
+        .filter_map(|path| entry_at(ThemeLocation(path.display().to_string()), bundled))
         .collect()
 }
 
@@ -489,12 +527,45 @@ mod tests {
         }
         let missing = ThemeLocation(root.join("missing").display().to_string());
         assert_eq!(revision(&missing), None);
+        assert_eq!(modified_ms(&missing), None);
         let listed = ThemeLibrary::new(root.clone(), vec![]).list();
         assert!(
             listed
                 .iter()
                 .all(|e| Some(e.revision) == revision(&e.location))
         );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_theme_says_when_its_files_last_changed() {
+        let root = scratch("modified");
+        let (user, bundled) = (root.join("user"), root.join("bundled"));
+        let before = std::time::SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+        let file = save(user.join("file.bezeltheme"), "File");
+        let folder = save(bundled.join("folder"), "Folder");
+        let library = ThemeLibrary::new(user.clone(), vec![bundled]);
+        for location in [&file, &folder] {
+            let at = modified_ms(location).unwrap();
+            assert!(
+                at + 2_000 >= before,
+                "{} at {at}, saved after {before}",
+                location.0
+            );
+            let entry = library.entry(location).unwrap();
+            assert_eq!(entry.modified_ms, Some(at));
+            assert_eq!(entry.revision, revision(location).unwrap());
+        }
+        assert!(library.entry(&folder).unwrap().bundled);
+        assert!(!library.entry(&file).unwrap().bundled);
+        let outside = ThemeLocation(root.join("elsewhere.bezeltheme").display().to_string());
+        assert_eq!(library.entry(&outside), None, "not in the library");
+        std::fs::write(user.join("broken.bezeltheme"), b"not a zip").unwrap();
+        let broken = ThemeLocation(user.join("broken.bezeltheme").display().to_string());
+        assert_eq!(library.entry(&broken), None, "unreadable");
         let _ = std::fs::remove_dir_all(&root);
     }
 

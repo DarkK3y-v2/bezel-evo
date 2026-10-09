@@ -61,6 +61,15 @@ async fn blocking<T: Send + 'static>(
         .map_err(UiError::system)?
 }
 
+/// The UI's `motion`: a video background plays and cards move unless it
+/// says `false` (motion reduced, or the window hidden).
+fn motion_of(motion: Option<bool>) -> Motion {
+    match motion {
+        Some(false) => Motion::Reduced,
+        Some(true) | None => Motion::Allowed,
+    }
+}
+
 /// A file chosen in the native open dialog, or `None` when cancelled.
 fn pick_file<R: Runtime>(
     app: &AppHandle<R>,
@@ -178,10 +187,7 @@ pub async fn render_preview(
     motion: Option<bool>,
     card_rotation: Option<bool>,
 ) -> UiResult<Response> {
-    let motion = match motion {
-        Some(false) => Motion::Reduced,
-        Some(true) | None => Motion::Allowed,
-    };
+    let motion = motion_of(motion);
     blocking(&state, move |b| {
         b.render_cards(
             &theme,
@@ -189,6 +195,33 @@ pub async fn render_preview(
             std::time::Instant::now(),
             motion,
             card_rotation.unwrap_or(true),
+        )
+        .map(Response::new)
+    })
+    .await
+}
+
+/// Draws one element of the UI's theme on its own for the inspector
+/// (D-2026-10-09-studio-redesign-fidelity-8): the same 12-byte header and
+/// RGBA as `render_preview`, the element alone on a transparent canvas, its
+/// longest side at most `max` (512 when absent, 16 to 2048).
+#[tauri::command]
+pub async fn render_element_preview(
+    state: State<'_, Shared>,
+    theme: ThemeDto,
+    element: u32,
+    max: Option<u32>,
+    motion: Option<bool>,
+) -> UiResult<Response> {
+    let motion = motion_of(motion);
+    blocking(&state, move |b| {
+        b.render_element(
+            &theme,
+            element,
+            max,
+            now(),
+            std::time::Instant::now(),
+            motion,
         )
         .map(Response::new)
     })
@@ -302,6 +335,17 @@ pub async fn save_theme<R: Runtime>(
 #[tauri::command]
 pub async fn list_themes(state: State<'_, Shared>) -> UiResult<Vec<ThemeEntryDto>> {
     blocking(&state, |b| Ok(b.themes())).await
+}
+
+/// Copies a library theme into the user's folder as a new theme named
+/// `name` (the UI translates "Copy of …"); a bundled theme is only read.
+#[tauri::command]
+pub async fn duplicate_theme(
+    state: State<'_, Shared>,
+    location: String,
+    name: String,
+) -> UiResult<ThemeEntryDto> {
+    blocking(&state, move |b| b.duplicate_theme(&location, &name)).await
 }
 
 /// The thumbnail of a library theme as a PNG `data:` URL, drawn off the
@@ -1157,5 +1201,12 @@ mod tests {
     fn only_a_confirmed_dialog_is_confirm_yes() {
         assert_eq!(confirm_of(true), Confirm::Yes);
         assert_eq!(confirm_of(false), Confirm::No);
+    }
+
+    #[test]
+    fn motion_is_allowed_unless_the_ui_says_false() {
+        assert_eq!(motion_of(None), Motion::Allowed);
+        assert_eq!(motion_of(Some(true)), Motion::Allowed);
+        assert_eq!(motion_of(Some(false)), Motion::Reduced);
     }
 }

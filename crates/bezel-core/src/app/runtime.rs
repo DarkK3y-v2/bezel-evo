@@ -185,7 +185,18 @@ impl Scene {
         animation: Duration,
         backdrop: Backdrop<'_>,
     ) -> Result<Frame> {
-        let context = RenderContext {
+        renderer.set_content_revision(self.revision);
+        renderer.render(theme, &self.assets, self.context(time, animation, backdrop))
+    }
+
+    /// What a frame drawn now depends on besides its theme.
+    fn context<'a>(
+        &'a self,
+        time: LocalTime,
+        animation: Duration,
+        backdrop: Backdrop<'a>,
+    ) -> RenderContext<'a> {
+        RenderContext {
             snapshot: &self.snapshot,
             histories: &self.histories,
             quantities: &self.quantities,
@@ -193,10 +204,34 @@ impl Scene {
             animation,
             language: self.language,
             backdrop,
-        };
-        renderer.set_content_revision(self.revision);
-        renderer.render(theme, &self.assets, context)
+        }
     }
+}
+
+/// The animated images `theme` shows whose frame times `timelines` does not
+/// hold yet.
+fn unknown_images(
+    theme: &Theme,
+    timelines: &BTreeMap<AssetRef, Option<Timeline>>,
+) -> Vec<AssetRef> {
+    theme
+        .shown_images()
+        .filter(|asset| !timelines.contains_key(*asset))
+        .cloned()
+        .collect()
+}
+
+/// When the images `theme` shows next change after `at`, by `timelines`.
+fn image_change(
+    theme: &Theme,
+    timelines: &BTreeMap<AssetRef, Option<Timeline>>,
+    at: Duration,
+) -> Option<Duration> {
+    theme
+        .shown_images()
+        .filter_map(|asset| timelines.get(asset)?.as_ref())
+        .map(|timeline| timeline.next_change(at))
+        .min()
 }
 
 /// Slowest refresh, seconds, until the caller sets its own
@@ -1028,14 +1063,15 @@ impl ThemeRuntime {
     /// When the visible animated images next change after `at`; `None`
     /// while none is shown. Known for the images the last render met.
     pub fn next_animation_change(&self, at: Duration) -> Option<Duration> {
-        self.card_timers
-            .theme(&self.scene.theme)
-            .shown_images()
-            .filter_map(|asset| self.timelines.get(asset)?.as_ref())
-            .map(|timeline| timeline.next_change(at))
-            .chain(self.renderer_change)
-            .chain(self.card_timers.next)
-            .min()
+        image_change(
+            &self.card_timers.theme(&self.scene.theme),
+            &self.timelines,
+            at,
+        )
+        .into_iter()
+        .chain(self.renderer_change)
+        .chain(self.card_timers.next)
+        .min()
     }
 
     /// An editor's preview at `now`: the frame over the poster with the
@@ -1081,16 +1117,38 @@ impl ThemeRuntime {
         Ok((frame, self.next_animation_change(now)))
     }
 
+    /// An editor's preview of `theme`, another theme than the one running
+    /// (one element of it set apart, say), drawn at `now` from this
+    /// runtime's last sample, graph histories, units, assets and language:
+    /// the frame and when its animated images or the renderer's transitions
+    /// next change (`None`: nothing moves). The runtime's own clock, cards
+    /// and recent frame stay as they are; the renderer gets no content
+    /// revision, so it reuses nothing drawn for the running theme.
+    pub fn preview_detached(
+        &mut self,
+        renderer: &mut dyn FrameRenderer,
+        theme: &Theme,
+        time: LocalTime,
+        now: Duration,
+    ) -> Result<(Frame, Option<Duration>)> {
+        for asset in unknown_images(theme, &self.timelines) {
+            let timeline = renderer.animation(&asset, &self.scene.assets);
+            self.timelines.insert(asset, timeline);
+        }
+        renderer.set_content_revision(0);
+        let context = self.scene.context(time, now, Backdrop::Poster);
+        let frame = renderer.render(theme, &self.scene.assets, context)?;
+        let change = image_change(theme, &self.timelines, now)
+            .into_iter()
+            .chain(renderer.next_change())
+            .min();
+        Ok((frame, change))
+    }
+
     /// Asks the renderer for the frame times of shown images it has not
     /// told yet.
     fn learn_animations(&mut self, renderer: &mut dyn FrameRenderer) {
-        let unknown: Vec<AssetRef> = self
-            .card_timers
-            .theme(&self.scene.theme)
-            .shown_images()
-            .filter(|asset| !self.timelines.contains_key(*asset))
-            .cloned()
-            .collect();
+        let unknown = unknown_images(&self.card_timers.theme(&self.scene.theme), &self.timelines);
         for asset in unknown {
             let timeline = renderer.animation(&asset, &self.scene.assets);
             self.timelines.insert(asset, timeline);

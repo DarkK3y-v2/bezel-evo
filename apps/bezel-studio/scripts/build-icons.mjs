@@ -7,13 +7,19 @@
 // 2. runs the pinned Tauri CLI (same pin as scripts/windows/package-evo.ps1) for
 //    the default set (PNGs, icon.ico, icon.icns), dropping the android/ and ios/
 //    folders the app does not ship;
-// 3. runs it again with `-p 1024 -p 64` for the extras: icon-1024.png and the
-//    64 px tray icon (tray.png, also installed as 64x64.png on Linux).
+// 3. runs it again with `-p 1024 -p 64` for the extras: icon-1024.png and
+//    64x64.png (installed on Linux);
+// 4. draws the tray icon pixel by pixel at 16, 20, 24 and 32 px
+//    (tray-<edge>.png, D-2026-10-09-studio-redesign-fidelity-11): a simplified
+//    B (3x5 cells) on the dark tile, legible on light and dark taskbars; Light
+//    and Studio pick the edge of the display's scale (src-tauri/src/tray_icon.rs).
 //
-// The mark itself is a pure function so tests can check the committed SVGs.
+// The mark and the tray pixels are pure functions so tests can check the
+// committed files.
 
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { deflateSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -84,6 +90,114 @@ export function pixelMarkSvg() {
   ].join('\n');
 }
 
+/** The edges the tray icon is drawn at, pixels: 100, 125, 150 and 200 % of 16. */
+export const TRAY_SIZES = Object.freeze([16, 20, 24, 32]);
+
+/** The B of the tray icon, 3 columns by 5 rows: the mark's letter, simplified. */
+const TRAY_B = ['110', '101', '110', '101', '110'];
+/** Its top-right cell is the live pixel, like the mark's. */
+const TRAY_LIVE = { row: 0, col: 2 };
+
+/**
+ * Where the cells go at `edge` px: their side, the gap between them and the
+ * top-left corner of the letter (whole pixels, so every cell is crisp).
+ */
+export function trayLayout(edge) {
+  const [cell, gap] = { 16: [2, 0], 20: [2, 1], 24: [3, 1], 32: [4, 1] }[edge] ?? [Math.max(1, Math.floor(edge / 8)), 1];
+  const width = 3 * cell + 2 * gap;
+  const height = 5 * cell + 4 * gap;
+  return { cell, gap, x: Math.floor((edge - width) / 2), y: Math.floor((edge - height) / 2), radius: edge * 0.22 };
+}
+
+/** `#RRGGBB` as `[r, g, b]`. */
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/** How much of the pixel at (`px`, `py`) the rounded tile covers, 0 to 1 (16 samples). */
+function tileCoverage(px, py, edge, radius) {
+  let inside = 0;
+  for (let sy = 0; sy < 4; sy += 1) {
+    for (let sx = 0; sx < 4; sx += 1) {
+      const x = px + (sx + 0.5) / 4;
+      const y = py + (sy + 0.5) / 4;
+      const dx = Math.max(radius - x, x - (edge - radius), 0);
+      const dy = Math.max(radius - y, y - (edge - radius), 0);
+      if (dx * dx + dy * dy <= radius * radius) inside += 1;
+    }
+  }
+  return inside / 16;
+}
+
+/** The colour of the letter's cell at `row`, `col`, or `null` for an unlit one. */
+function trayCell(row, col) {
+  if (row === TRAY_LIVE.row && col === TRAY_LIVE.col) return PALETTE.live;
+  if (TRAY_B[row][col] !== '1') return null;
+  return row === TRAY_B.length - 1 ? PALETTE.accent : PALETTE.lit;
+}
+
+/**
+ * The tray icon at `edge` px as straight RGBA: the mark's dark tile with
+ * rounded, anti-aliased corners (transparent around them), and the B's
+ * cells, lit in the mark's colours (the base in the accent, the live pixel
+ * green).
+ */
+export function trayPixels(edge) {
+  const { cell, gap, x, y, radius } = trayLayout(edge);
+  const out = new Uint8Array(edge * edge * 4);
+  const tile = rgb(PALETTE.tile);
+  for (let py = 0; py < edge; py += 1) {
+    for (let px = 0; px < edge; px += 1) {
+      const at = (py * edge + px) * 4;
+      out.set([...tile, Math.round(255 * tileCoverage(px, py, edge, radius))], at);
+      const col = Math.floor((px - x) / (cell + gap));
+      const row = Math.floor((py - y) / (cell + gap));
+      const inCell = px >= x && py >= y && (px - x) % (cell + gap) < cell && (py - y) % (cell + gap) < cell;
+      const lit = inCell && row < 5 && col < 3 ? trayCell(row, col) : null;
+      if (lit) out.set([...rgb(lit), 255], at);
+    }
+  }
+  return out;
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+/** The CRC-32 of `bytes`, as PNG chunks carry it. */
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function chunk(type, data) {
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+
+/** `rgba` (`width`×`height`, straight alpha) as an 8-bit RGBA PNG, rows unfiltered. */
+export function encodePng(width, height, rgba) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 6, 0, 0, 0], 8);
+  const rows = Buffer.alloc(height * (1 + width * 4));
+  for (let row = 0; row < height; row += 1) {
+    rows.set(rgba.subarray(row * width * 4, (row + 1) * width * 4), row * (1 + width * 4) + 1);
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header),
+    chunk('IDAT', deflateSync(rows, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
 function tauriIcon(cwd, args) {
   const cli = ['npx', '--yes', TAURI_CLI, 'icon', ...args];
   // npx is a .cmd shim on Windows: run it through cmd.exe instead of `shell: true`.
@@ -108,10 +222,15 @@ function main() {
     tauriIcon(app, ['src-tauri/icons/icon.svg', '-o', extras, '-p', '1024', '-p', '64']);
     copyFileSync(join(extras, '1024x1024.png'), join(icons, 'icon-1024.png'));
     copyFileSync(join(extras, '64x64.png'), join(icons, '64x64.png'));
-    copyFileSync(join(extras, '64x64.png'), join(icons, 'tray.png'));
   } finally {
     rmSync(extras, { recursive: true, force: true });
   }
+  writeTrayIcons(icons);
+}
+
+/** Writes tray-<edge>.png for every tray size into `icons`. */
+export function writeTrayIcons(icons) {
+  for (const edge of TRAY_SIZES) writeFileSync(join(icons, `tray-${edge}.png`), encodePng(edge, edge, trayPixels(edge)));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

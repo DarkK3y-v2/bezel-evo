@@ -268,6 +268,21 @@ export const PROGRESS_EVENT = 'storage-progress';
  */
 
 /**
+ * @typedef {{
+ *   name: string, location: string, canvas: {width: number, height: number},
+ *   orientation: 'portrait'|'reverse-portrait'|'landscape'|'reverse-landscape', bundled: boolean,
+ *   models: string[], diagonalHundredths: number|null, revision: string, modifiedMs: number|null,
+ * }} ThemeEntryDto A theme of the library (see `listThemes`).
+ * @typedef {{source: string, title: string, artist: string, playing: boolean}} MediaSessionDto
+ * @typedef {{available: boolean, foreground: string|null, applications: string[], media: MediaSessionDto[]}} ActivityDto
+ * @typedef {{
+ *   sampleMillis: number, readings: Record<string, {value: number|null, display: string, unavailable: string|null}>,
+ *   live: string|null, liveError: object|null, video: object|null, reconnecting: {attempt: number, attempts: number}|null,
+ *   liveFps: number|null, activity: ActivityDto|null,
+ * }} SampleDto What `sample` answers (see there).
+ */
+
+/**
  * Event the app sends when the window's close button is pressed with unsaved
  * edits and no screen live: the UI asks, then calls `closeWindow`.
  */
@@ -311,6 +326,23 @@ function tauriBridge(invoke, tauri = {}) {
     leaveDesktopMode: (key, confirmed) => invoke('leave_desktop_mode', { key, confirmed }),
     catalog: () => invoke('sensor_catalog'),
     selectScreen: (screen) => invoke('select_screen', { screen }),
+    /**
+     * The latest readings and the live screen's state: `sample_sensors`.
+     * Besides `sampleMillis`, `readings`, `live`, `liveError`, `video` and
+     * `reconnecting`:
+     * - `liveFps`: frames a second the live screen shows now, `null` when
+     *   nothing is live or the theme shows no animation (frames more than
+     *   300 ms apart, e.g. a still theme refreshed once a second);
+     * - `activity`: `{available, foreground, applications, media}` of the
+     *   last sample, `null` when neither the applications nor the media
+     *   sessions were read (they are read while the theme or the list wants
+     *   `activity.processes` / `media.sessions`, see `showSensors`, and only
+     *   where the system offers them). `available` says the running
+     *   applications were read (`applications`: executable names without
+     *   `.exe`, by name; `foreground`: the one owning the foreground window or
+     *   `null`); `media`: `[{source, title, artist, playing}]` (no cover).
+     * @returns {Promise<SampleDto>}
+     */
     sample: () => invoke('sample_sensors'),
     restartLibre: () => invoke('restart_libre_reader'),
     searchWeatherCities: (query) => invoke('search_weather_cities', { query }),
@@ -337,6 +369,28 @@ function tauriBridge(invoke, tauri = {}) {
       const started = performance.now();
       const frame = parseFrame(await invoke('render_preview', { theme, motion, cardRotation }));
       return { ...frame, millis: performance.now() - started };
+    },
+    /**
+     * One element of the theme on its own, for the inspector's preview
+     * (D-2026-10-09-studio-redesign-fidelity-8): `render_element_preview
+     * {theme, element, max, motion}`. Only that element is drawn (a group
+     * with its children, a card with its base and the members of its active
+     * face, no rotation, trigger or transition), with every property as the
+     * theme has it and the values its sensors read now, on a transparent
+     * canvas just the size of its box, in the theme's orientation (no
+     * screen rotation), reduced so its longest side is at most `max` (16 to
+     * 2048; never enlarged). The answer is a `PreviewFrameDto` (the same
+     * 12-byte header as `render`), with `pixels` the same RGBA as `rgba`.
+     * Rejects `invalidInput` when the theme has no element `elementId`.
+     * @param {object} theme
+     * @param {number} elementId
+     * @param {{max?: number, motion?: boolean}} [options]
+     * @returns {Promise<PreviewFrameDto & {pixels: Uint8ClampedArray}>}
+     */
+    renderElement: async (theme, elementId, { max = 512, motion = true } = {}) => {
+      const started = performance.now();
+      const frame = parseFrame(await invoke('render_element_preview', { theme, element: elementId, max, motion }));
+      return { ...frame, pixels: frame.rgba, millis: performance.now() - started };
     },
     /**
      * What Auto resolves to for the theme's video background: `video_auto
@@ -395,7 +449,24 @@ function tauriBridge(invoke, tauri = {}) {
     release: (screen) => invoke('release_screen', { screen }),
     restartScreen: (screen) => invoke('restart_screen', { screen }),
     saveTheme: (theme, saveAs) => invoke('save_theme', { theme, saveAs }),
+    /**
+     * The theme library: `list_themes`. Each entry is `{name, location,
+     * canvas, orientation, bundled, models, diagonalHundredths, revision,
+     * modifiedMs}`; `modifiedMs` is when its files last changed (ms since
+     * the epoch, the folder's or its newest file's for a theme folder), or
+     * `null` when the system keeps no such time.
+     * @returns {Promise<ThemeEntryDto[]>}
+     */
     listThemes: () => invoke('list_themes'),
+    /**
+     * Copies a library theme into the user's folder as a new theme named
+     * `name` (the UI's translated "Copy of …"): `duplicate_theme {location,
+     * name}`. The original is only read (a bundled theme is never written).
+     * Answers the copy's entry, like `listThemes`'. Rejects `notInLibrary`
+     * for a theme the library does not hold, `invalidInput` for an empty name.
+     * @returns {Promise<ThemeEntryDto>}
+     */
+    duplicateTheme: (location, name) => invoke('duplicate_theme', { location, name }),
     openTheme: (location) => invoke('open_theme', { location }),
     newTheme: (screen, name, orientation) => invoke('new_theme', { screen, name, orientation }),
     importTheme: () => invoke('import_theme'),

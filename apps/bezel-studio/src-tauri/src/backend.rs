@@ -18,7 +18,7 @@ use bezel_core::domain::discovery::Screen;
 use bezel_core::domain::geometry::Orientation;
 use bezel_core::domain::screen::{Brightness, Confirm};
 use bezel_core::domain::sensor::{SensorKey, Wanted};
-use bezel_core::domain::theme::{Background, MIN_REFRESH_SECONDS, Theme};
+use bezel_core::domain::theme::{Background, ElementId, MIN_REFRESH_SECONDS, Theme};
 use bezel_core::ports::{
     DesktopModeHid, DeviceBus, ScreenConnector, ScreenLink, SensorSource, ThemeLocation, ThemeStore,
 };
@@ -29,10 +29,11 @@ use bezel_themes::native::{is_native, native_location};
 
 use crate::diag::{self, DiagCode};
 use crate::dto::{
-    AddedDto, AssetDto, DevicesDto, ImportedDto, LiveVideoDto, MonitorModeDto, PreferencesDto,
-    ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto, ThemeEntryDto,
-    ThemeFilterDto, VideoAutoDto,
+    ActivityDto, AddedDto, AssetDto, DevicesDto, ImportedDto, LiveVideoDto, MonitorModeDto,
+    PreferencesDto, ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto,
+    ThemeEntryDto, ThemeFilterDto, VideoAutoDto,
 };
+use crate::element_preview::{fit_within, side_of};
 use crate::library::ThemeLibrary;
 use crate::media::{extension_of, is_animated_gif, kind_of, thumbnail_data_url};
 pub use crate::messages::UiResult;
@@ -728,11 +729,14 @@ impl Backend {
         self.studio().show_sensors(listed);
     }
 
-    /// The latest readings (sampled by the refresh loop).
+    /// The latest readings (sampled by the refresh loop), with the live
+    /// screen's frame rate and the applications and media sessions.
     pub fn sample(&self) -> SampleDto {
         let studio = self.studio();
         let (snapshot, millis) = studio.readings();
         SampleDto {
+            live_fps: studio.live_fps(Instant::now()),
+            activity: ActivityDto::of(snapshot),
             sample_millis: millis,
             readings: SampleDto::readings(snapshot, studio.quantities()),
             live: studio.live_key().map(str::to_string),
@@ -847,6 +851,30 @@ impl Backend {
         Ok(bytes)
     }
 
+    /// Takes the UI's theme and draws its element `element` on its own, as
+    /// the inspector previews it (D-2026-10-09-studio-redesign-fidelity-8):
+    /// [`frame_bytes`] of the element alone on a transparent canvas, its
+    /// longest side at most `max` ([`side_of`]), drawn by the session's
+    /// renderer from the last sample at `now`
+    /// ([`Studio::element_preview`]). `invalidInput` when the theme has no
+    /// such element.
+    pub fn render_element(
+        &self,
+        theme: &ThemeDto,
+        element: u32,
+        max: Option<u32>,
+        time: LocalTime,
+        now: Instant,
+        motion: Motion,
+    ) -> UiResult<Vec<u8>> {
+        let theme = theme_of(theme)?;
+        let mut studio = self.studio();
+        studio.set_theme(theme);
+        let (frame, change) = studio.element_preview(ElementId(element), time, now, motion)?;
+        drop(studio);
+        Ok(frame_bytes(&fit_within(frame, side_of(max)), change))
+    }
+
     /// Takes the UI's theme and says what Auto turns its video background
     /// and the video's own size (D-2026-10-01-video-background-framing-2):
     /// probed once (an MP4's header needs no ffmpeg), outside the session's
@@ -886,6 +914,30 @@ impl Backend {
             .iter()
             .map(ThemeEntryDto::from)
             .collect()
+    }
+
+    /// Copies the library theme at `location` into the user's folder as a
+    /// new theme named `name` (the UI's translated "Copy of …"), assets and
+    /// all, and lists the copy. The original is only read: a bundled theme
+    /// is never written. `notInLibrary` for a theme the library does not
+    /// allow, `invalidInput` for an empty name.
+    pub fn duplicate_theme(&self, location: &str, name: &str) -> UiResult<ThemeEntryDto> {
+        let source = ThemeLocation(location.to_string());
+        if !self.library.allows(&source) {
+            return Err(UiError::new(ErrorCode::NotInLibrary).arg("location", source.0));
+        }
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(UiError::new(ErrorCode::InvalidInput).arg("detail", "an empty theme name"));
+        }
+        let (mut theme, assets) = self.store.load(&source)?;
+        theme.name = name.to_string();
+        let copy = self.library.new_location(name);
+        self.store.save(&copy, &theme, &assets)?;
+        self.library
+            .entry(&copy)
+            .map(|entry| ThemeEntryDto::from(&entry))
+            .ok_or_else(|| UiError::new(ErrorCode::ThemeFile).arg("detail", copy.0))
     }
 
     /// The thumbnail of a library theme as a PNG `data:` URL, drawn at
@@ -1768,6 +1820,260 @@ mod tests {
                 .render(&bad, TIME, Instant::now(), Motion::Allowed)
                 .is_err()
         );
+    }
+
+    /// The element preview's pixels, from [`frame_bytes`].
+    fn element_pixels(f: &Fixture, theme: &Theme, id: u32, max: Option<u32>) -> UiResult<Frame> {
+        let bytes = f.backend.render_element(
+            &ThemeDto::from(theme),
+            id,
+            max,
+            TIME,
+            Instant::now(),
+            Motion::Reduced,
+        )?;
+        let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+        let height = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        assert_eq!(&bytes[8..12], &STILL.to_le_bytes(), "nothing moves");
+        Ok(Frame::from_rgba(Size::new(width, height), bytes[12..].to_vec()).unwrap())
+    }
+
+    /// How many pixels of `frame` are `color`.
+    fn count(frame: &Frame, color: Rgba) -> usize {
+        frame
+            .as_rgba()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| **p == [color.r, color.g, color.b, color.a])
+            .count()
+    }
+
+    fn landscape(elements: Vec<bezel_core::domain::theme::Element>) -> Theme {
+        let mut theme = Theme::blank("Parts", Size::new(480, 1920), Orientation::Landscape);
+        theme.background = Background::Color(Rgba::opaque(9, 9, 9));
+        theme.elements = elements;
+        theme
+    }
+
+    #[test]
+    fn an_element_preview_draws_only_that_element_on_transparency() {
+        use crate::element_preview::tests::shape;
+        use bezel_core::domain::theme::{BoxF, ElementKind, ShapeKind};
+        let (red, blue) = (Rgba::opaque(255, 0, 0), Rgba::opaque(0, 0, 255));
+        let mut ring = shape(1, BoxF::new(100.0, 100.0, 50.0, 40.0), red);
+        if let ElementKind::Shape { shape, .. } = &mut ring.kind {
+            *shape = ShapeKind::Ellipse;
+        }
+        let over = shape(2, BoxF::new(90.0, 90.0, 200.0, 200.0), blue);
+        let f = fixture("element-alone");
+        let theme = landscape(vec![ring.clone(), over]);
+        let frame = element_pixels(&f, &theme, 1, None).unwrap();
+        assert_eq!(frame.size(), Size::new(50, 40), "just the element's box");
+        assert_eq!(frame.pixel(25, 20), Some(red), "its own color");
+        assert_eq!(
+            frame.pixel(0, 0).map(|p| p.a),
+            Some(0),
+            "transparent around it"
+        );
+        assert_eq!(count(&frame, blue), 0, "the element above it is not drawn");
+        assert!(
+            !frame
+                .as_rgba()
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|p| p[..3] == [9, 9, 9]),
+            "nor the theme's background"
+        );
+        // Its properties apply: another color, another size.
+        let mut green = ring.clone();
+        if let ElementKind::Shape { fill, .. } = &mut green.kind {
+            *fill = Some(bezel_core::domain::theme::Paint::solid(Rgba::opaque(
+                0, 255, 0,
+            )));
+        }
+        green.frame.width = 80.0;
+        let changed = element_pixels(&f, &landscape(vec![green]), 1, None).unwrap();
+        assert_eq!(changed.size(), Size::new(80, 40));
+        assert_eq!(changed.pixel(40, 20), Some(Rgba::opaque(0, 255, 0)));
+        assert_eq!(count(&changed, red), 0);
+        // At most `max` pixels on its longest side, never enlarged.
+        let small = element_pixels(&f, &theme, 1, Some(20)).unwrap();
+        assert_eq!(small.size(), Size::new(20, 16));
+        assert_eq!(small.pixel(10, 8), Some(red));
+        let err = element_pixels(&f, &theme, 7, None).unwrap_err();
+        assert_eq!(err.code(), "invalidInput");
+    }
+
+    #[test]
+    fn an_element_preview_shows_the_value_its_binding_reads() {
+        use bezel_core::domain::theme::{
+            Binding, BoxF, Direction, Element, ElementId, ElementKind, Paint,
+        };
+        let f = fixture("element-value");
+        f.backend.studio().sample().unwrap();
+        let fill = Rgba::opaque(0, 200, 0);
+        let bar = |max: f64| Element {
+            is_group: false,
+            group_parent: None,
+            card: None,
+            card_member: None,
+            id: ElementId(1),
+            name: "CPU".into(),
+            frame: BoxF::new(0.0, 0.0, 200.0, 10.0),
+            opacity: 1.0,
+            visible: true,
+            locked: false,
+            kind: ElementKind::Bar {
+                binding: Binding {
+                    key: SensorKey::new(bezel_core::domain::sensor::keys::CPU_TEMPERATURE).unwrap(),
+                    min: 0.0,
+                    max,
+                },
+                direction: Direction::LeftToRight,
+                fill: Paint::solid(fill),
+                track: None,
+                radius: 0.0,
+                segments: None,
+            },
+        };
+        let full = count(
+            &element_pixels(&f, &landscape(vec![bar(100.0)]), 1, None).unwrap(),
+            fill,
+        );
+        let tenth = count(
+            &element_pixels(&f, &landscape(vec![bar(1000.0)]), 1, None).unwrap(),
+            fill,
+        );
+        assert_eq!(full, 92 * 10, "46 °C of 100 fills 46 % of the bar");
+        assert!(tenth < full, "a wider range fills less: {tenth} < {full}");
+    }
+
+    #[test]
+    fn a_card_preview_shows_its_base_and_active_face_only() {
+        use crate::element_preview::tests::shape;
+        use bezel_core::domain::theme::{BoxF, Card, CardMember, ElementId};
+        let (base, a, b) = (
+            Rgba::opaque(40, 40, 40),
+            Rgba::opaque(255, 0, 0),
+            Rgba::opaque(0, 255, 0),
+        );
+        let mut card = shape(1, BoxF::new(10.0, 10.0, 100.0, 100.0), base);
+        card.card = Some(Card {
+            triggers: Vec::new(),
+            faces: vec!["A".into(), "B".into()],
+            active_face: 1,
+            rotation_seconds: Some(5),
+            transition: None,
+        });
+        let member = |id, face, color| {
+            let mut e = shape(id, BoxF::new(30.0, 30.0, 20.0, 20.0), color);
+            e.card_member = Some(CardMember {
+                parent: ElementId(1),
+                face: Some(face),
+            });
+            e
+        };
+        let f = fixture("element-card");
+        let theme = landscape(vec![card, member(2, 0, a), member(3, 1, b)]);
+        let frame = element_pixels(&f, &theme, 1, None).unwrap();
+        assert_eq!(frame.size(), Size::new(100, 100));
+        assert_eq!(frame.pixel(30, 30), Some(b), "the active face");
+        assert_eq!(count(&frame, a), 0, "not the other face");
+        assert_eq!(frame.pixel(5, 5), Some(base), "over the card's base");
+    }
+
+    #[test]
+    fn samples_tell_the_live_frame_rate_and_the_activity() {
+        let f = fixture("fps");
+        let quiet = f.backend.sample();
+        assert_eq!(
+            (quiet.live_fps, &quiet.activity),
+            (None, &None),
+            "nothing live, nothing read"
+        );
+        let json = serde_json::to_value(&quiet).unwrap();
+        assert!(json["liveFps"].is_null() && json["activity"].is_null());
+        f.backend.set_live(true, Some(KEY), TIME).unwrap();
+        let theme = f.backend.session().theme;
+        for _ in 0..3 {
+            f.backend.push(&theme, TIME).unwrap();
+        }
+        let fps = f.backend.sample().live_fps;
+        assert!(
+            fps.is_some_and(|fps| fps > 0.0),
+            "frames back to back: {fps:?}"
+        );
+        f.backend.set_live(false, None, TIME).unwrap();
+        assert_eq!(f.backend.sample().live_fps, None, "nothing live");
+    }
+
+    #[test]
+    fn duplicating_copies_into_the_user_folder_and_never_writes_a_bundled_theme() {
+        let mut f = fixture("duplicate");
+        let bundled = f.root.join("bundled");
+        let shipped = ThemeLocation(bundled.join("Aurora.bezeltheme").display().to_string());
+        let mut theme = Theme::blank("Aurora", Size::new(480, 1920), Orientation::Landscape);
+        theme.refresh_seconds = 2.0;
+        FsThemeStore
+            .save(&shipped, &theme, &Default::default())
+            .unwrap();
+        f.backend.library = ThemeLibrary::new(f.root.join("themes"), vec![bundled]);
+        let before = (
+            crate::library::revision(&shipped),
+            std::fs::read(&shipped.0).unwrap(),
+        );
+        let copy = f
+            .backend
+            .duplicate_theme(&shipped.0, " Copia di Aurora ")
+            .unwrap();
+        assert_eq!(copy.name, "Copia di Aurora");
+        assert!(!copy.bundled);
+        assert!(copy.modified_ms.is_some());
+        assert!(
+            Path::new(&copy.location).starts_with(f.root.join("themes")),
+            "{}",
+            copy.location
+        );
+        assert_ne!(copy.location, shipped.0);
+        let after = (
+            crate::library::revision(&shipped),
+            std::fs::read(&shipped.0).unwrap(),
+        );
+        assert_eq!(before, after, "the bundled theme is untouched");
+        let opened = f.backend.open(&copy.location).unwrap();
+        assert_eq!(
+            (opened.name.as_str(), opened.refresh_seconds),
+            ("Copia di Aurora", 2.0)
+        );
+        let again = f
+            .backend
+            .duplicate_theme(&shipped.0, "Copia di Aurora")
+            .unwrap();
+        assert_ne!(again.location, copy.location, "a free name each time");
+        assert_eq!(f.backend.themes().len(), 3);
+        let json = serde_json::to_value(&copy).unwrap();
+        assert!(json["modifiedMs"].is_u64());
+        let elsewhere = f.root.join("Desktop").join("x.bezeltheme");
+        let refused = f
+            .backend
+            .duplicate_theme(&elsewhere.display().to_string(), "X")
+            .unwrap_err();
+        assert_eq!(refused.code(), "notInLibrary");
+        let empty = f.backend.duplicate_theme(&shipped.0, "  ").unwrap_err();
+        assert_eq!(empty.code(), "invalidInput");
+        let missing = bundled_missing(&f);
+        assert!(f.backend.duplicate_theme(&missing, "M").is_err());
+    }
+
+    /// A location inside the bundled folder where no theme is.
+    fn bundled_missing(f: &Fixture) -> String {
+        f.root
+            .join("bundled")
+            .join("gone.bezeltheme")
+            .display()
+            .to_string()
     }
 
     #[test]

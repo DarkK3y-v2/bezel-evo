@@ -17,6 +17,7 @@ pub mod debug;
 mod deliveries;
 pub mod diag;
 pub mod dto;
+pub mod element_preview;
 pub mod gifs;
 pub mod library;
 pub mod manager;
@@ -31,6 +32,7 @@ pub mod studio;
 pub mod texts;
 pub mod thumbnails;
 mod tray;
+pub mod tray_icon;
 pub mod udev_help;
 pub mod video;
 
@@ -329,6 +331,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::search_weather_cities,
             commands::editor_session,
             commands::render_preview,
+            commands::render_element_preview,
             commands::video_auto,
             commands::open_guide,
             commands::push_theme,
@@ -337,6 +340,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::release_screen,
             commands::save_theme,
             commands::list_themes,
+            commands::duplicate_theme,
             commands::open_theme,
             commands::new_theme,
             commands::import_theme,

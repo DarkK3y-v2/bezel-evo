@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEMO_AWAY_SAMPLES, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoFits, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
-import { DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY } from '../../src/demo-data.js';
+import { DEMO_AWAY_SAMPLES, DEMO_DAY_S, DEMO_THEME_AGE_S, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoElementSide, demoFits, demoIsolate, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
+import { DEMO_ACTIVITY, DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY, DEMO_LIVE_FPS } from '../../src/demo-data.js';
 import { DEMO_GIF_OVERLAP, DEMO_GIF_PAGES, DEMO_GIF_PAGE_SIZE, DEMO_REFUSED_KEY, demoContentId, demoGifPage, demoGifSlug } from '../../src/demo-gifs.js';
 
 const fixed = { now: () => 1000 };
@@ -33,6 +33,22 @@ test('the catalog and samples cover every demo sensor', async () => {
   assert.ok(readings['gpu.1.fan'].unavailable);
 });
 
+test('samples tell the live frame rate and the applications and media playing', async () => {
+  const demo = createDemoBackend('turing88', fixed);
+  const quiet = await demo.sample();
+  assert.equal(quiet.liveFps, null, 'nothing live');
+  assert.deepEqual(quiet.activity, DEMO_ACTIVITY);
+  assert.equal(quiet.activity.foreground, 'chrome');
+  assert.ok(quiet.activity.applications.includes('spotify'));
+  assert.deepEqual(quiet.activity.media.filter((m) => m.playing).map((m) => m.source), ['Spotify.exe']);
+  quiet.activity.applications.push('changed');
+  assert.ok(!(await demo.sample()).activity.applications.includes('changed'), 'a copy each time');
+  await demo.setLive(true, '/dev/ttyACM1');
+  assert.equal((await demo.sample()).liveFps, DEMO_LIVE_FPS);
+  await demo.setLive(false);
+  assert.equal((await demo.sample()).liveFps, null);
+});
+
 test('saving, listing and opening themes', async () => {
   const demo = createDemoBackend('turing88', fixed);
   const { theme } = await demo.session();
@@ -53,6 +69,33 @@ test('saving, listing and opening themes', async () => {
   assert.equal((await demo.openTheme('demo://Mine')).orientation, 'landscape');
   assert.equal((await demo.newTheme()).elements.length, 0);
   assert.equal((await demo.newTheme('k', 'Novo')).name, 'Novo');
+});
+
+test('library themes say when they changed and duplicate into new user themes', async () => {
+  let clock = 1000;
+  const demo = createDemoBackend('turing88', { now: () => clock });
+  const listed = await demo.listThemes();
+  assert.equal(listed[0].modifiedMs, (1000 - DEMO_THEME_AGE_S) * 1000, 'Demo: minutes ago');
+  assert.equal(listed[1].modifiedMs, (1000 - DEMO_THEME_AGE_S - DEMO_DAY_S) * 1000, 'the next a day earlier');
+  clock = 5000;
+  const copy = await demo.duplicateTheme('demo://Demo', ' Copia di Demo ');
+  assert.equal(copy.name, 'Copia di Demo');
+  assert.equal(copy.location, 'demo://Copia di Demo');
+  assert.equal(copy.bundled, false);
+  assert.equal(copy.modifiedMs, 5_000_000);
+  assert.deepEqual(copy.models, ['turing-8.8', 'turing-usb-8.8']);
+  const again = await demo.duplicateTheme('demo://Demo', 'Copia di Demo');
+  assert.equal(again.location, 'demo://Copia di Demo-2', 'a free name each time');
+  const all = await demo.listThemes();
+  assert.deepEqual(all.slice(-2), [copy, again]);
+  assert.equal(all[0].bundled, true, 'the original stays as it was');
+  assert.equal((await demo.openTheme(copy.location)).name, 'Copia di Demo');
+  await assert.rejects(demo.duplicateTheme('demo://nope', 'X'), (e) => e.code === 'notInLibrary');
+  await assert.rejects(demo.duplicateTheme('demo://Demo', '  '), (e) => e.code === 'invalidInput');
+  const { theme } = await demo.session();
+  clock = 6000;
+  await demo.saveTheme({ ...theme, name: 'Copia di Demo' }, false);
+  assert.equal((await demo.listThemes()).find((e) => e.location === copy.location).modifiedMs, 6_000_000, 'saving changes it');
 });
 
 test('library themes name their screens and have thumbnails, but one', async () => {
@@ -719,4 +762,87 @@ test('Light is the default on close and unsaved live edits can cancel before han
   await demo.setLightOnClose(true);
   demo.requestClose();
   assert.equal(demo.windowState(), 'closed');
+});
+
+// ------------------------------------------- the element on its own --
+
+const box = (x, y, width, height) => ({ x, y, width, height });
+const shapeOf = (id, frame, fill, extra = {}) => ({ id, name: `s${id}`, frame, opacity: 1, visible: true, locked: false, kind: { type: 'shape', shape: 'rect', radius: 0, fill }, ...extra });
+
+test('one element alone, like the backend: its box, its holdings, its active face', () => {
+  const hidden = shapeOf(1, box(10.5, 20.25, 100, 50), '#ff0000ff', { visible: false, groupParent: 5 });
+  const group = shapeOf(5, box(0, 0, 999, 999), null, { isGroup: true });
+  const over = shapeOf(2, box(0, 0, 300, 300), '#0000ffff');
+  const theme = { name: 't', canvas: { width: 1920, height: 480 }, orientation: 'landscape', background: { type: 'color', color: '#090909ff' }, elements: [group, hidden, over] };
+  const alone = demoIsolate(theme, 1);
+  assert.deepEqual(alone.elements.map((e) => e.id), [1], 'the element above it is left out');
+  assert.deepEqual(alone.canvas, { width: 101, height: 51 });
+  assert.deepEqual(alone.elements[0].frame, box(0.5, 0.25, 100, 50));
+  assert.equal(alone.elements[0].visible, true, 'the one asked for shows');
+  assert.equal(alone.elements[0].groupParent, undefined, 'out of its group');
+  assert.deepEqual(alone.background, { type: 'color', color: '#00000000' });
+  assert.equal(alone.orientation, 'landscape');
+  assert.equal(theme.elements[1].frame.x, 10.5, 'the theme is untouched');
+  assert.deepEqual(demoIsolate(theme, 5).canvas, { width: 101, height: 51 }, 'a group: around its children');
+  assert.equal(demoIsolate(theme, 9), null);
+  const empty = { ...theme, elements: [group] };
+  assert.deepEqual(demoIsolate(empty, 5).canvas, { width: 999, height: 999 }, 'an empty group: its own box');
+  const card = shapeOf(1, box(0, 0, 100, 100), '#282828ff', { card: { faces: ['A', 'B'], activeFace: 1, rotationSeconds: 5, triggers: [{ source: 'foreground', app: 'x', face: 0 }], transition: { effect: 'fade' } } });
+  const member = (id, face) => shapeOf(id, box(10, 10, 10, 10), '#ffffffff', { cardMember: { parent: 1, face } });
+  const cards = { ...theme, elements: [card, member(2, null), member(3, 0), member(4, 1), shapeOf(6, box(1, 1, 1, 1), '#ffffffff', { groupParent: 4 })] };
+  const shown = demoIsolate(cards, 1);
+  assert.deepEqual(shown.elements.map((e) => e.id), [1, 2, 4, 6], 'base and face B with what it holds');
+  assert.deepEqual(shown.elements[0].card, { faces: ['A', 'B'], activeFace: 1 }, 'no rotation, trigger or transition');
+  assert.deepEqual(demoIsolate(cards, 3).elements.map((e) => e.id), [3], 'a member of another face, asked for, shows');
+  const odd = { ...theme, elements: [shapeOf(1, box(0, 0, Number.NaN, 1e9), '#fff')] };
+  assert.deepEqual(demoIsolate(odd, 1).canvas, { width: 1, height: 2048 });
+});
+
+test('the longest side asked for is clamped like the backend', () => {
+  assert.equal(demoElementSide(undefined), 512);
+  assert.equal(demoElementSide(1), 16);
+  assert.equal(demoElementSide(99_999), 2048);
+  assert.equal(demoElementSide(300), 300);
+});
+
+/** A stand-in for the browser's OffscreenCanvas: records the colors filled and stroked. */
+function recordingCanvas(painted) {
+  return class {
+    constructor(width, height) { Object.assign(this, { width, height }); }
+    getContext() {
+      const { width, height } = this;
+      const ctx = {
+        fillStyle: '', strokeStyle: '',
+        fill() { painted.push(ctx.fillStyle); },
+        fillRect() { painted.push(ctx.fillStyle); },
+        getImageData: () => ({ data: new Uint8ClampedArray(width * height * 4) }),
+      };
+      return new Proxy(ctx, { get: (t, k) => (k in t ? t[k] : () => {}) });
+    }
+  };
+}
+
+test('the demo draws the element alone, reduced to the size asked for', async (t) => {
+  const painted = [];
+  const saved = globalThis.OffscreenCanvas;
+  globalThis.OffscreenCanvas = recordingCanvas(painted);
+  t.after(() => { globalThis.OffscreenCanvas = saved; });
+  const demo = createDemoBackend('turing88', fixed);
+  const { theme } = await demo.session();
+  const mine = { ...theme, elements: [shapeOf(901, box(10, 10, 400, 100), '#ff0000ff'), shapeOf(902, box(0, 0, 999, 999), '#0000ffff')] };
+  const frame = await demo.renderElement(mine, 901, { max: 100 });
+  assert.deepEqual([frame.width, frame.height, frame.rgba.length], [100, 25, 100 * 25 * 4]);
+  assert.equal(frame.pixels, frame.rgba);
+  assert.equal(frame.nextMs, null, 'nothing moves');
+  assert.ok(frame.millis >= 0);
+  assert.ok(painted.includes('rgba(255,0,0,1)'), 'its own color');
+  assert.ok(!painted.includes('rgba(0,0,255,1)'), 'not the element above it');
+  painted.length = 0;
+  const green = { ...mine, elements: [shapeOf(901, box(10, 10, 40, 10), '#00ff00ff')] };
+  const big = await demo.renderElement(green, 901);
+  assert.deepEqual([big.width, big.height], [40, 10], 'never enlarged');
+  assert.ok(painted.includes('rgba(0,255,0,1)') && !painted.includes('rgba(255,0,0,1)'), 'its properties apply');
+  const gif = { ...mine, elements: [{ ...shapeOf(903, box(0, 0, 10, 10)), kind: { type: 'image', asset: 'assets/spin.gif' } }] };
+  assert.equal(typeof (await demo.renderElement(gif, 903)).nextMs, 'number', 'a GIF says when it changes');
+  await assert.rejects(demo.renderElement(mine, 77), (e) => e.code === 'invalidInput' && /no element 77/.test(e.args.detail));
 });

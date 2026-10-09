@@ -3,7 +3,7 @@ import { createCardMotion } from './editor/card-motion.js';
 import { isShown } from './editor/cards.js';
 // An in-memory backend for demo mode: a simulated screen, sensors that move,
 // themes, media and an approximate renderer. Nothing here reaches hardware.
-import { DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
+import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
 import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank, demoSameFile } from './demo-manager.js';
 import { DEMO_THEME } from './demo-theme.js';
 import { createDemoGifs } from './demo-gifs.js';
@@ -119,6 +119,69 @@ export function demoNextChange(theme, ms) {
   return gif ? DEMO_GIF_FRAME_MS - (Math.floor(ms) % DEMO_GIF_FRAME_MS) : null;
 }
 
+/** The longest side of an element's preview when none is asked for, like the backend's. */
+export const DEMO_ELEMENT_SIDE = 512;
+/** The range the longest side asked for is clamped to, like the backend's. */
+export const DEMO_ELEMENT_SIDES = Object.freeze({ min: 16, max: 2048 });
+
+/** The longest side of an element's preview: `max` clamped (the default when absent). */
+export function demoElementSide(max) {
+  const side = Number.isFinite(max) ? max : DEMO_ELEMENT_SIDE;
+  return Math.min(DEMO_ELEMENT_SIDES.max, Math.max(DEMO_ELEMENT_SIDES.min, side));
+}
+
+/** Whole pixels from 1 to the largest side, like the backend's canvas of an element. */
+const elementPixels = (length) => (Number.isFinite(length) ? Math.min(DEMO_ELEMENT_SIDES.max, Math.max(1, Math.trunc(length))) : 1);
+
+/**
+ * `theme` cut down to the element `id`, like the backend's
+ * `element_preview::isolate`: only it and what it holds (a group's
+ * children, a card's base and the members of its active face), moved onto a
+ * transparent canvas just the size of their boxes (groups draw nothing; an
+ * empty group keeps its own box). The element itself shows even when hidden
+ * and leaves its group or card; what it holds keeps its own visibility. A
+ * card keeps its active face (no rotation, trigger or transition). `null`
+ * when the theme has no element `id`.
+ */
+export function demoIsolate(theme, id) {
+  const root = theme?.elements?.find((e) => e.id === id);
+  if (!root) return null;
+  const kept = new Set([id]);
+  const activeOf = (parent) => theme.elements.find((e) => e.id === parent)?.card?.activeFace ?? 0;
+  const owned = (e) => kept.has(e.groupParent) || (e.cardMember != null && kept.has(e.cardMember.parent)
+    && (e.cardMember.face == null || e.cardMember.face === activeOf(e.cardMember.parent)));
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const e of theme.elements) if (!kept.has(e.id) && owned(e)) { kept.add(e.id); grew = true; }
+  }
+  const elements = theme.elements.filter((e) => kept.has(e.id)).map((e) => structuredClone(e));
+  const drawn = elements.filter((e) => !e.isGroup).map((e) => e.frame);
+  const boxes = drawn.length ? drawn : [root.frame];
+  const left = Math.floor(Math.min(...boxes.map((b) => b.x)));
+  const top = Math.floor(Math.min(...boxes.map((b) => b.y)));
+  const right = Math.ceil(Math.max(...boxes.map((b) => b.x + b.width)));
+  const bottom = Math.ceil(Math.max(...boxes.map((b) => b.y + b.height)));
+  for (const e of elements) {
+    e.frame = { ...e.frame, x: e.frame.x - left, y: e.frame.y - top };
+    if (e.card) {
+      delete e.card.triggers;
+      delete e.card.rotationSeconds;
+      delete e.card.transition;
+    }
+    if (e.id === id) {
+      delete e.groupParent;
+      delete e.cardMember;
+      e.visible = true;
+    }
+  }
+  return {
+    ...theme,
+    canvas: { width: elementPixels(right - left), height: elementPixels(bottom - top) },
+    background: { type: 'color', color: '#00000000' },
+    elements,
+  };
+}
+
 /**
  * The demo models a theme fits (its canvas is the panel turned the theme's
  * way up, like the core's rule) and the diagonal of the screen it was made
@@ -160,6 +223,11 @@ export function demoThumbnail(theme) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="${background}"/>${parts}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg).replace(/\(/g, '%28').replace(/\)/g, '%29')}`;
 }
+
+/** How long before the demo started its own theme was last changed, seconds. */
+export const DEMO_THEME_AGE_S = 240;
+/** A day, seconds: the demo's library themes were changed a day apart. */
+export const DEMO_DAY_S = 86_400;
 
 /** Samples a live screen that dropped (the `flaky` scenario) reports it away. */
 export const DEMO_AWAY_SAMPLES = 2;
@@ -1092,10 +1160,16 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let autostart = false;
   // The library: `Demo` first (the session's), the other screens' themes,
   // then what the user saves; each with the revision of its "files".
+  // Each was last changed some days before the demo started, `Demo` minutes before.
+  const changedAgo = (index) => Math.round((now() - DEMO_THEME_AGE_S - index * DEMO_DAY_S) * 1000);
   const saved = [
-    { location: 'demo://Demo', theme: structuredClone(DEMO_THEME), bundled: true, revision: 1 },
-    ...DEMO_LIBRARY.map((entry) => ({ location: `demo://${entry.theme.name}`, theme: structuredClone(entry.theme), bundled: entry.bundled, drawable: entry.drawable !== false, revision: 1 })),
+    { location: 'demo://Demo', theme: structuredClone(DEMO_THEME), bundled: true, revision: 1, modifiedMs: changedAgo(0) },
+    ...DEMO_LIBRARY.map((entry, i) => ({ location: `demo://${entry.theme.name}`, theme: structuredClone(entry.theme), bundled: entry.bundled, drawable: entry.drawable !== false, revision: 1, modifiedMs: changedAgo(i + 1) })),
   ];
+  /** A library theme as `listThemes` lists it. */
+  const listed = (s) => ({
+    name: s.theme.name, location: s.location, canvas: { ...s.theme.canvas }, orientation: s.theme.orientation, bundled: s.bundled, ...demoFits(s.theme), revision: String(s.revision), modifiedMs: s.modifiedMs,
+  });
   // Which themes the Themes tab lists, as remembered.
   let themeFilter = { scope: null, axis: 'all' };
   const images = [];
@@ -1327,7 +1401,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
         readings['lhm.psu.corsair.0.voltage.3'] = libreFailed ? { unavailable: 'No readings', display: '—' } : { value: 230, display: '230 V' };
         readings['lhm.psu.corsair.0.power.14'] = { value: libreFailed ? 0 : 158, display: libreFailed ? '0 W' : '158 W' };
       }
-      return Promise.resolve({ sampleMillis: 3, readings, live: live || null, liveError, video: videoOfTheme(), reconnecting });
+      const liveFps = live && !reconnecting ? DEMO_LIVE_FPS : null;
+      return Promise.resolve({ sampleMillis: 3, readings, live: live || null, liveError, video: videoOfTheme(), reconnecting, liveFps, activity: structuredClone(DEMO_ACTIVITY) });
     },
     session: () => Promise.resolve({ version: 'demo', screen: selectedScreen, theme: structuredClone(theme), location: chosen.theme ? null : saved[0].location, minRefreshSeconds: DEMO_MIN_REFRESH }),
     selectScreen: async (key) => {
@@ -1350,6 +1425,25 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       const frame = renderApprox(playback.theme, t, video, transitions);
       const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, millis: performance.now() - started, nextMs: due.length ? Math.min(...due) : null });
+    },
+    /**
+     * One element of the theme on its own, like `render_element_preview` (see
+     * the bridge): drawn by the demo's renderer at the element's own values,
+     * reduced so its longest side is at most `max`. The backend's `motion`
+     * moves card transitions and videos, which an element alone never
+     * plays; a GIF still says when it changes.
+     */
+    renderElement: (next, elementId, { max = DEMO_ELEMENT_SIDE } = {}) => {
+      const started = performance.now();
+      const alone = demoIsolate(next, elementId);
+      if (!alone) {
+        const detail = `no element ${elementId} in the theme`;
+        return Promise.reject(Object.assign(new Error(`invalid input: ${detail}`), { code: 'invalidInput', args: { detail } }));
+      }
+      const t = now();
+      const { width, height } = alone.canvas;
+      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)));
+      return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: demoNextChange(alone, t * 1000), millis: performance.now() - started });
     },
     /** What Auto is for the theme's video background, like `video_auto`. */
     videoAuto: (next) => Promise.resolve(autoOf(next)),
@@ -1398,13 +1492,25 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       theme = structuredClone(next);
       const location = `demo://${next.name}`;
       const at = saved.findIndex((s) => s.location === location);
-      if (saveAs || at < 0) saved.push({ location, theme: structuredClone(next), bundled: false, revision: 1 });
-      else Object.assign(saved[at], { theme: structuredClone(next), drawable: true, revision: saved[at].revision + 1 });
+      const modifiedMs = Math.round(now() * 1000);
+      if (saveAs || at < 0) saved.push({ location, theme: structuredClone(next), bundled: false, revision: 1, modifiedMs });
+      else Object.assign(saved[at], { theme: structuredClone(next), drawable: true, revision: saved[at].revision + 1, modifiedMs });
       return Promise.resolve({ location });
     },
-    listThemes: () => Promise.resolve(saved.map((s) => ({
-      name: s.theme.name, location: s.location, canvas: { ...s.theme.canvas }, orientation: s.theme.orientation, bundled: s.bundled, ...demoFits(s.theme), revision: String(s.revision),
-    }))),
+    listThemes: () => Promise.resolve(saved.map(listed)),
+    /** Copies a library theme as a new user theme named `name`, like `duplicate_theme`. */
+    duplicateTheme: (location, name) => {
+      const found = saved.find((s) => s.location === location);
+      if (!found) return Promise.reject(Object.assign(new Error(`${location} is not in the theme library; import it instead`), { code: 'notInLibrary', args: { location } }));
+      const trimmed = String(name ?? '').trim();
+      if (!trimmed) return Promise.reject(Object.assign(new Error('invalid input: an empty theme name'), { code: 'invalidInput', args: { detail: 'an empty theme name' } }));
+      const free = (n) => `demo://${trimmed}${n === 1 ? '' : `-${n}`}`;
+      let n = 1;
+      while (saved.some((s) => s.location === free(n))) n += 1;
+      const copy = { location: free(n), theme: { ...structuredClone(found.theme), name: trimmed }, bundled: false, drawable: found.drawable, revision: 1, modifiedMs: Math.round(now() * 1000) };
+      saved.push(copy);
+      return Promise.resolve(listed(copy));
+    },
     /** A library theme's thumbnail; `null` for one that cannot be drawn. */
     themeThumbnail: (location) => {
       const found = saved.find((s) => s.location === location);

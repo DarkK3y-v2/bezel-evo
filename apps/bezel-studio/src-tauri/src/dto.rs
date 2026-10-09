@@ -287,6 +287,67 @@ pub struct SampleDto {
     /// The live screen's link failed and Bezel connects it again (T-7.11);
     /// `None` otherwise.
     pub reconnecting: Option<ReconnectingDto>,
+    /// Frames a second the live screen shows now; `None` when nothing is
+    /// live or the theme shows no animation (frames more than 300 ms apart).
+    pub live_fps: Option<f64>,
+    /// The applications and media sessions of the last sample; `None` when
+    /// neither was read (not asked for, or not available on this system).
+    pub activity: Option<ActivityDto>,
+}
+
+/// The applications and media sessions of a sample, for the inspector (the
+/// Player's sources, the card triggers' applications).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityDto {
+    /// Whether the running applications were read (the process scan
+    /// succeeded); without it `applications` is empty and `foreground` unknown.
+    pub available: bool,
+    /// The application owning the foreground window, when known.
+    pub foreground: Option<String>,
+    /// The running applications (executable names without `.exe`), by name.
+    pub applications: Vec<String>,
+    /// The operating system's media sessions (never their cover).
+    pub media: Vec<MediaSessionDto>,
+}
+
+/// A media session as the inspector lists it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaSessionDto {
+    /// The application playing it.
+    pub source: String,
+    /// The track's title.
+    pub title: String,
+    /// The track's artist.
+    pub artist: String,
+    /// Whether it plays now.
+    pub playing: bool,
+}
+
+impl ActivityDto {
+    /// What `snapshot` says of the applications and media sessions; `None`
+    /// when it read neither.
+    pub fn of(snapshot: &Snapshot) -> Option<Self> {
+        if !snapshot.activity_available && !snapshot.media_available {
+            return None;
+        }
+        Some(Self {
+            available: snapshot.activity_available,
+            foreground: snapshot.foreground.clone(),
+            applications: snapshot.applications.iter().cloned().collect(),
+            media: snapshot
+                .media
+                .iter()
+                .map(|m| MediaSessionDto {
+                    source: m.source.clone(),
+                    title: m.title.clone(),
+                    artist: m.artist.clone(),
+                    playing: m.playing,
+                })
+                .collect(),
+        })
+    }
 }
 
 /// Where a live screen whose link failed stands.
@@ -367,6 +428,9 @@ pub struct ThemeEntryDto {
     pub diagonal_hundredths: Option<u16>,
     /// Changes whenever its files do: the UI asks for its thumbnail again.
     pub revision: String,
+    /// When its files last changed, milliseconds since the Unix epoch;
+    /// `None` when the system keeps no such time.
+    pub modified_ms: Option<u64>,
 }
 
 impl From<&ThemeEntry> for ThemeEntryDto {
@@ -384,6 +448,7 @@ impl From<&ThemeEntry> for ThemeEntryDto {
             diagonal_hundredths: made_for(&models),
             models: models.iter().map(|m| m.id.0).collect(),
             revision: format!("{:016x}", e.revision),
+            modified_ms: e.modified_ms,
         }
     }
 }
@@ -1154,6 +1219,42 @@ pub struct CollectedUsersDto {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn activity_lists_applications_and_media_without_covers() {
+        use bezel_core::domain::playback::MediaSession;
+        use bezel_core::domain::sensor::Snapshot;
+        let mut snapshot = Snapshot::default();
+        assert_eq!(super::ActivityDto::of(&snapshot), None, "neither was read");
+        snapshot.media_available = true;
+        snapshot.media.push(MediaSession {
+            source: "Spotify.exe".into(),
+            title: "Song".into(),
+            artist: "Band".into(),
+            playing: true,
+            position: 3.0,
+            duration: 200.0,
+            cover: vec![1, 2, 3],
+        });
+        let media_only = super::ActivityDto::of(&snapshot).unwrap();
+        assert!(!media_only.available, "no process scan");
+        assert!(media_only.applications.is_empty());
+        snapshot.activity_available = true;
+        snapshot
+            .applications
+            .extend(["spotify".to_string(), "chrome".to_string()]);
+        snapshot.foreground = Some("chrome".into());
+        let json = serde_json::to_value(super::ActivityDto::of(&snapshot)).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "available": true,
+                "foreground": "chrome",
+                "applications": ["chrome", "spotify"],
+                "media": [{"source": "Spotify.exe", "title": "Song", "artist": "Band", "playing": true}],
+            })
+        );
+    }
+
     use super::*;
     use bezel_core::app::discover_screens;
     use bezel_devices::FakeBus;
