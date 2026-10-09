@@ -1,10 +1,48 @@
 // Tiny i18n: pick a locale from the browser, translate keys with {param}
 // substitution, and apply `data-i18n*` attributes to the DOM.
 import ptBR from './pt-BR.js';
-import en from './en.js';
-import it from './it.js';
+import enBase from './en.js';
+import itBase from './it.js';
+import shell, { PREFIXES as SHELL } from './areas/shell.js';
+import library, { PREFIXES as LIBRARY } from './areas/library.js';
+import inspector, { PREFIXES as INSPECTOR } from './areas/inspector.js';
+import card, { PREFIXES as CARD } from './areas/card.js';
+import screen, { PREFIXES as SCREEN } from './areas/screen.js';
+import connect, { PREFIXES as CONNECT } from './areas/connect.js';
 
-export const LOCALES = Object.freeze({ 'pt-BR': ptBR, en, it });
+/** The texts of each area (`{en, 'pt-BR', it}`) and the key prefixes it owns. */
+export const AREAS = Object.freeze({
+  shell: { prefixes: SHELL, tables: shell },
+  library: { prefixes: LIBRARY, tables: library },
+  inspector: { prefixes: INSPECTOR, tables: inspector },
+  card: { prefixes: CARD, tables: card },
+  screen: { prefixes: SCREEN, tables: screen },
+  connect: { prefixes: CONNECT, tables: connect },
+});
+
+/**
+ * One table per locale: the base table with every area's keys added. A key
+ * defined twice (in the base and an area, or in two areas) is an error.
+ * @param {Record<string, Record<string, string>>} bases by locale
+ * @param {Record<string, Record<string, string>>[]} areas each by locale
+ */
+export function mergeTables(bases, areas) {
+  return Object.fromEntries(Object.entries(bases).map(([locale, base]) => {
+    const table = { ...base };
+    for (const area of areas) {
+      for (const [key, text] of Object.entries(area[locale] ?? {})) {
+        if (Object.hasOwn(table, key)) throw new Error(`i18n: ${locale} key "${key}" is defined twice`);
+        table[key] = text;
+      }
+    }
+    return [locale, Object.freeze(table)];
+  }));
+}
+
+const merged = mergeTables({ 'pt-BR': ptBR, en: enBase, it: itBase }, Object.values(AREAS).map((area) => area.tables));
+const en = merged.en;
+
+export const LOCALES = Object.freeze(merged);
 
 /**
  * The best supported locale for a list of browser languages.

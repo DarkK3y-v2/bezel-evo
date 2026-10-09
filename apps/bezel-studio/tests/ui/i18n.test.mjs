@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { LOCALES, applyTranslations, guideLocale, pickLocale, placeholders, translator } from '../../src/i18n/index.js';
+import { AREAS, LOCALES, applyTranslations, guideLocale, mergeTables, pickLocale, placeholders, translator } from '../../src/i18n/index.js';
+import baseEn from '../../src/i18n/en.js';
 import { WIDGETS } from '../../src/editor/widgets.js';
 import { LANGUAGES, languageOptions } from '../../src/ui/preferences.js';
 import { DEMO_FOLDER, DEMO_GUIDE_PAGES, createDemoBackend } from '../../src/demo-backend.js';
@@ -26,6 +27,37 @@ test('every locale has exactly the same keys', () => {
 
 test('the studio speaks Portuguese (Brazil), English and Italian', () => {
   assert.deepEqual(Object.keys(LOCALES).sort(), ['en', 'it', 'pt-BR']);
+});
+
+// ----------------------------------------------------------------- areas --
+// Each area keeps its new texts in i18n/areas/<area>.js, the three
+// languages side by side, under prefixes no other area (nor the base
+// tables) uses; index.js merges them and refuses a key defined twice.
+
+test('the texts are split by area: shell, library, inspector, card, screen and connect', () => {
+  assert.deepEqual(Object.keys(AREAS), ['shell', 'library', 'inspector', 'card', 'screen', 'connect']);
+  for (const [name, area] of Object.entries(AREAS)) assert.deepEqual(Object.keys(area.tables).sort(), ['en', 'it', 'pt-BR'], name);
+});
+
+test('the merge adds each keys of each area and refuses a key defined twice', () => {
+  const bases = { en: { a: 'A' }, it: { a: 'A it' } };
+  assert.deepEqual(mergeTables(bases, [{ en: { 'x.b': 'B' }, it: { 'x.b': 'B it' } }]), { en: { a: 'A', 'x.b': 'B' }, it: { a: 'A it', 'x.b': 'B it' } });
+  assert.throws(() => mergeTables(bases, [{ en: { a: 'again' } }]), /"a" is defined twice/);
+  assert.throws(() => mergeTables(bases, [{ en: { 'x.b': 'B' } }, { en: { 'x.b': 'B' } }]), /"x\.b" is defined twice/);
+});
+
+test('every key of an area starts with one of its own prefixes', () => {
+  const offenders = Object.entries(AREAS).flatMap(([name, area]) => Object.entries(area.tables)
+    .flatMap(([locale, table]) => Object.keys(table).filter((key) => !area.prefixes.some((prefix) => key.startsWith(prefix))).map((key) => `${name} ${locale}: ${key}`)));
+  assert.deepEqual(offenders, []);
+});
+
+test('the prefixes of the areas are disjoint, and no base key uses one', () => {
+  const owned = Object.entries(AREAS).flatMap(([name, area]) => area.prefixes.map((prefix) => [name, prefix]));
+  for (const [name, prefix] of owned) assert.match(prefix, /^[a-z][A-Za-z]*\.$/, `${name}: ${prefix}`);
+  const clashes = owned.flatMap(([a, p], i) => owned.slice(i + 1).filter(([, q]) => p.startsWith(q) || q.startsWith(p)).map(([b, q]) => `${a} ${p} / ${b} ${q}`));
+  assert.deepEqual(clashes, []);
+  assert.deepEqual(Object.keys(baseEn).filter((key) => owned.some(([, prefix]) => key.startsWith(prefix))), []);
 });
 
 /** For each locale, the keys of `en` it lacks and the keys it has that `en` does not. */
@@ -222,6 +254,8 @@ test('the prose scan reads every module but the translations and demo mode', () 
   const files = uiFiles();
   for (const f of ['app.js', 'gif-search.js', 'collection.js', 'messages.js', 'ui/gif-search.js', 'ui/collection.js', 'editor/store.js']) assert.ok(files.includes(f), f);
   assert.deepEqual(files.filter((f) => f.startsWith('i18n/') || /(?:^|\/)demo-/.test(f)), []);
+  // The areas' texts are translations too.
+  assert.ok(readdirSync(new URL('i18n/areas/', src)).length >= Object.keys(AREAS).length);
 });
 
 // A literal that reads like a sentence is text for a person, whatever
