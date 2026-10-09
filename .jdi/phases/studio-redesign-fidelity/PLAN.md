@@ -41,6 +41,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - G5 só dados reais do bridge (nenhum nome/valor do mockup em `src/`); antes de declarar algo inexistente, grep no bridge/store.
 - G6 cores só via tokens (`static-guards` verde). G7 textos em en/pt-BR/it no módulo de área (paridade + prefixo verdes), "Card" fica "Card".
 - G8 controles nativos, SVG inline, teclado/aria, `expectAccessible` em light e dark nos 4 projetos. Conferir o modo `storage-wide` quando mexer no `#stage`.
+- G9 (D-14, reuso obrigatório) o mesmo objeto visual tem UMA implementação: campo com prefixo mono, título de seção, contagem, chip/badge, switch, segmented, pill, card de lista, cabeçalho de painel, busca, dica tracejada, slider com valor, ícone por tipo e miniatura de tela vêm de `ui/fields.js`/`ui/icons.js`/`ui/dom.js` e de classes em `styles/base.css` (T-2 cria o catálogo). Nenhuma task da Wave 2 cria variante local de um primitivo existente nem copia markup/CSS/lógica/strings entre áreas: precisa de algo novo comum → anota o contrato no SUMMARY e T-8 promove ao primitivo. Mesma regra para i18n (texto comum = uma chave, sem cópias com prefixos diferentes), ícones (um SVG por símbolo), lógica pura (um módulo) e specs (helpers em `tests/e2e/helpers.mjs`). Ao terminar, cada task lista no SUMMARY os primitivos reutilizados e confirma "nenhuma duplicação".
 
 ## Tasks
 
@@ -78,7 +79,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Shell = artboard Main (G3): breadcrumb "Temi › {tema}", chip "Non salvato" (`isDirty`), versão sob o logo, chip da tela com `W×H · porta` mono e chevron (select nativo), "In diretta" verde (`#live` preservado), Salva secundário + Ctrl+S, rail com grupos mono, barra flutuante sem copiar/colar (que vão para o menu de objeto, `clipboard.spec` reescrita sem perder casos) e com grade, dot grid, legenda `W × H · ruotato N°`, zoom com "Adatta", statusbar "… · ultimo salvataggio N min fa" + chips render/fps (`liveFps`). Contrato Host completo ligado a T-3.
   - Painéis (D-7): `role=separator` com `aria-valuenow/min/max`, setas/Shift/Home/End, duplo clique reseta, persistido (`localStorage`), mín/máx. `panel-sizes.js` 100% coberto. `panels.spec` cobre o DoD; `helpers.mjs` ganha `setPanelWidths` e as specs de escala do canvas fixam larguras (aprendizado 1).
 - **Dependencies:** T-1, T-3
-- **Test:** G1–G8; gate de saída da Wave 1: `npm test` completo + `cargo test --workspace` verdes no commit-base das worktrees da Wave 2
+- **Test:** G1–G9; gate de saída da Wave 1: `npm test` completo + `cargo test --workspace` verdes no commit-base das worktrees da Wave 2
 - **Status:** pending
 
 ### Wave 2 — UI por área (4 agentes em paralelo, worktree/branch próprios a partir do commit de T-2)
@@ -87,7 +88,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Specialist:** jdi-doer-bezel
 - **Files modified:** `src/index.html` (só as `section` dentro de `.library`; único dono na wave 2), `src/ui/{library,collection,icon-picker,gif-search,layer-drag}.js`, `src/ui/themes-dialog.js` (novo, se o artboard pedir modal), `src/library-model.js` (novo: grupos/busca de widget, filtro de camadas, histórico de sparkline), `src/{theme-filter,collection}.js`, `src/editor/layers.js`, `src/styles/library.css`, `src/i18n/areas/library.js`, `scripts/fidelity/recipes/library.mjs`, `tests/ui/{library,layers,collection,theme-filter,gif-search,library-model}.test.mjs`, `tests/e2e/{library,layer-drag,themes,gif-search,icons,workspace-selection,scenarios-library}.spec.mjs` (`library` novo)
 - **Acceptance:**
-  - G1–G8 nos artboards Main (painel), Sensors, Layers, Media, Themes. Widget: contagem, busca, 3 grupos, cards 3 colunas, dica tracejada no rodapé. Sensors: sparklines do histórico real de `updateReadings`, "aggiornati ogni N s", alerta Libre → `restartLibre`. Layers: filtro por nome/sensor, "IN PRIMO PIANO" + contagem, meta mono, barra de seleção múltipla (Raggruppa Ctrl G / Crea card com comandos existentes do store, nomes acessíveis sem colidir com o inspector). Themes: card "Nuovo tema", busca, Duplica (`duplicateTheme`) / Apri.
+  - G1–G9 nos artboards Main (painel), Sensors, Layers, Media, Themes. Widget: contagem, busca, 3 grupos, cards 3 colunas, dica tracejada no rodapé. Sensors: sparklines do histórico real de `updateReadings`, "aggiornati ogni N s", alerta Libre → `restartLibre`. Layers: filtro por nome/sensor, "IN PRIMO PIANO" + contagem, meta mono, barra de seleção múltipla (Raggruppa Ctrl G / Crea card com comandos existentes do store, nomes acessíveis sem colidir com o inspector). Themes: card "Nuovo tema", busca, Duplica (`duplicateTheme`) / Apri.
   - `library.spec`: "Background" e "CPU Analog" (ou equivalentes do demo) sem truncar na largura padrão (`scrollWidth ≤ clientWidth`) — DoD fidelity-13.
   - Regressão read-only: `cards`, `shell`, `panels`, `scenarios-shell`.
 - **Dependencies:** T-2
@@ -98,7 +99,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Specialist:** jdi-doer-bezel
 - **Files modified:** `src/ui/inspector.js`, `src/inspector-tabs.js`, `src/element-preview.js` (novo, puro: agenda/coalesce de `renderElement`, encaixe), `src/styles/inspector.css`, `src/i18n/areas/inspector.js`, `scripts/fidelity/recipes/inspector.mjs`, `tests/ui/{inspector-tabs,element-preview}.test.mjs`, `tests/e2e/{inspector-sections,inspector-preview,ring-gradient,clock,weather,video-framing,video-background,video-preview,device-video,editing-017,features-016-inspector}.spec.mjs` (`inspector-preview` novo)
 - **Acceptance:**
-  - G1–G8 nos artboards Main (inspector), GraphData/Look, PlayerData/Look: cabeçalho com ícone + nome + subtítulo "tipo · livello N di M", olho e "…"; abas logo abaixo; grade 2×2 com prefixo mono + alinhamento; fonte do anel em card (sensor, chave mono, valor atual, chevron); arco com preview + inizio/ampiezza; switches à direita; Player: chips de app de `activity.media` (ponto verde = tocando, "Altra…"), "quando não toca" em cards de rádio.
+  - G1–G9 nos artboards Main (inspector), GraphData/Look, PlayerData/Look: cabeçalho com ícone + nome + subtítulo "tipo · livello N di M", olho e "…"; abas logo abaixo; grade 2×2 com prefixo mono + alinhamento; fonte do anel em card (sensor, chave mono, valor atual, chevron); arco com preview + inizio/ampiezza; switches à direita; Player: chips de app de `activity.media` (ponto verde = tocando, "Altra…"), "quando não toca" em cards de rádio.
   - Preview = `renderElement` (D-8): `inspector-preview.spec` mostra que outro elemento sobreposto não aparece e que mudar a cor muda os pixels; `role=img` com nome traduzido; sem chamadas em rajada (coalesce testado em unit).
   - Regressão read-only: `cards`, `card-animation`, `features-016-card`.
 - **Dependencies:** T-2
@@ -109,7 +110,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Specialist:** jdi-doer-bezel
 - **Files modified:** `src/ui/{screen-panel,storage,manager,standby,udev,sensor-status}.js`, `src/storage-breakdown.js` (novos, puros), `src/{standby,storage-manager,libre-status}.js`, `src/styles/{screen,connect}.css`, `src/i18n/areas/{screen,connect}.js`, `scripts/fidelity/recipes/screen.mjs`, `tests/ui/{storage,storage-manager,standby,libre-status,storage-breakdown}.test.mjs`, `tests/e2e/{storage,storage-manager,standby,libre,scenarios-screen,features-016-screen}.spec.mjs`
 - **Acceptance:**
-  - G1–G8 nos artboards Screen, Storage, SensorStatus. NÃO tocar em `ui/connect.js`, no cartão Connect nem em `connect.spec` (D-5 revista). Storage: cartões interna/SD, barra por tipo (Video/Immagini/Altro somados de `managerOverview.files`), slot "All'accensione" com o arquivo `protected==='boot'`, chips Tutti/SD/Interna. Screen: card do dispositivo com porta, W×H e protocolo mono.
+  - G1–G9 nos artboards Screen, Storage, SensorStatus. NÃO tocar em `ui/connect.js`, no cartão Connect nem em `connect.spec` (D-5 revista). Storage: cartões interna/SD, barra por tipo (Video/Immagini/Altro somados de `managerOverview.files`), slot "All'accensione" com o arquivo `protected==='boot'`, chips Tutti/SD/Interna. Screen: card do dispositivo com porta, W×H e protocolo mono.
   - SensorStatus: 4 estados do chip (ok com ms, âmbar com N faltando, vermelho com reinício direto, girando), popover com linha por hardware (valor + fonte), "ultima lettura N s fa", Escape devolve o foco.
   - Regressão read-only: `shell`, `scenarios-shell`, `live-screen-controls`, `device-label-020`, `multi-screen`.
 - **Dependencies:** T-2
@@ -120,7 +121,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Specialist:** jdi-doer-bezel
 - **Files modified:** `src/ui/inspector-card.js`, `src/editor/{store,cards,card-motion,card-timer}.js`, `src/card-rules.js` (novo, puro: frase da regra ↔ trigger), `src/styles/card.css`, `src/i18n/areas/card.js`, `scripts/fidelity/recipes/card.mjs`, `tests/ui/{cards,card-motion,card-timer,editor-store,groups,card-rules}.test.mjs`, `tests/e2e/{cards,card-animation,card-inspector,features-016-card}.spec.mjs` (`card-inspector` novo)
 - **Acceptance:**
-  - G1–G8 nos artboards CardFaces/Motion/Triggers. Faces: miniaturas verticais (proporção da tela, `renderElement` por face ou recorte declarado), nome mono, chip "Base" tracejado, "+" grande; editor da face com ‹ ›, Duplica, lixeira vermelha; "OGGETTI IN {FACCIA}" + Sposta; dica tracejada.
+  - G1–G9 nos artboards CardFaces/Motion/Triggers. Faces: miniaturas verticais (proporção da tela, `renderElement` por face ou recorte declarado), nome mono, chip "Base" tracejado, "+" grande; editor da face com ‹ ›, Duplica, lixeira vermelha; "OGGETTI IN {FACCIA}" + Sposta; dica tracejada.
   - Motion: pills de duração, stepper, cards ilustrados de efeito (SVG inline), slider, direção com setas. Triggers: regras em frase com tokens, app via `activity.applications`/`foreground` + texto livre, prioridade/retorno mono, "Quando un trigger finisce". Sem "attiva ora".
   - Comandos novos do store com teste e Undo de um passo; regressão read-only: `inspector-sections`, `layer-drag`, `workspace-selection`.
 - **Dependencies:** T-2
@@ -133,6 +134,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
 - **Specialist:** jdi-doer-bezel
 - **Files modified:** qualquer arquivo citado acima só para corrigir integração; `src/styles/tokens.css` e `src/i18n/*` (tokens/chaves pendentes, órfãs); `scripts/fidelity/gallery.mjs` (novo); `.jdi/phases/studio-redesign-fidelity/SUMMARY.md`
 - **Acceptance:**
+  - Verificação de duplicação (D-14/G9): varrer `src/styles/*.css` (regras/declarações repetidas entre áreas), `src/ui/*.js` (markup/funções repetidas, primitivos reimplementados), `src/i18n/**` (mesmo texto em chaves diferentes), SVGs repetidos e lógica pura duplicada; consolidar tudo nos primitivos e registrar o resultado (o que foi unificado) no SUMMARY. Se possível, um teste automático simples (ex.: mesmo valor de texto en em >1 chave, mesmo `d` de SVG em >1 arquivo) que falha em regressão.
   - Merge `--no-ff` na ordem T-4 → T-6 → T-5 → T-7, rodando `npm run test:unit` após cada merge. Conflito de arquivo = violação de contrato, anotada no SUMMARY. Pendências anotadas pelos agentes aplicadas.
   - Gates: `npm test` (unit ≥ 80% + Playwright 4 projetos + axe, workers padrão, depois 2ª rodada de estabilidade); `cargo test --workspace`, `clippy --all-targets -D warnings`, `fmt --check`, `llvm-cov --workspace ≥ 80%`; `npm audit` e `cargo audit` sem alta/crítica nova. Specs por tempo reexecutadas em série antes de qualquer veredito.
   - `node scripts/fidelity/gallery.mjs` gera `gap/gallery/index.html` (gitignored) com par mockup × app (dark e light, it) por artboard/estado, valores do DCLogic via `dc-shim` e nota nos artboards estáticos; desvios restantes de cada agente listados na página. Aprovação do usuário = DoD manual.
