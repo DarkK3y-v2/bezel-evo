@@ -268,6 +268,16 @@ export const PROGRESS_EVENT = 'storage-progress';
  */
 
 /**
+ * @typedef {{source: string, title: string, artist: string, playing: boolean}} MediaSessionDto
+ * @typedef {{available: boolean, foreground: string|null, applications: string[], media: MediaSessionDto[]}} ActivityDto
+ * @typedef {{
+ *   sampleMillis: number, readings: Record<string, {value: number|null, display: string, unavailable: string|null}>,
+ *   live: string|null, liveError: object|null, video: object|null, reconnecting: {attempt: number, attempts: number}|null,
+ *   liveFps: number|null, activity: ActivityDto|null,
+ * }} SampleDto What `sample` answers (see there).
+ */
+
+/**
  * Event the app sends when the window's close button is pressed with unsaved
  * edits and no screen live: the UI asks, then calls `closeWindow`.
  */
@@ -311,6 +321,23 @@ function tauriBridge(invoke, tauri = {}) {
     leaveDesktopMode: (key, confirmed) => invoke('leave_desktop_mode', { key, confirmed }),
     catalog: () => invoke('sensor_catalog'),
     selectScreen: (screen) => invoke('select_screen', { screen }),
+    /**
+     * The latest readings and the live screen's state: `sample_sensors`.
+     * Besides `sampleMillis`, `readings`, `live`, `liveError`, `video` and
+     * `reconnecting`:
+     * - `liveFps`: frames a second the live screen shows now, `null` when
+     *   nothing is live or the theme shows no animation (frames more than
+     *   300 ms apart, e.g. a still theme refreshed once a second);
+     * - `activity`: `{available, foreground, applications, media}` of the
+     *   last sample, `null` when neither the applications nor the media
+     *   sessions were read (they are read while the theme or the list wants
+     *   `activity.processes` / `media.sessions`, see `showSensors`, and only
+     *   where the system offers them). `available` says the running
+     *   applications were read (`applications`: executable names without
+     *   `.exe`, by name; `foreground`: the one owning the foreground window or
+     *   `null`); `media`: `[{source, title, artist, playing}]` (no cover).
+     * @returns {Promise<SampleDto>}
+     */
     sample: () => invoke('sample_sensors'),
     restartLibre: () => invoke('restart_libre_reader'),
     searchWeatherCities: (query) => invoke('search_weather_cities', { query }),

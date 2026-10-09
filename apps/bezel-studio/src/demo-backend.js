@@ -3,7 +3,7 @@ import { createCardMotion } from './editor/card-motion.js';
 import { isShown } from './editor/cards.js';
 // An in-memory backend for demo mode: a simulated screen, sensors that move,
 // themes, media and an approximate renderer. Nothing here reaches hardware.
-import { DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
+import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
 import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank, demoSameFile } from './demo-manager.js';
 import { DEMO_THEME } from './demo-theme.js';
 import { createDemoGifs } from './demo-gifs.js';
@@ -1390,7 +1390,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
         readings['lhm.psu.corsair.0.voltage.3'] = libreFailed ? { unavailable: 'No readings', display: '—' } : { value: 230, display: '230 V' };
         readings['lhm.psu.corsair.0.power.14'] = { value: libreFailed ? 0 : 158, display: libreFailed ? '0 W' : '158 W' };
       }
-      return Promise.resolve({ sampleMillis: 3, readings, live: live || null, liveError, video: videoOfTheme(), reconnecting });
+      const liveFps = live && !reconnecting ? DEMO_LIVE_FPS : null;
+      return Promise.resolve({ sampleMillis: 3, readings, live: live || null, liveError, video: videoOfTheme(), reconnecting, liveFps, activity: structuredClone(DEMO_ACTIVITY) });
     },
     session: () => Promise.resolve({ version: 'demo', screen: selectedScreen, theme: structuredClone(theme), location: chosen.theme ? null : saved[0].location, minRefreshSeconds: DEMO_MIN_REFRESH }),
     selectScreen: async (key) => {

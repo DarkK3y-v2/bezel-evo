@@ -29,9 +29,9 @@ use bezel_themes::native::{is_native, native_location};
 
 use crate::diag::{self, DiagCode};
 use crate::dto::{
-    AddedDto, AssetDto, DevicesDto, ImportedDto, LiveVideoDto, MonitorModeDto, PreferencesDto,
-    ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto, ThemeEntryDto,
-    ThemeFilterDto, VideoAutoDto,
+    ActivityDto, AddedDto, AssetDto, DevicesDto, ImportedDto, LiveVideoDto, MonitorModeDto,
+    PreferencesDto, ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto,
+    ThemeEntryDto, ThemeFilterDto, VideoAutoDto,
 };
 use crate::element_preview::{fit_within, side_of};
 use crate::library::ThemeLibrary;
@@ -729,11 +729,14 @@ impl Backend {
         self.studio().show_sensors(listed);
     }
 
-    /// The latest readings (sampled by the refresh loop).
+    /// The latest readings (sampled by the refresh loop), with the live
+    /// screen's frame rate and the applications and media sessions.
     pub fn sample(&self) -> SampleDto {
         let studio = self.studio();
         let (snapshot, millis) = studio.readings();
         SampleDto {
+            live_fps: studio.live_fps(Instant::now()),
+            activity: ActivityDto::of(snapshot),
             sample_millis: millis,
             readings: SampleDto::readings(snapshot, studio.quantities()),
             live: studio.live_key().map(str::to_string),
@@ -1955,6 +1958,31 @@ mod tests {
         assert_eq!(frame.pixel(30, 30), Some(b), "the active face");
         assert_eq!(count(&frame, a), 0, "not the other face");
         assert_eq!(frame.pixel(5, 5), Some(base), "over the card's base");
+    }
+
+    #[test]
+    fn samples_tell_the_live_frame_rate_and_the_activity() {
+        let f = fixture("fps");
+        let quiet = f.backend.sample();
+        assert_eq!(
+            (quiet.live_fps, &quiet.activity),
+            (None, &None),
+            "nothing live, nothing read"
+        );
+        let json = serde_json::to_value(&quiet).unwrap();
+        assert!(json["liveFps"].is_null() && json["activity"].is_null());
+        f.backend.set_live(true, Some(KEY), TIME).unwrap();
+        let theme = f.backend.session().theme;
+        for _ in 0..3 {
+            f.backend.push(&theme, TIME).unwrap();
+        }
+        let fps = f.backend.sample().live_fps;
+        assert!(
+            fps.is_some_and(|fps| fps > 0.0),
+            "frames back to back: {fps:?}"
+        );
+        f.backend.set_live(false, None, TIME).unwrap();
+        assert_eq!(f.backend.sample().live_fps, None, "nothing live");
     }
 
     #[test]

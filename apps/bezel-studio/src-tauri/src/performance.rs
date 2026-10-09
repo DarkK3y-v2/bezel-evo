@@ -37,6 +37,13 @@ impl Corner {
     }
 }
 
+/// Frames further apart than this, milliseconds, are not an animation: the
+/// frame rate starts over (a still theme refreshing once a second has none).
+const IDLE_GAP_MS: f64 = 300.0;
+
+/// Frames counted for the frame rate.
+const RATE_FRAMES: usize = 20;
+
 #[derive(Default)]
 pub struct Performance {
     last: Option<Instant>,
@@ -57,12 +64,62 @@ pub struct Timings {
 }
 
 impl Performance {
+    /// Counts a delivery to the live screen that ended at `now` for the
+    /// frame rate (always, debug or not): one that `succeeded` and sent
+    /// bytes (or says nothing of them) is a frame shown. The time since the
+    /// last frame shown, milliseconds.
+    pub fn count(
+        &mut self,
+        succeeded: bool,
+        transfer: Option<TransferStats>,
+        now: Instant,
+    ) -> Option<f64> {
+        let gap_ms = self
+            .last
+            .map(|last| now.saturating_duration_since(last).as_secs_f64() * 1000.0);
+        if gap_ms.is_some_and(|gap| gap > IDLE_GAP_MS) {
+            self.intervals.clear();
+        }
+        if succeeded && transfer.is_none_or(|t| t.bytes > 0) {
+            if let Some(gap) = gap_ms.filter(|gap| *gap <= IDLE_GAP_MS) {
+                self.intervals.push_back(gap);
+                if self.intervals.len() > RATE_FRAMES {
+                    self.intervals.pop_front();
+                }
+            }
+            self.last = Some(now);
+        }
+        gap_ms
+    }
+
+    /// Frames a second over the last frames shown; `None` before two
+    /// frames close enough together.
+    fn fps(&self) -> Option<f64> {
+        (!self.intervals.is_empty())
+            .then(|| 1000.0 * self.intervals.len() as f64 / self.intervals.iter().sum::<f64>())
+    }
+
+    /// The frame rate the live screen shows at `now`: `None` once no frame
+    /// was shown for longer than an animation's gap (a still theme, or one
+    /// that stopped moving).
+    pub fn fps_at(&self, now: Instant) -> Option<f64> {
+        let last = self.last?;
+        let idle = now.saturating_duration_since(last).as_secs_f64() * 1000.0;
+        if idle > IDLE_GAP_MS {
+            return None;
+        }
+        self.fps()
+    }
+
+    /// Logs a delivery counted with [`Self::count`] (its `gap_ms`) and
+    /// prepares the debug overlay's lines (debug mode only).
     pub fn completed(
         &mut self,
         timings: Timings,
         transfer: Option<TransferStats>,
         screen: &str,
         success: bool,
+        gap_ms: Option<f64>,
         now: Instant,
     ) {
         let Timings {
@@ -75,30 +132,7 @@ impl Performance {
             refresh_ms,
             animating,
         } = timings;
-        let gap_ms = self
-            .last
-            .map(|last| now.saturating_duration_since(last).as_secs_f64() * 1000.0);
-        if gap_ms.is_some_and(|gap| gap > 300.0) {
-            self.intervals.clear();
-        }
-        if success && transfer.is_none_or(|t| t.bytes > 0) {
-            if let Some(gap) = gap_ms {
-                if gap > 300.0 {
-                    self.intervals.clear();
-                } else {
-                    self.intervals.push_back(gap);
-                }
-                if self.intervals.len() > 20 {
-                    self.intervals.pop_front();
-                }
-            }
-            self.last = Some(now);
-        }
-        let fps = if self.intervals.is_empty() {
-            None
-        } else {
-            Some(1000.0 * self.intervals.len() as f64 / self.intervals.iter().sum::<f64>())
-        };
+        let fps = self.fps();
         tracing::debug!(target: "bezel_studio::performance", screen, success, animating, render_reused, render_ms, present_ms, handoff_ms,
             sensors_ms, refresh_ms, render_stats = ?render_stats, fps = ?fps, gap_ms = ?gap_ms, transfer = ?transfer,
             "frame delivery (host completion; not panel refresh)");
@@ -263,59 +297,52 @@ mod tests {
         Performance::default().paint(&mut frame, Corner::BottomLeft);
         assert_ne!(frame.pixel(0, 0), Some(Rgba::WHITE));
     }
+    fn timings() -> Timings {
+        Timings {
+            render_reused: false,
+            render_stats: bezel_core::ports::RenderStats::default(),
+            render_ms: 1.,
+            present_ms: 2.,
+            handoff_ms: 0.,
+            sensors_ms: 3.,
+            refresh_ms: 1000.,
+            animating: true,
+        }
+    }
+
     #[test]
     fn idle_gap_resets_animation_fps() {
         let mut p = Performance::default();
         let now = Instant::now();
-        p.completed(
-            Timings {
-                render_reused: false,
-                render_stats: bezel_core::ports::RenderStats::default(),
-                render_ms: 1.,
-                present_ms: 2.,
-                handoff_ms: 0.,
-                sensors_ms: 3.,
-                refresh_ms: 1000.,
-                animating: true,
-            },
-            None,
-            "test",
-            true,
-            now,
-        );
-        p.completed(
-            Timings {
-                render_reused: false,
-                render_stats: bezel_core::ports::RenderStats::default(),
-                render_ms: 1.,
-                present_ms: 2.,
-                handoff_ms: 0.,
-                sensors_ms: 3.,
-                refresh_ms: 1000.,
-                animating: true,
-            },
-            None,
-            "test",
-            true,
-            now + std::time::Duration::from_millis(50),
-        );
+        let ms = std::time::Duration::from_millis;
+        assert_eq!(p.count(true, None, now), None);
+        assert_eq!(p.count(true, None, now + ms(50)), Some(50.0));
         assert_eq!(p.intervals.len(), 1);
-        p.completed(
-            Timings {
-                render_reused: false,
-                render_stats: bezel_core::ports::RenderStats::default(),
-                render_ms: 1.,
-                present_ms: 2.,
-                handoff_ms: 0.,
-                sensors_ms: 3.,
-                refresh_ms: 1000.,
-                animating: true,
-            },
-            None,
-            "test",
-            true,
-            now + std::time::Duration::from_secs(1),
-        );
+        let gap = p.count(true, None, now + ms(1050));
+        p.completed(timings(), None, "test", true, gap, now + ms(1050));
         assert!(p.intervals.is_empty());
+        assert_eq!(p.lines.len(), 3, "the overlay's lines");
+    }
+
+    #[test]
+    fn the_live_frame_rate_is_known_while_frames_keep_coming() {
+        let mut p = Performance::default();
+        let start = Instant::now();
+        let ms = std::time::Duration::from_millis;
+        assert_eq!(p.fps_at(start), None, "nothing shown yet");
+        p.count(true, None, start);
+        assert_eq!(p.fps_at(start), None, "one frame is no rate");
+        for i in 1..=30 {
+            p.count(true, None, start + ms(i * 40));
+        }
+        assert_eq!(p.intervals.len(), RATE_FRAMES);
+        let at = start + ms(1200);
+        assert_eq!(p.fps_at(at).map(f64::round), Some(25.0));
+        // A failed send or one that sent nothing shows no frame.
+        let empty = TransferStats::default();
+        p.count(false, None, start + ms(1240));
+        p.count(true, Some(empty), start + ms(1280));
+        assert_eq!(p.last, Some(at));
+        assert_eq!(p.fps_at(start + ms(1600)), None, "it stopped moving");
     }
 }

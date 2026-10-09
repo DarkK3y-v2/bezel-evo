@@ -400,6 +400,24 @@ export const DEMO_LIBRARY = Object.freeze([
 /** The command the app shows to install its udev rule (Linux). */
 export const DEMO_UDEV_COMMAND = 'sudo install -m 644 /home/demo/.cache/io.github.slipalison.bezel/60-bezel.rules /etc/udev/rules.d/60-bezel.rules && sudo udevadm control --reload && sudo udevadm trigger';
 
+/**
+ * What the demo's samples say of the applications and media sessions
+ * (`activity`): Chrome in front, Spotify playing the track the demo's
+ * Player shows.
+ */
+export const DEMO_ACTIVITY = Object.freeze({
+  available: true,
+  foreground: 'chrome',
+  applications: Object.freeze(['chrome', 'code', 'discord', 'explorer', 'spotify', 'steam']),
+  media: Object.freeze([
+    Object.freeze({ source: 'Spotify.exe', title: 'Demo track', artist: 'Demo artist', playing: true }),
+    Object.freeze({ source: 'chrome', title: 'Demo video', artist: 'Demo channel', playing: false }),
+  ]),
+});
+
+/** Frames a second the demo's live screen shows. */
+export const DEMO_LIVE_FPS = 30;
+
 /** The KLIPY key the `gifs` scenarios saved: an obvious fake, it ends in `a1b2`. */
 export const DEMO_KLIPY_KEY = 'demo-demo-demo-a1b2';
 

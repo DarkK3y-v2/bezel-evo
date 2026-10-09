@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEMO_AWAY_SAMPLES, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoElementSide, demoFits, demoIsolate, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
-import { DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY } from '../../src/demo-data.js';
+import { DEMO_ACTIVITY, DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY, DEMO_LIVE_FPS } from '../../src/demo-data.js';
 import { DEMO_GIF_OVERLAP, DEMO_GIF_PAGES, DEMO_GIF_PAGE_SIZE, DEMO_REFUSED_KEY, demoContentId, demoGifPage, demoGifSlug } from '../../src/demo-gifs.js';
 
 const fixed = { now: () => 1000 };
@@ -31,6 +31,22 @@ test('the catalog and samples cover every demo sensor', async () => {
   const { readings } = await demo.sample();
   for (const entry of catalog) assert.equal(typeof readings[entry.key].display, 'string', entry.key);
   assert.ok(readings['gpu.1.fan'].unavailable);
+});
+
+test('samples tell the live frame rate and the applications and media playing', async () => {
+  const demo = createDemoBackend('turing88', fixed);
+  const quiet = await demo.sample();
+  assert.equal(quiet.liveFps, null, 'nothing live');
+  assert.deepEqual(quiet.activity, DEMO_ACTIVITY);
+  assert.equal(quiet.activity.foreground, 'chrome');
+  assert.ok(quiet.activity.applications.includes('spotify'));
+  assert.deepEqual(quiet.activity.media.filter((m) => m.playing).map((m) => m.source), ['Spotify.exe']);
+  quiet.activity.applications.push('changed');
+  assert.ok(!(await demo.sample()).activity.applications.includes('changed'), 'a copy each time');
+  await demo.setLive(true, '/dev/ttyACM1');
+  assert.equal((await demo.sample()).liveFps, DEMO_LIVE_FPS);
+  await demo.setLive(false);
+  assert.equal((await demo.sample()).liveFps, null);
 });
 
 test('saving, listing and opening themes', async () => {

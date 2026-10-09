@@ -1500,6 +1500,14 @@ impl Studio {
         self.video.as_ref().is_some_and(|v| v.decoder.is_some())
     }
 
+    /// Frames a second the live screen shows at `now`; `None` when no
+    /// screen is live or the theme shows no animation now (frames further
+    /// apart than an animation's).
+    pub fn live_fps(&self, now: Instant) -> Option<f64> {
+        self.live.as_ref()?;
+        self.performance.fps_at(now)
+    }
+
     /// Key of the screen showing the theme, if any.
     pub fn live_key(&self) -> Option<&str> {
         self.live.as_ref().map(|l| l.key.as_str())
@@ -1922,6 +1930,8 @@ impl Studio {
         if !self.is_live(&delivery.key) || self.generation != delivery.generation {
             return Some(delivery.link);
         }
+        let transfer = delivery.link.last_transfer();
+        let gap_ms = self.performance.count(outcome.is_ok(), transfer, now);
         if crate::debug::enabled() {
             self.performance.completed(
                 crate::performance::Timings {
@@ -1934,9 +1944,10 @@ impl Studio {
                     sensors_ms: self.sample_millis,
                     refresh_ms: f64::from(self.runtime.theme().refresh_seconds) * 1000.0,
                 },
-                delivery.link.last_transfer(),
+                transfer,
                 &delivery.key,
                 outcome.is_ok(),
+                gap_ms,
                 now,
             );
         }
