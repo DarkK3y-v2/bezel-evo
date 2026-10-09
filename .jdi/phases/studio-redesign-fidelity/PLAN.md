@@ -67,7 +67,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - `build-icons.mjs` gera o tray dedicado (matriz simplificada, legível em barra clara e escura). `app-icons.test` confere 16/20/24/32 px e que `light_tray.rs` e `tray.rs` referenciam o novo asset. `cargo test --workspace`, `clippy -D warnings`, `fmt --check` e `llvm-cov ≥ 80%` verdes.
 - **Dependencies:** none
 - **Test:** `cargo test/clippy/fmt/llvm-cov --workspace`; G1
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 1b — Shell visual (mesmo agente de T-1; começa fazendo merge de `fidelity/t3-backend`)
 
@@ -80,7 +80,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Painéis (D-7): `role=separator` com `aria-valuenow/min/max`, setas/Shift/Home/End, duplo clique reseta, persistido (`localStorage`), mín/máx. `panel-sizes.js` 100% coberto. `panels.spec` cobre o DoD; `helpers.mjs` ganha `setPanelWidths` e as specs de escala do canvas fixam larguras (aprendizado 1).
 - **Dependencies:** T-1, T-3
 - **Test:** G1–G9; gate de saída da Wave 1: `npm test` completo + `cargo test --workspace` verdes no commit-base das worktrees da Wave 2
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 2 — UI por área (4 agentes em paralelo, worktree/branch próprios a partir do commit de T-2)
 
