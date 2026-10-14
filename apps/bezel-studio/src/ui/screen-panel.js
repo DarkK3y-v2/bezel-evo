@@ -97,7 +97,6 @@ export function createScreenPanel({ root, t, actions }) {
     thumb.style.height = `${54 * (shape?.height ?? 1) / longest}px`;
     const protocol = PROTOCOLS[s.family];
     const facts = [
-      s.key,
       model ? `${model.width}×${model.height}` : null,
       protocol ? t('screenPanel.protocol', { name: protocol }) : null,
     ].filter(Boolean);
@@ -110,7 +109,7 @@ export function createScreenPanel({ root, t, actions }) {
         facts.length ? el('span', { class: 'screen-size', text: facts.join(' · ') }) : null,
         el('span', { class: 'screen-state', dataset: { tone } }, [
           el('span', { class: 'status-dot', 'aria-hidden': 'true' }),
-          el('span', { class: 'meta', text: `${t(`screen.state.${s.state}`)}${liveHere ? ` · ${t('status.live')}` : ''}` }),
+          el('span', { class: 'meta mono', text: `${s.key} · ${t(`screen.state.${s.state}`)}${liveHere ? ` · ${t('status.live')}` : ''}` }),
         ]),
       ]),
     ]);
