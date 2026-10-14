@@ -66,7 +66,7 @@ const rank = (sensor) => (SHOWN_FIRST.includes(sensor.quantity) ? SHOWN_FIRST.in
  * @param {{key: string, category: string, source: string, quantity: string}[]} catalog
  * @param {Record<string, {value?: number, display?: string, unavailable?: string}>|null} readings
  * @param {{hardware?: {name: string, category: string|null, ok: boolean}[]}|null} health
- * @returns {{category: string, sources: string[], value: string|null, missing: string[], name?: string}[]}[]}
+ * @returns {{category: string, sources: string[], value: string|null, missing: string[], name?: string}[]}
  */
 export function hardwareRows(catalog, readings, health) {
   const rows = new Map();

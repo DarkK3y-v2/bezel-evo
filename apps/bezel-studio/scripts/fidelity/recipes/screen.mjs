@@ -19,15 +19,26 @@ const settings = async (app) => {
   await app.page.locator('#toast').waitFor({ state: 'hidden' });
 };
 
+const storage = async (app) => {
+  await app.tab('screen');
+  await app.click('#subtab-storage');
+};
+
 export default {
   area: 'screen',
   artboards: ['Screen', 'Storage', 'SensorStatus'],
   states: [
     { name: 'settings', run: settings },
     { name: 'settings-advanced', run: async (app) => { await settings(app); await app.page.locator('.screen-tail').scrollIntoViewIfNeeded(); } },
-    { name: 'storage', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
-    { name: 'storage-boot', demo: 'vendorCard', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
-    { name: 'storage-sd', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); await app.click('[data-focus=place-sd]'); } },
+    { name: 'storage', run: storage },
+    { name: 'storage-boot', demo: 'vendorCard', run: storage },
+    { name: 'storage-boot-drop', run: async (app) => {
+      await storage(app);
+      await app.page.locator('.manager-column[data-medium=internal] [role=option]').first().hover();
+      await app.page.mouse.down();
+      await app.page.locator('.boot-slot').hover();
+    } },
+    { name: 'storage-sd', run: async (app) => { await storage(app); await app.click('[data-focus=place-sd]'); } },
     { name: 'sensor-ok', run: (app) => app.click('#status-libre-toggle') },
     { name: 'sensor-status', query: '&libre=partial', run: (app) => app.click('#status-libre-toggle') },
     { name: 'sensor-status-error', query: '&libre=error', run: (app) => app.click('#status-libre-toggle') },
