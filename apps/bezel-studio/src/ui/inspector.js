@@ -1103,10 +1103,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const tab = inside && active.getAttribute('role') === 'tab' ? active.dataset.tab : null;
     const id = inside && !tab && active.id?.startsWith('framing-') ? active.id : null;
     const label = inside && !tab && !id ? active.getAttribute('aria-label') : null;
+    const nativeLabel = inside && !tab && !id && !label ? active.labels?.[0]?.textContent : null;
+    const buttonText = inside && active.tagName === 'BUTTON' ? active.textContent : null;
+    const controlSelector = inside ? `${active.tagName.toLowerCase()}${active.tagName === 'INPUT' ? `[type="${active.type}"]` : ''}` : null;
     root.replaceChildren(...nodes.filter(Boolean));
     if (tab) root.querySelector(`[role="tab"][data-tab="${CSS.escape(tab)}"]`)?.focus();
     else if (id) document.getElementById(id)?.focus();
-    else if (label) root.querySelector(`[aria-label="${CSS.escape(label)}"]`)?.focus();
+    else if (label) root.querySelector(`${controlSelector}[aria-label="${CSS.escape(label)}"]`)?.focus();
+    else if (nativeLabel) Array.from(root.querySelectorAll(controlSelector)).find((node) => node.labels?.[0]?.textContent === nativeLabel)?.focus();
+    else if (buttonText !== null) Array.from(root.querySelectorAll('button')).find((node) => node.textContent === buttonText)?.focus();
     requestPreview();
     refreshLive();
     shown = { assets, signature: videoSignature() };

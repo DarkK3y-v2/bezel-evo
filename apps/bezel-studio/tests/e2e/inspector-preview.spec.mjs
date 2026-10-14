@@ -172,7 +172,13 @@ test('the player lists the apps with a media session, the playing one marked, an
   await expect(inspector.getByRole('textbox', { name: t('player.empty'), exact: true })).toBeVisible();
   await stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) }).check();
   await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) })).toBeChecked();
+  await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) })).toBeFocused();
   await expect(inspector.getByRole('textbox', { name: t('player.empty'), exact: true })).toHaveCount(0);
+  await page.keyboard.press('ArrowDown');
+  await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedText')) })).toBeChecked();
+  await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedText')) })).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) })).toBeChecked();
   await page.locator('#undo').click();
   await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedText')) })).toBeChecked();
 
