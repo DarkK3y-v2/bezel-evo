@@ -1,3 +1,8 @@
+/** Physical Libre hardware id, or the provider's category fallback. */
+const hardwareGroup = (sensor) => sensor.key.startsWith('lhm.')
+  ? sensor.key.split('.').slice(0, -2).join('.')
+  : sensor.category;
+
 /** Reading health, grouped by hardware so one healthy CPU cannot hide a failed PSU.
  * Optional sensors may be missing; a hardware group needs one physical reading.
  * Corsair's composite Total Output can report zero when every rail is missing.
@@ -9,9 +14,7 @@ export function libreStatus(catalog, readings) {
   if (!sensors.length) return null;
   const groups = new Map();
   for (const sensor of sensors) {
-    const group = sensor.key.startsWith('lhm.')
-      ? sensor.key.split('.').slice(0, -2).join('.')
-      : sensor.category;
+    const group = hardwareGroup(sensor);
     if (!groups.has(group)) groups.set(group, []);
     // The PSU's physical voltage/current/temperature readings establish health,
     // rather than a synthetic power total that can disguise missing USB replies.
@@ -55,7 +58,7 @@ const SHOWN_FIRST = Object.freeze(['celsius', 'percent', 'watts']);
 const rank = (sensor) => (SHOWN_FIRST.includes(sensor.quantity) ? SHOWN_FIRST.indexOf(sensor.quantity) : SHOWN_FIRST.length);
 
 /**
- * One row per hardware category of the catalog, in catalog order (artboard
+ * One row per hardware of the catalog, in catalog order (artboard
  * SensorStatus): the sources that read it, the value that best shows it is
  * read (a temperature, else a share, else a power, else any) and the Libre
  * groups of that category that do not read (`missing`).
@@ -66,21 +69,31 @@ const rank = (sensor) => (SHOWN_FIRST.includes(sensor.quantity) ? SHOWN_FIRST.in
  */
 export function hardwareRows(catalog, readings, health) {
   const rows = new Map();
+  const firstHardware = new Map();
   for (const sensor of catalog) {
-    if (!rows.has(sensor.category)) rows.set(sensor.category, { category: sensor.category, sources: [], sensors: [] });
-    const row = rows.get(sensor.category);
+    const physical = sensor.source.startsWith('LibreHardwareMonitor');
+    const group = physical ? hardwareGroup(sensor) : null;
+    if (physical && !firstHardware.has(sensor.category)) firstHardware.set(sensor.category, group);
+    // Other providers and the first Libre group share the category row.
+    // A second physical device gets its own row, so a healthy board/PSU
+    // never supplies the value or warning of another device.
+    const extra = physical && firstHardware.get(sensor.category) !== group;
+    const id = extra ? `${sensor.category}|${group}` : sensor.category;
+    if (!rows.has(id)) rows.set(id, { category: sensor.category, sources: [], sensors: [], ...(extra ? { name: sensor.label ?? group } : {}) });
+    const row = rows.get(id);
     if (!row.sources.includes(sensor.source)) row.sources.push(sensor.source);
     row.sensors.push(sensor);
   }
   const failed = (health?.hardware ?? []).filter((h) => !h.ok);
-  return [...rows.values()].map(({ category, sources, sensors }) => {
+  return [...rows.values()].map(({ category, sources, sensors, name }) => {
     const best = sensors.filter((s) => readable(readings?.[s.key])).sort((a, b) => rank(a) - rank(b))[0];
     const reading = best ? readings[best.key] : null;
     return {
       category,
       sources,
       value: reading ? reading.display ?? String(reading.value) : null,
-      missing: failed.filter((h) => h.category === category).map((h) => h.name),
+      missing: failed.filter((h) => h.category === category && sensors.some((s) => s.label === h.name || hardwareGroup(s) === h.name)).map((h) => h.name),
+      ...(name ? { name } : {}),
     };
   });
 }

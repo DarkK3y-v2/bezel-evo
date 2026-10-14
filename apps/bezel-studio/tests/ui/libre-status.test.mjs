@@ -67,3 +67,25 @@ test('a row per hardware: sources, the best value and the Libre groups missing',
   assert.equal(rows[3].value, null);
   assert.deepEqual(hardwareRows(all, null, null).map((r) => r.value), [null, null, null, null]);
 });
+
+
+test('separate physical devices of one category keep their own readings and warnings', () => {
+  const sensors = [
+    { key: 'lhm.board.first.0.temperature.1', category: 'board', label: 'Board temperature', source: 'LibreHardwareMonitor', quantity: 'celsius' },
+    { key: 'lhm.psu.corsair.0.voltage.3', category: 'board', label: 'First PSU', source: 'LibreHardwareMonitor', quantity: 'volts' },
+    { key: 'lhm.psu.corsair.1.voltage.3', category: 'board', label: 'Second PSU', source: 'LibreHardwareMonitor', quantity: 'volts' },
+  ];
+  const readings = {
+    [sensors[0].key]: { value: 40, display: '40 C' },
+    [sensors[1].key]: { unavailable: 'No reply' },
+    [sensors[2].key]: { value: 230, display: '230 V' },
+  };
+  const health = libreStatus(sensors, readings);
+  assert.deepEqual(health.failed, ['First PSU']);
+  const rows = hardwareRows(sensors, readings, health);
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows.map((row) => row.value), ['40 C', null, '230 V']);
+  assert.deepEqual(rows.map((row) => row.missing), [[], ['First PSU'], []]);
+  assert.equal(rows[1].name, 'First PSU');
+  assert.equal(rows[2].name, 'Second PSU');
+});

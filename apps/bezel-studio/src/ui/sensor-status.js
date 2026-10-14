@@ -79,12 +79,12 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
   }
 
   /** One hardware: its dot, its name over its sources, and its value (or what is missing). */
-  function row({ category, sources, value, missing }) {
+  function row({ category, sources, value, missing, name }) {
     const ok = !missing.length;
     return el('li', { class: 'libre-row', dataset: { state: ok ? 'ok' : 'missing' } }, [
       el('span', { class: 'status-dot', dataset: { state: ok ? 'ok' : 'partial' }, 'aria-hidden': 'true' }),
       el('span', { class: 'libre-row-name' }, [
-        el('span', { text: t(`category.${category}`) }),
+        el('span', { text: name ? `${t(`category.${category}`)} / ${name}` : t(`category.${category}`) }),
         el('span', { class: 'libre-row-via', text: sources.join(' · ') }),
       ]),
       el('span', { class: 'libre-row-value', text: ok ? value ?? '—' : t('sensorStatus.missing') }),
