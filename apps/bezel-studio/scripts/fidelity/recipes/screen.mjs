@@ -13,11 +13,27 @@ export default {
   area: 'screen',
   artboards: ['Screen', 'Storage', 'SensorStatus'],
   states: [
-    { name: 'settings', run: async (app) => { await app.tab('screen'); await widen(app); } },
+    { name: 'settings', run: async (app) => {
+      await app.tab('screen');
+      await widen(app);
+      await app.page.locator('label.live-toggle').click();
+      await app.page.locator('#screen-panel input[type=checkbox]').check();
+      await app.click('.standby-radio[data-choice=off]');
+      await app.click('.standby-dialog .dialog-actions .primary-button');
+    } },
     { name: 'storage', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
+    { name: 'storage-boot', demo: 'vendorCard', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
+    { name: 'storage-sd', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); await app.click('[data-focus=place-sd]'); } },
     { name: 'sensor-ok', run: (app) => app.click('#status-libre-toggle') },
     { name: 'sensor-status', query: '&libre=partial', run: (app) => app.click('#status-libre-toggle') },
     { name: 'sensor-status-error', query: '&libre=error', run: (app) => app.click('#status-libre-toggle') },
     { name: 'sensor-chip-error', query: '&libre=error', run: async () => {} },
+    { name: 'sensor-restarting', query: '&libre=error', run: async (app) => {
+      // Freeze timers before invoking the real demo bridge, so its pending
+      // restart can be photographed without extending production delays.
+      await app.page.clock.install({ time: new Date('2026-10-09T10:00:00Z') });
+      await app.page.clock.pauseAt(new Date('2026-10-09T10:00:01Z'));
+      await app.page.locator('#status-libre-restart').click();
+    } },
   ],
 };
