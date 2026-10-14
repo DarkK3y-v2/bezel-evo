@@ -288,6 +288,7 @@ button.layer-group-title { cursor: pointer; }
 .themes-dialog[open] { display: flex; flex-direction: column; }
 .themes-gallery-head { align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .themes-gallery-head .panel-head { flex: 1; align-items: center; margin: 0; }
+.themes-gallery-head h2 { flex: none; }
 .themes-gallery-head .theme-totals { margin-left: 0; }
 .themes-gallery-head .theme-actions { flex: none; }
 .themes-gallery-head .import-button { min-height: 34px; }

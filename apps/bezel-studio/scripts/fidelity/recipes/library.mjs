@@ -21,6 +21,7 @@ export default {
     { name: 'widgets', run: (app) => app.tab('widgets') },
     { name: 'sensors', run: sensors },
     { name: 'sensors-libre', query: '&libre=partial', run: sensors },
+    { name: 'sensors-libre-detail', query: '&libre=partial', run: async (app) => { await sensors(app); await app.page.locator('#sensor-libre').scrollIntoViewIfNeeded(); } },
     { name: 'layers', run: (app) => panel(app, 'layers') },
     { name: 'layers-selection', run: async (app) => {
       await panel(app, 'layers');
