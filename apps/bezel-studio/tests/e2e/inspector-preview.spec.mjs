@@ -82,6 +82,24 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   await expect(inspector.locator('.source-card .list-card-sub')).toHaveText('cpu.usage');
   await expect(inspector.locator('.source-card .list-card-value')).toHaveText(/%$/);
   await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('cpu.usage');
+  const arc = inspector.locator('.arc-preview .arc-fill');
+  const beforeArc = await arc.getAttribute('d');
+  const sweep = inspector.getByRole('spinbutton', { name: t('inspector.sweep'), exact: true });
+  await sweep.fill('180');
+  await sweep.press('Tab');
+  await expect(sweep).toHaveValue('180');
+  await expect(arc).toHaveAttribute('d', 'M15.03 48.97A24 24 0 0 1 48.97 15.03');
+  await page.locator('#undo').click();
+  await expect(arc).toHaveAttribute('d', beforeArc);
+  // Both degree values fit beside their translated prefixes at default width.
+  for (const label of ['inspector.startAngle', 'inspector.sweep']) {
+    const field = inspector.getByRole('spinbutton', { name: t(label), exact: true });
+    expect(await field.evaluate((input) => {
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = getComputedStyle(input).font;
+      return ctx.measureText(input.value).width <= input.clientWidth;
+    })).toBe(true);
+  }
   const x = inspector.getByRole('spinbutton', { name: t('inspector.x'), exact: true });
   await inspector.getByRole('button', { name: t('align.left'), exact: true }).click();
   await expect(x).toHaveValue('0');
@@ -141,6 +159,13 @@ test('the player lists the apps with a media session, the playing one marked, an
   await source.fill('vlc');
   await source.press('Tab');
   await expect(apps.getByRole('button', { name: t('insp.otherApp'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // A named app closes the manual editor, including when the value was custom.
+  await spotify.click();
+  await expect(source).toHaveCount(0);
+  await expect(apps.getByRole('button', { name: t('insp.otherApp'), exact: true })).toHaveAttribute('aria-pressed', 'false');
+  await apps.getByRole('button', { name: t('insp.automatic'), exact: true }).click();
+  await expect(apps.getByRole('button', { name: t('insp.automatic'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(source).toHaveCount(0);
 
   const stopped = inspector.getByRole('radiogroup', { name: t('insp.stopped'), exact: true });
   await expect(stopped.getByRole('radio', { name: new RegExp(t('insp.stoppedText')) })).toBeChecked();
@@ -156,6 +181,72 @@ test('the player lists the apps with a media session, the playing one marked, an
   await gap.fill('14');
   await gap.press('Tab');
   await expect(gap).toHaveValue('14');
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('late isolated frames are discarded and Player chips follow newly available activity', async ({ page, t, lang }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  // A second inspector with the real demo backend: only IPC delivery is
+  // delayed, so a selection change can overtake its first rendered answer.
+  await page.evaluate(async (locale) => {
+    const [{ createInspector }, { createStore }, { createDemoBackend }, { translator }] = await Promise.all([
+      import('/ui/inspector.js'), import('/editor/store.js'), import('/demo-backend.js'), import('/i18n/index.js'),
+    ]);
+    const backend = createDemoBackend('turing88');
+    const store = createStore((await backend.session()).theme);
+    const catalog = await backend.catalog();
+    const actual = await backend.sample();
+    let sample = { ...actual, activity: null };
+    let release;
+    let calls = 0;
+    const root = document.createElement('aside');
+    root.id = 'inspector-probe';
+    root.className = 'inspector';
+    Object.assign(root.style, { position: 'fixed', inset: '52px 0 30px auto', width: '360px', zIndex: '100' });
+    document.body.append(root);
+    const inspector = createInspector({ root, store, t: translator(locale), minRefresh: () => 1,
+      sensors: { catalog: () => catalog, fonts: () => [] },
+      host: {
+        lastSample: () => sample,
+        renderElement: async (id, opts) => {
+          calls += 1;
+          const frame = await backend.renderElement(store.getState().theme, id, opts);
+          if (calls === 1) await new Promise((resolve) => { release = resolve; });
+          return frame;
+        },
+      },
+    });
+    store.subscribe(() => inspector.render());
+    store.dispatch('add', { widget: 'ring', x: 200, y: 400 });
+    globalThis.inspectorProbe = { store, inspector, release: () => release(), calls: () => calls,
+      activity: (available) => { sample = { ...actual, activity: available ? actual.activity : null }; inspector.frameShown(); } };
+  }, lang);
+  const probe = page.locator('#inspector-probe');
+  await expect.poll(() => page.evaluate(() => inspectorProbe.calls())).toBe(1);
+  await page.evaluate(() => inspectorProbe.store.dispatch('add', { widget: 'shape', x: 200, y: 400 }));
+  expect(await page.evaluate(() => inspectorProbe.calls())).toBe(1);
+  await page.evaluate(() => inspectorProbe.release());
+  const canvas = probe.getByRole('img');
+  await expect.poll(() => page.evaluate(() => inspectorProbe.calls())).toBe(2);
+  await expect.poll(() => alphaAt(canvas, 0.5, 0.5)).toBe(255);
+  await expect(canvas).toHaveAttribute('aria-label', t('inspector.previewOf', { name: await probe.getByLabel(t('inspector.name'), { exact: true }).inputValue() }));
+
+  await page.evaluate(() => inspectorProbe.store.dispatch('add', { widget: 'player', x: 200, y: 400 }));
+  await expect(probe.locator('.player-apps-hint')).toHaveText(t('insp.appsNone'));
+  await page.evaluate(() => inspectorProbe.activity(true));
+  const spotify = probe.getByRole('button', { name: `Spotify, ${t('insp.playing')}`, exact: true });
+  await expect(spotify).toBeVisible();
+  await expect(probe.locator('.player-apps-hint')).toHaveText(t('insp.appsHint'));
+  await spotify.click();
+  await spotify.focus();
+  await page.evaluate(() => inspectorProbe.activity(false));
+  await expect(probe.getByRole('textbox', { name: t('player.source'), exact: true })).toHaveValue('Spotify');
+  await expect(probe.locator('.player-apps-hint')).toHaveText(t('insp.appsNone'));
+  await page.evaluate(() => inspectorProbe.activity(true));
+  await expect(spotify).toHaveAttribute('aria-pressed', 'true');
+  await expect(probe.getByRole('textbox', { name: t('player.source'), exact: true })).toHaveCount(0);
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });

@@ -15,10 +15,11 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   const tabs = inspector.getByRole('tablist', { name: t('inspector.tabs'), exact: true }).getByRole('tab');
   await expect(tabs).toHaveText([t('inspector.tab.data'), t('inspector.tab.look')]);
   await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
-  // The head, its actions (closed), the preview, the tabs, then position and
-  // size on every tab, before the panels.
+  // Main: tabs under the head, geometry then source/arc; the isolated preview
+  // remains available below the properties, away from the compact header.
   expect(await inspector.locator(':scope > *').evaluateAll(nodes => nodes.map(n => n.dataset.section ?? n.getAttribute('role') ?? n.className)))
-    .toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist', 'position', 'tabpanel', 'tabpanel']);
+    .toEqual(['inspector-head', 'actions', 'tablist', 'position', 'tabpanel', 'tabpanel', 'inspector-preview']);
+  await expect(inspector.locator('[data-section="arc"]')).toBeVisible();
   const more = inspector.getByRole('button', { name: t('insp.more'), exact: true });
   const actions = inspector.locator('#inspector-actions');
   await expect(more).toHaveAttribute('aria-expanded', 'false');
