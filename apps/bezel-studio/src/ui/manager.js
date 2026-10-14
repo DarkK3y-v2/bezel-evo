@@ -9,6 +9,7 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
 import { openVideoPreview } from './video-preview.js';
+import { searchField } from './fields.js';
 import {
   CACHE_LIMITS, KIND_FILTERS, ORIGIN_FILTERS, SORTS, actionsFor, baseName, cleanupGroups, emptySelection, findingText, formatBytes,
   formatExactBytes, formatLimit, formatSent, hasCopy, isBezel, keyAction, otherMedium, placeText, planRefusalText, precheckedPaths,
@@ -35,8 +36,7 @@ let dialogs = 0;
  * @param {object} deps.host what the storage panel lends: `key()`, `data()`,
  *   `features()`, `busy()`, `live()`, `notify(text)`, `notice(n)`,
  *   `reload()`, `runPlan(plan)`, `runDeletes(files)`, `askBoot(file)`,
- *   `askDelete(file)`, `play(file)`, `dropZone(medium)`, `usage(capacity)`, `confirm(opts)`,
- *   `bootSlot()`
+ *   `askDelete(file)`, `play(file)`, `dropZone(medium)`, `confirm(opts)`
  */
 export function createManagerView({ t, locale, bridge, host }) {
   const filter = { text: '', kind: 'all', origin: 'all' };
@@ -107,28 +107,33 @@ export function createManagerView({ t, locale, bridge, host }) {
     if (file.entry?.state === 'pending') tags.push([t('storage.state.pending'), 'warn']);
     if (file.finding) tags.push([t(`storage.findingGroup.${file.finding.code}`), file.finding.prechecked ? 'warn' : 'finding']);
     if (!hasCopy(file)) tags.push([t('storage.noCopy'), 'muted']);
-    return el('span', { class: 'file-tags' }, tags.map(([text, kind]) => el('span', { class: `tag ${kind}`, text })));
+    return tags.map(([text, kind]) => el('span', { class: `tag ${kind}`, text }));
   }
 
-  function meta(file) {
-    const parts = [file.size === null ? t('storage.sizeUnknown') : bytes(file.size), t(`storage.kindOne.${file.kind}`)];
-    parts.push(isBezel(file) ? t('storage.origin.sent', { date: formatSent(file.entry.sentAt, locale()) }) : t('storage.origin.other'));
-    return parts.join(' · ');
+  /** The kind and where the file came from: the row's tooltip (the sort and the filters use them too). */
+  function details(file) {
+    const origin = isBezel(file) ? t('storage.origin.sent', { date: formatSent(file.entry.sentAt, locale()) }) : t('storage.origin.other');
+    return `${t(`storage.kindOne.${file.kind}`)} · ${origin}`;
   }
 
+  /** A file (artboard Storage): its tile, its name, and its place, size and notes in mono. */
   function option(medium, file, index) {
     return el('li', {
       role: 'option',
       id: `mgr-${medium}-${index}`,
       class: 'file-option',
       'aria-selected': 'false',
+      title: details(file),
       dataset: { path: file.path },
     }, [
       thumbnail(file),
       el('span', { class: 'file-main' }, [
         el('span', { class: 'file-name', text: file.name }),
-        el('span', { class: 'file-meta', text: meta(file) }),
-        badges(file),
+        el('span', { class: 'file-meta' }, [
+          el('span', { class: 'tag place', text: t(`storagePanel.placeTag.${medium}`) }),
+          el('span', { class: 'file-size', text: file.size === null ? t('storage.sizeUnknown') : bytes(file.size) }),
+          ...badges(file),
+        ]),
       ]),
     ]);
   }
@@ -362,7 +367,7 @@ export function createManagerView({ t, locale, bridge, host }) {
       Object.assign(columns[medium], { count, slot });
       const errors = (data.folderErrors ?? []).filter((f) => f.medium === medium)
         .map((f) => el('p', { class: 'empty-note', text: t('storage.folderError', { reason: errorText(t, f.error) }) }));
-      children.push(host.usage(capacity), host.dropZone(medium), toolbar(medium), count, ...errors, slot);
+      children.push(host.dropZone(medium), toolbar(medium), count, ...errors, slot);
       slot.append(listOf(medium));
     }
     if (medium === 'sd') children.push(el('p', { class: 'hint', text: t('storage.cardHelp') }));
@@ -385,17 +390,13 @@ export function createManagerView({ t, locale, bridge, host }) {
       refreshList('internal');
       refreshList('sd');
     };
+    const search = searchField(t('storage.filter.text'), (text) => {
+      filter.text = text;
+      refresh();
+    }, { value: filter.text });
+    search.querySelector('input').dataset.focus = 'filter-text';
     return el('div', { class: 'manager-filters', role: 'group', 'aria-label': t('storage.filter.label') }, [
-      el('label', { class: 'field search' }, [
-        el('span', { text: t('storage.filter.text') }),
-        el('input', {
-          type: 'search', value: filter.text, spellcheck: 'false', dataset: { focus: 'filter-text' },
-          oninput: (evt) => {
-            filter.text = evt.target.value;
-            refresh();
-          },
-        }),
-      ]),
+      search,
       select('kind', KIND_FILTERS, filter.kind, (v) => { filter.kind = v; refresh(); }),
       select('origin', ORIGIN_FILTERS, filter.origin, (v) => { filter.origin = v; refresh(); }),
       select('sort', SORTS, sort, (v) => { sort = v; refresh(); }),

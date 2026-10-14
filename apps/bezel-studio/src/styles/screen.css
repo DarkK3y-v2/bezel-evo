@@ -73,27 +73,55 @@
 .storage-body { display: grid; gap: 14px; }
 .storage-body > .hint { margin: 0; }
 .loading-note { color: var(--muted); }
-.medium, .boot-slot { display: grid; gap: 6px; }
+.medium { display: grid; gap: 6px; }
 .medium + .medium { padding-top: 12px; border-top: 1px solid var(--border); }
-.medium h3, .boot-slot h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.9rem; }
-.medium h3 svg, .stored-file > svg, .drop-icon svg, .boot-icon svg { flex: none; }
+.medium h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.9rem; }
+.medium h3 svg, .stored-file > svg, .drop-icon svg { flex: none; }
 .medium h3 svg { color: var(--accent-ink); }
-.medium > .hint, .boot-slot > .hint { margin: 0; }
-.usage-card { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
-.usage-card .usage { flex: 1 0 100%; order: 1; }
-.usage-figure { margin: 0; font-family: var(--font-mono); font-size: 1.07rem; font-weight: 500; font-variant-numeric: tabular-nums; }
-.usage-total { color: var(--muted); font-size: 0.78rem; font-weight: 400; }
-.usage-free { margin: 0; color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
-.usage { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.usage > span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
-.usage.full > span { background: var(--danger); }
-.usage-text { margin: 0; color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.medium > .hint { margin: 0; }
+/* Storage (artboard Storage): each medium's card with its use by kind and
+   the legend; at start-up; the files with the place chips; the assistants. */
+.storage-summary { display: grid; gap: 10px; }
+.storage-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.storage-meter { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface-2); }
+.storage-meter-label { color: var(--text-3); font-size: 12px; }
+.storage-meter-none { margin: 0; color: var(--muted); font-size: 12px; }
+.usage-figure { margin: 0; font-family: var(--font-mono); font-size: var(--fs-title); font-weight: 600; font-variant-numeric: tabular-nums; }
+.usage-total { color: var(--dim); font-size: var(--fs-caps); font-weight: 400; }
+.storage-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface-3); }
+.storage-bar > span { display: block; height: 100%; }
+.storage-bar > [data-kind="video"], .storage-legend [data-kind="video"] .storage-swatch { background: var(--info); }
+.storage-bar > [data-kind="image"], .storage-legend [data-kind="image"] .storage-swatch { background: var(--accent); }
+.storage-bar > [data-kind="other"], .storage-legend [data-kind="other"] .storage-swatch { background: var(--muted); }
+.storage-bar.full { box-shadow: inset 0 0 0 1px var(--danger); }
+.storage-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+.storage-legend li { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: var(--fs-caps); }
+.storage-swatch { width: 8px; height: 8px; border-radius: 2px; }
+
+.boot-section { display: flex; flex-direction: column; gap: 8px; }
+.boot-section .section-head, .storage-files .section-head { margin: 0; }
+.boot-slot { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1.5px dashed var(--faint); border-radius: 12px; background: var(--chrome); }
+.boot-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.boot-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.boot-sub { color: var(--muted); font-size: var(--fs-small); }
+.boot-section > .hint { margin: 0; color: var(--dim); font-size: var(--fs-small); }
+.boot-slot.drop-target { border-color: var(--accent); background: var(--accent-soft); }
+
+.storage-files { display: flex; flex-direction: column; gap: 10px; }
+.storage-files-head { display: flex; flex-direction: column; gap: 8px; }
+.storage-files-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.storage-tools { display: flex; flex-wrap: wrap; gap: 4px; }
+.storage-tools .text-button svg { width: 16px; height: 16px; }
+.storage-places { margin: 0; }
+.storage-foot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.storage-foot .text-button { justify-content: center; min-height: 34px; font-size: 12px; font-weight: 600; }
+.storage-foot .text-button svg { width: 16px; height: 16px; }
 
 .drop-zone { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 10px; border: 1.5px dashed var(--border); border-radius: 12px; background: var(--surface-2); color: var(--muted); font-size: 0.85rem; }
 .drop-zone > span:not(.drop-icon) { flex: 1 1 110px; }
 .drop-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-ink); }
-.drop-zone .send-button { border-color: var(--accent); font-weight: 600; }
-.drop-zone .send-button svg { color: var(--accent-ink); }
+.drop-zone .send-button { gap: 6px; min-height: 30px; padding: 0 10px; font-size: 12px; }
+.drop-zone .send-button svg { width: 14px; height: 14px; }
 .drop-zone.drag-over { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
 
 .folder h4 { margin: 6px 0 4px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -109,28 +137,20 @@
 .stored-file .icon-button:hover:not(:disabled) { border-color: var(--accent); background: var(--surface); }
 .stored-file .icon-button svg { width: 16px; height: 16px; }
 
-/* At start: the screen's boot media, a dashed slot a file is dragged onto. */
-.boot-slot { grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px; border: 1.5px dashed var(--border); border-radius: 12px; background: var(--surface-2); }
-.boot-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--info-soft); color: var(--info); }
-.boot-text { display: grid; gap: 2px; min-width: 0; }
-.boot-slot .boot-text h3 { margin: 0; font-size: 0.9rem; }
-.boot-slot .hint { margin: 0; line-height: 1.4; }
-.boot-slot.drop-target { border-color: var(--accent); background: var(--accent-soft); }
 .workspace.storage-wide #panel-screen { padding: 12px 20px 20px; }
 .workspace.storage-wide #panel-screen .subtabs { max-width: 360px; }
 
 /* The subtabs already name the place: the panel's title goes. */
 .workspace.storage-wide #panel-screen > .panel-head { display: none; }
-.storage-toolbar .text-button svg { width: 16px; height: 16px; }
 
-.manager-top { display: grid; gap: 10px; }
 .manager-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
 .manager-filters .field { flex: 1 1 140px; margin: 0; }
 .workspace.storage-wide .drop-zone { padding: 6px 10px; }
-.manager-filters .field.search { flex: 2 1 220px; }
+.manager-filters .search-box { flex: 2 1 220px; margin: 0; }
 .manager-filters input, .manager-filters select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
 
 .manager-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.manager-columns.single { grid-template-columns: minmax(0, 1fr); }
 .medium.manager-column { gap: 6px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .medium.manager-column + .medium.manager-column { padding-top: 12px; border-top: 1px solid var(--border); }
 .manager-column.drop-target { outline: 3px dashed var(--accent); outline-offset: 2px; background: var(--accent-soft); }
@@ -157,19 +177,14 @@
 .file-thumb.has-picture svg { display: none; }
 .file-main { display: grid; gap: 2px; min-width: 0; }
 .file-main .file-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-meta { color: var(--muted); font-family: var(--font-mono); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
-.file-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.file-tags:empty { display: none; }
+.file-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); font-variant-numeric: tabular-nums; }
 .tag.warn { border-color: var(--warn); color: var(--warn); }
 .tag.protected { border-color: var(--accent); }
 .tag.muted, .tag.finding { color: var(--muted); }
-.file-tags .tag { padding: 0 5px; border: 0; border-radius: 4px; background: var(--surface-3); color: var(--muted); font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500; }
-.file-tags .tag.warn { background: var(--accent-soft); color: var(--warn); }
-.file-tags .tag.protected { background: var(--accent-soft); color: var(--accent-ink); }
-
-/* The cleanup assistant and the local copies, apart at the end of the bar. */
-.storage-toolbar .storage-assistants { display: flex; gap: 6px; margin-left: auto; }
-.storage-toolbar .storage-assistants .text-button { font-weight: 600; }
+.file-meta .tag { padding: 0 5px; border: 0; border-radius: 4px; background: var(--surface-3); color: var(--text-3); font-family: var(--font-mono); font-size: 10px; font-weight: 500; }
+.file-meta .tag.warn { background: var(--accent-soft); color: var(--warn); }
+.file-meta .tag.muted { padding: 0; background: transparent; color: var(--accent-ink); font-family: var(--font-sans); font-size: var(--fs-caps); }
+.file-meta .tag.protected { background: var(--accent-soft); color: var(--accent-ink); }
 
 .wide-dialog .dialog-body { max-height: min(62vh, 640px); overflow: auto; }
 .dialog-subtitle { margin: 12px 0 4px; font-size: 0.9rem; }
@@ -249,7 +264,7 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .drop-zone, .file-option { transition: var(--motion-ui); }
-  .usage > span { transition: width 200ms ease; }
+  .storage-bar > span { transition: width 200ms ease; }
   .standby-radio { transition: border-color 120ms ease, background 120ms ease; }
   .album-frame[data-state="loading"] { animation: thumb-wait 900ms ease-in-out infinite alternate; }
 }

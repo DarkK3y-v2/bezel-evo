@@ -69,7 +69,9 @@ test('storage tab upload progress and confirmed delete', async ({ page, t, lang 
   const internal = page.getByRole('region', { name: t('storage.medium.internal') });
   const card = page.getByRole('region', { name: t('storage.medium.sd') });
   await expect(internal).toContainText('logo.png');
-  await expect(internal).toContainText(formatBytes(7_516_192_768, lang));
+  // Each medium's card: used of total, the bar by kind and its legend.
+  await expect(page.getByRole('group', { name: t('storage.medium.internal'), exact: true })).toContainText(formatBytes(7_516_192_768, lang));
+  await expect(page.getByRole('group', { name: t('storage.medium.sd'), exact: true })).toBeVisible();
   await expect(card).toContainText('chuva.mp4');
   await expect(card).toContainText(t('storage.cardHelp'));
   await expectAccessible(page);
