@@ -9,6 +9,7 @@
 // gives the focus back to the chip.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
+import { pill } from './fields.js';
 import { hardwareRows, libreStatus, sensorChip } from '../libre-status.js';
 import { timeAgo } from '../relative-time.js';
 
@@ -39,8 +40,11 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
   const spinner = icon(ICONS.spinner, 13);
   spinner.classList.add('sensor-spinner');
   toggle.insertBefore(spinner, label);
-  const quick = el('button', { type: 'button', id: 'status-libre-restart', class: 'pill sensor-chip-restart', dataset: { tone: 'danger' }, hidden: true }, [icon(ICONS.refresh, 13)]);
+  const quick = pill('', { as: 'button', tone: 'danger', attrs: { id: 'status-libre-restart', hidden: true } });
+  quick.classList.add('sensor-chip-restart');
+  quick.append(icon(ICONS.refresh, 13));
   wrap.append(quick);
+  popover.querySelector('.libre-popover-close').classList.add('quiet');
   const lastReading = el('span', { class: 'libre-popover-age mono' });
   popover.querySelector('.libre-popover-actions').prepend(lastReading);
 
@@ -141,6 +145,7 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
       fail(e);
     } finally {
       restarting = false;
+      paint();
     }
   }
 
