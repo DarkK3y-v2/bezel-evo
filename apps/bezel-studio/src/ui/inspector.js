@@ -21,6 +21,7 @@ import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, r
 import { formatBytes } from './storage.js';
 import { HISTORY_MAX, HISTORY_MIN, appChips, arcDrawing, createTabMemory, durationParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
+import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
@@ -59,11 +60,11 @@ const NO_HOST = Object.freeze({
 
 /** Buttons of one choice (`aria-pressed`), each with a stable id so focus stays on it. */
 function choice(id, label, value, options, onChange) {
-  const group = el('div', { class: `segmented framing-choice ${id}`, role: 'group', 'aria-label': label });
-  for (const [v, text] of options) {
-    group.append(el('button', { type: 'button', id: `${id}-${v}`, text, 'aria-pressed': String(v === value), onclick: () => v !== value && onChange(v) }));
-  }
-  return el('div', { class: 'field' }, [el('span', { text: label }), group]);
+  const field = segmented(label, value, options, (v) => v !== value && onChange(v));
+  const group = field.querySelector('.segmented');
+  group.classList.add('framing-choice', id);
+  Array.from(group.children).forEach((button, i) => { button.id = `${id}-${options[i][0]}`; });
+  return field;
 }
 
 /**
@@ -155,7 +156,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       prefixedField(t('insp.minPrefix'), t('inspector.min'), binding.min, (v) => update(id, { kind: { binding: { min: v } } }), { step: 'any' }),
       prefixedField(t('insp.maxPrefix'), t('inspector.max'), binding.max, (v) => update(id, { kind: { binding: { max: v } } }), { step: 'any' }),
     ]);
-    if (muted) grid.classList.add('is-muted');
+    if (muted) {
+      grid.classList.add('is-muted');
+      for (const input of grid.querySelectorAll('input')) input.disabled = true;
+    }
     return grid;
   }
 
@@ -372,7 +376,6 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function sourceSection(e, key, patchFor, { range = true } = {}) {
     return section('source', t('insp.source'), [
       sourceCard(e.id, key, patchFor),
-      showAs(e, store.getState().theme),
       range && e.kind.binding ? rangeFields(e.id, e.kind.binding) : null,
     ]);
   }
@@ -465,7 +468,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   /** The app chips of a player: Automatic, one per app with a media session (a dot when it plays), Other…. */
   function appChipGroup(e) {
     const c = e.kind.content;
-    const set = (patch) => update(e.id, { kind: { content: patch } });
+    const set = (patch) => {
+      customSource = false;
+      update(e.id, { kind: { content: patch } });
+    };
     const activity = host.lastSample()?.activity ?? null;
     const { chips, custom } = appChips(activity, c.source ?? '');
     const group = el('div', { class: 'chip-group app-chips', role: 'group', 'aria-label': t('insp.apps'), dataset: { signature: appSignature(activity) } }, [
@@ -487,6 +493,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   const appSignature = (activity) => JSON.stringify((activity?.media ?? []).map((m) => [m.source, m.playing]));
 
+  const manualSource = (e) => textField(t('player.source'), e.kind.content.source ?? '', (source) => update(e.id, { kind: { content: { source: source.slice(0, 160) } } }));
+
   /** A choice drawn as a card with its radio (artboard PlayerData, "Quando non suona niente"). */
   function choiceCard(name, checked, title, note, onChoose, extra = null) {
     const input = el('input', { type: 'radio', name, checked });
@@ -506,8 +514,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const data = [
       section('apps', t('insp.apps'), [
         group,
-        customSource || custom !== null ? el('div', { class: 'player-source' }, [textField(t('player.source'), c.source ?? '', (source) => set({ source: source.slice(0, 160) }))]) : null,
-        el('p', { class: 'hint', text: t(chips.length ? 'insp.appsHint' : 'insp.appsNone') }),
+        el('div', { class: 'player-source' }, customSource || custom !== null ? [manualSource(e)] : []),
+        el('p', { class: 'hint player-apps-hint', text: t(chips.length ? 'insp.appsHint' : 'insp.appsNone') }),
       ]),
       section('stopped', t('insp.stopped'), [el('div', { class: 'choice-cards', role: 'radiogroup', 'aria-label': t('insp.stopped') }, [
         choiceCard(`player-stopped-${e.id}`, Boolean(c.hideWhenStopped), t('insp.stoppedHide'), t('insp.stoppedHideNote'), () => set({ hideWhenStopped: true })),
@@ -613,14 +621,16 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   function ringForm(e) {
     const k = e.kind;
-    const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }))];
-    const look = [
+    const data = [
+      sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })),
       section('arc', t('insp.arc'), [
         el('div', { class: 'arc-row' }, [arcPreview(k), angleFields(e)]),
         rangeField(t('insp.thickness'), k.thickness, (v) => update(e.id, { kind: { thickness: Math.max(1, v) } }), { min: 1, max: Math.max(64, k.thickness), format: (v) => t('insp.px', { value: v }) }),
         switchRow(t('inspector.clockwise'), k.clockwise !== false, (v) => update(e.id, { kind: { clockwise: v } })),
         switchRow(t('inspector.roundCaps'), Boolean(k.roundCaps), (v) => update(e.id, { kind: { roundCaps: v } })),
       ]),
+    ];
+    const look = [
       section('appearance', t('inspector.appearance'), [
         ...ringFillFields(e),
         ...trackFields(e),
@@ -819,7 +829,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const offered = tabsOf(kind).filter(tab => panels[tab]?.some(Boolean));
     if (offered.length < 2) return [between, ...offered.flatMap(tab => panels[tab])];
     const open = tabMemory.current(kind, offered);
-    const list = el('div', { class: 'inspector-tabs', role: 'tablist', 'aria-label': t(kind === 'card' ? 'card.tabs' : 'inspector.tabs') });
+    const list = el('div', { class: 'inspector-tabs subtabs', role: 'tablist', 'aria-label': t(kind === 'card' ? 'card.tabs' : 'inspector.tabs') });
     const views = offered.map(tab => el('div', {
       class: 'inspector-panel', role: 'tabpanel', id: `inspector-panel-${tab}`, 'aria-labelledby': `inspector-tab-${tab}`, hidden: tab !== open, dataset: { tab },
     }, panels[tab].filter(Boolean)));
@@ -856,15 +866,35 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return { width: stage.clientWidth > 16 ? stage.clientWidth : 240, height: PREVIEW_HEIGHT };
   };
   const previews = createPreviewScheduler({
-    render: (id) => {
+    render: async (id) => {
       const figure = root.querySelector('.inspector-preview');
       const ratio = window.devicePixelRatio || 1;
       const max = previewSide(figure ? previewBox(figure) : { width: 240, height: PREVIEW_HEIGHT }, ratio);
-      return host.renderElement(id, { max, motion: video.context().motion !== false });
+      const started = performance.now();
+      const frame = await host.renderElement(id, { max, motion: video.context().motion !== false });
+      return { frame, elapsed: performance.now() - started };
     },
-    show: (frame, id) => drawPreview(frame, id),
-    fail: (_, id) => drawPreview(null, id),
+    show: ({ frame, elapsed }, id) => {
+      drawPreview(frame, id);
+      previewAnimation.shown({ nextMs: frame?.nextMs, elapsed });
+    },
+    fail: (_, id) => { previewAnimation.stop(); drawPreview(null, id); },
   });
+  const previewAnimation = createPreviewAnimation({
+    request: requestPreview,
+    enabled: () => !document.hidden && video.context().motion !== false && Boolean(root.querySelector('.inspector-preview')),
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { previewAnimation.stop(); previews.cancel(); }
+    else requestPreview();
+  });
+  let previewWidth = root.clientWidth;
+  new ResizeObserver(() => {
+    if (root.clientWidth !== previewWidth) {
+      previewWidth = root.clientWidth;
+      requestPreview();
+    }
+  }).observe(root);
 
   /** Draws a rendered frame of element `id` in the preview (or says there is nothing to show). */
   function drawPreview(frame, id) {
@@ -903,6 +933,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   /** Asks for the selected object's preview again. */
   function requestPreview() {
+    previewAnimation.stop();
+    if (document.hidden) { previews.cancel(); return; }
     const figure = root.querySelector('.inspector-preview');
     if (figure) previews.request(Number(figure.dataset.elementId));
     else previews.cancel();
@@ -929,7 +961,18 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       peak.textContent = peaks.peak(key, Number(peak.dataset.windowMs), seenAt)?.display ?? '—';
     }
     const chips = root.querySelector('.app-chips');
-    if (chips && shownElement && chips.dataset.signature !== appSignature(sample.activity)) chips.replaceWith(appChipGroup(shownElement).group);
+    if (chips && shownElement && chips.dataset.signature !== appSignature(sample.activity)) {
+      const next = appChipGroup(shownElement);
+      const active = chips.contains(document.activeElement) ? document.activeElement.textContent : null;
+      chips.replaceWith(next.group);
+      if (active !== null) Array.from(next.group.children).find((button) => button.textContent === active)?.focus();
+      root.querySelector('.player-apps-hint').textContent = t(next.chips.length ? 'insp.appsHint' : 'insp.appsNone');
+      const source = root.querySelector('.player-source');
+      const manual = customSource || next.custom !== null;
+      if (manual && !source.children.length) {
+        source.append(manualSource(shownElement));
+      } else if (!manual && !source.contains(document.activeElement)) source.replaceChildren();
+    }
   }
 
   // --------------------------------------------------------------- head --
@@ -947,7 +990,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const tool = (label, paths, onclick, attrs = {}) => el('button', { type: 'button', class: 'icon-button quiet', 'aria-label': label, title: label, onclick, ...attrs }, [icon(paths, 18)]);
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
-      el('div', { class: 'inspector-title' }, [name, el('p', { class: 'inspector-sub' }, [el('h2', { text: t(`widget.${widget}`) }), ` · ${where}`])]),
+      el('div', { class: 'inspector-title' }, [name, el('div', { class: 'inspector-sub' }, [el('h2', { text: t(`widget.${widget}`) }), ` · ${where}`])]),
       tool(t(hidden ? 'layers.show' : 'layers.hide'), hidden ? ICONS.eyeOff : ICONS.eye, () => update(e.id, { visible: hidden })),
       tool(t(e.locked ? 'layers.unlock' : 'layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => update(e.id, { locked: !e.locked }), { 'aria-pressed': String(Boolean(e.locked)) }),
       tool(t('insp.more'), ICONS.more, (evt) => {
@@ -992,7 +1035,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       ]),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
     ]);
-    const actions = section('actions', t('inspector.actions'), [el('div', { class: 'actions' }, [
+    const actions = section('actions', t('inspector.actions'), [showAs(e, theme), el('div', { class: 'actions' }, [
       e.isGroup && el('button', { type: 'button', class: 'text-button', text: t('group.ungroup'), onclick: () => store.dispatch('ungroup', { ids: [e.id] }) }),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: theme.elements.length }) }, [t('inspector.front')]),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: 0 }) }, [t('inspector.back')]),
@@ -1001,11 +1044,17 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
+    // Main puts geometry first and the ring's source/arc together. The
+    // standalone Graph/Player boards put data first, with geometry below.
+    const dataFirst = widget === 'graph' || widget === 'player';
+    const previewFirst = widget !== 'ring';
     return [
       header(e, widget, theme),
       actions,
-      preview(e),
-      ...tabbed(kind, panelsOf(e, theme, assets), position),
+      previewFirst ? preview(e) : null,
+      ...tabbed(kind, panelsOf(e, theme, assets), dataFirst ? null : position),
+      dataFirst ? position : null,
+      previewFirst ? null : preview(e),
     ];
   }
 
@@ -1075,11 +1124,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function contextChanged() {
     const signature = videoSignature();
     if (signature !== shown.signature) render(shown.assets);
+    else requestPreview();
   }
 
   /** A new frame is on the canvas: the preview is rendered again and the live values follow. */
   function frameShown() {
-    requestPreview();
+    // Canvas animations need not render a static selected object again.
+    // Isolated animations follow their own nextMs; new samples still apply.
+    if (host.lastSample() !== seenSample) requestPreview();
     refreshLive();
   }
 
