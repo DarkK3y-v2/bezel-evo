@@ -4,6 +4,8 @@
 // sensor dropped on the canvas binds, what a layer row says about its
 // object, the Layers filter and the Media totals.
 import { boundKey } from './editor/widgets.js';
+import { contains } from './editor/geometry.js';
+import { isShown, owners } from './editor/cards.js';
 
 /**
  * The Widgets panel's groups, in order (artboard Main): text and data,
@@ -103,23 +105,6 @@ export function sharedSource(items) {
   return sources.size === 1 ? [...sources][0] : null;
 }
 
-/** Whether the element, or a group or card it sits in, is locked or hidden. */
-function blocked(elements, e) {
-  const seen = new Set();
-  for (let at = e; at && !seen.has(at.id); at = elements.find((p) => p.id === (at.groupParent ?? at.cardMember?.parent))) {
-    if (at.locked || at.visible === false) return true;
-    seen.add(at.id);
-  }
-  return false;
-}
-
-/** Whether the element sits on a card face that is not the one shown. */
-function offFace(elements, e) {
-  if (e.cardMember?.face == null) return false;
-  const card = elements.find((p) => p.id === e.cardMember.parent);
-  return Boolean(card?.card) && card.card.activeFace !== e.cardMember.face;
-}
-
 /**
  * Where a sensor dropped at `point` (canvas pixels) binds: the topmost
  * visible, unlocked object there that reads a sensor, and the patch that
@@ -130,10 +115,10 @@ function offFace(elements, e) {
  * @param {(quantity: string|undefined) => {min: number, max: number}} range
  */
 export function sensorDropTarget(elements, point, sensor, range) {
+  const theme = { elements };
   for (const e of [...elements].reverse()) {
-    if (e.card || e.isGroup || boundKey(e) === null || blocked(elements, e) || offFace(elements, e)) continue;
-    const f = e.frame;
-    if (point.x < f.x || point.y < f.y || point.x > f.x + f.width || point.y > f.y + f.height) continue;
+    if (e.card || e.isGroup || boundKey(e) === null || !isShown(theme, e) || owners(theme, e).some((parent) => parent.locked)) continue;
+    if (!contains(e.frame, point.x, point.y)) continue;
     const patch = e.kind.type === 'text'
       ? { kind: { content: { key: sensor.key } } }
       : { kind: { binding: { key: sensor.key, ...range(sensor.quantity) } } };

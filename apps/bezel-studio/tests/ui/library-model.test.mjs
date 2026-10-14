@@ -133,3 +133,13 @@ test('the Media totals add the sizes known', () => {
   assert.deepEqual(mediaTotals([{ bytes: 100 }, {}, { bytes: 50 }]), { count: 3, bytes: 150 });
   assert.deepEqual(mediaTotals([{}, { bytes: Number.NaN }]), { count: 2, bytes: null });
 });
+
+
+test('a sensor drop respects both ownership relations and off-face ancestors', () => {
+  const group = { id: 8, isGroup: true, frame: frame(0, 0), kind: { type: 'shape' } };
+  const card = { id: 7, card: { faces: ['A', 'B'], activeFace: 0 }, frame: frame(0, 0), kind: { type: 'shape' } };
+  const member = ring(1, { groupParent: 8, cardMember: { parent: 7, face: 0 } });
+  assert.equal(sensorDropTarget([{ ...card, locked: true }, group, member], { x: 5, y: 5 }, sensor, range), null);
+  assert.equal(sensorDropTarget([card, { ...group, cardMember: { parent: 7, face: 1 } }, member], { x: 5, y: 5 }, sensor, range), null);
+  assert.equal(sensorDropTarget([member], { x: 5, y: 5 }, sensor, range), null, 'an orphan cannot bind');
+});
