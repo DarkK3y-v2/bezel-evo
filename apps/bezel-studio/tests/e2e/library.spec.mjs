@@ -181,7 +181,7 @@ test('Themes: the New theme card, the search, the screen thumbnail and Duplicate
   await expect(fresh.locator('.theme-new-size')).toHaveText('480×1920');
   await expect(fresh.getByRole('button', { name: t('themes.newVertical'), exact: true })).toBeVisible();
   await expect(fresh.getByRole('button', { name: t('themes.newHorizontal'), exact: true })).toBeVisible();
-  await expect(panel.locator('#theme-count')).toHaveText(`${t('themes.countAll', { count: total })} · ${t('themesPanel.forScreen', { count: 1 })}`);
+  await expect(panel.locator('.theme-totals')).toHaveText(`${t('themes.countAll', { count: total })} · ${t('themesPanel.forScreen', { count: 1 })}`);
   const demo = cards.filter({ hasText: 'Demo' });
   await expect(demo.locator('.screen-thumb')).toHaveAttribute('style', /--ratio: 480 \/ 1920/);
   await expectAccessible(page);
@@ -215,5 +215,101 @@ test('Media says what the theme holds and opens the GIF search from its foot', a
   await expectAccessible(page);
   await open.click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+
+test('Background and CPU Analog stay complete beside visible layer tools at the default width', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await tab(page, t, 'layers');
+  for (const [id, name] of [[3, 'Background'], [2, 'CPU Analog']]) {
+    const row = page.locator(`#layer-list .layer-row[data-element-id="${id}"]`);
+    await row.locator('button.layer-name').dblclick();
+    const edit = row.getByRole('textbox');
+    await edit.fill(name);
+    await edit.press('Enter');
+    await row.locator('button.layer-name').click();
+    await row.hover();
+    const label = row.locator('.layer-label');
+    await expect(label).toHaveText(name);
+    expect(await label.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    const text = await label.boundingBox();
+    for (const tool of await row.locator('.layer-tool').all()) {
+      await expect(tool).toBeVisible();
+      const box = await tool.boundingBox();
+      // Tools cannot paint over any part of the name, even when selected.
+      expect(text.y + text.height <= box.y || text.x + text.width <= box.x).toBe(true);
+    }
+  }
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('the Themes dialog reuses its grid, selects before opening, duplicates and restores focus', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await tab(page, t, 'themes');
+  const launcher = page.getByRole('button', { name: t('themesPanel.gallery'), exact: true });
+  const original = await page.locator('#theme-grid').elementHandle();
+  await launcher.click();
+  const dialog = page.getByRole('dialog', { name: t('library.themes'), exact: true });
+  await expect(dialog).toBeVisible();
+  expect(await dialog.locator('#theme-grid').evaluate((node, old) => node === old, original)).toBe(true);
+  const search = dialog.getByRole('searchbox', { name: t('themesPanel.search'), exact: true });
+  await expect(search).toBeFocused();
+  await dialog.locator('#theme-scope [data-scope=all]').click();
+  const cards = dialog.locator('.theme-card');
+  const count = await cards.count();
+  const chosen = cards.filter({ hasText: 'Midnight 5' });
+  const name = await chosen.locator('strong').textContent();
+  await chosen.click();
+  await expect(chosen).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.locator('.themes-gallery-selection')).toHaveText(t('themesPanel.selected', { name }));
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await expectAccessible(page);
+  await dialog.getByRole('button', { name: t('inspector.duplicate'), exact: true }).click();
+  await expect(cards).toHaveCount(count + 1);
+  await expect(dialog.locator('#theme-grid')).toContainText(t('layers.copyOf', { name }));
+  await search.fill('zzzz');
+  await expect(cards).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: t('themesPanel.openEditor'), exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+  expect(await page.locator('#theme-grid').evaluate((node, old) => node === old, original)).toBe(true);
+  await expect(page.locator('#theme-search input')).toHaveValue('zzzz');
+  await launcher.click();
+  await dialog.getByRole('searchbox', { name: t('themesPanel.search'), exact: true }).fill('Midnight 5');
+  await dialog.locator('.theme-card').filter({ has: page.getByText(name, { exact: true }) }).click();
+  await dialog.getByRole('button', { name: t('themesPanel.openEditor'), exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('#theme-name')).toHaveValue(name);
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+
+test('Media lists bridge imports, counts files without posters and applies their background', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await tab(page, t, 'media');
+  const panel = page.locator('#panel-media');
+  const items = panel.locator('.media-item');
+  await expect(items).toHaveCount(0);
+  await panel.locator('#media-add').click();
+  await expect(items).toHaveCount(1);
+  await expect(items.first().locator('.media-kind')).toHaveText('PNG');
+  await panel.locator('#media-add-video').click();
+  await expect(items).toHaveCount(2);
+  await expect(panel.locator('#media-head .count')).toContainText(t('media.count', { count: 2 }));
+  const video = items.filter({ has: page.getByText(t('media.video'), { exact: true }) });
+  await expect(video).toHaveCount(1);
+  await video.getByRole('button', { name: t('media.useBackground'), exact: true }).click();
+  await expect(video).toHaveClass(/is-background/);
+  await expect(video.locator('.media-bg')).toBeVisible();
+  await page.locator('#undo').click();
+  await expect(video.locator('.media-bg')).toBeHidden();
+  await expectAccessible(page);
   expect(errors).toEqual([]);
 });

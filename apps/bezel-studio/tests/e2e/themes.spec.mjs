@@ -64,6 +64,10 @@ test('the gallery lists the themes for this screen, with thumbnails', async ({ p
   await expect(cards(page).nth(0)).toContainText('Midnight 5"');
   await expect(cards(page).nth(1)).toContainText('TURZX');
   await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: t('themes.newVertical'), exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: t('themes.newHorizontal'), exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(cards(page).nth(0)).toBeFocused();
 
   // The choice stays when another tab is shown and the tab comes back.
@@ -146,5 +150,22 @@ test('the square screen lists the round theme', async ({ page, t }) => {
   await expect(scope.getByRole('button', { name: t('themes.forScreen') })).toHaveAttribute('title', t('themes.forScreenHint', { name: 'Turing 2.1" Round (USB)' }));
   await expect(cards(page)).toHaveCount(1);
   await expect(cards(page).first()).toContainText('Midnight 2.1"');
+  expect(errors).toEqual([]);
+});
+
+
+test('screen thumbnail primitives preserve portrait, landscape and square geometry', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  const { scope } = await openThemes(page, t);
+  await scope.getByRole('button', { name: t('themes.all'), exact: true }).click();
+  const expected = [{ name: 'Demo', canvas: { width: 480, height: 1920 } }, ...DEMO_LIBRARY.map((entry) => entry.theme)];
+  for (const entry of expected) {
+    const card = cards(page).filter({ has: page.getByText(entry.name, { exact: true }) });
+    const screen = card.locator('.screen-thumb');
+    await expect(screen).toBeVisible();
+    const box = await screen.boundingBox();
+    expect(box.width / box.height).toBeCloseTo(entry.canvas.width / entry.canvas.height, 2);
+  }
+  await expectAccessible(page);
   expect(errors).toEqual([]);
 });
