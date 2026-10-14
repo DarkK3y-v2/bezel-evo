@@ -151,6 +151,17 @@ test('two selected layers get the bar: Group (Ctrl G), Make card and Deselect', 
   await bar.getByRole('button', { name: t('layersPanel.groupLabel'), exact: true }).click();
   await expect(page.locator('#layer-list [data-group-id]')).toHaveCount(1);
   await expect(bar).toBeHidden();
+  const group = page.locator('#layer-list [data-group-id]');
+  await group.getByRole('button', { name: t('layers.collapse'), exact: true }).click();
+  await expect(group.locator('.layer-children')).toBeHidden();
+  const filter = page.getByRole('searchbox', { name: t('layersPanel.filter'), exact: true });
+  await filter.fill('cpu.usage');
+  await expect(group.locator('.layer-label').filter({ hasText: 'CPU' })).toBeVisible();
+  await expect(group.locator('.layer-children')).toBeVisible();
+  await filter.fill('');
+  await expect(group.locator('.layer-children')).toBeHidden();
+  await group.getByRole('button', { name: t('layers.expand'), exact: true }).click();
+  await expect(group.locator('.layer-children')).toBeVisible();
   await page.locator('#undo').click();
   await expect(page.locator('#layer-list [data-group-id]')).toHaveCount(0);
 
@@ -223,7 +234,7 @@ test('Background and CPU Analog stay complete beside visible layer tools at the 
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await tab(page, t, 'layers');
-  for (const [id, name] of [[3, 'Background'], [2, 'CPU Analog']]) {
+  for (const [id, name] of [[3, 'Background'], [2, 'CPU Analog'], [1, 'Clock with a deliberately long layer name']]) {
     const row = page.locator(`#layer-list .layer-row[data-element-id="${id}"]`);
     await row.locator('button.layer-name').dblclick();
     const edit = row.getByRole('textbox');

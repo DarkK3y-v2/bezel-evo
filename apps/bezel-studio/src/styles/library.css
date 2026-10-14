@@ -141,7 +141,8 @@ button.layer-group-title { cursor: pointer; }
 .theme-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-card .theme-screen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); }
 .theme-card .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 2px; }
-.theme-card .no-preview { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px 1px 5px; border-radius: 999px; background: var(--screen-chip); color: var(--screen-chip-ink); font-size: 0.72rem; font-weight: 600; }
+.theme-card .no-preview { position: absolute; right: 6px; bottom: 6px; background: var(--screen-chip); color: var(--screen-chip-ink); font-size: 0.72rem; }
+.theme-card .no-preview .ic { color: inherit; }
 .theme-duplicate { position: absolute; top: 12px; right: 12px; opacity: 0; }
 .icon-button.quiet.theme-duplicate, .icon-button.quiet.theme-duplicate:hover:not(:disabled) { background: var(--screen-chip); color: var(--screen-chip-ink); }
 .theme-item:is(:hover, :focus-within) .theme-duplicate { opacity: 1; }
@@ -170,7 +171,7 @@ button.layer-group-title { cursor: pointer; }
 .media-item .thumb, .bg-video .thumb { display: grid; place-items: center; color: var(--screen-thumb-ink); }
 .media-item .thumb { position: relative; width: 100%; aspect-ratio: 4 / 3; border-radius: 6px; background: var(--screen-thumb) center / contain no-repeat; }
 .media-item .thumb[style*="background-image"], .bg-video .thumb[style*="background-image"] { background-size: cover; }
-.media-kind, .media-bg { position: absolute; top: 5px; padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; text-transform: uppercase; }
+.media-kind, .media-bg { position: absolute; top: 5px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; text-transform: uppercase; }
 .media-kind { left: 5px; background: var(--screen-chip); color: var(--screen-chip-ink); }
 .media-bg { right: 5px; background: var(--accent); color: var(--accent-text); }
 .media-item .media-name { font-size: 12.5px; font-weight: 600; }
@@ -320,7 +321,7 @@ button.layer-group-title { cursor: pointer; }
    complete name. Wider panels keep the artboard's single-line rows. */
 #panel-layers { container-type: inline-size; container-name: layers; }
 @container layers (width < 300px) {
-  .layer-row { height: auto; min-height: 50px; }
+  .layer-row { height: auto; min-height: 50px; padding-bottom: 10px; }
   .layer-row[data-flags="1"], .layer-row[data-flags="2"] { padding-right: 4px; }
   .layer-row .layer-name:not(input) { flex: 1; align-self: flex-start; display: grid; gap: 1px; padding: 4px 0; white-space: normal; }
   .layer-label { line-height: 18px; white-space: normal; overflow-wrap: anywhere; }

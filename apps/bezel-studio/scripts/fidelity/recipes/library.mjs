@@ -23,6 +23,7 @@ export default {
     { name: 'sensors-libre', query: '&libre=partial', run: sensors },
     { name: 'sensors-libre-detail', query: '&libre=partial', run: async (app) => { await sensors(app); await app.page.locator('#sensor-libre').scrollIntoViewIfNeeded(); } },
     { name: 'layers', run: (app) => panel(app, 'layers') },
+    { name: 'layers-default', run: (app) => app.tab('layers') },
     { name: 'layers-selection', run: async (app) => {
       await panel(app, 'layers');
       const names = app.page.locator('#layer-list button.layer-name');

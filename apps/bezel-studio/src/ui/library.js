@@ -440,12 +440,12 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       });
       if (card.isGroup) return el('li', { class: 'layer-card', dataset: { groupId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-list layer-children', hidden: collapsedLayers.has(card.id) }, renderNodes(children, els)),
+        el('ul', { class: 'layer-list layer-children', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, renderNodes(children, els)),
       ]);
       if (!groups.length) return row;
       return el('li', { class: 'layer-card', dataset: { cardId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-groups', hidden: collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
+        el('ul', { class: 'layer-groups', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
           const active = face !== null && card.card.activeFace === face;
           const drop = { dropCard: card.id, dropFace: face === null ? 'base' : face };
           return el('li', { class: `layer-group${active ? ' active-face' : ''}`, dataset: { face: face === null ? 'base' : face } }, [
@@ -538,7 +538,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     screen.style.backgroundImage = url ? `url("${url}")` : '';
     const thumb = screen.parentElement;
     thumb?.querySelector('.no-preview')?.remove();
-    if (url === null) thumb?.append(el('span', { class: 'no-preview' }, [icon(ICONS.eyeOff, 14), el('span', { text: t('themes.noPreview') })]));
+    if (url === null) thumb?.append(el('span', { class: 'badge no-preview' }, [icon(ICONS.eyeOff, 14), el('span', { text: t('themes.noPreview') })]));
   }
 
   /** Asks for the missing thumbnails of the cards shown, one at a time, while the tab is open. */
@@ -731,8 +731,8 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     return el('li', { class: 'media-item', dataset: { ref: a.ref } }, [
       el('span', { class: 'thumb', style: preview ? { backgroundImage: `url(${preview})` } : {} }, [
         preview ? null : icon(a.kind === 'video' ? ICONS.video : ICONS.image, 22),
-        el('span', { class: 'media-kind', text: kindOf(a) }),
-        el('span', { class: 'media-bg', hidden: true, text: t('media.backgroundBadge') }),
+        el('span', { class: 'tag media-kind', text: kindOf(a) }),
+        el('span', { class: 'tag media-bg', hidden: true, text: t('media.backgroundBadge') }),
       ]),
       el('span', { class: 'media-name' }, [
         el('span', { text: fileNameOf(a.ref) }),
