@@ -12,7 +12,7 @@ import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
 import { udevCommand } from './udev.js';
 import { GLYPHS, createManagerView } from './manager.js';
-import { chipButton, sectionTitle } from './fields.js';
+import { chipButton, kindIcon, sectionTitle } from './fields.js';
 import { BAR_KINDS, PLACES, bootFile, breakdown, mediaShown, placeCounts } from '../storage-breakdown.js';
 import {
   KINDS, MEDIA, baseName, formatBytes, formatMiB, haltText, mismatchText, planRefusalText, refusalText, reportLines, storageFeatures,
@@ -664,15 +664,11 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
   function bootSlot(features) {
     if (!features.boot) return null;
     const file = bootFile(view.data?.files ?? []);
-    const tile = file
-      ? el('span', { class: 'file-thumb', 'aria-hidden': 'true', dataset: { kind: file.kind } }, [icon(file.kind === 'video' ? ICONS.video : ICONS.image, 18)])
-      : el('span', { class: 'file-thumb', 'aria-hidden': 'true' }, [icon(ICONS.clock, 18)]);
-    const reset = file
-      ? el('button', {
-        type: 'button', class: 'icon-button quiet', title: t('storage.defaultAction'), 'aria-label': t('storage.defaultAction'),
-        disabled: busy(), dataset: { focus: 'boot-default' }, onclick: askBootDefault,
-      }, [icon(ICONS.close, 16)])
-      : null;
+    const tile = file ? manager.thumbnail(file) : kindIcon('clock');
+    const reset = el('button', {
+      type: 'button', class: 'icon-button quiet', title: t('storage.defaultAction'), 'aria-label': t('storage.defaultAction'),
+      disabled: busy(), dataset: { focus: 'boot-default' }, onclick: askBootDefault,
+    }, [icon(ICONS.close, 16)]);
     return el('section', { class: 'boot-section', 'aria-labelledby': 'storage-boot-title' }, [
       sectionTitle(t('storage.bootTitle'), { id: 'storage-boot-title' }),
       el('div', { class: 'boot-slot' }, [

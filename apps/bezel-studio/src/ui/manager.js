@@ -228,10 +228,11 @@ export function createManagerView({ t, locale, bridge, host }) {
       if (name === 'boot' && !features.boot) continue;
       buttons[name] = el('button', {
         type: 'button',
-        class: 'text-button',
+        class: 'icon-button quiet',
+        'aria-label': actionLabel(name, medium),
         dataset: { focus: `act-${name}-${medium}` },
         onclick: () => run(name, medium),
-      }, [icon(ACTION_ICONS[name], 16), el('span', { text: actionLabel(name, medium) })]);
+      }, [icon(ACTION_ICONS[name], 16)]);
     }
     columns[medium].buttons = buttons;
     return el('div', { class: 'button-row manager-actions', role: 'group', 'aria-label': t('storage.list.actions', { medium: t(`storage.medium.${medium}`) }) }, Object.values(buttons));
@@ -256,7 +257,7 @@ export function createManagerView({ t, locale, bridge, host }) {
     const hit = document.elementFromPoint(x, y);
     const column = hit?.closest('.manager-column');
     if (column && column.dataset.medium !== medium) return { kind: 'column', node: column, medium: column.dataset.medium };
-    const slot = hit?.closest('.boot-slot');
+    const slot = hit?.closest('.boot-section');
     if (slot && selectedFiles(medium).length === 1) return { kind: 'boot', node: slot };
     return null;
   }
@@ -818,6 +819,7 @@ export function createManagerView({ t, locale, bridge, host }) {
   }
 
   return {
+    thumbnail,
     column,
     filterBar,
     cleanup,
