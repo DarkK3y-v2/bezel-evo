@@ -327,3 +327,42 @@ test('storage shows real boot media, kind bars and keyboard place filters', asyn
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
+
+
+test('the boot drop target highlights during a drag and clears before confirmation', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await openStorage(page, t);
+  const internal = page.getByRole('region', { name: t('storage.medium.internal') });
+  const file = option(internal, 'logo.png');
+  await file.click();
+  const play = internal.getByRole('button', { name: t('storage.action.play'), exact: true });
+  await expect(play).toBeEnabled();
+  await expect(play).toHaveAttribute('title', t('storage.action.play'));
+  const slot = page.getByRole('region', { name: t('storage.bootTitle') });
+  const from = await file.boundingBox();
+  const to = await slot.boundingBox();
+  // Inspect the intermediate pointer state, before the shared dragTo helper
+  // would release the file. No HTML drag events: this is a stored-file drag.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await expect(slot).toHaveClass(/drop-target/);
+  const accent = await page.locator('html').evaluate((node) => getComputedStyle(node).getPropertyValue('--accent').trim());
+  await expect(slot.locator('.boot-slot')).toHaveCSS('border-top-color', await page.evaluate((color) => {
+    const probe = document.createElement('span');
+    probe.style.color = color;
+    document.body.append(probe);
+    const result = getComputedStyle(probe).color;
+    probe.remove();
+    return result;
+  }, accent));
+  await page.mouse.up();
+  const confirmation = page.getByRole('dialog', { name: t('storage.confirmBootTitle', { name: 'logo.png' }) });
+  await expect(confirmation).toBeVisible();
+  await expect(page.locator('.drop-target')).toHaveCount(0);
+  await confirmation.getByRole('button', { name: t('dialog.cancel'), exact: true }).click();
+  await expect(slot.locator('.boot-name')).toHaveText(t('storagePanel.bootDefault'));
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});

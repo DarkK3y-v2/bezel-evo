@@ -18,6 +18,8 @@ import {
 
 /** How far a press travels before it is a drag, px. */
 const DRAG_THRESHOLD = 4;
+/** Regions that accept a stored file during a pointer drag. */
+const DROP_TARGETS = '.manager-column, .boot-section';
 /** The order of the side toolbar. */
 const ACTIONS = Object.freeze(['move', 'copy', 'rename', 'preview', 'play', 'background', 'boot', 'associate', 'delete']);
 /** Icons of the manager's own actions (24x24, stroked). */
@@ -193,7 +195,7 @@ export function createManagerView({ t, locale, bridge, host }) {
         ? { enabled: selectedFiles(medium).length === 1 && selectedFiles(medium)[0].kind === 'video', reason: 'videoOnly' }
         : can[name];
       button.disabled = !enabled;
-      button.title = enabled ? '' : t(`storage.reason.${reason}`);
+      button.title = enabled ? actionLabel(name, medium) : t(`storage.reason.${reason}`);
     }
     const info = selectionInfo(files(), selection[medium].selected);
     const shown = shownIn(medium).length;
@@ -264,7 +266,7 @@ export function createManagerView({ t, locale, bridge, host }) {
 
   function endDrag() {
     press?.ghost?.remove();
-    for (const node of document.querySelectorAll('.manager-column.drop-target, .boot-slot.drop-target')) node.classList.remove('drop-target');
+    for (const node of document.querySelectorAll(DROP_TARGETS)) node.classList.remove('drop-target');
     press = null;
   }
 
@@ -287,7 +289,7 @@ export function createManagerView({ t, locale, bridge, host }) {
       press.ghost.style.left = `${evt.clientX}px`;
       press.ghost.style.top = `${evt.clientY}px`;
       const target = dropAt(medium, evt.clientX, evt.clientY);
-      for (const node of document.querySelectorAll('.manager-column, .boot-slot')) node.classList.toggle('drop-target', node === target?.node);
+      for (const node of document.querySelectorAll(DROP_TARGETS)) node.classList.toggle('drop-target', node === target?.node);
     });
     listbox.addEventListener('pointerup', (evt) => {
       if (!press || press.medium !== medium) return;
