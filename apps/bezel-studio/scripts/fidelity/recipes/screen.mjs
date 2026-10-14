@@ -9,18 +9,22 @@ const widen = async (app) => {
   await app.page.waitForTimeout(300);
 };
 
+const settings = async (app) => {
+  await app.tab('screen');
+  await widen(app);
+  await app.page.locator('label.live-toggle').click();
+  await app.page.locator('#screen-panel input[type=checkbox]').check();
+  await app.click('.standby-radio[data-choice=off]');
+  await app.click('.standby-dialog .dialog-actions .primary-button');
+  await app.page.locator('#toast').waitFor({ state: 'hidden' });
+};
+
 export default {
   area: 'screen',
   artboards: ['Screen', 'Storage', 'SensorStatus'],
   states: [
-    { name: 'settings', run: async (app) => {
-      await app.tab('screen');
-      await widen(app);
-      await app.page.locator('label.live-toggle').click();
-      await app.page.locator('#screen-panel input[type=checkbox]').check();
-      await app.click('.standby-radio[data-choice=off]');
-      await app.click('.standby-dialog .dialog-actions .primary-button');
-    } },
+    { name: 'settings', run: settings },
+    { name: 'settings-advanced', run: async (app) => { await settings(app); await app.page.locator('.screen-tail').scrollIntoViewIfNeeded(); } },
     { name: 'storage', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
     { name: 'storage-boot', demo: 'vendorCard', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); } },
     { name: 'storage-sd', run: async (app) => { await app.tab('screen'); await app.click('#subtab-storage'); await app.click('[data-focus=place-sd]'); } },
