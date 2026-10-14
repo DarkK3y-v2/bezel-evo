@@ -22,6 +22,7 @@ export function libreStatus(catalog, readings) {
     groups.get(group).push(sensor);
   }
   const hardware = [...groups].map(([group, entries]) => ({
+    id: group,
     name: entries[0]?.label ?? group,
     category: entries[0]?.category ?? null,
     ok: entries.some((s) => readable(readings?.[s.key])),
@@ -65,7 +66,7 @@ const rank = (sensor) => (SHOWN_FIRST.includes(sensor.quantity) ? SHOWN_FIRST.in
  * @param {{key: string, category: string, source: string, quantity: string}[]} catalog
  * @param {Record<string, {value?: number, display?: string, unavailable?: string}>|null} readings
  * @param {{hardware?: {name: string, category: string|null, ok: boolean}[]}|null} health
- * @returns {{category: string, sources: string[], value: string|null, missing: string[]}[]}
+ * @returns {{category: string, sources: string[], value: string|null, missing: string[], name?: string}[]}[]}
  */
 export function hardwareRows(catalog, readings, health) {
   const rows = new Map();
@@ -92,7 +93,7 @@ export function hardwareRows(catalog, readings, health) {
       category,
       sources,
       value: reading ? reading.display ?? String(reading.value) : null,
-      missing: failed.filter((h) => h.category === category && sensors.some((s) => s.label === h.name || hardwareGroup(s) === h.name)).map((h) => h.name),
+      missing: failed.filter((h) => h.category === category && sensors.some((s) => h.id ? hardwareGroup(s) === h.id : s.label === h.name || hardwareGroup(s) === h.name)).map((h) => h.name),
       ...(name ? { name } : {}),
     };
   });

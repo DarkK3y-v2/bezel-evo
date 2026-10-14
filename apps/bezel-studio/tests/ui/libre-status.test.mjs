@@ -16,7 +16,7 @@ test('a working CPU cannot hide a failed Corsair reporting a synthetic zero', ()
   });
   assert.equal(health.state, 'partial');
   assert.deepEqual(health.failed, ['Corsair Input']);
-  assert.deepEqual(health.hardware, [{ name: 'CPU Package', category: 'cpu', ok: true }, { name: 'Corsair Input', category: 'board', ok: false }]);
+  assert.deepEqual(health.hardware, [{ id: 'cpu', name: 'CPU Package', category: 'cpu', ok: true }, { id: 'lhm.psu.corsair.0', name: 'Corsair Input', category: 'board', ok: false }]);
 });
 
 test('missing/stale readings fail; legitimate zero measurements are healthy', () => {
@@ -88,4 +88,15 @@ test('separate physical devices of one category keep their own readings and warn
   assert.deepEqual(rows.map((row) => row.missing), [[], ['First PSU'], []]);
   assert.equal(rows[1].name, 'First PSU');
   assert.equal(rows[2].name, 'Second PSU');
+});
+
+
+test('identically named hardware uses physical ids to place its missing reading', () => {
+  const sensors = [0, 1].map((index) => ({
+    key: `lhm.psu.corsair.${index}.voltage.3`, category: 'board', label: 'Corsair Input', source: 'LibreHardwareMonitor', quantity: 'volts',
+  }));
+  const readings = { [sensors[0].key]: { value: 230, display: '230 V' } };
+  const health = libreStatus(sensors, readings);
+  assert.deepEqual(health.hardware.map((hardware) => hardware.id), ['lhm.psu.corsair.0', 'lhm.psu.corsair.1']);
+  assert.deepEqual(hardwareRows(sensors, readings, health).map((row) => row.missing), [[], ['Corsair Input']]);
 });
