@@ -1,7 +1,7 @@
 // The inspector (artboards Main's right panel, GraphData/Look, PlayerData/Look).
 export default {
   area: 'inspector',
-  artboards: ['GraphData', 'GraphLook', 'PlayerData', 'PlayerLook'],
+  artboards: ['Main', 'GraphData', 'GraphLook', 'PlayerData', 'PlayerLook'],
   states: [
     { name: 'theme', run: async () => {} },
     { name: 'ring', run: (app) => app.add('ring') },

@@ -7,7 +7,7 @@ test('ring arc gradient, full-scale test, copy and Undo', async ({ page, t }) =>
   await page.getByRole('button', { name: t('library.addWidget', { name: t('widget.ring') }), exact: true }).click();
   const detail = page.locator('#inspector');
   await detail.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
-  const checkbox = detail.getByRole('checkbox', { name: t('ring.testFull'), exact: true });
+  const checkbox = detail.getByRole('switch', { name: t('ring.testFull'), exact: true });
   await expect(checkbox).not.toBeChecked();
   await checkbox.check();
   await detail.getByRole('combobox', { name: t('ring.fillMode'), exact: true }).selectOption('arc');

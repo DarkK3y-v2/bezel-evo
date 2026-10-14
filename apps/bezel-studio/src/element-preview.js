@@ -1,0 +1,119 @@
+// The inspector's preview of one object, without the DOM
+// (D-2026-10-09-studio-redesign-fidelity-8): the object is rendered alone by
+// the backend (`renderElement`); this module decides when to ask (one render
+// at a time, the last request wins, nothing in bursts), how big the answer
+// is drawn, and what the object's sensor read lately (its peak).
+
+/** The largest upscale of the preview: a tiny object is not blown into blur. */
+export const PREVIEW_MAX_SCALE = 4;
+
+/** The longest side the backend is asked for, device pixels. */
+export const PREVIEW_MAX_SIDE = 512;
+
+/**
+ * How big a rendered `frame` is drawn in a `box`, CSS pixels: it fits both
+ * sides, never more than {@link PREVIEW_MAX_SCALE} times its size. `ratio`
+ * is the device pixel ratio the frame was asked for (its pixels are device
+ * pixels). Null when the frame or the box is empty.
+ * @param {{width: number, height: number}|null} frame
+ * @param {{width: number, height: number}} box
+ * @param {number} [ratio]
+ * @returns {{width: number, height: number}|null}
+ */
+export function fitPreview(frame, box, ratio = 1) {
+  if (!frame || !(frame.width > 0 && frame.height > 0 && box.width > 0 && box.height > 0)) return null;
+  const width = frame.width / ratio;
+  const height = frame.height / ratio;
+  const scale = Math.min(box.width / width, box.height / height, PREVIEW_MAX_SCALE);
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+/**
+ * The longest side to ask the backend for, device pixels: the box's longest
+ * side at the device ratio, between 16 and {@link PREVIEW_MAX_SIDE}.
+ */
+export function previewSide(box, ratio = 1) {
+  const side = Math.ceil(Math.max(box.width, box.height) * ratio);
+  return Math.max(16, Math.min(PREVIEW_MAX_SIDE, Number.isFinite(side) ? side : PREVIEW_MAX_SIDE));
+}
+
+/**
+ * Asks for renders one at a time. A request while one runs is remembered
+ * (only the last one) and asked once the running one ends; an answer that
+ * a later request overtook is dropped, never shown.
+ * @param {{render: (key: any) => Promise<any>, show: (frame: any, key: any) => void, fail?: (error: any, key: any) => void}} deps
+ */
+export function createPreviewScheduler({ render, show, fail = () => {} }) {
+  let busy = false;
+  let pending = false;
+  let latest = null;
+  let generation = 0;
+
+  async function run() {
+    busy = true;
+    while (pending) {
+      pending = false;
+      const key = latest;
+      const asked = generation;
+      try {
+        const frame = await render(key);
+        if (!pending && asked === generation) show(frame, key);
+      } catch (error) {
+        if (!pending && asked === generation) fail(error, key);
+      }
+    }
+    busy = false;
+  }
+
+  return {
+    /** Asks for a render of `key` (coalesced with the one running). */
+    request(key) {
+      latest = key;
+      pending = true;
+      if (!busy) void run();
+    },
+    /** Drops what is pending and the answer of the running render. */
+    cancel() {
+      pending = false;
+      generation += 1;
+    },
+    /** Whether a render runs now. */
+    busy: () => busy,
+  };
+}
+
+/** How many readings the peak keeps, at most: a graph's longest history. */
+export const PEAK_LIMIT = 3600;
+
+/**
+ * The readings of one sensor, to tell its peak over a window of time. It
+ * follows one key: watching another starts over. A sample is recorded once
+ * (the same `at` twice is one reading); unavailable readings are skipped.
+ */
+export function createPeakWatch(limit = PEAK_LIMIT) {
+  let key = null;
+  let entries = [];
+  return {
+    /** Records `reading` (`{value, display}`) of `sensor` read at `at` ms. */
+    observe(sensor, reading, at) {
+      if (sensor !== key) {
+        key = sensor;
+        entries = [];
+      }
+      if (!reading || typeof reading.value !== 'number' || !Number.isFinite(reading.value)) return;
+      if (entries.length && entries[entries.length - 1].at >= at) return;
+      entries.push({ at, value: reading.value, display: reading.display ?? String(reading.value) });
+      if (entries.length > limit) entries.splice(0, entries.length - limit);
+    },
+    /** The highest reading of `sensor` since `now - windowMs` (null: none). */
+    peak(sensor, windowMs, now) {
+      if (sensor !== key) return null;
+      let best = null;
+      for (const entry of entries) {
+        if (entry.at < now - windowMs) continue;
+        if (!best || entry.value > best.value) best = entry;
+      }
+      return best;
+    },
+  };
+}

@@ -1,0 +1,135 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { PEAK_LIMIT, PREVIEW_MAX_SCALE, PREVIEW_MAX_SIDE, createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../../src/element-preview.js';
+
+test('the preview fits the box, keeps its shape and enlarges at most four times', () => {
+  assert.equal(PREVIEW_MAX_SCALE, 4);
+  assert.deepEqual(fitPreview({ width: 400, height: 200 }, { width: 260, height: 120 }), { width: 240, height: 120 });
+  assert.deepEqual(fitPreview({ width: 20, height: 10 }, { width: 260, height: 120 }), { width: 80, height: 40 });
+  // Device pixels: a frame asked at 2x is drawn at half its pixel size.
+  assert.deepEqual(fitPreview({ width: 40, height: 20 }, { width: 260, height: 120 }, 2), { width: 80, height: 40 });
+  assert.deepEqual(fitPreview({ width: 1000, height: 1 }, { width: 100, height: 100 }), { width: 100, height: 1 });
+});
+
+test('nothing is drawn without a frame, with an empty frame or an empty box', () => {
+  assert.equal(fitPreview(null, { width: 10, height: 10 }), null);
+  assert.equal(fitPreview({ width: 0, height: 10 }, { width: 10, height: 10 }), null);
+  assert.equal(fitPreview({ width: 10, height: 10 }, { width: 0, height: 10 }), null);
+});
+
+test('the side asked for follows the box and the device ratio, within bounds', () => {
+  assert.equal(PREVIEW_MAX_SIDE, 512);
+  assert.equal(previewSide({ width: 260, height: 120 }), 260);
+  assert.equal(previewSide({ width: 260, height: 120 }, 1.5), 390);
+  assert.equal(previewSide({ width: 400, height: 120 }, 2), 512);
+  assert.equal(previewSide({ width: 2, height: 2 }), 16);
+  assert.equal(previewSide({ width: Number.NaN, height: Number.NaN }), 512);
+});
+
+/** A render the test answers by hand. */
+function manual() {
+  const calls = [];
+  const render = (key) => new Promise((resolve, reject) => calls.push({ key, resolve, reject }));
+  return { calls, render };
+}
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('requests while a render runs are coalesced into one, the last one', async () => {
+  const { calls, render } = manual();
+  const shown = [];
+  const scheduler = createPreviewScheduler({ render, show: (frame, key) => shown.push([frame, key]) });
+  scheduler.request(1);
+  assert.equal(scheduler.busy(), true);
+  scheduler.request(2);
+  scheduler.request(3);
+  scheduler.request(4);
+  assert.equal(calls.length, 1);
+  calls[0].resolve('a');
+  await tick();
+  // The first answer was overtaken: it is dropped, and only the last request runs.
+  assert.deepEqual(shown, []);
+  assert.deepEqual(calls.map((c) => c.key), [1, 4]);
+  calls[1].resolve('d');
+  await tick();
+  assert.deepEqual(shown, [['d', 4]]);
+  assert.equal(scheduler.busy(), false);
+});
+
+test('a burst of twenty requests asks for two renders at most', async () => {
+  let renders = 0;
+  const shown = [];
+  const scheduler = createPreviewScheduler({ render: async (key) => { renders += 1; await tick(); return key; }, show: (frame) => shown.push(frame) });
+  for (let i = 0; i < 20; i += 1) scheduler.request(i);
+  for (let i = 0; i < 5; i += 1) await tick();
+  assert.equal(renders, 2);
+  assert.deepEqual(shown, [19]);
+});
+
+test('a failed render is told, unless a later request overtook it', async () => {
+  const { calls, render } = manual();
+  const failed = [];
+  const scheduler = createPreviewScheduler({ render, show: () => {}, fail: (error, key) => failed.push([error, key]) });
+  scheduler.request(1);
+  calls[0].reject('boom');
+  await tick();
+  assert.deepEqual(failed, [['boom', 1]]);
+  scheduler.request(2);
+  scheduler.request(3);
+  calls[1].reject('late');
+  await tick();
+  assert.deepEqual(failed, [['boom', 1]]);
+  calls[2].reject('last');
+  await tick();
+  assert.deepEqual(failed, [['boom', 1], ['last', 3]]);
+  // The default failure handler says nothing.
+  const quiet = createPreviewScheduler({ render: () => Promise.reject(new Error('x')), show: () => {} });
+  quiet.request(1);
+  await tick();
+  assert.equal(quiet.busy(), false);
+});
+
+test('cancel drops the running answer; a new request is shown', async () => {
+  const { calls, render } = manual();
+  const shown = [];
+  const scheduler = createPreviewScheduler({ render, show: (frame) => shown.push(frame) });
+  scheduler.request(1);
+  scheduler.cancel();
+  calls[0].resolve('stale');
+  await tick();
+  assert.deepEqual(shown, []);
+  scheduler.request(2);
+  calls[1].resolve('fresh');
+  await tick();
+  assert.deepEqual(shown, ['fresh']);
+});
+
+test('the peak is the highest reading of the sensor within the window', () => {
+  const watch = createPeakWatch();
+  watch.observe('net.down', { value: 3, display: '3 MB/s' }, 1000);
+  watch.observe('net.down', { value: 9, display: '9 MB/s' }, 2000);
+  watch.observe('net.down', { value: 4, display: '4 MB/s' }, 3000);
+  assert.deepEqual(watch.peak('net.down', 10_000, 3000), { at: 2000, value: 9, display: '9 MB/s' });
+  assert.deepEqual(watch.peak('net.down', 999, 3000), { at: 3000, value: 4, display: '4 MB/s' });
+  assert.equal(watch.peak('cpu.usage', 10_000, 3000), null);
+});
+
+test('the same sample twice, unavailable readings and other sensors do not count', () => {
+  const watch = createPeakWatch();
+  watch.observe('a', { value: 5 }, 10);
+  watch.observe('a', { value: 50 }, 10);
+  watch.observe('a', { unavailable: 'no', display: '—' }, 20);
+  watch.observe('a', null, 30);
+  watch.observe('a', { value: Number.NaN }, 40);
+  assert.deepEqual(watch.peak('a', 100, 50), { at: 10, value: 5, display: '5' });
+  // Watching another sensor starts over.
+  watch.observe('b', { value: 1, display: '1' }, 60);
+  assert.equal(watch.peak('a', 100, 60), null);
+  assert.equal(watch.peak('b', 100, 60).value, 1);
+});
+
+test('the peak keeps at most its limit of readings', () => {
+  assert.equal(PEAK_LIMIT, 3600);
+  const watch = createPeakWatch(3);
+  for (const [at, value] of [[1, 100], [2, 1], [3, 2], [4, 3]]) watch.observe('k', { value, display: String(value) }, at);
+  assert.equal(watch.peak('k', 1000, 4).value, 3);
+});

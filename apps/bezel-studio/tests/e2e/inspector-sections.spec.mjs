@@ -15,8 +15,19 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   const tabs = inspector.getByRole('tablist', { name: t('inspector.tabs'), exact: true }).getByRole('tab');
   await expect(tabs).toHaveText([t('inspector.tab.data'), t('inspector.tab.look')]);
   await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
-  // Position and actions follow every tab, after the panels.
-  expect(await inspector.locator(':scope > .property-section').evaluateAll(nodes => nodes.map(n => n.dataset.section))).toEqual(['position', 'actions']);
+  // The head, its actions (closed), the preview, the tabs, then position and
+  // size on every tab, before the panels.
+  expect(await inspector.locator(':scope > *').evaluateAll(nodes => nodes.map(n => n.dataset.section ?? n.getAttribute('role') ?? n.className)))
+    .toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist', 'position', 'tabpanel', 'tabpanel']);
+  const more = inspector.getByRole('button', { name: t('insp.more'), exact: true });
+  const actions = inspector.locator('#inspector-actions');
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  await expect(actions).toBeHidden();
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  await expect(actions.getByRole('button', { name: t('inspector.duplicate'), exact: true })).toBeVisible();
+  await more.click();
+  await expect(actions).toBeHidden();
   const fillMode = inspector.getByRole('combobox', { name: t('ring.fillMode'), exact: true });
   await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toBeVisible();
   await expect(fillMode).toHaveCount(0);
@@ -60,7 +71,7 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   await expectAccessible(page); expect(errors).toEqual([]);
 });
 
-test('the live preview copies the selected object from the rendered frame', async ({ page, t }) => {
+test('the preview shows the selected object rendered alone, on or off the canvas', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await addWidget(page, t, 'ring');
@@ -74,11 +85,13 @@ test('the live preview copies the selected object from the rendered frame', asyn
     const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
     return pixels.some((v, i) => i % 4 === 3 && v > 0);
   })).toBe(true);
-  // Moved off the canvas there is nothing to copy, and it says so.
+  // Rendered alone, it shows even moved off the canvas.
   const x = inspector.getByRole('spinbutton', { name: t('inspector.x'), exact: true });
   await x.fill('5000'); await x.press('Tab');
-  await expect(inspector.locator('.inspector-preview')).toContainText(t('inspector.previewOff'));
-  await expect(preview).toBeHidden();
+  await expect(x).toHaveValue('5000');
+  await expect(preview).toBeVisible();
+  await expect(inspector.locator('.inspector-preview-off')).toBeHidden();
+  await expect.poll(() => preview.evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((v, i) => i % 4 === 3 && v > 0))).toBe(true);
   await page.locator('#undo').click();
   await expect(preview).toBeVisible();
   await expectAccessible(page); expect(errors).toEqual([]);
