@@ -1,13 +1,18 @@
-// The Screen panel's Settings (artboard Screen): each screen's card with its
-// brightness and advanced actions, "Start with the computer" and the panels
-// the vendor app left in desktop mode.
+// The Screen panel's Settings (artboard Screen): each screen's card (glyph,
+// name, port, size and protocol in mono, its state) with its brightness,
+// "Start with the computer", the panels the vendor app left in desktop mode
+// and, at the end of the tab, the advanced actions.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
+import { sectionTitle } from './fields.js';
+
+/** The protocol letter of each screen family ("protocol C"). */
+const PROTOCOLS = Object.freeze({ 'turing-rev-a': 'A', 'turing-rev-b': 'B', 'turing-rev-c': 'C', 'turing-usb': 'USB' });
 
 /**
  * The screen panel (Screen › Settings): one card per screen (glyph, name,
- * size, state, brightness, advanced actions), "Start with the computer"
- * and the panels in desktop mode.
+ * size, protocol, state), its brightness, "Start with the computer", the
+ * panels in desktop mode and the advanced actions.
  * @param {{
  *   root: HTMLElement,
  *   t: (k: string, p?: object) => string,
@@ -20,13 +25,17 @@ import { ICONS } from './icons.js';
  */
 export function createScreenPanel({ root, t, actions }) {
   let args = [[], null, false, {}, [], {}];
+  // The advanced actions close the tab, after "When the computer shuts down".
+  const tail = el('div', { class: 'screen-tail' });
+  root.parentElement?.append(tail);
 
-  /** "Start with the computer" as a toggle row: a native checkbox drawn as a switch. */
+  /** "Start with the computer" as a toggle row: its name, what it does, and the switch. */
   function autostartField() {
-    const input = el('input', { type: 'checkbox', checked: Boolean(actions.autostart()) });
+    const hint = el('span', { id: 'autostart-hint', class: 'toggle-hint', 'aria-hidden': 'true', text: t('screenPanel.autostartHint') });
+    const input = el('input', { type: 'checkbox', checked: Boolean(actions.autostart()), 'aria-describedby': hint.id });
     input.addEventListener('change', () => actions.setAutostart(input.checked));
     return el('label', { class: 'toggle-row' }, [
-      el('span', { class: 'toggle-label', text: t('screen.autostart') }),
+      el('span', { class: 'toggle-label' }, [el('span', { class: 'toggle-title', text: t('screenPanel.autostart') }), hint]),
       input,
       el('span', { class: 'track', 'aria-hidden': 'true' }, [el('span', { class: 'thumb' })]),
     ]);
@@ -40,7 +49,7 @@ export function createScreenPanel({ root, t, actions }) {
   function desktopSection(panels) {
     if (!panels.length) return null;
     return el('section', { class: 'desktop-mode', 'aria-labelledby': 'desktop-mode-title' }, [
-      el('h3', { id: 'desktop-mode-title', text: t('desktop.title') }),
+      sectionTitle(t('desktop.title'), { id: 'desktop-mode-title' }),
       ...panels.map((p) => el('div', { class: 'screen-card', role: 'group', 'aria-label': t('desktop.cardLabel', { address: p.key }) }, [
         el('strong', { text: t('desktop.name') }),
         el('span', { class: 'meta', text: `${p.key} · ${p.usb}` }),
@@ -76,48 +85,62 @@ export function createScreenPanel({ root, t, actions }) {
     return { note, button };
   }
 
-  /** The screen's head: a glyph in its native shape, its name, panel size and state. */
-  function screenHead(s, model, liveHere) {
+  /** The screen's card: a glyph in its native shape, its name, size and protocol in mono, and its state. */
+  function screenCard(s, model, liveHere) {
     const axis = model && model.width > model.height ? 'horizontal' : 'vertical';
-    let dot = 'dot';
-    if (s.state === 'awake') dot = liveHere ? 'dot live' : 'dot awake';
-    return el('div', { class: 'screen-head' }, [
+    const protocol = PROTOCOLS[s.family];
+    const facts = [
+      model ? `${model.width}×${model.height}` : null,
+      protocol ? t('screenPanel.protocol', { name: protocol }) : null,
+    ].filter(Boolean);
+    let tone = 'idle';
+    if (s.state === 'awake') tone = liveHere ? 'live' : 'awake';
+    return el('div', { class: 'screen-card' }, [
       el('span', { class: 'screen-glyph', 'aria-hidden': 'true', dataset: { axis } }, [el('span')]),
       el('span', { class: 'screen-id' }, [
         el('strong', { text: model ? model.name : s.models.map((m) => m.name).join(' / ') }),
-        model ? el('span', { class: 'screen-size', text: `${model.width}×${model.height}` }) : null,
-        el('span', { class: 'screen-state' }, [
-          el('span', { class: dot, 'aria-hidden': 'true' }),
+        facts.length ? el('span', { class: 'screen-size', text: facts.join(' · ') }) : null,
+        el('span', { class: 'screen-state', dataset: { tone } }, [
+          el('span', { class: 'status-dot', 'aria-hidden': 'true' }),
           el('span', { class: 'meta', text: `${s.key} · ${t(`screen.state.${s.state}`)}${liveHere ? ` · ${t('status.live')}` : ''}` }),
         ]),
       ]),
     ]);
   }
 
-  /** Brightness: the level in mono over a slider between a dim and a bright sun. */
+  /** Brightness: its title and the level in mono over a slider between a dim and a bright sun. */
   function brightnessField(s, level) {
     const out = el('output', { class: 'brightness-value', text: `${level}%` });
     const slider = el('input', { type: 'range', min: 0, max: 100, step: 1, value: String(level), 'aria-label': t('screen.brightness') });
     slider.addEventListener('input', () => { out.textContent = `${slider.value}%`; });
     slider.addEventListener('change', () => actions.setBrightness(s.key, Number(slider.value)));
+    const head = sectionTitle(t('screen.brightness'));
+    head.append(out);
     return el('div', { class: 'brightness' }, [
-      el('div', { class: 'brightness-head' }, [el('span', { class: 'section-label', 'aria-hidden': 'true', text: t('screen.brightness') }), out]),
+      head,
       el('div', { class: 'brightness-row' }, [icon(ICONS.sunDim, 16), slider, icon(ICONS.sunBright, 16)]),
     ]);
   }
 
-  function screenCard(s, current, live, brightness, restart) {
-    const model = s.models.length === 1 ? s.models[0] : null;
+  /** "Advanced": give the screen back to its own firmware, and restart it. */
+  function advanced(s, restart, labelled) {
     const { note, button } = restartParts(s, restart);
-    return el('section', { class: 'screen-card', 'aria-label': model ? model.name : s.key }, [
-      screenHead(s, model, s.key === current && live),
-      brightnessField(s, brightness[s.key] ?? 70),
+    const name = s.models.length === 1 ? s.models[0].name : s.key;
+    return el('section', { class: 'screen-advanced', role: 'group', 'aria-label': labelled ? `${t('screen.advanced')} · ${name}` : t('screen.advanced') }, [
+      sectionTitle(t('screen.advanced')),
       note,
-      el('div', { class: 'screen-advanced', role: 'group', 'aria-label': t('screen.advanced') }, [
-        el('span', { class: 'section-label', 'aria-hidden': 'true', text: t('screen.advanced') }),
-        el('button', { type: 'button', class: 'text-button', onclick: () => actions.release(s.key) }, [icon(ICONS.handBack, 16), el('span', { text: t('screen.release') })]),
-        button,
-      ]),
+      el('button', { type: 'button', class: 'text-button', onclick: () => actions.release(s.key) }, [icon(ICONS.handBack, 16), el('span', { text: t('screen.release') })]),
+      button,
+    ]);
+  }
+
+  /** One screen: its card and its brightness (and its advanced actions, when there are several). */
+  function screenBlock(s, current, live, brightness, restart, several) {
+    const model = s.models.length === 1 ? s.models[0] : null;
+    return el('section', { class: 'screen-block', 'aria-label': model ? model.name : s.key }, [
+      screenCard(s, model, s.key === current && live),
+      brightnessField(s, brightness[s.key] ?? 70),
+      several ? advanced(s, restart, true) : null,
     ]);
   }
 
@@ -134,9 +157,12 @@ export function createScreenPanel({ root, t, actions }) {
     const desktop = [desktopSection(desktopMode)].filter(Boolean);
     if (!screens.length) {
       root.replaceChildren(el('p', { class: 'empty-note', text: t('screen.none') }), autostartField(), ...desktop);
+      tail.replaceChildren();
       return;
     }
-    root.replaceChildren(...screens.map((s) => screenCard(s, current, live, brightness, restart)), autostartField(), ...desktop);
+    const several = screens.length > 1;
+    root.replaceChildren(...screens.map((s) => screenBlock(s, current, live, brightness, restart, several)), autostartField(), ...desktop);
+    tail.replaceChildren(...(several ? [] : [advanced(screens[0], restart, false)]));
   }
 
   return {

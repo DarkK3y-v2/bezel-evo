@@ -15,20 +15,13 @@
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { createConfirm } from './storage.js';
+import { sectionTitle } from './fields.js';
 import { errorText } from '../messages.js';
 import { formatBytes, planRefusalText } from '../storage-manager.js';
 import {
   CHOICES, PHOTO_FITS, activation, albumClash, albumName, albumPath, albumPhotos, complete, confirmationOf, createAnswers, currentDetail,
   dialogDefaults, inTurn, minutesText, offered, optionOf, requestOf, screenShape, sleepChoices, suggestPhotoName, translate, videoGroups,
 } from '../standby.js';
-
-/** The icon of each choice. */
-const CHOICE_ICONS = Object.freeze({
-  keep: ICONS.monitor,
-  off: ICONS.power,
-  video: ICONS.film,
-  album: ICONS.image,
-});
 
 /** The keys that move the focus along the radio group, as a step (or an end). */
 const MOVES = Object.freeze({ ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, Home: 'first', End: 'last' });
@@ -175,19 +168,21 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     const option = optionOf(view.data, choice);
     const checked = view.data.choice === choice;
     const label = t(`standby.choice.${choice}`);
-    const detail = option.enabled ? currentDetail(view.data, choice) : { key: `standby.reason.${option.reason}`, params: {} };
+    // The choice's state when it is the one, why it is off, or what it does.
+    const detail = option.enabled
+      ? currentDetail(view.data, choice) ?? { key: `screenPanel.standby.${choice}`, params: {} }
+      : { key: `standby.reason.${option.reason}`, params: {} };
     const nameId = `standby-name-${choice}`;
     const detailId = `standby-detail-${choice}`;
     const radio = el('button', {
       type: 'button', role: 'radio', class: 'standby-radio', 'aria-checked': String(checked), 'aria-disabled': option.enabled ? null : 'true',
-      'aria-labelledby': nameId, 'aria-describedby': detail ? detailId : null, tabindex: checked ? '0' : '-1',
+      'aria-labelledby': nameId, 'aria-describedby': detailId, tabindex: checked ? '0' : '-1',
       title: option.enabled ? null : say(detail), dataset: { choice, focus: `radio-${choice}` },
       onclick: () => void choose(choice), onkeydown: (evt) => moveFocus(evt, choice),
     }, [
       el('span', { class: 'standby-mark', 'aria-hidden': 'true' }),
-      icon(CHOICE_ICONS[choice], 16),
       el('span', { id: nameId, class: 'standby-label', text: label }),
-      detail && el('span', { id: detailId, class: `standby-detail${option.enabled ? '' : ' reason'}`, text: say(detail) }),
+      el('span', { id: detailId, class: `standby-detail${option.enabled ? '' : ' reason'}`, text: say(detail) }),
     ]);
     const [help, panel] = popovers.help(`standby-help-${choice}`, t('standby.helpFor', { choice: label }), [
       el('strong', { text: label }),
@@ -196,13 +191,37 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     return el('div', { class: `standby-option${checked ? ' checked' : ''}` }, [radio, help, panel]);
   }
 
+  /** The section's 11px caps title with its "?". */
   function head(current) {
-    const [help, panel] = popovers.help('standby-help', t('standby.help'), [el('p', { text: t('standby.helpText') })]);
     const model = current.models.length === 1 ? current.models[0].name : current.models.map((m) => m.name).join(' / ');
-    return [
-      el('div', { class: 'standby-head' }, [icon(ICONS.power, 16), el('h3', { id: 'standby-title', text: t('standby.title') }), help, panel]),
-      el('p', { class: 'standby-screen', text: model }),
-    ];
+    const [help, panel] = popovers.help('standby-help', t('standby.help'), [el('p', { text: t('standby.helpText') })]);
+    const title = sectionTitle(t('standby.title'), { id: 'standby-title' });
+    title.classList.add('standby-head');
+    title.append(help, panel);
+    return [title, el('p', { class: 'standby-screen', text: model })];
+  }
+
+  /**
+   * Plan B (the screen's own sleep timer, D-2026-10-03-power-off-standby-2):
+   * a quiet row whose button shows the minutes written, and sets them.
+   */
+  function planB() {
+    const off = optionOf(view.data, 'off');
+    const minutes = view.data.choice === 'off' ? view.data.sleepMinutes : null;
+    const timed = Number.isInteger(minutes);
+    const shown = timed ? t('screenPanel.minutesShort', { count: minutes }) : t('sleep.configure');
+    return el('div', { class: 'sleep-settings', title: t('sleep.help') }, [
+      el('span', { id: 'plan-b-label', class: 'sleep-label', text: t('screenPanel.planB') }),
+      el('button', {
+        type: 'button', class: 'text-button sleep-button', id: 'configure-sleep-timer', 'aria-describedby': 'plan-b-label',
+        disabled: view.busy || !off?.enabled,
+        onclick: async () => {
+          const key = view.key;
+          const request = await askChoice('off');
+          if (request) await write(request, key);
+        },
+      }, [el('span', { class: timed ? 'mono' : null, text: shown }), icon(ICONS.chevronDown, 12)]),
+    ]);
   }
 
   function bodyParts() {
@@ -215,14 +234,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     }
     if (!offered(view.data)) return [el('p', { class: 'hint', text: t('standby.unsupported') })];
     const parts = [el('div', { class: 'standby-options', role: 'radiogroup', 'aria-labelledby': 'standby-title', 'aria-busy': String(view.busy) }, CHOICES.map(optionRow))];
-    const off=optionOf(view.data,'off');
-    parts.push(el('section',{class:'sleep-settings'},[
-      el('h3',{text:t('sleep.title')}),
-      el('p',{class:'hint',text:t('sleep.help')}),
-      el('button',{type:'button',class:'text-button',id:'configure-sleep-timer',text:t('sleep.configure'),disabled:view.busy || !off?.enabled,onclick:async()=>{
-        const key=view.key;const request=await askChoice('off');if(request)await write(request,key);
-      }}),
-    ]));
+    parts.push(planB());
     if (view.data.choice === 'album' && optionOf(view.data, 'album').enabled) {
       parts.push(el('div', { class: 'button-row' }, [el('button', {
         type: 'button', class: 'text-button', dataset: { focus: 'manage' }, disabled: view.busy, onclick: () => void manageAlbum({ choosing: false }),

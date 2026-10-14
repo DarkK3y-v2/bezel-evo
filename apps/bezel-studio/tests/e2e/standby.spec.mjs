@@ -15,7 +15,7 @@ import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 import { DEMO_LET_GO_EVENT } from '../../src/bridge.js';
 
 const SCREEN = '/dev/ttyACM1';
-const CHOICES = ['keep', 'off', 'video', 'album'];
+const CHOICES = ['keep', 'off', 'album', 'video'];
 const PHOTO = 'Praia do Forte.jpg';
 
 const toast = (page) => page.locator('#toast');
@@ -246,7 +246,8 @@ test.describe('standby', () => {
     await expect(toast(page)).toHaveText(t('standby.saved', { choice: t('standby.choice.keep') }));
     await expect(keep).toBeChecked();
     await expect(off).not.toBeChecked();
-    await expect(off).not.toHaveAttribute('aria-describedby', /.+/);
+    // No longer the choice: it says what it does, not its timer.
+    await expect(off).toHaveAccessibleDescription(t('screenPanel.standby.off'));
     expect(await written(page)).toEqual([{ screen: SCREEN, choice: 'keep', sleepMinutes: 0, file: null, startMode: 0 }]);
 
     // Keep again sends nothing and asks nothing.
