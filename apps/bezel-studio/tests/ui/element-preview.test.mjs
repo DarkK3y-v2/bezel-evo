@@ -40,6 +40,7 @@ test('requests while a render runs are coalesced into one, the last one', async 
   const scheduler = createPreviewScheduler({ render, show: (frame, key) => shown.push([frame, key]) });
   scheduler.request(1);
   assert.equal(scheduler.busy(), true);
+  await tick();
   scheduler.request(2);
   scheduler.request(3);
   scheduler.request(4);
@@ -61,7 +62,7 @@ test('a burst of twenty requests asks for two renders at most', async () => {
   const scheduler = createPreviewScheduler({ render: async (key) => { renders += 1; await tick(); return key; }, show: (frame) => shown.push(frame) });
   for (let i = 0; i < 20; i += 1) scheduler.request(i);
   for (let i = 0; i < 5; i += 1) await tick();
-  assert.equal(renders, 2);
+  assert.equal(renders, 1);
   assert.deepEqual(shown, [19]);
 });
 
@@ -70,10 +71,12 @@ test('a failed render is told, unless a later request overtook it', async () => 
   const failed = [];
   const scheduler = createPreviewScheduler({ render, show: () => {}, fail: (error, key) => failed.push([error, key]) });
   scheduler.request(1);
+  await tick();
   calls[0].reject('boom');
   await tick();
   assert.deepEqual(failed, [['boom', 1]]);
   scheduler.request(2);
+  await tick();
   scheduler.request(3);
   calls[1].reject('late');
   await tick();
@@ -93,14 +96,45 @@ test('cancel drops the running answer; a new request is shown', async () => {
   const shown = [];
   const scheduler = createPreviewScheduler({ render, show: (frame) => shown.push(frame) });
   scheduler.request(1);
+  await tick();
   scheduler.cancel();
   calls[0].resolve('stale');
   await tick();
   assert.deepEqual(shown, []);
   scheduler.request(2);
+  await tick();
   calls[1].resolve('fresh');
   await tick();
   assert.deepEqual(shown, ['fresh']);
+});
+
+test('cancel before the scheduled render starts performs no backend work', async () => {
+  const { calls, render } = manual();
+  const scheduler = createPreviewScheduler({ render, show: () => assert.fail('cancelled frame') });
+  scheduler.request(1);
+  scheduler.cancel();
+  await tick();
+  assert.equal(calls.length, 0);
+  assert.equal(scheduler.busy(), false);
+});
+
+test('a new selection during cancellation waits for the running render and drops its answer', async () => {
+  const { calls, render } = manual();
+  const shown = [];
+  const scheduler = createPreviewScheduler({ render, show: (frame, key) => shown.push([frame, key]) });
+  scheduler.request(1);
+  await tick();
+  scheduler.request(2);
+  scheduler.cancel();
+  scheduler.request(3);
+  assert.equal(calls.length, 1);
+  calls[0].resolve('old');
+  await tick();
+  assert.deepEqual(calls.map((call) => call.key), [1, 3]);
+  assert.deepEqual(shown, []);
+  calls[1].resolve('new');
+  await tick();
+  assert.deepEqual(shown, [['new', 3]]);
 });
 
 test('the peak is the highest reading of the sensor within the window', () => {

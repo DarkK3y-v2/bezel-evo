@@ -4,6 +4,8 @@
 // at a time, the last request wins, nothing in bursts), how big the answer
 // is drawn, and what the object's sensor read lately (its peak).
 
+import { createRenderScheduler } from './render-scheduler.js';
+
 /** The largest upscale of the preview: a tiny object is not blown into blur. */
 export const PREVIEW_MAX_SCALE = 4;
 
@@ -44,41 +46,46 @@ export function previewSide(box, ratio = 1) {
  * @param {{render: (key: any) => Promise<any>, show: (frame: any, key: any) => void, fail?: (error: any, key: any) => void}} deps
  */
 export function createPreviewScheduler({ render, show, fail = () => {} }) {
-  let busy = false;
-  let pending = false;
+  let running = false;
+  let requested = false;
   let latest = null;
   let generation = 0;
-
-  async function run() {
-    busy = true;
-    while (pending) {
-      pending = false;
+  // The shared scheduler owns serialization and coalescing. This adapter
+  // only rejects answers superseded by selection/property changes.
+  const scheduler = createRenderScheduler({
+    gesturing: () => false,
+    render: async () => {
+      if (!requested) return;
+      requested = false;
+      running = true;
       const key = latest;
       const asked = generation;
       try {
         const frame = await render(key);
-        if (!pending && asked === generation) show(frame, key);
+        if (asked === generation) show(frame, key);
       } catch (error) {
-        if (!pending && asked === generation) fail(error, key);
+        if (asked === generation) fail(error, key);
+      } finally {
+        running = false;
       }
-    }
-    busy = false;
-  }
+    },
+  });
 
   return {
     /** Asks for a render of `key` (coalesced with the one running). */
     request(key) {
       latest = key;
-      pending = true;
-      if (!busy) void run();
+      requested = true;
+      generation += 1;
+      scheduler.request();
     },
     /** Drops what is pending and the answer of the running render. */
     cancel() {
-      pending = false;
+      requested = false;
       generation += 1;
     },
     /** Whether a render runs now. */
-    busy: () => busy,
+    busy: () => running || requested,
   };
 }
 
