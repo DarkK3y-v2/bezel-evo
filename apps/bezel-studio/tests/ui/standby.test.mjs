@@ -48,7 +48,7 @@ const isKey = (key) => Object.values(LOCALES).every((table) => Object.hasOwn(tab
 // --------------------------------------------------------------- logic --
 
 test('four choices, keep first; an option the answer lacks is refused as unsupported', () => {
-  assert.deepEqual(CHOICES, ['keep', 'off', 'video', 'album']);
+  assert.deepEqual(CHOICES, ['keep', 'off', 'album', 'video']);
   assert.deepEqual(REASONS, ['notConnected', 'unsupported', 'noCard', 'noVideo']);
   const data = overviewOf('keep', { album: 'noCard' });
   assert.deepEqual(optionOf(data, 'off'), { choice: 'off', enabled: true, reason: null });

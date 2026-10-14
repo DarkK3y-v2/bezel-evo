@@ -109,13 +109,13 @@ test.describe('standby', () => {
     await page.keyboard.press('ArrowDown');
     await expect(radio(section, t, 'off')).toBeFocused();
     await page.keyboard.press('ArrowRight');
-    await expect(radio(section, t, 'video')).toBeFocused();
-    await page.keyboard.press('End');
     await expect(radio(section, t, 'album')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(radio(section, t, 'video')).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(radio(section, t, 'keep')).toBeFocused();
     await page.keyboard.press('ArrowUp');
-    await expect(radio(section, t, 'album')).toBeFocused();
+    await expect(radio(section, t, 'video')).toBeFocused();
     await page.keyboard.press('Home');
     await expect(radio(section, t, 'keep')).toBeFocused();
     await expect(radio(section, t, 'keep')).toBeChecked();
@@ -136,7 +136,7 @@ test.describe('standby', () => {
     await expect(radio(noCard, t, 'video')).toBeEnabled();
     await album.click({ force: true });
     await radio(noCard, t, 'video').focus();
-    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowUp');
     await expect(album).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toHaveCount(0);
