@@ -124,8 +124,9 @@
         <section class="panel library-panel" role="tabpanel" id="panel-themes" aria-labelledby="tab-themes" hidden>
           <div class="panel-head">
             <h2 data-i18n="library.themes"></h2>
-            <span class="count" id="theme-count" role="status"></span>
+            <span class="count theme-totals"><span id="theme-count" role="status"></span><span id="theme-screen-count"></span></span>
           </div>
+          <button type="button" class="text-button" id="theme-gallery" aria-haspopup="dialog" data-i18n="themesPanel.gallery"></button>
           <div class="theme-actions">
             <button type="button" class="text-button import-button" id="theme-import" data-i18n-title="themes.importHint">
               <svg data-icon="upload"></svg>
@@ -163,7 +164,7 @@
           <div role="tabpanel" id="media-icons" aria-labelledby="subtab-media-icons" hidden></div>
           <div role="tabpanel" id="media-theme" aria-labelledby="subtab-media-theme">
             <div class="media-drop">
-              <span class="media-drop-icon" aria-hidden="true"><svg data-icon="upload"></svg></span>
+              <span class="kind-icon" aria-hidden="true"><svg data-icon="upload"></svg></span>
               <strong class="media-drop-title" data-i18n="mediaPanel.dropTitle"></strong>
               <p class="hint" data-i18n="mediaPanel.dropBody"></p>
               <p class="media-formats" data-i18n="media.formats"></p>
@@ -173,7 +174,7 @@
               </div>
             </div>
             <p class="media-status" id="media-status" role="status" hidden>
-              <span class="media-status-icon" aria-hidden="true"><svg data-icon="video"></svg></span>
+              <span class="kind-icon" aria-hidden="true"><svg data-icon="video"></svg></span>
               <span data-i18n="media.adding"></span>
             </p>
             <div id="media-head"></div>

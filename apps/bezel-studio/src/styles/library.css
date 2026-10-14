@@ -84,7 +84,8 @@
 .layer-row:is(:hover, :focus-within, .selected) .layer-tool { opacity: 1; }
 .layer-row:is(:hover, :focus-within, .selected) .layer-tool:disabled { opacity: 0.35; }
 .layer-row .layer-tool.layer-flag { opacity: 1; color: var(--accent-ink); }
-.layer-row.hidden-el .layer-name, .layer-row.hidden-el .layer-kind { opacity: 0.55; }
+.layer-row.hidden-el .layer-name { color: var(--text-3); }
+.layer-row.hidden-el .layer-kind { opacity: 0.55; }
 
 /* A card or a group, its faces and its members (every face stays editable). */
 .layer-card { min-width: 0; }
@@ -136,8 +137,7 @@ button.layer-group-title { cursor: pointer; }
 .theme-card { width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); padding: 8px; cursor: pointer; text-align: left; display: grid; align-content: start; gap: 4px; }
 .theme-card:hover { border-color: var(--accent); }
 .theme-card .thumb { position: relative; overflow: hidden; display: grid; place-items: center; aspect-ratio: 4 / 5; margin-bottom: 4px; border-radius: 8px; background: var(--screen-thumb); }
-.theme-card .thumb .screen-thumb { height: 86%; }
-.theme-card .thumb[data-axis="horizontal"] .screen-thumb { width: 86%; height: auto; }
+.theme-card .thumb .screen-thumb { width: min(86%, calc(107.5% * var(--ratio))); height: auto; }
 .theme-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-card .theme-screen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); }
 .theme-card .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 2px; }
@@ -147,7 +147,6 @@ button.layer-group-title { cursor: pointer; }
 .theme-item:is(:hover, :focus-within) .theme-duplicate { opacity: 1; }
 /* "New theme": a dashed card first in the grid. */
 .theme-new { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 200px; padding: 12px 6px; border: 1px dashed var(--border); border-radius: 12px; text-align: center; }
-.theme-new-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); }
 .theme-new .text-button { width: 100%; min-height: 28px; padding: 0 6px; gap: 4px; font-size: 12px; }
 .theme-new-size { color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); }
 .theme-grid > .empty-state { grid-column: 1 / -1; display: grid; gap: 8px; }
@@ -157,15 +156,12 @@ button.layer-group-title { cursor: pointer; }
 #panel-media .subtabs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
 #panel-media .subtabs [role="tab"] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 4px; }
 .media-drop { display: grid; justify-items: center; gap: 4px; padding: 18px 12px; border: 1.5px dashed var(--border); border-radius: 12px; text-align: center; }
-.media-drop-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 6px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink); }
-.media-drop-icon svg { width: 20px; height: 20px; }
 .media-drop-title { font-weight: 600; }
 .media-drop .hint { margin: 0; line-height: 1.45; }
 .media-formats { margin: 0; color: var(--dim); font-family: var(--font-mono); font-size: 10.5px; }
 .media-drop .button-row { justify-content: center; margin-top: 10px; }
 .media-drop .text-button { font-weight: 600; }
 .media-status { display: flex; align-items: center; gap: 10px; margin: 12px 0 0; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text-3); font-size: 12px; }
-.media-status-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--info-soft); color: var(--info); }
 #media-head .section-head { margin: 16px 0 8px; }
 .media-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .media-list > .empty-note { grid-column: 1 / -1; }
@@ -284,4 +280,53 @@ button.layer-group-title { cursor: pointer; }
 @media (prefers-reduced-motion: no-preference) {
   .widget-tile, .sensor-row, .theme-card, .layer-tools, .theme-duplicate { transition: var(--motion-ui); }
   .theme-card .screen-thumb[data-state="loading"] { animation: thumb-wait 900ms ease-in-out infinite alternate; }
+}
+
+
+/* The Themes artboard: the existing gallery moves into this native dialog. */
+.themes-dialog { width: min(1040px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px)); max-height: none; }
+.themes-dialog[open] { display: flex; flex-direction: column; }
+.themes-gallery-head { align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.themes-gallery-head .panel-head { flex: 1; align-items: center; margin: 0; }
+.themes-gallery-head .theme-totals { margin-left: 0; }
+.themes-gallery-head .theme-actions { flex: none; }
+.themes-gallery-head .import-button { min-height: 34px; }
+.themes-gallery-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 20px 20px; }
+.themes-gallery-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.themes-gallery-filters .panel-search { flex: 1; min-width: 0; }
+.themes-gallery-filters .theme-filter { display: flex; flex: none; gap: 10px; }
+.themes-gallery-filters .segmented button { white-space: nowrap; }
+.themes-dialog .theme-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.themes-dialog .theme-new { min-height: 300px; }
+.themes-dialog .theme-card { padding: 10px; gap: 6px; }
+.themes-dialog .theme-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.themes-dialog .theme-screen { white-space: normal; }
+.themes-gallery-actions { margin: 0; padding: 14px 20px; border-top: 1px solid var(--line); }
+.themes-gallery-selection { flex: 1; align-self: center; }
+@media (max-width: 800px) {
+  .themes-gallery-filters { flex-wrap: wrap; }
+  .themes-gallery-filters .panel-search { flex-basis: 100%; }
+  .themes-dialog .theme-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .themes-gallery-head { flex-wrap: wrap; }
+  .themes-gallery-filters .theme-filter { flex-wrap: wrap; }
+  .themes-dialog .theme-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* At the shell's default width, tools sit beside the metadata, below the
+   complete name. Wider panels keep the artboard's single-line rows. */
+#panel-layers { container-type: inline-size; container-name: layers; }
+@container layers (width < 300px) {
+  .layer-row { height: auto; min-height: 50px; }
+  .layer-row[data-flags="1"], .layer-row[data-flags="2"] { padding-right: 4px; }
+  .layer-row .layer-name:not(input) { flex: 1; align-self: flex-start; display: grid; gap: 1px; padding: 4px 0; white-space: normal; }
+  .layer-label { line-height: 18px; white-space: normal; overflow-wrap: anywhere; }
+  .layer-meta { line-height: 14px; white-space: nowrap; }
+  .layer-row[data-flags="1"] .layer-meta { max-width: calc(100% - 30px); }
+  .layer-row[data-flags="2"] .layer-meta { max-width: calc(100% - 56px); }
+  .layer-row:is(:hover, :focus-within, .selected) .layer-meta { max-width: calc(100% - 104px); }
+  .layer-tools { top: auto; bottom: 2px; height: 24px; }
+  .layer-row .icon-button.layer-tool { min-height: 24px; }
 }

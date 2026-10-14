@@ -5,7 +5,7 @@
 // base.css); what the panels compute lives in library-model.js.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { dashedHint, pill, searchField, screenThumb, sectionTitle } from './fields.js';
+import { chipButton, dashedHint, kindIcon, pill, searchField, screenThumb, sectionTitle } from './fields.js';
 import { makeDraggable } from './dragdrop.js';
 import { defaultRange, widgetOf } from '../editor/widgets.js';
 import { canGroup } from '../editor/cards.js';
@@ -14,6 +14,7 @@ import { warningText } from '../messages.js';
 import { formatBytes, wireSubtabs } from './storage.js';
 import { SHOW_ALL, axisOf, countText, emptyState, filterThemes, rememberedFilter, screenCount, scopeIn, screenLabel, searchThemes, thumbnailKey } from '../theme-filter.js';
 import { createIconPicker } from './icon-picker.js';
+import { createThemesDialog } from './themes-dialog.js';
 import { layerGroups } from '../editor/layers.js';
 import { wireLayerDrag } from './layer-drag.js';
 import { countLayers, createHistory, filterLayers, layerMeta, mediaTotals, sensorDropTarget, sharedSource, sparkPath, updateSeconds, widgetGroups } from '../library-model.js';
@@ -98,9 +99,14 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     return input;
   }
 
+  const duplicateTheme = (entry) => actions.duplicateTheme?.(entry.location, t('layers.copyOf', { name: entry.name }));
+  const gallery = createThemesDialog({ root: $('panel-themes'), t, openTheme: (entry) => actions.openTheme(entry.location), duplicateTheme });
+  $('theme-gallery').addEventListener('click', () => gallery.show());
+
   // ---------------------------------------------------------------- tabs --
   const tabs = [...document.querySelectorAll('.tabs [role="tab"]')];
   function selectTab(tab) {
+    if (tab?.dataset.tab !== 'themes') gallery.close();
     for (const t2 of tabs) {
       const on = t2 === tab;
       t2.setAttribute('aria-selected', String(on));
@@ -259,10 +265,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   /** The hardware filter: "All", then one chip per category of the catalog. */
   function renderSensorFilter() {
     const chosen = shownCategory();
-    const chip = (category, label) => el('button', {
-      type: 'button', class: 'chip', dataset: { category }, 'aria-pressed': String(category === chosen), text: label,
-      onclick: () => { sensorCategory = category; renderSensors(); },
-    });
+    const chip = (category, label) => chipButton(label, category === chosen, () => { sensorCategory = category; renderSensors(); }, { dataset: { category } });
     const categories = sensorCategories(catalog);
     $('sensor-filter').replaceChildren(...(categories.length > 1
       ? [chip(ALL_CATEGORIES, t('library.allSensors')), ...categories.map((c) => chip(c, t(`category.${c}`)))]
@@ -465,7 +468,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     }
     const chosen = theme.elements.filter((e) => selection.includes(e.id));
     const groupable = canGroup(theme, selection);
-    const cardable = chosen.some((e) => !e.locked) && !chosen.some((e) => e.card);
+    const cardable = chosen.some((e) => !e.locked && !e.card);
     bar.replaceChildren(
       el('div', { class: 'layer-selection-head' }, [
         el('strong', { text: t('layersPanel.selected', { count: selection.length }) }),
@@ -564,11 +567,12 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     const axis = axisOf(th);
     const key = thumbnailKey(th);
     const screen = screenThumb({ width: th.canvas.width, height: th.canvas.height });
+    screen.classList.add('thumb-screen');
     cardScreens.set(key, screen);
     const thumb = el('span', { class: 'thumb', dataset: { axis }, 'aria-hidden': 'true' }, [screen]);
     paintThumbnail(screen, thumbnails.has(key) ? thumbnails.get(key) : th.thumbnail);
     return el('li', { class: 'theme-item' }, [
-      el('button', { type: 'button', class: 'theme-card', dataset: { location: th.location }, onclick: () => actions.openTheme(th.location) }, [
+      el('button', { type: 'button', class: 'theme-card', dataset: { location: th.location }, onclick: () => { if (!gallery.select(th)) actions.openTheme(th.location); } }, [
         thumb,
         el('strong', { text: th.name }),
         el('small', { class: 'theme-screen', text: themeFacts(th) }),
@@ -578,8 +582,8 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
         ]),
       ]),
       el('button', {
-        type: 'button', class: 'icon-button quiet theme-duplicate', title: t('themesPanel.duplicate'), 'aria-label': t('themesPanel.duplicateLabel', { name: th.name }),
-        onclick: () => actions.duplicateTheme?.(th.location, t('layers.copyOf', { name: th.name })),
+        type: 'button', class: 'icon-button quiet theme-duplicate', title: t('inspector.duplicate'), 'aria-label': t('themesPanel.duplicateLabel', { name: th.name }),
+        onclick: () => duplicateTheme(th),
       }, [icon(ICONS.copy, 16)]),
     ]);
   }
@@ -590,11 +594,11 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     const choice = (axis) => el('button', {
       type: 'button', class: 'text-button quiet', id: `theme-new-${axis}`,
       'aria-label': t(axis === 'vertical' ? 'themes.newVertical' : 'themes.newHorizontal'),
-      onclick: () => actions.newTheme(axis),
+      onclick: () => { gallery.close(); actions.newTheme(axis); },
     }, [icon(ICONS[axis], 14), el('span', { text: t(`axis.${axis}`) })]);
     const size = model ? `${Math.min(model.width, model.height)}×${Math.max(model.width, model.height)}` : null;
     return el('li', { class: 'theme-new' }, [
-      el('span', { class: 'theme-new-icon', 'aria-hidden': 'true' }, [icon(ICONS.plus, 18)]),
+      kindIcon('plus'),
       el('strong', { text: t('themesPanel.new') }),
       size && el('span', { class: 'theme-new-size', text: size }),
       choice('vertical'),
@@ -631,10 +635,11 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   /** The head's count: how many the gallery shows, and how many fit the screen in use. */
   function themeCountText(shown, list, screen) {
     const count = countText(shown, list.length);
-    if (!count) return '';
+    if (!count) { $('theme-screen-count').textContent = ''; return ''; }
     const fit = screenCount(list, screen);
     const text = t(count.key, count.params);
-    return fit === null ? text : `${text} · ${t('themesPanel.forScreen', { count: fit })}`;
+    $('theme-screen-count').textContent = fit === null ? '' : ` \u00b7 ${t('themesPanel.forScreen', { count: fit })}`;
+    return text;
   }
 
   function renderThemes(list) {
@@ -649,10 +654,12 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     cardScreens.clear();
     if (!shown.length) {
       grid.replaceChildren(newThemeItem(), emptyItem(filtered.length ? { key: 'themesPanel.noMatch', showAll: false } : emptyState(list, filter, screen)));
+      gallery.update(shown);
       return;
     }
     grid.replaceChildren(newThemeItem(), ...shown.map(themeCard));
     waiting.splice(0, waiting.length, ...shown.filter((entry) => !thumbnails.has(thumbnailKey(entry))));
+    gallery.update(shown);
     fetchThumbnails();
   }
 
@@ -826,6 +833,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
         input.setAttribute('aria-label', t(labelKey));
         input.placeholder = t(placeholderKey);
       }
+      gallery.retranslate();
       iconPicker.retranslate();
       renderWidgets();
       renderSensors();
