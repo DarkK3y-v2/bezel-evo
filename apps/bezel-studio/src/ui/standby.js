@@ -198,7 +198,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     const title = sectionTitle(t('standby.title'), { id: 'standby-title' });
     title.classList.add('standby-head');
     title.append(help, panel);
-    return [title, el('p', { class: 'standby-screen', text: model })];
+    return [title, el('p', { class: 'standby-screen visually-hidden', text: model })];
   }
 
   /**
@@ -234,7 +234,10 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     }
     if (!offered(view.data)) return [el('p', { class: 'hint', text: t('standby.unsupported') })];
     const parts = [el('div', { class: 'standby-options', role: 'radiogroup', 'aria-labelledby': 'standby-title', 'aria-busy': String(view.busy) }, CHOICES.map(optionRow))];
-    parts.push(planB());
+    parts.push(planB(), el('button', {
+      type: 'button', class: 'primary-button', text: t('standby.write'), disabled: view.busy,
+      dataset: { focus: 'write-standby' }, onclick: () => void choose(view.data.choice, { reapply: true }),
+    }));
     if (view.data.choice === 'album' && optionOf(view.data, 'album').enabled) {
       parts.push(el('div', { class: 'button-row' }, [el('button', {
         type: 'button', class: 'text-button', dataset: { focus: 'manage' }, disabled: view.busy, onclick: () => void manageAlbum({ choosing: false }),
@@ -402,13 +405,13 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     if (same) focusRadio(view.data?.choice ?? request.choice);
   }
 
-  async function choose(choice) {
+  async function choose(choice, { reapply = false } = {}) {
     if (view.busy || !view.data) return;
     view.problem = null;
     const act = activation(view.data, choice);
-    if (act === 'refused' || act === 'nothing') return;
+    if (act === 'refused' || (act === 'nothing' && !reapply)) return;
     if (choice === 'album') {
-      await manageAlbum({ choosing: act === 'ask' });
+      await manageAlbum({ choosing: act === 'ask' || reapply });
       return;
     }
     // The screen the confirmation is about, whatever is shown once it is answered.

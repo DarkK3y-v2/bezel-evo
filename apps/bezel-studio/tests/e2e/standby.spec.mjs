@@ -431,3 +431,26 @@ test.describe('standby', () => {
     expect(errors).toEqual([]);
   });
 });
+
+
+test('writing the current standby setting asks first and keeps it on cancel', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  const section = await openSettings(page, t, 'turing88');
+  const write = section.getByRole('button', { name: t('standby.write'), exact: true });
+  await write.click();
+  const confirmation = page.getByRole('dialog', { name: t('standby.keep.title') });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(t('standby.summary.atShutdown'));
+  await expect(confirmation).toContainText(t('standby.summary.written'));
+  await expectAccessible(page);
+  await confirmation.getByRole('button', { name: t('dialog.cancel'), exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  await expect(radio(section, t, 'keep')).toBeChecked();
+  await expect(write).toBeFocused();
+  await write.click();
+  await page.getByRole('dialog', { name: t('standby.keep.title') }).getByRole('button', { name: t('standby.write'), exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(radio(section, t, 'keep')).toBeChecked();
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});

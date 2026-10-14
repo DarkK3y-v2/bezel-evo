@@ -4,7 +4,7 @@
 // and, at the end of the tab, the advanced actions.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { sectionTitle } from './fields.js';
+import { rangeField, screenThumb, sectionTitle, switchRow } from './fields.js';
 
 /** The protocol letter of each screen family ("protocol C"). */
 const PROTOCOLS = Object.freeze({ 'turing-rev-a': 'A', 'turing-rev-b': 'B', 'turing-rev-c': 'C', 'turing-usb': 'USB' });
@@ -32,13 +32,15 @@ export function createScreenPanel({ root, t, actions }) {
   /** "Start with the computer" as a toggle row: its name, what it does, and the switch. */
   function autostartField() {
     const hint = el('span', { id: 'autostart-hint', class: 'toggle-hint', 'aria-hidden': 'true', text: t('screenPanel.autostartHint') });
-    const input = el('input', { type: 'checkbox', checked: Boolean(actions.autostart()), 'aria-describedby': hint.id });
-    input.addEventListener('change', () => actions.setAutostart(input.checked));
-    return el('label', { class: 'toggle-row' }, [
-      el('span', { class: 'toggle-label' }, [el('span', { class: 'toggle-title', text: t('screenPanel.autostart') }), hint]),
-      input,
-      el('span', { class: 'track', 'aria-hidden': 'true' }, [el('span', { class: 'thumb' })]),
-    ]);
+    const row = switchRow(t('screenPanel.autostart'), actions.autostart(), actions.setAutostart);
+    row.classList.add('toggle-row');
+    const label = row.querySelector('span');
+    label.className = 'toggle-label';
+    label.replaceChildren(el('span', { class: 'toggle-title', text: label.textContent }), hint);
+    const input = row.querySelector('input');
+    input.removeAttribute('role');
+    input.setAttribute('aria-describedby', hint.id);
+    return row;
   }
 
   /**
@@ -87,22 +89,28 @@ export function createScreenPanel({ root, t, actions }) {
 
   /** The screen's card: a glyph in its native shape, its name, size and protocol in mono, and its state. */
   function screenCard(s, model, liveHere) {
-    const axis = model && model.width > model.height ? 'horizontal' : 'vertical';
+    const shape = model ?? s.models[0];
+    const thumb = screenThumb({ width: shape?.width ?? 1, height: shape?.height ?? 1 });
+    thumb.classList.add('screen-glyph');
+    const longest = Math.max(shape?.width ?? 1, shape?.height ?? 1);
+    thumb.style.width = `${54 * (shape?.width ?? 1) / longest}px`;
+    thumb.style.height = `${54 * (shape?.height ?? 1) / longest}px`;
     const protocol = PROTOCOLS[s.family];
     const facts = [
+      s.key,
       model ? `${model.width}×${model.height}` : null,
       protocol ? t('screenPanel.protocol', { name: protocol }) : null,
     ].filter(Boolean);
     let tone = 'idle';
     if (s.state === 'awake') tone = liveHere ? 'live' : 'awake';
     return el('div', { class: 'screen-card' }, [
-      el('span', { class: 'screen-glyph', 'aria-hidden': 'true', dataset: { axis } }, [el('span')]),
+      thumb,
       el('span', { class: 'screen-id' }, [
         el('strong', { text: model ? model.name : s.models.map((m) => m.name).join(' / ') }),
         facts.length ? el('span', { class: 'screen-size', text: facts.join(' · ') }) : null,
         el('span', { class: 'screen-state', dataset: { tone } }, [
           el('span', { class: 'status-dot', 'aria-hidden': 'true' }),
-          el('span', { class: 'meta', text: `${s.key} · ${t(`screen.state.${s.state}`)}${liveHere ? ` · ${t('status.live')}` : ''}` }),
+          el('span', { class: 'meta', text: `${t(`screen.state.${s.state}`)}${liveHere ? ` · ${t('status.live')}` : ''}` }),
         ]),
       ]),
     ]);
@@ -110,16 +118,15 @@ export function createScreenPanel({ root, t, actions }) {
 
   /** Brightness: its title and the level in mono over a slider between a dim and a bright sun. */
   function brightnessField(s, level) {
-    const out = el('output', { class: 'brightness-value', text: `${level}%` });
-    const slider = el('input', { type: 'range', min: 0, max: 100, step: 1, value: String(level), 'aria-label': t('screen.brightness') });
-    slider.addEventListener('input', () => { out.textContent = `${slider.value}%`; });
-    slider.addEventListener('change', () => actions.setBrightness(s.key, Number(slider.value)));
+    const field = rangeField(t('screen.brightness'), level, (value) => actions.setBrightness(s.key, value), { format: (value) => `${value}%` });
+    field.classList.add('brightness');
     const head = sectionTitle(t('screen.brightness'));
-    head.append(out);
-    return el('div', { class: 'brightness' }, [
-      head,
-      el('div', { class: 'brightness-row' }, [icon(ICONS.sunDim, 16), slider, icon(ICONS.sunBright, 16)]),
-    ]);
+    head.append(field.querySelector('output'));
+    field.querySelector('.slider-head').replaceWith(head);
+    const slider = field.querySelector('input');
+    slider.setAttribute('aria-label', t('screen.brightness'));
+    field.append(el('span', { class: 'brightness-row' }, [icon(ICONS.sunDim, 16), slider, icon(ICONS.sunBright, 16)]));
+    return field;
   }
 
   /** "Advanced": give the screen back to its own firmware, and restart it. */
