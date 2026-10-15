@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible, copyAndPaste } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, copyAndPaste, cardFaceList, faceAction } from './helpers.mjs';
 
 test('card faces, shared base, grouping and clipboard are editable', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -9,9 +9,9 @@ test('card faces, shared base, grouping and clipboard are editable', async ({ pa
     await page.locator('#tab-widgets').click();
     await page.getByRole('button', { name: t('library.addWidget', { name: t(`widget.${widget}`) }), exact: true }).click();
   };
-  // The face in view is the pressed chip of the card's Faces tab.
-  const faces = detail.getByRole('group', { name: t('card.activeFace'), exact: true });
-  const inView = faces.locator('[aria-pressed="true"]');
+  // The face in view is the current row of the card's face list.
+  const faces = cardFaceList(page, t);
+  const inView = faces.locator('[aria-current="true"]');
   const tab = name => detail.getByRole('tab', { name: t(name), exact: true }).click();
   await add('card');
   const cardName = await detail.getByLabel(t('common.name'), { exact: true }).inputValue();
@@ -61,15 +61,15 @@ test('card faces, shared base, grouping and clipboard are editable', async ({ pa
   await detail.getByRole('button', { name: t('trigger.remove'), exact: true }).click();
   await expect(detail.getByRole('spinbutton', { name: t('cardInsp.interval'), exact: true })).toHaveCount(0);
   await tab('card.tab.faces');
-  await detail.getByRole('button', { name: t('card.duplicateFace'), exact: true }).click();
+  await faceAction(page, t, 1, 'card.duplicateFace');
   await expect(inView).toHaveAttribute('data-face', '2');
-  await detail.getByRole('button', { name: t('card.previous'), exact: true }).click();
+  await faceAction(page, t, 2, 'card.previous');
   await expect(inView).toHaveAttribute('data-face', '1');
   await copyAndPaste(page);
   await expect(detail).toContainText(t('inspector.multi', { count: 6 }));
   await page.locator('#undo').click();
   await selectCard();
-  await detail.getByRole('button', { name: t('card.removeFace'), exact: true }).click();
+  await faceAction(page, t, 1, 'card.removeFace');
   await expect(faces.locator('[data-face]')).toHaveCount(2);
   await expectAccessible(page);
   expect(errors).toEqual([]);

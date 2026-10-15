@@ -1,22 +1,24 @@
 // Card content only: the inspector owns header, tabs, geometry and preview.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { chipButton, dashedHint, fieldGrid, iconButton, listCard, prefixedField, rangeField, screenThumb, segmented, selectField, sentence as sentenceOfParts, switchRow, textField } from './fields.js';
+import { dashedHint, fieldGrid, iconButton, listCard, pill, prefixedField, rangeField, segmented, selectField, sentence as sentenceOfParts, switchRow, textField } from './fields.js';
+import { SEPARATOR, openMenuAt } from './menu.js';
 import { widgetOf } from '../editor/widgets.js';
 import { selectionRoots } from '../editor/cards.js';
 import { MAX_RULES, ROTATION_MIN, ROTATION_MAX, TRIGGER_SOURCES, appSuggestions, clampPriority, clampReturn, commonReturn, moveRule, newRule, newTimedRule, timedParts, timedSeconds, sentenceOf, withApp, withReturn, withSource, dropIndex } from '../card-rules.js';
-
-import { transitionFor, withPairTransition } from '../card-config.js';
+import { CARD_DURATION, cardDuration, withCardEffect } from '../card-config.js';
 import { CARD_TABS as ALL_CARD_TABS } from '../inspector-tabs.js';
 export const CARD_TABS = Object.freeze(ALL_CARD_TABS.slice(0, -1));
+/** Per store and Card: the face in view when the shared background was chosen for editing. */
 const baseViews = new WeakMap();
-const pairViews = new WeakMap();
 const tool = (label, name, onclick, disabled = false, extra = '') => iconButton(label, ICONS[name], onclick, { size: 16, disabled, class: extra });
+/** Focus after a command: the inspector has been drawn again by then. */
+const focusLater = (selector) => queueMicrotask(() => document.querySelector(selector)?.focus());
 
 // Card content uses the same section contract as every inspector property.
-function cardSection(ctx, key, label, nodes, total = null) {
-  const node = ctx.section(key, label, nodes, { count: total });
-  node.classList.add('card-section');
+function cardSection(ctx, key, label, nodes, total = null, sectionTool = null) {
+  const node = ctx.section(key, label, nodes, { count: total, tool: sectionTool });
+  node?.classList.add('card-section');
   return node;
 }
 const members = (ctx, face) => {
@@ -24,97 +26,73 @@ const members = (ctx, face) => {
   return selectionRoots(theme, theme.elements.filter(e => e.cardMember?.parent === ctx.element.id && e.cardMember.face === face).map(e => e.id));
 };
 
-function facesForm(ctx) {
-  const { element: e, t, store, update } = ctx, c = e.card;
-  const theme = store.getState().theme;
-  if (!baseViews.has(store)) baseViews.set(store, new Map());
-  const views = baseViews.get(store);
-  const base = views.get(e.id) === c.activeFace;
-  if (!pairViews.has(store)) pairViews.set(store, new Map());
-  const pairs = pairViews.get(store);
-  const choose = (face) => {
-    pairs.delete(e.id);
+/** "Edit": shows that part of the Card (on the canvas, its objects below); pressed while it is the one edited. */
+const editButton = (ctx, label, pressed, onclick) => el('button', { type: 'button', class: 'text-button face-edit', 'aria-label': label, title: label, 'aria-pressed': String(pressed), onclick }, [ctx.t('cardInsp.edit')]);
+
+/**
+ * The faces as a numbered list (D-24): name, "in view", Edit and a ⋮ menu
+ * (rename, duplicate, move, delete), then the shared background on its own row.
+ */
+function faceList(ctx, base, views) {
+  const { element: e, t, store } = ctx, c = e.card;
+  const scope = `.face-list[data-card-id="${e.id}"]`;
+  const row = (face) => `${scope} [data-face="${face}"]`;
+  const show = (face) => {
     views.delete(e.id);
     if (face === c.activeFace) store.select([e.id]);
     else store.dispatch('cardFace', { id: e.id, face });
   };
-  const thumbs = [];
-  const makeThumb = (face) => {
-    const thumb = screenThumb(theme.canvas);
-    thumb.title = t('cardInsp.layout');
-    // An explicitly labelled layout diagram until the host supplies bridge.
-    for (const item of [...members(ctx, null), ...(face === null ? [] : members(ctx, face))]) {
-      const f = item.frame;
-      thumb.append(el('span', { class: 'face-mark', title: item.name, style: { left: `${f.x / theme.canvas.width * 100}%`, top: `${f.y / theme.canvas.height * 100}%`, width: `${f.width / theme.canvas.width * 100}%`, height: `${f.height / theme.canvas.height * 100}%` } }));
-    }
-    thumbs.push({ thumb, face });
-    return thumb;
-  };
-  const chips = c.faces.map((name, i) => {
-    const thumb = makeThumb(i);
-    const active = i === c.activeFace;
-    return el('button', { type: 'button', class: 'face-chip', dataset: { face: String(i) }, 'aria-pressed': String(active), 'aria-current': active ? 'true' : null, 'aria-label': t('cardInsp.editFace', { name }), title: t('cardInsp.editFace', { name }), onclick: () => choose(i) }, [thumb, el('span', { class: 'face-chip-name', text: name }), active && el('span', { class: 'face-badge', 'aria-hidden': 'true', text: t('layers.inView') })]);
-  });
-  const baseButton = listCard({ icon: 'layers', title: t('cardInsp.base'), subtitle: t('cardInsp.sharedHint'),
-    label: t('cardInsp.base'), pressed: base, onClick: () => { pairs.delete(e.id); views.set(e.id, c.activeFace); store.select([e.id]); } });
-  baseButton.classList.add('shared-background');
-  baseButton.setAttribute('aria-description', t('cardInsp.sharedHint'));
-  baseButton.prepend(makeThumb(null));
-  const pairNodes = [];
-  for (let i = 0; i < chips.length; i++) {
-    pairNodes.push(chips[i]);
-    if (chips.length > 1) {
-      const to = (i + 1) % chips.length, settings = transitionFor(c, i, to);
-      const key = `${i}:${to}`, label = t('cardInsp.changeBetween', { from: c.faces[i], to: c.faces[to] });
-      const button = chipButton(`${t(`card.effect.${settings?.effect ?? 'none'}`)}${settings?.effect && settings.effect !== 'none' ? ` ${settings.durationMs} ms` : ''}`, pairs.get(e.id) === key,
-        () => { pairs.set(e.id, pairs.get(e.id) === key ? null : key); store.select([e.id]); },
-        { class: 'chip face-transition', 'aria-label': label, title: label, 'aria-expanded': String(pairs.get(e.id) === key), 'aria-controls': `card-pair-${e.id}`, dataset: { pair: key } });
-      button.prepend(icon(ICONS.arrowRight, 14));
-      if (settings && ['slide','flip'].includes(settings.effect)) button.append(icon(ICONS[{ left: 'arrowLeft', right: 'arrowRight', up: 'up', down: 'down' }[settings.direction]], 14));
-      pairNodes.push(button);
-    }
-  }
-  const faces = el('div', { class: 'face-chips', role: 'group', 'aria-label': t('card.activeFace') }, [...pairNodes,
-    el('button', { type: 'button', class: 'face-chip face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16, onclick: () => { pairs.delete(e.id); views.delete(e.id); store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }); } }, [icon(ICONS.plus, 28)]),
-  ]);
-  const selectedPair = pairs.get(e.id)?.split(':').map(Number);
-  let pairEditor = el('div', { id: `card-pair-${e.id}`, hidden: true });
-  if (selectedPair && selectedPair.every(i => i < c.faces.length)) {
-    const [from, to] = selectedPair, own = c.pairTransitions?.find(p => p.from === from && p.to === to);
-    const set = patch => update(e.id, { card: { pairTransitions: withPairTransition(c, from, to, { ...(transitionFor(c, from, to) ?? {}), ...patch }) } });
-    pairEditor = cardSection(ctx, 'pair-transition', t('cardInsp.changeBetween', { from: c.faces[from], to: c.faces[to] }), [
-      chipButton(t('cardInsp.useGeneral'), !own, () => update(e.id, { card: { pairTransitions: withPairTransition(c, from, to, null) } }), { disabled: !own }),
-      ...transitionControls(ctx, transitionFor(c, from, to), set, `pair-${from}-${to}`),
+  const command = (action, face, args = {}) => { views.delete(e.id); store.dispatch(action, { id: e.id, face, ...args }); };
+  const faceRow = (name, i) => {
+    const label = t('cardInsp.faceActions', { name });
+    const more = iconButton(label, ICONS.more, () => openMenuAt(more, { label, items: [
+      { label: t('common.rename'), run: () => { show(i); focusLater(`.face-editor[data-card-id="${e.id}"] input`); } },
+      { label: t('card.duplicateFace'), disabled: c.faces.length >= 16, run: () => { command('duplicateCardFace', i); focusLater(`${row(c.faces.length)} .face-edit`); } },
+      SEPARATOR,
+      { label: t('card.previous'), disabled: i === 0, run: () => { command('reorderCardFace', i, { direction: -1 }); focusLater(`${row(i - 1)} .face-more`); } },
+      { label: t('card.next'), disabled: i === c.faces.length - 1, run: () => { command('reorderCardFace', i, { direction: 1 }); focusLater(`${row(i + 1)} .face-more`); } },
+      SEPARATOR,
+      { label: t('card.removeFace'), disabled: c.faces.length <= 1, run: () => { command('removeCardFace', i); focusLater(`${row(Math.min(i, c.faces.length - 2))} .face-edit`); } },
+    ] }), { size: 16, class: 'quiet face-more', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
+    const inView = i === c.activeFace;
+    return el('li', { class: 'face-row', dataset: { face: String(i), editing: String(!base && inView) }, 'aria-current': inView ? 'true' : null }, [
+      el('span', { class: 'face-number', text: String(i + 1) }),
+      el('span', { class: 'face-name', text: name, title: name }),
+      inView && pill(t('layers.inView'), { tone: 'ok', dot: true, attrs: { title: t('layers.inViewHint') } }),
+      editButton(ctx, t('cardInsp.editFace', { name }), !base && inView, () => show(i)),
+      more,
     ]);
-    pairEditor.id = `card-pair-${e.id}`;
-  }
-  // The real renderer draws the card with each face, without changing the document.
-  if (ctx.bridge) queueMicrotask(async () => {
-    for (const { thumb, face } of thumbs) {
-      if (!faces.isConnected) return;
-      const isolated = { ...theme, elements: theme.elements.filter(item => face !== null || item.cardMember?.parent !== e.id || item.cardMember.face === null).map(item => item.id === e.id ? { ...item, card: { ...c, activeFace: face ?? c.activeFace } } : item) };
-      try {
-        const frame = await ctx.bridge.renderElement(isolated, e.id, { max: 128, motion: false });
-        if (!faces.isConnected) return;
-        const canvas = el('canvas', { width: frame.width, height: frame.height, class: 'face-render', 'aria-hidden': 'true', style: { left: `${e.frame.x / theme.canvas.width * 100}%`, top: `${e.frame.y / theme.canvas.height * 100}%`, width: `${e.frame.width / theme.canvas.width * 100}%`, height: `${e.frame.height / theme.canvas.height * 100}%` } });
-        canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(frame.pixels ?? frame.rgba), frame.width, frame.height), 0, 0);
-        thumb.append(canvas);
-        thumb.classList.add('rendered');
-        thumb.title = face === null ? t('cardInsp.base') : c.faces[face];
-      } catch { /* The real member layout remains visible if rendering fails. */ }
-    }
-  });
+  };
+  const shared = el('div', { class: 'face-row shared-background', dataset: { face: 'base', editing: String(base) } }, [
+    icon(ICONS.layers, 16),
+    el('span', { class: 'list-card-text' }, [el('span', { class: 'face-name', text: t('cardInsp.base') }), el('span', { class: 'face-sub', text: t('cardInsp.sharedHint') })]),
+    editButton(ctx, t('cardInsp.editShared'), base, () => { views.set(e.id, c.activeFace); store.select([e.id]); }),
+  ]);
+  const add = el('button', { type: 'button', class: 'text-button quiet face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16,
+    onclick: () => { views.delete(e.id); store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }); focusLater(`${row(c.faces.length)} .face-edit`); } }, [icon(ICONS.plus, 16), t('cardInsp.add')]);
+  return cardSection(ctx, 'faces', t('card.tab.faces'), [
+    el('div', { class: 'face-list', dataset: { cardId: String(e.id) } }, [
+      el('ol', { class: 'face-rows', 'aria-label': t('card.tab.faces') }, c.faces.map(faceRow)),
+      shared,
+    ]),
+    el('p', { class: 'hint', text: t('cardInsp.editHint') }),
+  ], c.faces.length, add);
+}
+
+function facesForm(ctx) {
+  const { element: e, t, store, update } = ctx, c = e.card;
+  if (!baseViews.has(store)) baseViews.set(store, new Map());
+  const views = baseViews.get(store);
+  const base = views.get(e.id) === c.activeFace;
   const face = base ? null : c.activeFace;
   const objects = members(ctx, face);
   const name = base ? t('cardInsp.base') : c.faces[face];
-  const command = (action, args = {}) => () => { pairs.delete(e.id); views.delete(e.id); store.dispatch(action, { id: e.id, ...args }); };
-  const editor = base ? null : el('div', { class: 'face-editor' }, [
+  const editor = base ? null : el('div', { class: 'face-editor', dataset: { cardId: String(e.id) } }, [
     textField(t('card.faceTitle'), name, value => {
       const clean = Array.from(value.trim()).slice(0, 32).join('');
       if (!clean) return;
       const names = [...c.faces]; names[face] = clean; update(e.id, { card: { faces: names } });
     }),
-    el('div', { class: 'face-tools' }, [tool(t('card.previous'), 'chevronLeft', command('reorderCardFace', { direction: -1 }), face === 0), tool(t('card.next'), 'chevronRight', command('reorderCardFace', { direction: 1 }), face === c.faces.length - 1), el('button', { type: 'button', class: 'text-button', disabled: c.faces.length >= 16, onclick: command('duplicateCardFace') }, [icon(ICONS.copy, 16), t('card.duplicateFace')]), tool(t('card.removeFace'), 'trash', command('removeCardFace'), c.faces.length <= 1, 'danger')]),
   ]);
   const rows = objects.map(item => {
     const card = listCard({ icon: widgetOf(item), title: item.name, subtitle: t(`widget.${widgetOf(item)}`), label: t('cardInsp.selectObject', { name: item.name }), onClick: () => store.select([item.id]) });
@@ -123,37 +101,71 @@ function facesForm(ctx) {
     move.querySelector('select').setAttribute('aria-label', t('cardInsp.moveObject', { name: item.name }));
     return el('div', { class: 'face-object' }, [card, move]);
   });
-  return [cardSection(ctx, 'faces', t('card.tab.faces'), [baseButton, faces, el('p', { class: 'hint', text: t('cardInsp.editFaceHint') }), el('p', { class: 'hint face-layout-note', text: t('cardInsp.layoutHint') })], c.faces.length), pairEditor, editor,
+  return [faceList(ctx, base, views), transitionSection(ctx, 'compact'), editor,
     cardSection(ctx, 'objects', t('cardInsp.objectsIn', { face: name }), rows.length ? rows : [el('p', { class: 'hint', text: t('cardInsp.emptyFace') })], objects.length), dashedHint([t('cardInsp.dropHint')])];
 }
 
 const EFFECT_ART = { none: ['M3 5h7v14H3z', 'M14 5h7v14h-7z'], fade: ['M3 5h10v14H3z', 'M10 5h11v14H10z'], slide: ['M3 5h7v14H3z', 'M17 5h4v14h-4z', 'M11 12h5', 'M14 10l2 2-2 2'], flip: ['M7 5h10v14H7z', 'M3 9v6', 'M21 9v6', 'M10 3h4', 'M10 21h4'] };
-function transitionControls(ctx, settings, set, scope) {
+const DIRECTIONS = Object.freeze([['left', 'arrowLeft'], ['right', 'arrowRight'], ['up', 'up'], ['down', 'down']]);
+/** Only a slide or a flip goes somewhere. */
+const directed = settings => ['slide', 'flip'].includes(settings?.effect);
+
+/** The direction as four arrow buttons (named for assistive tech). */
+function directionControl(t, settings, set) {
+  const group = segmented(t('common.direction'), settings.direction, DIRECTIONS.map(([value]) => [value, t(`card.direction.${value}`)]), direction => set({ direction }), { bare: true });
+  Array.from(group.children).forEach((button, i) => { button.setAttribute('aria-label', button.textContent); button.title = button.textContent; button.replaceChildren(icon(ICONS[DIRECTIONS[i][1]], 18)); });
+  return group;
+}
+
+/** The effect as picture cards (Motion tab). */
+function effectCards(ctx, settings, set) {
   const { element: e, t } = ctx;
-  const transition = settings?.effect !== 'none' ? settings : null;
-  const effects = el('div', { class: 'card-effects', role: 'radiogroup', 'aria-label': t('card.effect') }, Object.keys(EFFECT_ART).map(value => {
+  return el('div', { class: 'card-effects', role: 'radiogroup', 'aria-label': t('card.effect') }, Object.keys(EFFECT_ART).map(value => {
     const label = el('label', { class: 'card-effect', dataset: { checked: String((settings?.effect ?? 'none') === value) } });
-    const input = el('input', { type: 'radio', name: `card-effect-${e.id}-${scope}`, checked: (settings?.effect ?? 'none') === value, 'aria-label': t(`card.effect.${value}`) });
-    input.addEventListener('change', () => input.checked && set({ effect: value, direction: settings?.direction ?? 'left', durationMs: settings?.durationMs ?? 650, includeBase: settings?.includeBase ?? true }));
+    const input = el('input', { type: 'radio', name: `card-effect-${e.id}`, checked: (settings?.effect ?? 'none') === value, 'aria-label': t(`card.effect.${value}`) });
+    input.addEventListener('change', () => input.checked && set(withCardEffect(settings, value)));
     const art = icon(EFFECT_ART[value], 44); art.classList.add('effect-art');
     label.append(input, art, el('span', { text: t(`card.effect.${value}`) })); return label;
   }));
-  const directions = transition && segmented(t('common.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => set({ direction }), { bare: true });
-  if (directions) Array.from(directions.children).forEach((button, i) => { button.setAttribute('aria-label', button.textContent); button.title = button.textContent; button.replaceChildren(icon(ICONS[['arrowLeft', 'arrowRight', 'up', 'down'][i]], 18)); });
-  return [effects,
-    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ durationMs }), { min: 150, max: 1500, step: 50, format: value => `${value} ms` }),
-    transition && el('div', { class: 'card-scale' }, [el('span', { text: t('cardInsp.fast') }), el('span', { text: t('cardInsp.slow') })]), directions,
-    transition && switchRow(t('cardInsp.animateShared'), transition.includeBase, includeBase => set({ includeBase })),
-  ];
 }
+
+/** The effect, duration and direction on one line (Faces tab). */
+function compactControls(ctx, settings, set) {
+  const { t } = ctx;
+  const transition = settings?.effect && settings.effect !== 'none' ? settings : null;
+  const effect = selectField(t('card.effect'), settings?.effect ?? 'none', Object.keys(EFFECT_ART).map(value => [value, t(`card.effect.${value}`)]), value => set(withCardEffect(settings, value)));
+  effect.querySelector('select').setAttribute('aria-label', t('card.effect'));
+  return el('div', { class: 'button-row card-transition-row' }, [effect,
+    transition && prefixedField('', t('card.duration'), transition.durationMs, durationMs => set({ durationMs: cardDuration(durationMs) }), { ...CARD_DURATION, unit: 'ms' }),
+    directed(transition) && directionControl(t, transition, set),
+  ]);
+}
+
+/**
+ * The Card's one transition (D-24): every face change uses it. `compact`
+ * (Faces tab) puts it on one line; `full` (Motion tab) shows the effects as
+ * pictures, the duration as a slider and the shared background switch.
+ */
+function transitionSection(ctx, layout) {
+  const { element: e, t, store, update } = ctx, c = e.card;
+  const settings = c.transition ?? null;
+  const set = patch => update(e.id, { card: { transition: patch } });
+  const transition = settings?.effect && settings.effect !== 'none' ? settings : null;
+  const play = el('button', { type: 'button', class: 'text-button play-button', disabled: c.faces.length < 2, onclick: () => store.dispatch('cardFace', { id: e.id, face: (c.activeFace + 1) % c.faces.length }) }, [icon(ICONS.play, 16), t('card.animateNext')]);
+  const nodes = layout === 'compact' ? [compactControls(ctx, settings, set), play] : [
+    el('p', { class: 'hint', text: t('cardInsp.transitionHint') }),
+    effectCards(ctx, settings, set),
+    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ durationMs }), { ...CARD_DURATION, format: value => `${value} ms` }),
+    transition && el('div', { class: 'card-scale' }, [el('span', { text: t('cardInsp.fast') }), el('span', { text: t('cardInsp.slow') })]),
+    directed(transition) && directionControl(t, transition, set),
+    transition && switchRow(t('cardInsp.animateShared'), transition.includeBase, includeBase => set({ includeBase })),
+    play, dashedHint([t('card.animationHelp')], { iconName: 'info' }),
+  ];
+  return cardSection(ctx, layout === 'compact' ? 'transition' : 'animation', t('cardInsp.transitionTitle'), nodes);
+}
+
 function motionForm(ctx) {
-  const { element: e, t, store, update } = ctx;
-  return [cardSection(ctx, 'animation', t('cardInsp.generalTransition'), [
-    el('p', { class: 'hint', text: t('cardInsp.fallbackHint') }),
-    ...transitionControls(ctx, e.card.transition, patch => update(e.id, { card: { transition: patch } }), 'general'),
-    el('button', { type: 'button', class: 'text-button play-button', disabled: e.card.faces.length < 2, onclick: () => store.dispatch('cardFace', { id: e.id, face: (e.card.activeFace + 1) % e.card.faces.length }) }, [icon(ICONS.play, 16), t('card.animateNext')]),
-    dashedHint([t('card.animationHelp')], { iconName: 'info' }),
-  ])];
+  return [transitionSection(ctx, 'full')];
 }
 
 function triggerForm(ctx) {

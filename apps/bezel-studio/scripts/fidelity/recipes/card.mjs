@@ -34,7 +34,9 @@ export default {
       await app.page.getByRole('button', { name: t('trigger.add'), exact: true }).click();
       await app.page.getByRole('button', { name: t('cardInsp.addTimed'), exact: true }).click();
     } },
-    { name: 'pair', run: async app => { await populated(app); await app.page.locator('.face-transition[data-pair="0:1"]').click(); await app.page.getByRole('radio', { name: t('card.effect.fade'), exact: true }).check(); } },
+    { name: 'face-menu', run: async app => { await populated(app); await app.page.locator('.face-row[data-face="0"] .face-more').click(); } },
+    { name: 'shared', run: async app => { await populated(app); await app.page.getByRole('button', { name: t('cardInsp.editShared'), exact: true }).click(); } },
+    { name: 'transition', run: async app => { await populated(app); await app.page.getByRole('combobox', { name: t('card.effect'), exact: true }).selectOption('flip'); await app.page.getByRole('button', { name: t('card.direction.up'), exact: true }).click(); } },
     { name: 'look', run: async app => { await populated(app); await app.inspectorTab(3); } },
   ].map(state => ({ ...state, capture: '#inspector', viewport: { width: 1440, height: 1440 } })),
 };

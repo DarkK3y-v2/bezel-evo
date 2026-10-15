@@ -151,7 +151,6 @@ export function demoIsolate(theme, id) {
       delete e.card.triggers;
       delete e.card.rotationSeconds;
       delete e.card.transition;
-      delete e.card.pairTransitions;
     }
     if (e.id === id) {
       delete e.groupParent;

@@ -1,8 +1,8 @@
 // The card's inspector (artboards CardFaces, CardMotion, CardTriggers):
-// face thumbnails, the base, "Move", the rotation stepper and quick
-// durations, effect cards, the rule sentences, their order and the common
-// return. Every edit is one Undo step.
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab, setPanelWidths } from './helpers.mjs';
+// the face list with its ⋮ menu, the shared background row, "Move", the
+// Card's one transition, the timed triggers, effect cards, the rule
+// sentences, their order and the common return. Every edit is one Undo step.
+import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab, setPanelWidths, cardFaceList, faceAction } from './helpers.mjs';
 
 /** A card with two faces: a text in the base, a ring in face 1, a bar and a graph in face 2 (in view). */
 async function twoFaceCard(page, t) {
@@ -25,48 +25,169 @@ async function twoFaceCard(page, t) {
   return { inspector, selectCard };
 }
 
-test('faces are screen thumbnails; the base lists its objects; Move sends an object to another face', async ({ page, t }) => {
+test('faces are a numbered list; the shared background is its own row; Move sends an object to another face', async ({ page, t }) => {
   const errors = watchErrors(page);
   const { inspector, selectCard } = await twoFaceCard(page, t);
-  const faces = inspector.getByRole('group', { name: t('card.activeFace'), exact: true });
-  await expect(faces.locator('[data-face]')).toHaveCount(2);
-  await expect(faces.locator('[aria-pressed="true"]')).toHaveAttribute('data-face', '1');
-  // In the screen's proportions (480 × 1920), each face drawing its objects.
-  const ratio = await faces.locator('[data-face="1"] .screen-thumb').evaluate(n => n.clientWidth / n.clientHeight);
-  expect(ratio).toBeCloseTo(480 / 1920, 1);
-  await expect(faces.locator('[data-face="1"] .face-mark')).toHaveCount(2);
-  await expect(faces.locator('[data-face="0"] .face-mark')).toHaveCount(1);
+  const faces = cardFaceList(page, t);
+  const face = number => t('card.faceName', { number });
+  await expect(faces.getByRole('listitem')).toHaveCount(2);
+  await expect(faces.locator('.face-number')).toHaveText(['1', '2']);
+  await expect(faces.locator('.face-name')).toHaveText([face(1), face(2)]);
+  await expect(inspector.locator('[data-section="faces"] .count')).toHaveText('2');
+  // The face in view: current, marked "in view", its Edit pressed; the other is not.
+  const second = faces.locator('[data-face="1"]');
+  await expect(second).toHaveAttribute('aria-current', 'true');
+  await expect(second).toContainText(t('layers.inView'));
+  await expect(faces.getByText(t('layers.inView'), { exact: true })).toHaveCount(1);
+  const editSecond = second.getByRole('button', { name: t('cardInsp.editFace', { name: face(2) }), exact: true });
+  await expect(editSecond).toHaveAttribute('aria-pressed', 'true');
+  await expect(editSecond).toHaveText(t('cardInsp.edit'));
+  await expect(faces.locator('[data-face="0"]')).not.toHaveAttribute('aria-current', 'true');
+  // No thumbnails, no pair chips, no horizontal strip.
+  await expect(inspector.locator('.face-chip, .face-transition, .screen-thumb')).toHaveCount(0);
   const objects = inspector.locator('[data-section="objects"]');
-  await expect(objects.getByRole('heading')).toHaveText(t('cardInsp.objectsIn', { face: t('card.faceName', { number: 2 }) }));
+  await expect(objects.getByRole('heading')).toHaveText(t('cardInsp.objectsIn', { face: face(2) }));
   await expect(objects.locator('.count')).toHaveText('2');
   await expect(objects.locator('.face-object')).toHaveCount(2);
-  // Move the bar to face 1: it leaves this list and lands there; Undo brings it back.
+  // Move the bar to face 1: it leaves this list; Undo brings it back.
   await objects.getByRole('combobox', { name: t('cardInsp.moveObject', { name: t('widget.bar') }) }).selectOption('0');
   await expect(objects.locator('.face-object')).toHaveCount(1);
-  await expect(faces.locator('[data-face="0"] .face-mark')).toHaveCount(2);
   await page.locator('#undo').click();
   await expect(objects.locator('.face-object')).toHaveCount(2);
-  // To the base, then the base's list shows it (and the face editor steps aside).
+  // To the shared background; its own row (outside the numbered list) edits it.
   await objects.getByRole('combobox', { name: t('cardInsp.moveObject', { name: t('widget.bar') }) }).selectOption('base');
-  const base = inspector.getByRole('button', { name: t('cardInsp.base'), exact: true });
-  await base.click();
-  await expect(base).toHaveAttribute('aria-pressed', 'true');
-  await expect(base).not.toHaveClass(/face-chip/);
-  await expect(base.getByText(t('cardInsp.sharedHint'), { exact: true })).toBeVisible();
-  await expect(faces.locator('[data-face="1"]')).toHaveAttribute('aria-current', 'true');
+  const shared = inspector.locator('.shared-background');
+  await expect(faces.locator('.shared-background')).toHaveCount(0);
+  await expect(shared).toContainText(t('cardInsp.base'));
+  await expect(shared).toContainText(t('cardInsp.sharedHint'));
+  const editShared = shared.getByRole('button', { name: t('cardInsp.editShared'), exact: true });
+  await editShared.click();
+  await expect(editShared).toHaveAttribute('aria-pressed', 'true');
+  await expect(shared).toHaveAttribute('data-editing', 'true');
+  await expect(editSecond).toHaveAttribute('aria-pressed', 'false');
+  await expect(second).toHaveAttribute('aria-current', 'true');
   await expect(objects.getByRole('heading')).toHaveText(t('cardInsp.objectsIn', { face: t('cardInsp.base') }));
   await expect(objects.locator('.face-object')).toHaveCount(1);
   await expect(inspector.getByLabel(t('card.faceTitle'), { exact: true })).toHaveCount(0);
-  await expect(faces.locator('[data-face="1"]')).toHaveAccessibleName(t('cardInsp.editFace', { name: t('card.faceName', { number: 2 }) }));
-  await faces.locator('[data-face="1"]').click();
-  await expect(base).toHaveAttribute('aria-pressed', 'false');
-  await expect(inspector.getByLabel(t('card.faceTitle'), { exact: true })).toBeVisible();
+  // Edit on the first face shows it on the canvas and opens its name and objects.
+  await faces.getByRole('button', { name: t('cardInsp.editFace', { name: face(1) }), exact: true }).click();
+  await expect(faces.locator('[data-face="0"]')).toHaveAttribute('aria-current', 'true');
+  await expect(editShared).toHaveAttribute('aria-pressed', 'false');
+  await expect(inspector.getByLabel(t('card.faceTitle'), { exact: true })).toHaveValue(face(1));
+  await expect(objects.getByRole('heading')).toHaveText(t('cardInsp.objectsIn', { face: face(1) }));
+  await page.locator('#undo').click();
+  await faces.getByRole('button', { name: t('cardInsp.editFace', { name: face(2) }), exact: true }).click();
   // A list card selects its object.
   await objects.getByRole('button', { name: t('cardInsp.selectObject', { name: t('widget.graph') }), exact: true }).click();
   await expect(inspector.getByRole('tab', { name: t('card.tab.faces'), exact: true })).toHaveCount(0);
   await selectCard();
   await expect(inspector.getByText(t('cardInsp.dropHint'), { exact: true })).toBeVisible();
   await inspector.getByRole('tabpanel', { name: t('card.tab.faces'), exact: true }).screenshot({ path: test.info().outputPath('faces-content.png') });
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('the ⋮ menu renames, duplicates, moves and deletes a face, from the keyboard, each one Undo step', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  const { inspector } = await twoFaceCard(page, t);
+  const faces = cardFaceList(page, t);
+  const face = number => t('card.faceName', { number });
+  const names = faces.locator('.face-name');
+  const more = faces.getByRole('button', { name: t('cardInsp.faceActions', { name: face(1) }), exact: true });
+  await expect(more).toHaveAttribute('aria-haspopup', 'menu');
+  await more.focus(); await page.keyboard.press('Enter');
+  const menu = page.getByRole('menu', { name: t('cardInsp.faceActions', { name: face(1) }), exact: true });
+  await expect(menu.getByRole('menuitem')).toHaveText([t('common.rename'), t('card.duplicateFace'), t('card.previous'), t('card.next'), t('card.removeFace')]);
+  await expect(menu.getByRole('menuitem', { name: t('card.previous'), exact: true })).toBeDisabled();
+  await expect(menu.getByRole('menuitem', { name: t('common.rename'), exact: true })).toBeFocused();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  // Escape closes it and gives the focus back.
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+  // Rename: shows the face and focuses its name.
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  const title = inspector.getByLabel(t('card.faceTitle'), { exact: true });
+  await expect(title).toBeFocused();
+  await expect(faces.locator('[data-face="0"]')).toHaveAttribute('aria-current', 'true');
+  await title.fill('Meteo'); await title.press('Tab');
+  await expect(names).toHaveText(['Meteo', face(2)]);
+  // Move later with the arrow keys: the order changes, the focus follows the face.
+  await faces.getByRole('button', { name: t('cardInsp.faceActions', { name: 'Meteo' }), exact: true }).click();
+  // Disabled items are skipped: Rename, Duplicate, Move later.
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('menuitem', { name: t('card.next'), exact: true })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(names).toHaveText([face(2), 'Meteo']);
+  await expect(faces.locator('[data-face="1"]')).toHaveAttribute('aria-current', 'true');
+  await expect(faces.getByRole('button', { name: t('cardInsp.faceActions', { name: 'Meteo' }), exact: true })).toBeFocused();
+  await page.locator('#undo').click();
+  await expect(names).toHaveText(['Meteo', face(2)]);
+  // Duplicate the face that is not in view: the copy is added and shown.
+  await faceAction(page, t, 1, 'card.duplicateFace');
+  await expect(faces.getByRole('listitem')).toHaveCount(3);
+  await expect(faces.locator('[data-face="2"]')).toHaveAttribute('aria-current', 'true');
+  await expect(faces.locator('[data-face="2"] .face-edit')).toBeFocused();
+  await page.locator('#undo').click();
+  await expect(faces.getByRole('listitem')).toHaveCount(2);
+  // Delete: the face and its objects go; Undo restores both.
+  await faceAction(page, t, 1, 'card.removeFace');
+  await expect(names).toHaveText(['Meteo']);
+  await faces.getByRole('button', { name: t('cardInsp.faceActions', { name: 'Meteo' }), exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: t('card.removeFace'), exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await page.locator('#undo').click();
+  await expect(names).toHaveText(['Meteo', face(2)]);
+  await faces.getByRole('button', { name: t('cardInsp.editFace', { name: face(2) }), exact: true }).click();
+  await expect(inspector.locator('[data-section="objects"] .face-object')).toHaveCount(2);
+  // The add button sits in the section head and gives the focus to the new face.
+  await inspector.locator('[data-section="faces"] .section-head').getByRole('button', { name: t('card.addFace'), exact: true }).click();
+  await expect(faces.locator('[data-face="2"] .face-edit')).toBeFocused();
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('one transition for the whole Card: effect, duration and direction in Faces, the same in Motion, with Undo', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  const { inspector } = await twoFaceCard(page, t);
+  const section = inspector.locator('[data-section="transition"]');
+  await expect(section.getByRole('heading')).toHaveText(t('cardInsp.transitionTitle'));
+  const effect = section.getByRole('combobox', { name: t('card.effect'), exact: true });
+  await expect(effect).toHaveValue('none');
+  await expect(section.getByRole('spinbutton', { name: t('card.duration'), exact: true })).toHaveCount(0);
+  await effect.selectOption('flip');
+  const duration = section.getByRole('spinbutton', { name: t('card.duration'), exact: true });
+  await expect(duration).toHaveValue('650');
+  await duration.fill('437'); await duration.press('Tab');
+  await expect(duration).toHaveValue('450');
+  await duration.fill('9000'); await duration.press('Tab');
+  await expect(duration).toHaveValue('1500');
+  const up = section.getByRole('button', { name: t('card.direction.up'), exact: true });
+  await up.click();
+  await expect(up).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#undo').click();
+  await expect(section.getByRole('button', { name: t('common.left'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#undo').click();
+  await expect(duration).toHaveValue('450');
+  // A fade has no direction.
+  await effect.selectOption('fade');
+  await expect(section.getByRole('group', { name: t('common.direction'), exact: true })).toHaveCount(0);
+  await expect(duration).toHaveValue('450');
+  await expect(section.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
+  // Motion edits the same transition; nothing about pairs anywhere.
+  await tab(page, t, 'card.tab.motion');
+  const motion = inspector.locator('[data-section="animation"]');
+  await expect(motion.getByRole('heading')).toHaveText(t('cardInsp.transitionTitle'));
+  await expect(motion).toContainText(t('cardInsp.transitionHint'));
+  await expect(motion.getByRole('radio', { name: t('card.effect.fade'), exact: true })).toBeChecked();
+  await expect(motion.getByRole('slider', { name: new RegExp(t('card.duration')) })).toHaveValue('450');
+  await motion.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
+  await tab(page, t, 'card.tab.faces');
+  await expect(effect).toHaveValue('slide');
+  await tab(page, t, 'card.tab.triggers');
+  await expect(inspector.locator('[data-section*="pair"], .face-transition')).toHaveCount(0);
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
@@ -115,33 +236,6 @@ test('timed triggers edit intervals with bounds and Undo; general effects are pi
   await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('motion-content.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
-});
-
-test('face connectors edit only their directed pair and can restore the general transition with Undo', async ({ page, t }) => {
-  const { inspector } = await twoFaceCard(page, t);
-  await inspector.getByRole('button', { name: t('card.addFace'), exact: true }).click();
-  const connector = inspector.locator('.face-transition[data-pair="0:1"]');
-  await expect(inspector.locator('.face-transition')).toHaveCount(3);
-  await connector.focus(); await page.keyboard.press('Enter');
-  const panel = inspector.locator('[data-section="pair-transition"]');
-  await expect(panel).toBeVisible();
-  await panel.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
-  await panel.getByRole('button', { name: t('card.direction.up'), exact: true }).click();
-  const duration = panel.getByRole('slider', { name: new RegExp(t('card.duration')) });
-  await duration.focus(); await duration.press('Home');
-  for (let i = 0; i < 5; i++) await duration.press('ArrowRight');
-  await expect(duration).toHaveValue('400');
-  await expect(connector).toContainText('400 ms');
-  await panel.getByRole('button', { name: t('cardInsp.useGeneral'), exact: true }).click();
-  await expect(panel.getByRole('radio', { name: t('card.effect.none'), exact: true })).toBeChecked();
-  await page.locator('#undo').click();
-  await expect(duration).toHaveValue('400');
-  await expect(panel.getByRole('radio', { name: t('card.effect.slide'), exact: true })).toBeChecked();
-  await expect(panel.getByRole('button', { name: t('card.direction.up'), exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await tab(page, t, 'card.tab.motion');
-  await expect(inspector.getByRole('radio', { name: t('card.effect.none'), exact: true })).toBeChecked();
-  await expect(inspector.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
-  await expectAccessible(page);
 });
 
 test('triggers read as sentences with tokens, reorder by keyboard, and share one return', async ({ page, t }) => {
@@ -245,7 +339,7 @@ test.describe('Italian mockup comparison', () => {
   });
 });
 
-test('the shared context renders real face pixels and supplies live trigger app choices', async ({ page, t, lang }) => {
+test('the shared context supplies live trigger app choices', async ({ page, t, lang }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   // Exercise the pending host wiring without editing the frozen inspector.
@@ -276,10 +370,7 @@ test('the shared context renders real face pixels and supplies live trigger app 
     globalThis.cardProbe = { triggers: () => { selectedTab = 'triggers'; render(); }, stopActivity: () => { sample = { ...sample, activity: null }; } };
   }, lang);
   const probe = page.locator('#card-probe');
-  await expect(probe.locator('.face-render')).toHaveCount(3);
-  const pixels = await probe.locator('.face-render').evaluateAll(nodes => nodes.map(canvas => Array.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data)));
-  expect(pixels[0].some((value, i) => i % 4 === 3 && value > 0)).toBe(true);
-  expect(pixels[1]).not.toEqual(pixels[0]);
+  await expect(probe.locator('.face-rows > li')).toHaveCount(2);
   await page.evaluate(() => cardProbe.triggers());
   await probe.getByRole('button', { name: t('trigger.add'), exact: true }).click();
   await probe.getByRole('combobox', { name: t('trigger.condition'), exact: true }).selectOption('foreground');

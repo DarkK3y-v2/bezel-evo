@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeCard, normalizeCardTheme, transitionFor, withPairTransition, remapPairs } from '../../src/card-config.js';
+import { normalizeCard, normalizeCardTheme } from '../../src/card-config.js';
 import { newTimedRule, sentenceOf, timedParts, timedSeconds, triggerMatches, withSource } from '../../src/card-rules.js';
 import { createCardTimers } from '../../src/editor/card-timer.js';
 import { createCardMotion } from '../../src/editor/card-motion.js';
@@ -28,35 +28,67 @@ test('legacy rotation migrates once, retaining app rules and general transition'
   assert.equal(normalizeCard({ ...c, rotationSeconds: null }).rotationSeconds, null);
 });
 
-test('directed pairs fall back; edits, deletion and reordering preserve identities and Undo', () => {
-  const c = card();
-  c.triggers = [newTimedRule(c)];
-  assert.equal(transitionFor(c, 0, 1), fade);
-  assert.equal(transitionFor({ faces: [] }, 0, 1), null);
-  c.pairTransitions = withPairTransition(c, 0, 1, slide);
-  assert.equal(transitionFor(c, 0, 1), slide);
-  assert.equal(transitionFor(c, 1, 0), fade);
-  assert.deepEqual(withPairTransition(c, 0, 1, null), []);
-  assert.deepEqual(remapPairs({}, i => i), []);
-  const store = createStore(scene(c));
-  store.dispatch('reorderCardFace', { id: 1, direction: 1 });
-  assert.deepEqual(store.getState().theme.elements[0].card.pairTransitions, [{ from: 1, to: 0, transition: slide }]);
-  store.undo(); assert.deepEqual(store.getState().theme.elements[0].card, c);
-  store.dispatch('removeCardFace', { id: 1 });
-  assert.deepEqual(store.getState().theme.elements[0].card.pairTransitions, []);
-  assert.equal(store.getState().theme.elements[0].card.triggers.length, 1, 'next-face timer survives deleting face zero');
-  store.undo(); assert.deepEqual(store.getState().theme.elements[0].card, c);
+test('D-24: pair transitions saved by development builds are ignored; the Card keeps its one transition', () => {
+  const stale = { ...card(), pairTransitions: [{ from: 0, to: 1, transition: slide }, { from: 9, to: 99, transition: slide }] };
+  const normalized = normalizeCard(stale);
+  assert.equal('pairTransitions' in normalized, false);
+  assert.equal(normalized.transition, fade);
+  assert.deepEqual(normalized, card());
+  assert.equal(normalizeCard(normalized), normalized, 'idempotent');
+  assert.equal('pairTransitions' in stale, true, 'input untouched');
+  const both = normalizeCard({ ...stale, rotationSeconds: 10 });
+  assert.equal('pairTransitions' in both, false);
+  assert.equal(both.triggers.at(-1).intervalSeconds, 10, 'timer migration kept');
+  const store = createStore(scene(stale));
+  assert.deepEqual(store.getState().theme.elements[0].card, card());
+  store.load(scene(stale));
+  assert.equal(JSON.stringify(store.getState().theme).includes('pairTransitions'), false);
 });
 
-test('the motion tracker chooses each directed change and keeps general fallback', () => {
-  const c = card(); c.pairTransitions = [{ from: 0, to: 1, transition: slide }];
+test('face commands act on a chosen face, keep the face in view and its timers, with Undo', () => {
+  const c = { ...card(), activeFace: 1 };
+  c.triggers = [newTimedRule(c), { source: 'foreground', app: 'game', face: 2, priority: 1, returnFace: 0 }];
+  const store = createStore(scene(c));
+  const now = () => store.getState().theme.elements[0].card;
+  store.dispatch('reorderCardFace', { id: 1, face: 2, direction: -1 });
+  assert.deepEqual(now().faces, ['A', 'C', 'B']);
+  assert.equal(now().activeFace, 2, 'the face in view follows its identity');
+  assert.equal(now().triggers[1].face, 1);
+  store.undo(); assert.deepEqual(now(), c);
+  store.dispatch('reorderCardFace', { id: 1, face: 0, direction: -1 });
+  assert.deepEqual(now(), c, 'cannot move before the first');
+  store.dispatch('removeCardFace', { id: 1, face: 0 });
+  assert.deepEqual(now().faces, ['B', 'C']);
+  assert.equal(now().activeFace, 0, 'B stays in view');
+  assert.equal(now().triggers[1].returnFace, null);
+  assert.equal(now().triggers.length, 2, 'next-face timer survives deleting face zero');
+  store.undo(); assert.deepEqual(now(), c);
+  store.dispatch('removeCardFace', { id: 1, face: 2 });
+  assert.deepEqual([now().faces, now().activeFace, now().triggers.length], [['A', 'B'], 1, 1]);
+  store.undo();
+  store.dispatch('removeCardFace', { id: 1, face: 7 });
+  store.dispatch('duplicateCardFace', { id: 1, face: -1 });
+  assert.deepEqual(now(), c, 'invalid faces are ignored');
+  store.dispatch('duplicateCardFace', { id: 1, face: 2 });
+  assert.equal(now().faces.length, 4);
+  assert.match(now().faces[3], /^C/);
+  assert.equal(now().activeFace, 3, 'the copy is shown');
+  store.undo(); assert.deepEqual(now(), c);
+  store.dispatch('removeCardFace', { id: 1 });
+  assert.deepEqual([now().faces, now().activeFace], [['A', 'C'], 1], 'without a face: the one in view');
+});
+
+test('the motion tracker plays the one Card transition in both directions', () => {
+  const c = card(); c.transition = slide;
   const theme = scene(c), motion = createCardMotion();
   motion.update(theme, 0);
   c.activeFace = 1;
-  assert.deepEqual(motion.update(theme, 10).get(1).settings, slide);
+  assert.deepEqual(motion.update(theme, 10).get(1), { from: 0, to: 1, progress: 0, settings: slide });
   assert.equal(motion.update(theme, 410).size, 0);
   c.activeFace = 0;
-  assert.deepEqual(motion.update(theme, 500).get(1).settings, fade);
+  assert.deepEqual(motion.update(theme, 500).get(1).settings, slide);
+  c.transition = fade;
+  assert.equal(motion.update(theme, 510).size, 0, 'a new transition stops the running change');
   assert.equal(motion.update(theme, 550, false).size, 0);
 });
 

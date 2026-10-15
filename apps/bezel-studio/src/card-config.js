@@ -1,7 +1,15 @@
 // Canonical Card data shared by editor commands, playback and controls.
+/**
+ * A Card as the editor keeps it: legacy `rotationSeconds` becomes a timed
+ * trigger, and per-pair `pairTransitions` (development builds only, D-24) is
+ * dropped, so the Card's own `transition` serves every face change.
+ */
 export function normalizeCard(card) {
-  if (card.rotationSeconds == null) return card;
-  const { rotationSeconds, ...rest } = card;
+  const legacy = card.rotationSeconds != null;
+  if (!legacy && !('pairTransitions' in card)) return card;
+  const { pairTransitions: _ignored, ...kept } = card;
+  if (!legacy) return kept;
+  const { rotationSeconds, ...rest } = kept;
   return { ...rest, triggers: [...(card.triggers ?? []), {
     source: 'timer', intervalSeconds: rotationSeconds, nextFace: true,
     app: '', face: 0, priority: 0, returnSeconds: 0, returnFace: null,
@@ -17,17 +25,17 @@ export function normalizeCardTheme(theme) {
   return elements.every((e, i) => e === theme.elements[i]) ? theme : { ...theme, elements };
 }
 
-export function transitionFor(card, from, to) {
-  return card.pairTransitions?.find(p => p.from === from && p.to === to)?.transition ?? card.transition ?? null;
+/** A Card transition's duration bounds, ms (slider and number alike). */
+export const CARD_DURATION = Object.freeze({ min: 150, max: 1500, step: 50 });
+
+/** A typed duration on the Card's scale: within bounds, on a 50 ms step. */
+export function cardDuration(ms) {
+  const { min, max, step } = CARD_DURATION;
+  const value = Number.isFinite(ms) ? ms : min;
+  return Math.min(max, Math.max(min, Math.round(value / step) * step));
 }
 
-export function withPairTransition(card, from, to, transition) {
-  const pairs = (card.pairTransitions ?? []).filter(p => p.from !== from || p.to !== to);
-  return transition == null ? pairs : [...pairs, { from, to, transition }];
-}
-
-/** Keep face identities when their indices move; discard deleted edges. */
-export function remapPairs(card, map) {
-  return (card.pairTransitions ?? []).filter(p => map(p.from) != null && map(p.to) != null)
-    .map(p => ({ ...p, from: map(p.from), to: map(p.to) }));
+/** The transition with another effect, keeping its direction, duration and shared-background choice (defaults when new). */
+export function withCardEffect(settings, effect) {
+  return { effect, direction: settings?.direction ?? 'left', durationMs: settings?.durationMs ?? 650, includeBase: settings?.includeBase ?? true };
 }

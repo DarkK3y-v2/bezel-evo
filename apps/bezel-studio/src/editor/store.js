@@ -1,4 +1,4 @@
-import { normalizeCardTheme, remapPairs } from '../card-config.js';
+import { normalizeCardTheme } from '../card-config.js';
 // The editor store: the theme being edited (theme.json shape), the
 // selection, and an undo/redo history. Every change goes through a command;
 // commands are pure functions returning a new theme, so history is just a
@@ -25,6 +25,12 @@ function uniqueName(theme, base) {
     const candidate = `${base} ${i}`;
     if (!names.has(candidate)) return candidate;
   }
+}
+
+/** The face a face command acts on: `face` when given and valid, else the one in view; null when invalid. */
+function faceOf(card, face) {
+  if (face === undefined) return card.activeFace;
+  return Number.isInteger(face) && face >= 0 && face < card.faces.length ? face : null;
 }
 
 function mapElements(theme, ids, fn) {
@@ -111,35 +117,37 @@ export const commands = {
   addCardFace(theme, { id, name }) {
     return { theme: mapElements(theme, [id], e => e.card && typeof name === 'string' && name.trim() && e.card.faces.length < 16 ? { ...e, card: { ...e.card, faces: [...e.card.faces, Array.from(name.trim()).slice(0, 32).join('')], activeFace: e.card.faces.length } } : e), selection: [id] };
   },
-  duplicateCardFace(theme, { id, names = ENGLISH }) {
+  duplicateCardFace(theme, { id, face: chosen, names = ENGLISH }) {
     const parent = theme.elements.find(e => e.id === id);
     if (!parent?.card || parent.card.faces.length >= 16) return { theme };
-    const face = parent.card.activeFace, nextFace = parent.card.faces.length;
+    const face = faceOf(parent.card, chosen), nextFace = parent.card.faces.length;
+    if (face === null) return { theme };
     const copies = theme.elements.filter(e => e.cardMember?.parent === id && e.cardMember.face === face);
     const result = commands.paste(theme, { elements: copies, offset: 0, names });
     const copied = new Set(result.selection);
     const next = mapElements(result.theme, [...copied], e => ({ ...e, cardMember: { parent: id, face: nextFace } }));
     return { theme: mapElements(next, [id], e => ({ ...e, card: { ...e.card, faces: [...e.card.faces, Array.from(names.copy(e.card.faces[face])).slice(0, 32).join('')], activeFace: nextFace } })), selection: [id] };
   },
-  removeCardFace(theme, { id }) {
+  removeCardFace(theme, { id, face: chosen }) {
     const parent = theme.elements.find(e => e.id === id);
     if (!parent?.card || parent.card.faces.length <= 1) return { theme };
-    const face = parent.card.activeFace;
+    const face = faceOf(parent.card, chosen), active = parent.card.activeFace;
+    if (face === null) return { theme };
     const elements = theme.elements.filter(e => !(e.cardMember?.parent === id && e.cardMember.face === face)).map(e => {
-      if (e.id === id) return { ...e, card: { ...e.card, pairTransitions: remapPairs(e.card, i => i === face ? null : i > face ? i - 1 : i), triggers:(e.card.triggers ?? []).filter(r=>r.nextFace||r.face!==face).map(r=>({...r,face:r.nextFace?0:r.face>face?r.face-1:r.face,returnFace:r.returnFace==null?null:r.returnFace===face?null:r.returnFace>face?r.returnFace-1:r.returnFace})), faces: e.card.faces.filter((_, i) => i !== face), activeFace: Math.min(face, e.card.faces.length - 2) } };
+      if (e.id === id) return { ...e, card: { ...e.card, triggers:(e.card.triggers ?? []).filter(r=>r.nextFace||r.face!==face).map(r=>({...r,face:r.nextFace?0:r.face>face?r.face-1:r.face,returnFace:r.returnFace==null?null:r.returnFace===face?null:r.returnFace>face?r.returnFace-1:r.returnFace})), faces: e.card.faces.filter((_, i) => i !== face), activeFace: active === face ? Math.min(face, e.card.faces.length - 2) : active > face ? active - 1 : active } };
       if (e.cardMember?.parent === id && e.cardMember.face !== null && e.cardMember.face > face) return { ...e, cardMember: { ...e.cardMember, face: e.cardMember.face - 1 } };
       return e;
     });
     return { theme: { ...theme, elements }, selection: [id] };
   },
-  reorderCardFace(theme, { id, direction }) {
+  reorderCardFace(theme, { id, direction, face }) {
     const parent = theme.elements.find(e => e.id === id);
     if (!parent?.card) return { theme };
-    const from = parent.card.activeFace, to = from + direction;
-    if (![-1, 1].includes(direction) || to < 0 || to >= parent.card.faces.length) return { theme };
+    const from = faceOf(parent.card, face), to = from + direction;
+    if (from === null || ![-1, 1].includes(direction) || to < 0 || to >= parent.card.faces.length) return { theme };
     const swap = i => i === from ? to : i === to ? from : i;
     const elements = theme.elements.map(e => {
-      if (e.id === id) { const faces = [...e.card.faces]; [faces[from], faces[to]] = [faces[to], faces[from]]; return { ...e, card: { ...e.card, pairTransitions: remapPairs(e.card, swap), triggers:(e.card.triggers ?? []).map(r=>({...r,face:r.nextFace?0:swap(r.face),returnFace:r.returnFace==null?null:swap(r.returnFace)})), faces, activeFace: to } }; }
+      if (e.id === id) { const faces = [...e.card.faces]; [faces[from], faces[to]] = [faces[to], faces[from]]; return { ...e, card: { ...e.card, triggers:(e.card.triggers ?? []).map(r=>({...r,face:r.nextFace?0:swap(r.face),returnFace:r.returnFace==null?null:swap(r.returnFace)})), faces, activeFace: swap(e.card.activeFace) } }; }
       if (e.cardMember?.parent === id && e.cardMember.face !== null) return { ...e, cardMember: { ...e.cardMember, face: swap(e.cardMember.face) } };
       return e;
     });

@@ -102,7 +102,7 @@ test('the preview shows the selected object rendered alone, on or off the canvas
   await expectAccessible(page); expect(errors).toEqual([]);
 });
 
-test('a card has Faces, Motion, Triggers and Look tabs; its faces are chips, the one in view marked', async ({ page, t }) => {
+test('a card has Faces, Motion, Triggers and Look tabs; its faces are a list, the one in view marked', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await addWidget(page, t, 'card');
@@ -112,14 +112,14 @@ test('a card has Faces, Motion, Triggers and Look tabs; its faces are chips, the
     .toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist']);
   const tabs = inspector.getByRole('tablist', { name: t('card.tabs'), exact: true }).getByRole('tab');
   await expect(tabs).toHaveText([t('card.tab.faces'), t('card.tab.motion'), t('card.tab.triggers'), t('inspector.tab.look')]);
-  const faces = inspector.getByRole('group', { name: t('card.activeFace'), exact: true });
-  await faces.getByRole('button', { name: t('card.addFace'), exact: true }).click();
-  const pressed = faces.locator('[aria-pressed="true"]');
-  await expect(pressed).toHaveAttribute('data-face', '1');
-  await expect(pressed).toContainText(t('layers.inView'));
-  await faces.locator('[data-face="0"]').click();
-  await expect(pressed).toHaveAttribute('data-face', '0');
-  await expect(faces.locator('.face-badge')).toHaveCount(1);
+  const faces = inspector.getByRole('list', { name: t('card.tab.faces'), exact: true });
+  await inspector.getByRole('button', { name: t('card.addFace'), exact: true }).click();
+  const current = faces.locator('[aria-current="true"]');
+  await expect(current).toHaveAttribute('data-face', '1');
+  await expect(current).toContainText(t('layers.inView'));
+  await faces.getByRole('button', { name: t('cardInsp.editFace', { name: t('card.faceName', { number: 1 }) }), exact: true }).click();
+  await expect(current).toHaveAttribute('data-face', '0');
+  await expect(faces.getByText(t('layers.inView'), { exact: true })).toHaveCount(1);
   await inspector.getByRole('tab', { name: t('card.tab.motion'), exact: true }).click();
   await expect(inspector.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
   await inspector.getByRole('tab', { name: t('card.tab.triggers'), exact: true }).click();

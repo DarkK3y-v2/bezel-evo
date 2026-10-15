@@ -89,3 +89,14 @@ export async function copyAndPaste(page) {
 export async function setPanelWidths(page, widths) {
   await page.addInitScript((saved) => localStorage.setItem('bezel.panelWidths', JSON.stringify(saved)), widths);
 }
+
+/** The selected Card's faces in the inspector: a numbered list, one row per face (D-24). */
+export function cardFaceList(page, t) {
+  return page.locator('#inspector').getByRole('list', { name: t('card.tab.faces'), exact: true });
+}
+
+/** Runs a face's ⋮ action (`action` is its i18n key, e.g. 'card.duplicateFace'). */
+export async function faceAction(page, t, face, action) {
+  await cardFaceList(page, t).locator(`[data-face="${face}"]`).getByRole('button', { name: t('cardInsp.faceActions', { name: await cardFaceList(page, t).locator(`[data-face="${face}"] .face-name`).textContent() }), exact: true }).click();
+  await page.getByRole('menu').getByRole('menuitem', { name: t(action), exact: true }).click();
+}
