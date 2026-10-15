@@ -371,3 +371,42 @@ Primitivos reutilizados: `segmented`, `prefixedField`, `propertySection`, `.text
 - Feito com ChatGPT/Codex no branch fid/card-faces (51a0520, 3053859, 024bcc5), merge na windows-improvements. "Base" → "Sfondo comune" (linha separada, explicada); clique numa face = "Modifica questa faccia"; rotação automática vira trigger temporal "Ogni N s → faccia successiva | faccia X" com migração automática dos temas antigos (testada em Rust); faces em fila com transição por par (fallback para a transição geral). Relatório completo em `reports/studio-card-faces-d21.md`.
 - Pós-merge: a Card usa `shapeForm()`, então o controle único de cantos (D-22) já a cobre; aplicado o rótulo `cardInsp.base` no seletor de face dos membros.
 - Gates após todos os merges: cargo test 1108 ok, clippy limpo, unit 476/476, Playwright 615/616 com `canvas-wheel-zoom` (timing sob carga) verde em série 60/60.
+
+### Lista delle facce, una transizione per Card e disegno degli angoli (D-2026-10-16-studio-redesign-fidelity-24)
+
+Nota: la richiesta iniziale chiedeva questa sezione in pt-BR; il commit `4a7422f` e la richiesta esplicita dell'utente portano i documenti `.jdi` all'italiano, quindi è scritta in italiano.
+
+- `87db413` - **Una sola transizione nel modello (Rust).**
+  - Tolte da core, renderer e DTO nativo `pair_transitions`, `CardPairTransition` e `transition_for`. Ogni cambio di faccia usa `card.transition`, e il renderer mantiene l'interruzione dei cambi rapidi.
+  - **Migrazione scelta: il campo viene ignorato.** Un tema salvato con `pairTransitions` (build di sviluppo del 15/10) si carica senza errori, anche con indici fuori intervallo. La Card tiene la sua `transition` e al salvataggio il campo non viene riscritto.
+  - Rispetto a "leggere la prima coppia come transizione" la scelta è più prevedibile, perché la transizione generale era sempre visibile e modificabile in Movimento.
+  - Test: `legacy_rotation_migrates_and_pair_transitions_are_ignored` (bezel-themes) e `one_card_transition_serves_every_face_change_in_both_directions` (bezel-render).
+  - La migrazione "Ogni N s" (`rotationSeconds` → trigger temporale) è invariata.
+- `ae7e7be` - **Un solo menu a comparsa.** `ui/menu.js` (`openMenu`, `openMenuAt`, `closeMenu`, `SEPARATOR`) contiene la logica che prima stava dentro `object-menu.js`: posizione, frecce, Home/End, Esc, Tab e chiusura fuori/blur. Il menu contestuale dell'oggetto lo riusa senza cambiare comportamento. `openMenuAt` ancora il menu sotto un pulsante ⋮, lo chiude se si preme di nuovo e restituisce il fuoco con Esc.
+- `b3d6cb0` - **Facce come lista verticale.**
+  - La riga di ogni faccia contiene numero, nome, pill "in vista", **Modifica** (mostra la faccia nel canvas, premuto mentre è quella in modifica) e un menu ⋮ con: Rinomina (mostra la faccia e mette il fuoco sul nome), Duplica, Sposta prima/dopo ed Elimina.
+  - "Sfondo comune" ha una riga a parte con la spiegazione e il suo Modifica. "+ Aggiungi" sta nell'intestazione della sezione.
+  - Spariti miniature, chip di coppia e scorrimento orizzontale.
+  - "Transizione tra le facce": effetto (select), durata (ms, arrotondata a 50 nel range 150–1500) e direzione (solo per scorrimento/ribaltamento) su una riga, più "Prova sulla faccia successiva". La scheda Movimento modifica la stessa transizione in forma completa, con il nuovo titolo e un testo senza riferimenti alle coppie.
+  - I comandi `duplicateCardFace`/`removeCardFace`/`reorderCardFace` accettano una `face` opzionale (per default quella in vista) e la faccia in vista segue la propria identità.
+  - `normalizeCard` scarta `pairTransitions` nel demo/store. Rimossi `transitionFor`, `withPairTransition` e `remapPairs`.
+  - i18n en/pt-BR/it in `areas/card.js`, chiavi orfane rimosse. Primitive riusate: `iconButton`, `pill`, `selectField`, `prefixedField`, `segmented`, `rangeField`, `listCard` (oggetti), `.button-row`/`.list-card-text`.
+- `fc824d1` - **Disegno degli angoli leggibile.**
+  - Il raggio maggiore viene disegnato alla radice quadrata della sua quota sul massimo dell'oggetto (metà del lato minore), con un minimo di 2 px. Gli altri angoli mantengono la proporzione con esso.
+  - La mappatura è monotona, una pillola resta pillola e la stessa quota appare uguale su forma, barra e copertina.
+  - Esempio: 24 px su 342×432 ora vale 6 px su 32 px, prima 2,2. Gli angoli 0/8/16/24 diventano 0/3,6/7,1/10,7.
+  - La copertina del Player usa il proprio box, `coverBox`: l'altezza, al massimo il 40% della larghezza e quanto lascia lo spazio, come in `TextFurniture::layout`.
+  - Il segno dell'angolo acceso ricalca l'angolo sul bordo esterno, con l'arco oppure con una L se l'angolo è vivo, nel colore del testo.
+  - Test unitari per mappatura, minimo, monotonia, rapporti e cover box. `corner-radii.spec` rafforzato senza togliere asserzioni.
+  - Nuovi stati `shoot.mjs`: `shape-corners-large` e `shape-radius-24`. Card: `face-menu`, `shared` e `transition`, al posto di `pair`.
+
+| Gate | Risultato |
+| --- | --- |
+| `cargo test --workspace` | 1108 superati, 15 ignorati |
+| `cargo clippy -D warnings` / `cargo fmt --check` | verdi |
+| `npm run test:unit` | 483/483; righe 99,39% |
+| e2e interessati (`e2e-slot`) | card/inspector/menu 104/104; angoli e stepping 36/36 |
+| e2e completo, quattro progetti, axe | 619/620; l'unico rosso, `video-framing:201` (dark-pt, tempi), è verde in serie 48/48 (`--workers=1 --repeat-each=3`) |
+| `shoot.mjs --area card` e `--area inspector`, dark e light | controllati a vista: lista, menu ⋮, sfondo comune, transizione su una riga, angoli 342×432 e copertina quadrata |
+
+Test e2e cambiati di proposito: le asserzioni sulle miniature e sui pixel delle facce e il test dei connettori di coppia sono stati sostituiti da test sulla lista, sul menu ⋮ da tastiera e sulla transizione unica, perché quelle funzioni non esistono più (D-24).
