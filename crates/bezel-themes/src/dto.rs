@@ -409,10 +409,11 @@ pub struct CardDto {
     pub active_face: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rotation_seconds: Option<u32>,
+    /// The one transition for every face change. A `pairTransitions` list written by
+    /// development builds of 2026-10-15 is not a field here, so it is ignored on load
+    /// and never written back (D-24).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<CardTransitionDto>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub pair_transitions: Vec<CardPairTransitionDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -443,14 +444,6 @@ pub struct CardTransitionDto {
     pub duration_ms: u32,
     #[serde(default)]
     pub include_base: bool,
-}
-
-/// Transition override for a directed face pair.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CardPairTransitionDto {
-    pub from: usize,
-    pub to: usize,
-    pub transition: CardTransitionDto,
 }
 
 fn card_transition_dto(t: bezel_core::domain::theme::CardTransition) -> CardTransitionDto {
@@ -1596,15 +1589,6 @@ impl From<&Theme> for ThemeDto {
                                 .collect(),
                             faces: c.faces.clone(),
                             active_face: c.active_face,
-                            pair_transitions: c
-                                .pair_transitions
-                                .iter()
-                                .map(|p| CardPairTransitionDto {
-                                    from: p.from,
-                                    to: p.to,
-                                    transition: card_transition_dto(p.transition),
-                                })
-                                .collect(),
                             rotation_seconds: c.rotation_seconds,
                             transition: c.transition.map(card_transition_dto),
                         }
@@ -1750,30 +1734,10 @@ impl TryFrom<&ThemeDto> for Theme {
                                 .collect::<R<Vec<_>>>()?;
                             let transition =
                                 c.transition.as_ref().map(card_transition).transpose()?;
-                            let mut seen = std::collections::BTreeSet::new();
-                            let pair_transitions = c
-                                .pair_transitions
-                                .iter()
-                                .map(|p| {
-                                    if p.from >= c.faces.len()
-                                        || p.to >= c.faces.len()
-                                        || p.from == p.to
-                                        || !seen.insert((p.from, p.to))
-                                    {
-                                        return err("invalid card transition pair");
-                                    }
-                                    Ok(bezel_core::domain::theme::CardPairTransition {
-                                        from: p.from,
-                                        to: p.to,
-                                        transition: card_transition(&p.transition)?,
-                                    })
-                                })
-                                .collect::<R<Vec<_>>>()?;
                             Ok(bezel_core::domain::theme::Card {
                                 triggers,
                                 faces: c.faces.clone(),
                                 active_face: c.active_face,
-                                pair_transitions,
                                 rotation_seconds: c.rotation_seconds,
                                 transition,
                             }

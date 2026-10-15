@@ -126,7 +126,6 @@ pub fn isolate(theme: &Theme, id: ElementId) -> Option<Theme> {
             card.triggers.clear();
             card.rotation_seconds = None;
             card.transition = None;
-            card.pair_transitions.clear();
         }
         if element.id == id {
             element.group_parent = None;
@@ -301,7 +300,6 @@ pub(crate) mod tests {
             }],
             faces: vec!["A".into(), "B".into()],
             active_face: 1,
-            pair_transitions: Vec::new(),
             rotation_seconds: Some(5),
             transition: Some(CardTransition {
                 effect: CardEffect::Fade,

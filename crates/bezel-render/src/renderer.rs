@@ -1822,7 +1822,6 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into()],
             active_face: 0,
-            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: None,
         });
@@ -1853,7 +1852,6 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into()],
             active_face: 0,
-            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: None,
         });
@@ -1907,7 +1905,6 @@ mod tests {
                 triggers: Vec::new(),
                 faces: vec!["A".into(), "B".into()],
                 active_face: 0,
-                pair_transitions: Vec::new(),
                 rotation_seconds: None,
                 transition: Some(CardTransition {
                     effect,
@@ -2014,7 +2011,6 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into()],
             active_face: 0,
-            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: Some(CardTransition {
                 effect: CardEffect::Flip,
@@ -2151,7 +2147,6 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into()],
             active_face: 0,
-            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: Some(CardTransition {
                 effect: CardEffect::Flip,

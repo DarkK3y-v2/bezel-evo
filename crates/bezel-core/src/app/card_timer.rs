@@ -202,7 +202,6 @@ mod tests {
             card: Some(Card {
                 faces: vec!["base".into(), "music".into(), "game".into()],
                 active_face: 0,
-                pair_transitions: Vec::new(),
                 rotation_seconds: Some(10),
                 transition: None,
                 triggers: vec![

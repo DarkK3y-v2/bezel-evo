@@ -1242,7 +1242,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_rotation_migrates_and_pairs_round_trip_with_validation() {
+    fn legacy_rotation_migrates_and_pair_transitions_are_ignored() {
         let (theme, _) = every_kind();
         let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
         let parent = json["elements"]
@@ -1273,20 +1273,29 @@ mod tests {
         );
         assert_eq!(timer.interval_seconds, Some(10));
         assert!(timer.next_face);
-        assert_eq!(c.transition_for(1, 2).unwrap().duration_ms, 400);
-        assert_eq!(c.transition_for(2, 1), c.transition);
+        // D-24: the Card keeps its own single transition; pair overrides are dropped.
+        let general = c.transition.unwrap();
+        assert_eq!(
+            (general.effect, general.duration_ms),
+            (bezel_core::domain::theme::CardEffect::Fade, 650)
+        );
         let saved = manifest(&parsed).unwrap();
         assert_eq!(parse_manifest(&saved).unwrap(), parsed);
         assert!(!String::from_utf8_lossy(&saved).contains("rotationSeconds"));
-        let mut bad = serde_json::to_value(ThemeDto::from(&parsed)).unwrap();
-        let parent = bad["elements"]
+        assert!(!String::from_utf8_lossy(&saved).contains("pairTransitions"));
+        let mut stale = json.clone();
+        let parent = stale["elements"]
             .as_array_mut()
             .unwrap()
             .iter_mut()
             .find(|e| e["card"].is_object())
             .unwrap();
         parent["card"]["pairTransitions"][0]["to"] = serde_json::json!(99);
-        assert!(parse_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+        assert_eq!(
+            parse_manifest(&serde_json::to_vec(&stale).unwrap()).unwrap(),
+            parsed,
+            "even an out-of-range pair is ignored, not rejected"
+        );
         let mut bad = serde_json::to_value(ThemeDto::from(&parsed)).unwrap();
         let parent = bad["elements"]
             .as_array_mut()
@@ -1319,7 +1328,6 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["Metrics".into(), "Music".into()],
             active_face: 1,
-            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: None,
         });
