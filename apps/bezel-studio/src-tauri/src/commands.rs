@@ -90,6 +90,19 @@ pub async fn list_devices(state: State<'_, Shared>) -> UiResult<DevicesDto> {
     blocking(&state, Backend::devices).await
 }
 
+/// Private memory of this installation/user, cached for at least five seconds.
+#[tauri::command]
+pub async fn memory_usage(
+    state: State<'_, Shared>,
+) -> UiResult<bezel_sensors::memory::MemoryReport> {
+    blocking(&state, |_| {
+        Ok(bezel_sensors::memory::sample(
+            bezel_sensors::memory::Scope::Studio,
+        ))
+    })
+    .await
+}
+
 /// Switches a panel in desktop mode back to USB monitor mode; `confirmed`
 /// comes from the dialog that names it and says it is not validated on
 /// hardware (D-2026-09-30-release-polish-8).

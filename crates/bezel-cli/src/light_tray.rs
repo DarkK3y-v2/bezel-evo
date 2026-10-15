@@ -8,12 +8,13 @@ use std::time::{Duration, Instant};
 use anyhow::Context;
 use bezel_cli::{Cli, Command};
 use bezel_power::handoff;
+use bezel_sensors::memory::{self, Scope};
 use clap::Parser;
 use tao::event::Event;
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::platform::run_return::EventLoopExtRunReturn;
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
-use tray_icon::{Icon, MouseButton, TrayIconBuilder, TrayIconEvent};
+use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 /// The tray icon's pictures, shared with Studio's tray.
 #[path = "../../../apps/bezel-studio/src-tauri/src/tray_icon.rs"]
@@ -86,7 +87,8 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let simulate = initial.fake;
     let mut event_loop = EventLoopBuilder::<Action>::with_user_event().build();
     let menu = Menu::new();
-    let italian = sys_locale::get_locale().is_some_and(|locale| locale.starts_with("it"));
+    let locale = sys_locale::get_locale().unwrap_or_else(|| "en".into());
+    let italian = locale.starts_with("it");
     let open = MenuItem::new(
         if italian {
             "Apri Studio"
@@ -97,7 +99,12 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         None,
     );
     let quit = MenuItem::new(if italian { "Esci" } else { "Quit" }, true, None);
-    menu.append_items(&[&open, &quit])?;
+    let memory_item = MenuItem::new(
+        memory::light_label(&memory::sample(Scope::Light), &locale),
+        false,
+        None,
+    );
+    menu.append_items(&[&open, &memory_item, &quit])?;
     let scale = event_loop
         .primary_monitor()
         .map_or(1.0, |monitor| monitor.scale_factor());
@@ -109,6 +116,10 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         .with_tooltip("Bezel Light")
         .with_icon(icon)
         .with_menu(Box::new(menu))
+        // Explicit display lets the informational item refresh BEFORE the
+        // native menu's blocking message loop starts.
+        .with_menu_on_left_click(false)
+        .with_menu_on_right_click(false)
         .build()?;
     let proxy = event_loop.create_proxy();
     MenuEvent::set_event_handler(Some(move |event| {
@@ -179,6 +190,14 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     Ok(Err(error)) => eprintln!("bezel light: sensor recovery failed: {error}"),
                     Err(_) => eprintln!("bezel light: sensor recovery thread panicked"),
                 }
+        }
+        if matches!(event, Event::UserEvent(Action::Tray(TrayIconEvent::Click {
+            button: MouseButton::Left | MouseButton::Right,
+            button_state: MouseButtonState::Up,
+            ..
+        }))) {
+            memory_item.set_text(memory::light_label(&memory::sample(Scope::Light), &locale));
+            tray.show_menu();
         }
         let wants_open = match event {
             Event::UserEvent(Action::Menu(ref event)) if event.id == *quit.id() => {

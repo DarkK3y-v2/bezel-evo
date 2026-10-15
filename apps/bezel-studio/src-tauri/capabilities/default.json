@@ -13,6 +13,7 @@
     "allow-sensor-catalog",
     "allow-select-screen",
     "allow-sample-sensors",
+    "allow-memory-usage",
     "allow-restart-libre-reader",
     "allow-search-weather-cities",
     "allow-editor-session",
