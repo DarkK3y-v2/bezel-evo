@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Sfondo in uso</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121518}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mono{font-family:'IBM Plex Mono',monospace}
+.sect{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8B939C;margin:0}
+.chk{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:#D5D9DE}
+.tgl{position:relative;width:32px;height:18px;border-radius:999px;background:#2A3036;flex:none}
+.tgl.on{background:#FF9248}
+.tgl i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#E8EAED}
+.tgl.on i{left:16px;background:#1A0E05}
+.pill{height:28px;padding:0 10px;border-radius:999px;border:1px solid #262B31;background:transparent;color:#AEB5BD;font:inherit;font-size:12px;cursor:pointer}
+.pill[aria-pressed="true"]{border-color:#4A3424;background:#1F1813;color:#FFB27A}
+.seg{display:flex;padding:3px;border-radius:9px;background:#0F1214}
+.seg button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:30px;border:0;border-radius:7px;background:transparent;color:#8B939C;font:inherit;font-weight:500;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#23282E;color:#E8EAED;font-weight:600}
+</style>
+</helmet>
+<div style="width: 360px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #121518; color: #E8EAED; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; overflow: hidden">
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 16px; border-bottom: 1px solid #1D2227">
+    <span class="sect">Tema</span>
+    <label style="display: flex; flex-direction: column; gap: 4px">
+      <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Nome del tema</span>
+      <input type="text" value="Midnight 8.8″ horizontal V4" style="height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid #262B31; background: #0F1214; color: #E8EAED; font: inherit; font-size: 14px; font-weight: 600">
+    </label>
+    <div class="seg" role="group" aria-label="Orientamento">
+      <button type="button" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px" aria-hidden="true"><rect x="7.5" y="3" width="9" height="18" rx="2"></rect></svg>Verticale</button>
+      <button type="button" aria-pressed="true"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px" aria-hidden="true"><rect x="3" y="7.5" width="18" height="9" rx="2"></rect></svg>Orizzontale</button>
+    </div>
+    <span class="mono" style="font-size: 11px; color: #6B747C">1920 × 480 px</span>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 22px; padding: 18px 14px">
+    <section style="display: flex; flex-direction: column; gap: 12px">
+      <h3 class="sect">Sfondo</h3>
+
+      <div style="display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #262B31; background: #15191C; overflow: hidden">
+        <div style="position: relative; height: 82px; background: #0E1A2B; display: flex; align-items: center; justify-content: center; color: #7DD3FC">
+          <svg viewBox="0 0 330 82" width="100%" height="82" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0"><circle cx="250" cy="96" r="70" fill="#14304F"></circle><circle cx="250" cy="96" r="70" fill="none" stroke="#2A5A86" stroke-width="2"></circle></svg>
+          <span style="position: relative; width: 34px; height: 34px; border-radius: 50%; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg></span>
+          <span class="mono" style="position: absolute; left: 8px; bottom: 8px; padding: 1px 6px; border-radius: 4px; background: rgba(0,0,0,.6); font-size: 10px; color: #E8EAED">0:24 · in loop</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: #1A2430; color: #7DD3FC; font-size: 11.5px; font-weight: 600"><svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path></svg>Video dallo schermo</span>
+          </div>
+          <strong style="font-size: 15px">earth.mp4</strong>
+          <span style="font-size: 12px; color: #8B939C; line-height: 1.45">Salvato sulla scheda SD del display: lo riproduce lo schermo, il PC non invia il video.</span>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6EE7B7"><span style="width: 6px; height: 6px; border-radius: 50%; background: #34D399"></span>Presente su Turing 8.8″</span>
+          <div style="display: flex; gap: 8px; margin-top: 4px">
+            <button type="button" style="flex: 1; height: 34px; border-radius: 8px; border: 1px solid #2C3238; background: #1B2025; color: #E8EAED; font: inherit; font-weight: 600; cursor: pointer">Cambia sfondo…</button>
+            <button type="button" aria-label="Apri in Schermo › Archivio" title="Apri in Schermo › Archivio" style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #2C3238; background: transparent; color: #AEB5BD; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M21 14v7H3V3h7"></path></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chk">Ripeti il video<span class="tgl on"><i></i></span></div>
+
+      <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: #0F1214; border: 1px solid #1D2227">
+        <div style="display: flex; align-items: center; gap: 12px">
+          <svg viewBox="0 0 120 36" width="120" height="36" aria-hidden="true" style="flex: none; border-radius: 4px">
+            <rect width="120" height="36" fill="#0c0e16"></rect>
+            <rect x="0.5" y="0.5" width="119" height="35" fill="none" stroke="#2C3238"></rect>
+            <rect x="8" y="8" width="34" height="20" rx="3" fill="#14304F" stroke="#7DD3FC" stroke-width="1" stroke-dasharray="3 2"></rect>
+            <rect x="78" y="8" width="34" height="20" rx="3" fill="#14304F" stroke="#7DD3FC" stroke-width="1" stroke-dasharray="3 2"></rect>
+          </svg>
+          <span style="font-size: 12px; line-height: 1.45; color: #AEB5BD">Il video si vede solo nelle <strong style="color: #E8EAED">finestre video</strong>. Il resto dello schermo usa questo colore.</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="width: 34px; height: 34px; border-radius: 8px; border: 1px solid #2C3238; background: #0c0e16; flex: none"></span>
+          <label style="flex: 1; display: flex; align-items: center; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #262B31; background: #121518; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">#0C0E16</label>
+          <label style="width: 64px; display: flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #262B31; background: #121518; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">100<span style="color: #7F8890; font-size: 11px">%</span></label>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px">
+          <span style="color: #8B939C">2 finestre video nel tema</span>
+          <a href="#" style="color: #FFB27A; text-decoration: none; font-weight: 600">Seleziona</a>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; font-size: 11.5px; line-height: 1.45; color: #7F8890">
+        <svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-top: 1px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M11 12h1v4h1"></path></svg>
+        <span>Nell'editor vedi la copertina del video; il movimento c'è solo sullo schermo.</span>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 10px">
+      <h3 class="sect">Aggiornamento dati</h3>
+      <div role="group" aria-label="Ogni quanto aggiornare" style="display: flex; gap: 6px">
+        <button type="button" class="pill" aria-pressed="false">0,5 s</button>
+        <button type="button" class="pill" aria-pressed="true">1 s</button>
+        <button type="button" class="pill" aria-pressed="false">2 s</button>
+        <button type="button" class="pill" aria-pressed="false">5 s</button>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":360,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

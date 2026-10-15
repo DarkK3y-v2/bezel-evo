@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Cambia sfondo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121518}
+.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mono{font-family:'IBM Plex Mono',monospace}
+.opt{display:flex;align-items:flex-start;gap:12px;width:100%;padding:12px;border:0;background:transparent;color:#E8EAED;font:inherit;text-align:left;cursor:pointer}
+.ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+.vid{display:flex;align-items:center;gap:10px;width:100%;padding:8px;border-radius:9px;font:inherit;color:#E8EAED;text-align:left;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 360px; height: 900px; box-sizing: border-box; display: flex; flex-direction: column; background: #121518; color: #E8EAED; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 8px; padding: 12px 10px; border-bottom: 1px solid #1D2227">
+    <button type="button" aria-label="Indietro" style="width: 32px; height: 32px; border-radius: 8px; border: 0; background: transparent; color: #AEB5BD; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+    <h2 style="margin: 0; font-size: 15px; font-weight: 600">Cambia sfondo</h2>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px">
+    <p style="margin: 0 0 4px; font-size: 12.5px; line-height: 1.5; color: #AEB5BD">Lo sfondo è uno solo. Scegli da dove arriva: nulla cambia finché non confermi.</p>
+
+    <div style="border-radius: 12px; border: 1px solid #23282E; background: #15191C">
+      <button type="button" class="opt" aria-expanded="false">
+        <span class="ico" style="background: #0c0e16; border: 1px solid #2C3238"></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+          <strong>Tinta unita</strong>
+          <span style="font-size: 12px; color: #8B939C; line-height: 1.4">Un colore pieno, anche trasparente.</span>
+        </span>
+        <svg class="ic" viewBox="0 0 24 24" style="color: #6B747C; margin-top: 10px" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+      </button>
+    </div>
+
+    <div style="border-radius: 12px; border: 1px solid #23282E; background: #15191C">
+      <button type="button" class="opt" aria-expanded="false">
+        <span class="ico" style="background: #2A1A2E; color: #F0ABFC"><svg class="ic" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+          <strong>Dal computer</strong>
+          <span style="font-size: 12px; color: #8B939C; line-height: 1.4">Immagine, GIF o video. Viene salvato dentro il tema.</span>
+        </span>
+        <svg class="ic" viewBox="0 0 24 24" style="color: #6B747C; margin-top: 10px" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+      </button>
+    </div>
+
+    <div style="border-radius: 12px; border: 1px solid #FF9248; background: #1A1612">
+      <button type="button" class="opt" aria-expanded="true">
+        <span class="ico" style="background: #1A2430; color: #7DD3FC"><svg class="ic" viewBox="0 0 24 24" style="width: 18px; height: 18px" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path></svg></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+          <span style="display: flex; align-items: center; gap: 8px"><strong>Video dallo schermo</strong><span class="mono" style="padding: 0 5px; border-radius: 4px; background: #1A2430; color: #7DD3FC; font-size: 10px; line-height: 16px">IN USO</span></span>
+          <span style="font-size: 12px; color: #8B939C; line-height: 1.4">Un video già salvato sul display. Lo riproduce lui: fluido, senza passare dall'USB.</span>
+        </span>
+        <svg class="ic" viewBox="0 0 24 24" style="color: #FFB27A; margin-top: 10px" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+      </button>
+
+      <div role="radiogroup" aria-label="Video sul Turing 8.8″" style="display: flex; flex-direction: column; gap: 4px; padding: 0 12px 12px">
+        <span class="mono" style="font-size: 10.5px; color: #6B747C; padding: 4px 2px">SU TURING 8.8″ · 3 VIDEO</span>
+        <sc-for list="{{videos}}" as="v" hint-placeholder-count="3">
+          <button type="button" role="radio" aria-checked="{{v.checked}}" class="vid" style="{{v.style}}">
+            <span style="{{v.dot}}"></span>
+            <span style="width: 52px; height: 20px; border-radius: 3px; background: {{v.tint}}; flex: none"></span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+              <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{v.name}}</span>
+              <span class="mono" style="font-size: 10.5px; color: #6B747C">{{v.meta}}</span>
+            </span>
+            <sc-if value="{{v.inUse}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; color: #8B939C">attuale</span></sc-if>
+          </button>
+        </sc-for>
+        <button type="button" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; margin-top: 4px; border-radius: 8px; border: 1px dashed #3A4149; background: transparent; color: #AEB5BD; font: inherit; font-size: 12.5px; cursor: pointer"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px; color: #FFB27A" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"></path></svg>Invia un video allo schermo…</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border-top: 1px solid #1D2227; background: #101316">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8B939C">
+      <span style="text-decoration: line-through">earth.mp4</span>
+      <svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+      <strong style="color: #E8EAED">nebulosa.mp4</strong>
+    </div>
+    <div style="display: flex; gap: 8px">
+      <button type="button" style="flex: 1; height: 36px; border-radius: 8px; border: 1px solid #2C3238; background: transparent; color: #E8EAED; font: inherit; font-weight: 600; cursor: pointer">Annulla</button>
+      <button type="button" style="flex: 1.4; height: 36px; border-radius: 8px; border: 0; background: #FF9248; color: #1A0E05; font: inherit; font-weight: 700; cursor: pointer">Usa questo video</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":360,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const list = [
+      { name: 'earth.mp4', meta: 'SD · 0:24 · 48 MB', tint: '#14304F', inUse: true },
+      { name: 'nebulosa.mp4', meta: 'SD · 1:10 · 212 MB', tint: '#2A1A40', sel: true },
+      { name: 'demo.mp4', meta: 'interna · 0:45 · 84 MB', tint: '#1F2A16' }
+    ];
+    return {
+      videos: list.map((v) => ({
+        ...v,
+        checked: v.sel ? 'true' : 'false',
+        style: v.sel ? 'border: 1px solid #4A3424; background: #221A12' : 'border: 1px solid transparent; background: transparent',
+        dot: 'width: 16px; height: 16px; border-radius: 50%; box-sizing: border-box; flex: none; ' +
+          (v.sel ? 'border: 5px solid #FF9248; background: #1A0E05' : 'border: 1.5px solid #4A525A')
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
