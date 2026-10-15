@@ -8,26 +8,27 @@ import { canFitContent } from '../editor/fit-content.js';
 // (D-2026-10-09-studio-redesign-fidelity-8), its tabs, position and size,
 // then the sections of its tab (artboards Main, GraphData/Look,
 // PlayerData/Look), all built from the primitives of ui/fields.js (D-14).
-import { isShown, canGroup } from '../editor/cards.js';
+import { canGroup } from '../editor/cards.js';
 import { CLOCK_PATTERNS, formatClock } from '../clock-format.js';
 import { readIcon } from '../icon-catalog.js';
 import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
-  checkField, chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
+  chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
   adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
 } from './fields.js';
 import { sentenceParts } from '../sentence.js';
 import { CORNERS, cornerValue } from '../corner-radii.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
-import { ORIENTATIONS } from '../editor/geometry.js';
-import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
+import { isHorizontal, isTurned, orientationOf } from '../editor/geometry.js';
+import { videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
-import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
+import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, layerFacts, quickDurations, refreshChoices, tabAfterKey, tabsOf } from '../inspector-tabs.js';
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
+import { createBackgroundPanel } from './inspector-background.js';
 import { TRANSITION_RANGE, formatMs, transitionOf, transitionPatch } from '../value-transition.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
@@ -51,10 +52,11 @@ const ART = Object.freeze({
 /** The video-background actions and what they depend on, when none are given. */
 const NO_VIDEO_ACTIONS = Object.freeze({
   context: () => ({ screen: null, live: false, liveVideo: null, tools: null, locale: 'en', auto: null, framing: false, motion: true }),
-  useVideo: () => {},
-  useImage: () => {},
   openStorage: () => {},
-  openMedia: () => {},
+  pickFile: async () => null,
+  importFile: async () => null,
+  restoreStored: () => {},
+  sendToScreen: () => {},
   setFraming: () => {},
   openGuide: () => {},
 });
@@ -102,12 +104,15 @@ function arcPreview(kind) {
  * @param {object} deps
  * @param {HTMLElement} deps.root
  * @param {() => number} deps.minRefresh the fastest refresh a theme may ask for, seconds (from the backend)
- * @param {{context: () => {screen: object|null, live: boolean, liveVideo: object|null, tools: object|null, locale: string, auto: {rotation: number, size: object|null}|null, framing: boolean, motion: boolean}, useVideo: () => void, useImage: () => void, openStorage: () => void, openMedia: () => void, setFraming: (on: boolean) => void, openGuide: () => void}} [deps.video]
+ * @param {{context: () => {screen: object|null, live: boolean, liveVideo: object|null, tools: object|null, locale: string, auto: {rotation: number, size: object|null}|null, framing: boolean, motion: boolean}, openStorage: () => void, pickFile: () => Promise<object|null>, importFile: (source: string) => Promise<object|null>, restoreStored: (path: string, medium: string) => void, sendToScreen: (medium: string) => void, setFraming: (on: boolean) => void, openGuide: () => void}} [deps.video]
  *   the screen and ffmpeg the video background is told against, what Auto
  *   turns it (`video_auto`), whether the canvas frames it now and whether
- *   the preview may move, and its actions: pick a video (or GIF) for the
- *   background, pick a picture, show the storage tab (where the missing
- *   video is sent), show the Media panel, frame it on the canvas, and open the ffmpeg guide
+ *   the preview may move, and its actions: show the storage tab (where the
+ *   missing video is sent), pick a picture, GIF or video and add it to the
+ *   chooser as a draft, and import it only on confirmation, send a stored
+ *   video's local copy again or another video to the screen (both in the
+ *   storage tab, with its confirmation), frame it on the canvas, and open
+ *   the ffmpeg guide
  * @param {object|null} [deps.bridge] the backend, for what the inspector reads itself
  * @param {{lastSample: () => object|null, renderElement: (id: string, opts?: {max?: number, motion?: boolean}) => Promise<object|null>}} [deps.host]
  *   the last sample read (sensor values, apps, media) and an element of the
@@ -171,8 +176,6 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   // --------------------------------------------------------------- theme --
   const button = (text, onclick) => el('button', { type: 'button', class: 'text-button', text, onclick });
-  /** A button that opens another panel, with its icon (the Media panel, Screen › Storage). */
-  const linkButton = (text, iconName, onclick, attrs = {}) => el('button', { type: 'button', class: 'text-button', onclick, ...attrs }, [icon(ICONS[iconName], 16), text]);
 
   // ------------------------------------------------------------ framing --
   /** Applies a framing patch to the video background: one store command, none when it changes nothing. */
@@ -287,28 +290,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   }
 
   /**
-   * A video background (a video or an animated GIF): its poster and name,
-   * its framing, what the connected screen does with it (the storage tab
-   * sends a missing one), what ffmpeg is for when there is no poster, and
-   * the other backgrounds.
+   * The options of a video from the computer (the card shows its poster,
+   * name and where it is): what the connected screen does with it (the
+   * storage tab sends a missing one), its framing, and what ffmpeg is for
+   * when there is no poster.
    */
-  function videoBackground(bg, assets) {
+  function videoOptions(bg) {
     const context = video.context();
-    const asset = assets.find((a) => a.ref === bg.asset) ?? { ref: bg.asset };
-    const posterUrl = bg.poster ? assets.find((a) => a.ref === bg.poster)?.dataUrl : null;
-    const facts = videoFacts(asset, (n) => formatBytes(n, context.locale));
     const status = videoStatus(context);
-    const nodes = [
-      el('div', { class: 'bg-video', role: 'group', 'aria-label': t('bg.video') }, [
-        el('span', { class: 'thumb', style: posterUrl ? { backgroundImage: `url(${posterUrl})` } : {} }, posterUrl ? [] : [icon(ICONS.film, 22)]),
-        el('span', { class: 'media-name' }, [
-          el('strong', { text: fileNameOf(bg.asset) }),
-          facts.length ? el('small', { text: facts.join(' · ') }) : null,
-        ]),
-      ]),
-      framingGroup(bg, context),
-      el('p', { class: 'hint video-status', dataset: { status }, text: t(`inspector.video.${status}`) }),
-    ];
+    const nodes = [el('p', { class: 'hint video-status', dataset: { status }, text: t(`inspector.video.${status}`) })];
     if (status === 'missing') nodes.push(el('div', { class: 'button-row' }, [button(t('inspector.video.openStorage'), () => video.openStorage())]));
     if (!bg.poster && context.tools && !context.tools.ready) {
       nodes.push(el('p', { class: 'hint', text: t('inspector.video.noPoster') }));
@@ -316,109 +306,48 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     } else if (!bg.poster) {
       nodes.push(el('p', { class: 'hint', text: t('inspector.video.noPosterReady') }));
     }
-    nodes.push(el('div', { class: 'button-row' }, [
-      button(t('inspector.replaceVideo'), () => video.useVideo()),
-      button(t('inspector.useImage'), () => video.useImage()),
-    ]));
+    nodes.push(framingGroup(bg, context));
     return nodes;
   }
 
   // ---------------------------------------------------------- background --
-  // The background's kind is a choice in plain sight
-  // (D-2026-10-15-studio-redesign-fidelity-23): a colour, a picture or
-  // video from this PC, or a video stored on the screen. Each switch is one
-  // store command (one undo step) and brings back the last background of
-  // that kind; a kind with nothing to show yet is only chosen here, the
-  // theme unchanged, until a file is picked.
-  const BG_KINDS = Object.freeze([['color', 'inspector.color'], ['pc', 'insp.bgPc'], ['screen', 'insp.bgScreen']]);
-  const bgKindOf = (bg) => (bg.type === 'deviceVideo' ? 'screen' : bg.type === 'color' ? 'color' : 'pc');
-  /** The last background of each kind seen, to come back to. */
-  const lastBackground = { color: null, pc: null, screen: null };
-  /** A kind chosen with nothing to show yet (null: the theme's own). */
-  let pendingKind = null;
+  // One card for the background in use, its kind's options, and the chooser
+  // that changes it (D-2026-10-16-studio-redesign-fidelity-25).
+  const background = createBackgroundPanel({
+    t, store, bridge, video, colorField, videoOptions, bytes: formatBytes, redraw: () => render(shown.assets),
+  });
 
-  function chooseBackground(kind, bg, assets) {
-    const current = bgKindOf(bg);
-    if (kind === current) {
-      if (pendingKind !== null) {
-        pendingKind = null;
-        render(shown.assets);
-      }
-      return;
-    }
-    const last = lastBackground[kind];
-    const usable = last !== null && (kind !== 'pc' || assets.some((a) => a.ref === last.asset));
-    if (kind === 'color' || usable) {
-      pendingKind = null;
-      store.dispatch('setTheme', { patch: { background: usable ? last : { type: 'color', color: bg.color ?? '#0c0e16ff' } } });
-      return;
-    }
-    pendingKind = kind;
-    render(shown.assets);
+  /** Vertical | Horizontal, keeping the 180° turn (like the stage's buttons). */
+  function orientationField(theme) {
+    const axis = isHorizontal(theme.orientation) ? 'horizontal' : 'vertical';
+    const field = segmented(t('inspector.orientation'), axis, [['vertical', t('axis.vertical')], ['horizontal', t('axis.horizontal')]], (next) => {
+      if (next !== axis) store.dispatch('setOrientation', { orientation: orientationOf(next, isTurned(theme.orientation)) });
+    }, { bare: true });
+    field.classList.add('theme-orientation');
+    const [vertical, horizontal] = field.children;
+    vertical.prepend(icon(ICONS.vertical, 14));
+    horizontal.prepend(icon(ICONS.horizontal, 14));
+    return field;
   }
 
-  /** Picks a picture or a video in the native dialog. */
-  const pickButtons = () => el('div', { class: 'button-row' }, [button(t('inspector.useImage'), () => video.useImage()), button(t('inspector.useVideo'), () => video.useVideo())]);
-
-  /** A picture or video from this PC: the one shown, or how to pick one. */
-  function pcBackground(bg, assets) {
-    const nodes = [
-      el('p', { class: 'hint', text: t('insp.bgPcHint') }),
-      linkButton(t('insp.bgOpenMedia'), 'media', () => video.openMedia(), { id: 'bg-open-media' }),
-    ];
-    if (bg.type === 'video') return [...nodes, ...videoBackground(bg, assets)];
-    if (bg.type === 'image') return [...nodes, el('p', { class: 'hint', text: t('bg.image') }), el('strong', { class: 'bg-file', text: fileNameOf(bg.asset) }), pickButtons()];
-    return [...nodes, el('p', { class: 'hint', text: t('insp.bgPending') }), pickButtons()];
-  }
-
-  /** A video stored on the screen: the one shown with its loop and colours, or where to pick one. */
-  function screenBackground(bg) {
-    const nodes = [
-      el('p', { class: 'hint', text: t('insp.bgScreenHint') }),
-      linkButton(t('insp.bgOpenStorage'), 'sdCard', () => video.openStorage(), { id: 'bg-open-storage' }),
-    ];
-    if (bg.type !== 'deviceVideo') return [...nodes, el('p', { class: 'hint', text: t('insp.bgPending') })];
-    const context = video.context();
-    const theme = store.getState().theme;
-    const windows = theme.elements.some((e) => isShown(theme, e) && e.kind.type === 'shape' && e.kind.videoWindow);
-    const status = context.live ? context.liveVideo?.state : null;
-    return [
-      ...nodes,
-      el('strong', { class: 'bg-file', text: fileNameOf(bg.path) }),
-      el('p', { class: 'hint', text: t('deviceVideo.fromScreen') }),
-      checkField(t('deviceVideo.loop'), bg.looping !== false, (looping) => store.dispatch('setTheme', { patch: { background: { ...bg, looping } } })),
-      windows && colorField(t('deviceVideo.outsideColor'), bg.color ?? '#000000ff', (color) => store.dispatch('setTheme', { patch: { background: { ...bg, color } } })),
-      el('p', { class: 'hint', text: t('deviceVideo.preview') }),
-      status === 'storedMissing' && el('p', { class: 'hint', text: t('deviceVideo.missing') }),
-      status === 'noPlayback' && el('p', { class: 'hint', text: t('deviceVideo.unsupported') }),
-    ].filter(Boolean);
-  }
-
-  /** The Background section: the kind, then that kind's own controls. */
-  function backgroundSection(bg, assets) {
-    const current = bgKindOf(bg);
-    lastBackground[current] = bg;
-    if (pendingKind === current) pendingKind = null;
-    const kind = pendingKind ?? current;
-    let body;
-    if (kind === 'color') body = [colorField(t('inspector.color'), bg.color, (c) => store.dispatch('setTheme', { patch: { background: { type: 'color', color: c } } }))];
-    else if (kind === 'pc') body = pcBackground(current === 'pc' ? bg : { type: 'none' }, assets);
-    else body = screenBackground(bg);
-    return section('background', t('common.background'), [
-      segmented(t('insp.bgType'), kind, BG_KINDS.map(([v, key]) => [v, t(key)]), (v) => chooseBackground(v, bg, assets), { bare: true }),
-      el('div', { class: 'background-body', dataset: { kind } }, body),
+  /** How often the theme reads its sensors: the quick values, and the theme's own when it is another. */
+  function refreshSection(theme) {
+    const set = (refreshSeconds) => store.dispatch('setTheme', { patch: { refreshSeconds } });
+    return section('refresh', t('inspector.refresh'), [
+      el('div', { class: 'chip-group', role: 'group', 'aria-label': t('inspector.refresh') }, refreshChoices(theme.refreshSeconds, minRefresh())
+        .map(({ seconds, pressed }) => chipButton(t('unit.seconds', { value: seconds }), pressed, () => !pressed && set(seconds)))),
     ]);
   }
 
   function themeForm(theme, assets) {
+    if (background.isOpen()) return background.chooser(theme.background, assets);
     return [
       el('h2', { text: t('inspector.theme') }),
       textField(t('common.name'), theme.name, (v) => store.dispatch('setTheme', { patch: { name: v } })),
-      el('p', { class: 'hint', text: t('inspector.canvas', { width: theme.canvas.width, height: theme.canvas.height }) }),
-      selectField(t('inspector.orientation'), theme.orientation, ORIENTATIONS.map((o) => [o, t(`orientation.${o}`)]), (o) => store.dispatch('setOrientation', { orientation: o })),
-      backgroundSection(theme.background, assets),
-      el('h3', { text: t('inspector.refresh') }),
-      rangeField(t('inspector.refreshSeconds'), theme.refreshSeconds, (v) => store.dispatch('setTheme', { patch: { refreshSeconds: v } }), { min: minRefresh(), max: 5, step: minRefresh(), format: (v) => t('unit.seconds', { value: v }) }),
+      orientationField(theme),
+      el('p', { class: 'hint theme-canvas', text: t('inspector.canvas', { width: theme.canvas.width, height: theme.canvas.height }) }),
+      background.section(theme.background, assets),
+      refreshSection(theme),
     ];
   }
 
@@ -1250,8 +1179,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     if (chosen.length === 0) {
       shownElement = null;
       nodes = themeForm(theme, assets);
-    } else if (chosen.length === 1) nodes = elementForm(chosen[0], theme, assets);
-    else nodes = multiForm(chosen.map((e) => e.id));
+    } else {
+      background.dismiss();
+      nodes = chosen.length === 1 ? elementForm(chosen[0], theme, assets) : multiForm(chosen.map((e) => e.id));
+    }
     // Keep focus where the user was: on the same tab, on the field of the
     // same label, or of the same stable id (the framing's). A number field
     // stepped with its arrows or spin buttons stays the same input (focus,
@@ -1292,8 +1223,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   function videoSignature() {
     const { theme, selection } = store.getState();
-    if (selection.length || !['video', 'deviceVideo'].includes(theme.background.type)) return '';
+    if (selection.length) return '';
     const c = video.context();
+    if (background.isOpen()) return JSON.stringify([c.screen, c.live, c.liveVideo?.state]);
+    if (!['video', 'deviceVideo'].includes(theme.background.type)) return '';
     if (theme.background.type === 'deviceVideo') return JSON.stringify([c.live, c.screen?.key, c.liveVideo?.state, c.liveVideo?.path]);
     return JSON.stringify([videoStatus(c), c.tools?.ready ?? null, c.tools?.installHints?.length ?? 0, c.auto?.rotation ?? null, Boolean(c.framing), c.motion !== false]);
   }
@@ -1313,5 +1246,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     refreshLive();
   }
 
-  return { render, contextChanged, frameShown };
+  return { render, contextChanged, frameShown,
+    storageChanged(screen, overview) {
+      if (background.updateListing(screen, overview) && !store.getState().selection.length) render(shown.assets);
+    },
+  };
 }

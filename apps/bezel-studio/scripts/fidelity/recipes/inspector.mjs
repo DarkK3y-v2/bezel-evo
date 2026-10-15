@@ -1,4 +1,5 @@
 // The inspector (artboards Main's right panel, GraphData/Look, PlayerData/Look).
+import { fileURLToPath } from 'node:url';
 import { setPanelWidths } from '../../../tests/e2e/helpers.mjs';
 import { translator } from '../../../src/i18n/index.js';
 
@@ -7,16 +8,61 @@ const t = translator('it');
 async function standalone(app, kind) {
   await setPanelWidths(app.page, { inspector: 360 });
   await app.page.reload();
-  await app.add(kind);
+  if (kind) await app.add(kind);
+}
+const inspector = (app) => app.page.locator('#inspector');
+/** "Change background…", then one of its sources opened. */
+async function openChooser(app, sourceKey) {
+  await inspector(app).getByRole('button', { name: t('insp.bgChange'), exact: true }).click();
+  const head = inspector(app).locator('.bg-source-head').filter({ hasText: t(sourceKey) });
+  if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click();
 }
 
 export default {
   area: 'inspector',
+  mockDesigns: [{
+    root: fileURLToPath(new URL('../../../../../.jdi/phases/studio-redesign-fidelity/design-bg/project/', import.meta.url)),
+    artboards: ['BgCurrent', 'BgChooser', 'BgStates'],
+  }],
   artboards: ['Main', 'GraphData', 'GraphLook', 'PlayerData', 'PlayerLook'],
   states: [
     { name: 'theme', run: async () => {} },
-    { name: 'theme-pc', run: (app) => app.page.locator('#inspector').getByRole('button', { name: t('insp.bgPc'), exact: true }).click() },
-    { name: 'theme-screen', run: (app) => app.page.locator('#inspector').getByRole('button', { name: t('insp.bgScreen'), exact: true }).click() },
+    // The background in use and its chooser (D-2026-10-16-studio-redesign-fidelity-25, artboards BgCurrent, BgChooser, BgStates).
+    { name: 'bg-computer-image', run: async (app) => {
+      await standalone(app, null);
+      await app.page.locator('#tab-media').click();
+      await app.page.locator('#media-add').click();
+      await app.page.locator('.media-item').getByRole('button', { name: t('collection.useBackground'), exact: true }).click();
+    } },
+    { name: 'bg-computer-video', run: async (app) => {
+      await standalone(app, null);
+      await openChooser(app, 'insp.bgComputer');
+      await inspector(app).getByRole('button', { name: t('insp.bgPickFile'), exact: true }).click();
+      await inspector(app).getByRole('button', { name: t('insp.bgUseVideo'), exact: true }).click();
+      await app.page.locator('#bg-change').waitFor({ state: 'visible' });
+    } },
+    { name: 'bg-screen', demo: 'screenVideoMissing', run: async (app) => {
+      await standalone(app, null);
+      await openChooser(app, 'insp.bgScreenVideo');
+      await inspector(app).getByRole('radio', { name: /^AMD\.mp4/ }).check();
+      await inspector(app).getByRole('button', { name: t('insp.bgUseVideo'), exact: true }).click();
+      await app.page.locator('#bg-change').waitFor({ state: 'visible' });
+    } },
+    { name: 'bg-chooser', demo: 'screenVideoMissing', run: async (app) => {
+      await standalone(app, null);
+      await openChooser(app, 'insp.bgScreenVideo');
+      await inspector(app).getByRole('radio', { name: /^AMD\.mp4/ }).check();
+      await inspector(app).getByRole('button', { name: t('insp.bgUseVideo'), exact: true }).click();
+      await app.page.locator('#bg-change').waitFor({ state: 'visible' });
+      await openChooser(app, 'insp.bgScreenVideo');
+      await inspector(app).getByRole('radio', { name: /^NVI\.mp4 / }).check();
+    } },
+    { name: 'bg-missing', demo: 'screenVideoMissing', run: (app) => standalone(app, null) },
+    { name: 'bg-gone', demo: 'screenVideoGone', run: (app) => standalone(app, null) },
+    { name: 'bg-no-playback', demo: 'noPlayback', run: async (app) => {
+      await standalone(app, null);
+      await inspector(app).getByRole('button', { name: t('insp.bgChange'), exact: true }).click();
+    } },
     { name: 'ring', run: (app) => app.add('ring') },
     { name: 'ring-look', run: async (app) => { await app.add('ring'); await app.inspectorTab(1); } },
     { name: 'graph', run: (app) => standalone(app, 'graph') },

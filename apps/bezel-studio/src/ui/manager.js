@@ -569,11 +569,11 @@ export function createManagerView({ t, locale, bridge, host }) {
    * card's, checked; below them, unchecked, the files deleted through Bezel
    * whose copies it holds.
    */
-  async function restore(medium) {
+  async function restore(medium, path = null) {
     const data = host.data();
     const entries = restorableFor(data.restorable, medium);
     const free = (medium === 'internal' ? data.internal : data.card)?.free ?? 0;
-    const chosen = new Set(restoreDefaults(entries));
+    const chosen = new Set(path === null ? restoreDefaults(entries) : entries.filter((entry) => entry.path === path && entry.localCopy).map((entry) => entry.id));
     const m = modal(t('storage.restore.title', { to: t(`storage.to.${medium}`) }), { wide: true });
     const total = el('p', { class: 'plan-total', 'aria-live': 'polite' });
     m.button('cancel', t('dialog.cancel'));
@@ -826,6 +826,7 @@ export function createManagerView({ t, locale, bridge, host }) {
     filterBar,
     cleanup,
     cache,
+    restore,
     /** The screen changed: its selection and thumbnails go. */
     reset() {
       selection.internal = emptySelection();

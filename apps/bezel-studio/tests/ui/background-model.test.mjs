@@ -4,13 +4,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  BACKGROUND_SOURCES, DEFAULT_BACKGROUND_COLOR, backgroundKind, backgroundName, backgroundOptions, backgroundSource, backgroundStatus,
+  BACKGROUND_SOURCES, DEFAULT_BACKGROUND_COLOR, backgroundFileDraft, backgroundKind, backgroundName, backgroundOptions, backgroundSource, backgroundStatus,
   chooserSources, chosenBackground, colorName, confirmKey, imageFits, localCopyOf, mediumOf, sameBackground, screenVideos, startColor,
   startPicks, storedOnScreen, uploadMedium, videoWindowIds,
 } from '../../src/editor/background.js';
 import { createStore } from '../../src/editor/store.js';
 import { DEMO_THEME } from '../../src/demo-theme.js';
 import { SCENARIOS } from '../../src/demo-data.js';
+import { LOCALES } from '../../src/i18n/index.js';
 
 const color = { type: 'color', color: '#112233ff' };
 const image = { type: 'image', asset: 'assets/foto.png', fit: 'contain' };
@@ -72,6 +73,10 @@ test('the screen listing says what it stores and what Bezel can send again', () 
   assert.equal(storedOnScreen(overview, 'sd/video/old.mp4'), false);
   assert.equal(storedOnScreen(null, 'sd/video/AMD.mp4'), null, 'not known yet');
   assert.equal(storedOnScreen({}, 'x'), false);
+  const partial = { ...overview, folderErrors: [{ medium: 'sd', kind: 'video' }] };
+  assert.equal(storedOnScreen(partial, 'sd/video/old.mp4'), null, 'a failed listing does not prove the video is missing');
+  assert.equal(storedOnScreen(partial, 'sd/video/AMD.mp4'), true, 'a known file is present');
+  assert.equal(storedOnScreen(partial, 'internal/video/old.mp4'), false, 'another folder was listed successfully');
   assert.equal(localCopyOf(overview, 'sd/video/old.mp4').path, 'sd/video/old.mp4');
   assert.equal(localCopyOf(overview, 'sd/video/gone.mp4'), null, 'no copy: nothing to send');
   assert.equal(localCopyOf(null, 'x'), null);
@@ -160,4 +165,24 @@ test('a confirmed change is one undo step, and nothing is set before it', () => 
   store.undo();
   assert.deepEqual(store.getState().theme.background, before);
   assert.ok(!store.canUndo() && !store.isDirty());
+});
+
+test('every text the model names exists in every locale', () => {
+  const contexts = [null, plays, host].flatMap((screen) => [false, true].flatMap((live) => [null, 'onDevice', 'missing', 'storedMissing', 'noPlayback', 'host', 'noConverter']
+    .flatMap((state) => [null, true, false].map((isStored) => ({ screen, live, liveVideo: state ? { state } : null, stored: isStored })))));
+  const keys = new Set();
+  for (const bg of [color, image, clip, stored]) for (const context of contexts) keys.add(backgroundStatus(bg, context)?.key);
+  for (const screen of [null, plays, host]) for (const s of chooserSources(screen)) keys.add(s.disabled);
+  for (const bg of [null, color, image, clip, stored]) for (const source of BACKGROUND_SOURCES) keys.add(confirmKey(bg, source));
+  keys.delete(undefined);
+  keys.delete(null);
+  for (const [locale, table] of Object.entries(LOCALES)) for (const key of keys) assert.equal(typeof table[key], 'string', `${locale}: ${key}`);
+});
+
+test('picking a native file creates only a draft; the confirmed import supplies its actual asset', () => {
+  assert.equal(backgroundFileDraft(null), null);
+  assert.equal(backgroundFileDraft('notes.txt'), null);
+  assert.deepEqual(backgroundFileDraft('C:/Videos/Clip.MP4'), { source: 'C:/Videos/Clip.MP4', ref: 'C:/Videos/Clip.MP4', kind: 'video' });
+  assert.equal(backgroundFileDraft('/pictures/a.png').kind, 'image');
+  assert.equal(backgroundFileDraft('/pictures/a.gif').kind, 'image', 'animation is determined by the importer, not guessed from its extension');
 });

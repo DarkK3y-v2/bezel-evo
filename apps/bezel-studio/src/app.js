@@ -28,7 +28,7 @@ import { shortcutFor } from './shortcuts.js';
 import { createRenderScheduler } from './render-scheduler.js';
 import { createPreviewAnimation } from './preview-animation.js';
 import { errorText, sensorLabel } from './messages.js';
-import { backgroundOf, droppable, fileNameOf, videoFacts } from './editor/background.js';
+import { backgroundFileDraft, backgroundOf, droppable, fileNameOf, videoFacts } from './editor/background.js';
 import { framingOf, framingPercents } from './editor/video-framing.js';
 import { deviceLabel, liveScreenIn } from './live-screen.js';
 import { libreStatus } from './libre-status.js';
@@ -224,6 +224,7 @@ const screenPanel = createScreenPanel({
 });
 
 const storage = createStoragePanel({
+  onOverview: (screen, overview) => inspector.storageChanged(screen, overview),
   root: $('storage-panel'),
   useBackground: (file) => {
     store.dispatch('setTheme', { patch: { background: { type: 'deviceVideo', path: file.path, looping: true, color: '#0c0e16ff' } } });
@@ -332,10 +333,17 @@ const inspector = createInspector({
       screen: currentScreen(), live: state.live, liveVideo: state.liveVideo, tools: state.mediaTools, locale,
       auto: state.auto.value, framing: canvasView.framing(), motion: !reducedMotion?.matches,
     }),
-    useVideo: () => addMedia(null, { asBackground: true }),
-    useImage: () => useImage(),
     openStorage: () => openStorage(),
-    openMedia: () => library.selectTab('media'),
+    pickFile: () => pickBackgroundFile(),
+    importFile: (source) => addMedia(source),
+    restoreStored: (path, medium) => {
+      openStorage();
+      void storage.restore(medium, path);
+    },
+    sendToScreen: (medium) => {
+      openStorage();
+      void storage.choose(medium);
+    },
     setFraming: (on) => setFramingMode(on),
     openGuide: () => bridge.openGuide('ffmpeg', guideLocale(locale)).catch((e) => fail(e)),
   },
@@ -1015,21 +1023,23 @@ function addedText(added) {
  * Adds a video, an animated GIF or a picture to the theme: the file dropped
  * (`source`), else one picked in the native dialog. With `asBackground` it
  * becomes the theme's background (one undo step); a poster may take a few
- * seconds, meanwhile the Media panel says so.
+ * seconds, meanwhile the Media panel says so. Answers what was added (null: nothing).
  */
 async function addMedia(source = null, { asBackground = false } = {}) {
-  if (state.addingMedia) return;
+  if (state.addingMedia) return null;
   state.addingMedia = true;
   library.setAdding(true);
   try {
     const added = await bridge.addMedia(source);
-    if (!added) return;
+    if (!added) return null;
     await refreshAssets();
     if (asBackground) store.dispatch('setTheme', { patch: { background: backgroundOf(added) } });
     if (added.kind === 'video' && !added.poster) await refreshTools();
     toast(addedText(added));
+    return added;
   } catch (e) {
     fail(e);
+    return null;
   } finally {
     state.addingMedia = false;
     library.setAdding(false);
@@ -1069,15 +1079,14 @@ async function useCollected(item, target, at) {
   return added;
 }
 
-/** Picks a picture in the native dialog and makes it the background. */
-async function useImage() {
+/** Picks a draft file for the background chooser; importing waits for confirmation. */
+async function pickBackgroundFile() {
   try {
-    const added = await bridge.addImage();
-    if (!added) return;
-    await refreshAssets();
-    store.dispatch('setTheme', { patch: { background: { type: 'image', asset: added.ref, fit: 'cover' } } });
+    const source = await bridge.pickMedia();
+    return backgroundFileDraft(source);
   } catch (e) {
     fail(e);
+    return null;
   }
 }
 

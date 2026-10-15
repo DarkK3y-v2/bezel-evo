@@ -325,6 +325,27 @@ export const DEMO_DRAGON_THEME = Object.freeze({
   ],
 });
 
+/**
+ * A theme whose background is a video stored on the screen, with two video
+ * windows (D-2026-10-16-studio-redesign-fidelity-25): `relogio.mp4` is
+ * catalogued but gone from the vendor card (Bezel holds its local copy),
+ * `sumido.mp4` was never sent through Bezel.
+ */
+function screenVideoTheme(path) {
+  const window = (id, x) => ({
+    id, name: `Window ${id}`, frame: { x, y: 120, width: 400, height: 240 }, opacity: 1, visible: true, locked: false,
+    kind: { type: 'shape', shape: 'rect', radius: 16, fill: '#000000ff', strokeWidth: 0, videoWindow: true },
+  });
+  return Object.freeze({
+    ...DEMO_VIDEO_THEME,
+    name: 'Vídeo da tela',
+    background: { type: 'deviceVideo', path, looping: true, color: '#0c0e16ff' },
+    elements: [window(1, 80), window(2, 1440)],
+  });
+}
+export const DEMO_SCREEN_VIDEO_MISSING = screenVideoTheme('sd/video/relogio.mp4');
+export const DEMO_SCREEN_VIDEO_GONE = screenVideoTheme('sd/video/sumido.mp4');
+
 /** A theme with an animated GIF element, for `?demo=gif` (T-7.11). */
 export const DEMO_GIF_THEME = Object.freeze({
   ...DEMO_VIDEO_THEME,
@@ -429,6 +450,12 @@ export const SCENARIOS = Object.freeze({
   // The user's real card with the vendor app's copies, beside an internal
   // memory Bezel filled (D-2026-09-30-storage-manager-13).
   vendorCard: { screens: [turing88], storage: VENDOR_STORAGE },
+  // The theme's video stored on the screen is not there: with Bezel's local
+  // copy (it can be sent again) and without one (D-2026-10-16-studio-redesign-fidelity-25).
+  screenVideoMissing: { screens: [turing88], storage: VENDOR_STORAGE, theme: DEMO_SCREEN_VIDEO_MISSING },
+  screenVideoGone: { screens: [turing88], storage: VENDOR_STORAGE, theme: DEMO_SCREEN_VIDEO_GONE },
+  // An 8.8" that neither stores nor plays videos: live mode decodes them here.
+  noPlayback: { screens: [{ ...turing88, models: [{ ...turing88.models[0], capabilities: { ...turing88.models[0].capabilities, storage: false, videoPlayback: false } }] }] },
   two: { screens: [turing88, asleep21] },
   empty: { screens: [] },
   error: { error: 'serial port enumeration: permission denied' },

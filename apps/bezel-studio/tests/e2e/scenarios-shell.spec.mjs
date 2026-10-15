@@ -252,17 +252,19 @@ test('switch between vertical and horizontal', async ({ page, t }) => {
   const vertical = group.getByRole('button', { name: t('axis.vertical'), exact: true });
   const horizontal = group.getByRole('button', { name: t('axis.horizontal'), exact: true });
   const turn = group.getByRole('button', { name: t('top.turn') });
-  const orientation = page.locator('#inspector').getByRole('combobox', { name: t('inspector.orientation') });
+  // The inspector's Vertical | Horizontal (D-2026-10-16-studio-redesign-fidelity-25) keep the turn, like the stage's.
+  const orientation = page.locator('#inspector').getByRole('group', { name: t('inspector.orientation'), exact: true });
+  const shows = (axis) => expect(orientation.getByRole('button', { name: t(`axis.${axis}`), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(vertical).toHaveAttribute('aria-pressed', 'true');
   await expect(horizontal).toHaveAttribute('aria-pressed', 'false');
   await expect(turn).toHaveAttribute('aria-pressed', 'true');
-  await expect(orientation).toHaveValue('reverse-portrait');
+  await shows('vertical');
 
   await horizontal.click();
   await expect(horizontal).toHaveAttribute('aria-pressed', 'true');
   await expect(vertical).toHaveAttribute('aria-pressed', 'false');
   await expect(turn).toHaveAttribute('aria-pressed', 'true');
-  await expect(orientation).toHaveValue('reverse-landscape');
+  await shows('horizontal');
   await expect(page.locator('#inspector')).toContainText(t('inspector.canvas', { width: 1920, height: 480 }));
   const wide = await page.locator('#canvas-box').boundingBox();
   expect(wide.width).toBeGreaterThan(wide.height);
@@ -276,7 +278,7 @@ test('switch between vertical and horizontal', async ({ page, t }) => {
   // One undo step brings the vertical layout back.
   await page.keyboard.press('Control+z');
   await expect(vertical).toHaveAttribute('aria-pressed', 'true');
-  await expect(orientation).toHaveValue('reverse-portrait');
+  await shows('vertical');
   const tall = await page.locator('#canvas-box').boundingBox();
   expect(tall.height).toBeGreaterThan(tall.width);
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
@@ -285,17 +287,18 @@ test('switch between vertical and horizontal', async ({ page, t }) => {
   // The 180° turn toggles, by mouse and by keyboard, and keeps the layout.
   await turn.click();
   await expect(turn).toHaveAttribute('aria-pressed', 'false');
-  await expect(orientation).toHaveValue('portrait');
+  await shows('vertical');
   await expect(page.locator('#inspector')).toContainText(t('inspector.canvas', { width: 480, height: 1920 }));
   await turn.focus();
   await page.keyboard.press('Space');
   await expect(turn).toHaveAttribute('aria-pressed', 'true');
-  await expect(orientation).toHaveValue('reverse-portrait');
+  await shows('vertical');
 
-  // The inspector's select is the same command.
-  await orientation.selectOption('landscape');
+  // The inspector's buttons are the same command, the turn kept.
+  await orientation.getByRole('button', { name: t('axis.horizontal'), exact: true }).click();
   await expect(horizontal).toHaveAttribute('aria-pressed', 'true');
-  await expect(turn).toHaveAttribute('aria-pressed', 'false');
+  await shows('horizontal');
+  await expect(turn).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#inspector')).toContainText(t('inspector.canvas', { width: 1920, height: 480 }));
   await expectAccessible(page);
   expect(errors).toEqual([]);

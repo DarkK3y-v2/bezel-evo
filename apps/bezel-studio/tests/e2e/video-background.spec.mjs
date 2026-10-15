@@ -7,14 +7,17 @@
 // image), and without ffmpeg the video comes without a poster and the
 // inspector says what ffmpeg is for. No console errors, no serious or
 // critical accessibility violations.
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, themeInspector as inspector, backgroundCard as bgCard, changeBackgroundButton as changeButton, backgroundChooser as chooser } from './helpers.mjs';
 import { formatBytes } from '../../src/ui/storage.js';
 import { formatDuration } from '../../src/editor/background.js';
 
 const toast = (page) => page.locator('#toast');
-const inspector = (page) => page.locator('#inspector');
-/** A choice of the background's type (`insp.bgType`), by its text's key. */
-const bgKind = (page, t, key) => inspector(page).getByRole('group', { name: t('insp.bgType'), exact: true }).getByRole('button', { name: t(key), exact: true });
+/** The card of the background in use, named for its kind (D-2026-10-16-studio-redesign-fidelity-25). */
+/** Opens "Change background…" on the computer's media. */
+async function chooseFromComputer(page, t) {
+  await changeButton(page, t).click();
+  await chooser(page, t).locator('.bg-source-head').filter({ hasText: t('insp.bgComputer') }).click();
+}
 
 /** What the toast says of the demo's `ferias.mp4`: its play time and size. */
 const feriasDetails = (lang) => `${formatDuration(12_400)} · ${formatBytes(24_117_248, lang)}`;
@@ -51,12 +54,10 @@ test('a video added from the Media panel becomes the background, and undo takes 
   await expect(shown).toContainText(feriasDetails(lang));
   await expect(shown.locator('.thumb')).toHaveCSS('background-image', /^url\("data:image\/svg\+xml/);
   await expect(inspector(page)).toContainText(t('inspector.video.checkWhenLive'));
-  for (const action of ['inspector.replaceVideo', 'inspector.useImage']) {
-    await expect(inspector(page).getByRole('button', { name: t(action) })).toBeVisible();
-  }
-  // A solid colour is the background type's first choice (D-2026-10-15-studio-redesign-fidelity-23).
-  await expect(bgKind(page, t, 'inspector.color')).toBeVisible();
-  await expect(bgKind(page, t, 'insp.bgPc')).toHaveAttribute('aria-pressed', 'true');
+  // One card: a video from the computer, to be copied to the screen, and how to change it.
+  await expect(shown.locator('.bg-type')).toHaveText(t('insp.bgComputer'));
+  await expect(shown.locator('.bg-status')).toHaveText(t('insp.bgToCopy'));
+  await expect(changeButton(page, t)).toBeVisible();
   await expectAccessible(page);
 
   // Live: the 8.8" does not store it yet; the storage tab sends it.
@@ -70,13 +71,15 @@ test('a video added from the Media panel becomes the background, and undo takes 
 
   await page.getByRole('button', { name: t('top.undo') }).click();
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toHaveCount(0);
-  await expect(bgKind(page, t, 'inspector.color')).toHaveAttribute('aria-pressed', 'true');
+  await expect(bgCard(page, t, 'insp.bgSolid')).toBeVisible();
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
-  // From PC brings the last video back (one step), and Undo the colour again.
-  await bgKind(page, t, 'insp.bgPc').click();
+  // The video stays in the theme's media: picked again it comes back (one step), and Undo the colour again.
+  await chooseFromComputer(page, t);
+  await chooser(page, t).getByRole('radio', { name: /^ferias\.mp4/ }).check();
+  await chooser(page, t).getByRole('button', { name: t('insp.bgUseVideo'), exact: true }).click();
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toContainText('ferias.mp4');
   await page.getByRole('button', { name: t('top.undo') }).click();
-  await expect(bgKind(page, t, 'inspector.color')).toHaveAttribute('aria-pressed', 'true');
+  await expect(bgCard(page, t, 'insp.bgSolid')).toBeVisible();
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
   await page.getByRole('button', { name: t('top.redo') }).click();
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toContainText('ferias.mp4');
@@ -107,8 +110,16 @@ test('files dropped on the editing area become the background; a GIF is a video'
   // A GIF of one picture is a picture background.
   await dropFile(page, stage, 'parado.gif', 98_304);
   await expect(toast(page)).toHaveText(t('toast.imageAdded', { name: 'parado.gif' }));
-  await expect(inspector(page)).toContainText(t('bg.image'));
+  await expect(bgCard(page, t, 'bg.image')).toContainText('parado.gif');
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toHaveCount(0);
+  // A picture's only option: Fill or Fit, one undo step.
+  const fit = inspector(page).getByRole('group', { name: t('inspector.fit'), exact: true });
+  await expect(fit.getByRole('button')).toHaveText([t('framing.cover'), t('framing.contain')]);
+  await expect(fit.getByRole('button', { name: t('framing.cover'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await fit.getByRole('button', { name: t('framing.contain'), exact: true }).click();
+  await expect(fit.getByRole('button', { name: t('framing.contain'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: t('top.undo') }).click();
+  await expect(fit.getByRole('button', { name: t('framing.cover'), exact: true })).toHaveAttribute('aria-pressed', 'true');
 
   // Something else is refused with what to drop.
   await dropFile(page, stage, 'notes.txt', 10);
@@ -119,7 +130,7 @@ test('files dropped on the editing area become the background; a GIF is a video'
   await dropFile(page, page.locator('#panel-media'), 'Mar.gif', 1_000_000);
   const sea = page.locator('.media-item[data-ref="assets/mar.gif"]');
   await expect(sea).toContainText(t('media.animatedGif'));
-  await expect(inspector(page)).toContainText(t('bg.image'), { timeout: 1000 });
+  await expect(bgCard(page, t, 'bg.image')).toBeVisible({ timeout: 1000 });
   await sea.getByRole('button', { name: t('collection.useBackground') }).click();
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toContainText('mar.gif');
   expect(errors).toEqual([]);
@@ -129,8 +140,10 @@ test('without ffmpeg the video comes without a poster and the inspector says why
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=noffmpeg');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await bgKind(page, t, 'insp.bgPc').click();
-  await inspector(page).getByRole('button', { name: t('inspector.useVideo') }).click();
+  await chooseFromComputer(page, t);
+  await chooser(page, t).getByRole('button', { name: t('insp.bgPickFile'), exact: true }).click();
+  await expect(toast(page)).toBeHidden();
+  await chooser(page, t).getByRole('button', { name: t('insp.bgUseVideo'), exact: true }).click();
   await expect(toast(page)).toHaveText(t('toast.videoAddedNoFfmpeg', { name: 'ferias.mp4', details: feriasDetails(lang) }));
   const shown = inspector(page).getByRole('group', { name: t('bg.video') });
   await expect(shown).toContainText('ferias.mp4');

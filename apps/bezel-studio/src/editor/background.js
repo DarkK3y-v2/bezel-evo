@@ -30,6 +30,12 @@ export function moves(asset) {
   return asset?.kind === 'video' || Boolean(asset?.animated);
 }
 
+/** A native file choice is a draft until confirmation; no theme media is imported here. */
+export function backgroundFileDraft(source) {
+  if (!source || !droppable(source)) return null;
+  return { source, ref: source, kind: VIDEO_EXTENSIONS.includes(extensionOf(source)) ? 'video' : 'image' };
+}
+
 /**
  * The background an asset (or an `add_media` answer) makes: a video with its
  * poster when it moves, else the picture covering the canvas.
@@ -163,7 +169,10 @@ export function screenVideos(overview) {
 /** Whether the screen stores `path`: `null` while its files are not known. */
 export function storedOnScreen(overview, path) {
   if (!overview) return null;
-  return (overview.files ?? []).some((f) => f.path === path);
+  if ((overview.files ?? []).some((f) => f.path === path)) return true;
+  const [medium, kind] = String(path ?? '').split('/');
+  if ((overview.folderErrors ?? []).some((failure) => failure.medium === medium && failure.kind === kind)) return null;
+  return false;
 }
 
 /** The catalogued local copy of `path` that Bezel can send again, or `null`. */

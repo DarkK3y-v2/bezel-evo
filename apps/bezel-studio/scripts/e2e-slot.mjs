@@ -66,11 +66,15 @@ process.on('exit', release);
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => process.exit(130));
 
 const args = process.argv.slice(2);
+// --full runs the package's complete npm test command under the same slot.
+const full = args[0] === '--full';
+if (full) args.shift();
 if (!args.some((arg) => arg.startsWith('--workers'))) args.push('--workers=2');
 const port = await freePort();
 console.log(`e2e-slot: ${lock} on port ${port}`);
 const cli = join(APP, 'node_modules', '@playwright', 'test', 'cli.js');
-const child = spawn(process.execPath, [cli, 'test', ...args], {
+const child = spawn(full ? 'npm' : process.execPath, full ? ['test', '--', ...args] : [cli, 'test', ...args], {
+  shell: full && process.platform === 'win32',
   cwd: APP,
   stdio: 'inherit',
   env: { ...process.env, E2E_PORT: String(port) },

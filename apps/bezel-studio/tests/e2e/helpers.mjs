@@ -89,3 +89,10 @@ export async function copyAndPaste(page) {
 export async function setPanelWidths(page, widths) {
   await page.addInitScript((saved) => localStorage.setItem('bezel.panelWidths', JSON.stringify(saved)), widths);
 }
+
+/** Theme background controls shared by the chooser and video regression specs. */
+export const themeInspector = (page) => page.locator('#inspector');
+export const backgroundCard = (page, t, key) => themeInspector(page).getByRole('group', { name: t(key), exact: true });
+export const changeBackgroundButton = (page, t) => themeInspector(page).getByRole('button', { name: t('insp.bgChange'), exact: true });
+export const backgroundChooser = (page, t) => themeInspector(page).getByRole('region', { name: t('insp.bgChooserTitle'), exact: true });
+export const backgroundSourceButton = (page, t, key) => backgroundChooser(page, t).locator('.bg-source-head').filter({ hasText: t(key) });

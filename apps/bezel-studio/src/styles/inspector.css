@@ -2,16 +2,88 @@
    video background and its framing, an object's head, preview, tabs and
    sections. */
 
-/* The background: its kind, then that kind's own controls (D-23). */
-.inspector .property-section[data-section="background"] .segmented { display: flex; }
-.inspector .property-section[data-section="background"] .segmented button { flex: 1 1 auto; min-width: 0; padding-inline: 6px; white-space: nowrap; }
-.background-body { display: grid; gap: 8px; margin-top: 8px; }
-.background-body > .text-button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
-.background-body .hint, .background-body .field { margin: 0; }
-.bg-file { overflow-wrap: anywhere; }
-.bg-video { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; margin: 4px 0 8px; }
-.bg-video .thumb { width: 96px; height: 54px; border-radius: 6px; background: var(--screen) center / contain no-repeat; border: 1px solid var(--border); }
-.video-status { margin: 0 0 8px; }
+/* The theme: orientation as two buttons, the canvas size in mono. */
+.inspector .theme-orientation { display: flex; margin: 0 0 6px; }
+.theme-orientation button { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.inspector .theme-canvas { margin: 0; font-family: var(--font-mono); font-size: var(--fs-caps); color: var(--dim); }
+
+/* The background in use as one card, then its kind's options (D-25, artboards BgCurrent, BgStates). */
+.bg-current { display: flex; flex-direction: column; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface-2); overflow: hidden; }
+.bg-preview { position: relative; display: flex; align-items: center; justify-content: center; height: 82px; background: var(--screen) center / cover no-repeat; color: var(--screen-thumb-ink); border-bottom: 1px solid var(--line); }
+.bg-preview-facts { position: absolute; left: 8px; bottom: 8px; padding: 1px 6px; border-radius: 4px; background: var(--screen-chip); color: var(--screen-chip-ink); font-family: var(--font-mono); font-size: var(--fs-tiny); }
+.bg-current-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.bg-current-body .hint { margin: 0; }
+.bg-type { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--surface-3); color: var(--text-2); font-size: var(--fs-small); font-weight: 600; }
+.bg-type[data-source="computer"] { background: var(--accent-soft); color: var(--accent-ink); }
+.bg-type[data-source="screen"] { background: var(--info-soft); color: var(--info); }
+.bg-name { font-size: var(--fs-title); overflow-wrap: anywhere; }
+.bg-status { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: var(--fs-compact); line-height: 1.4; color: var(--muted); }
+.bg-status .status-dot { width: 6px; height: 6px; margin-top: 5px; }
+.bg-status[data-tone="ok"] { color: var(--ok-ink); }
+.bg-status[data-tone="warn"] { color: var(--warn); }
+.bg-status[data-tone="error"] { color: var(--danger); }
+.bg-status[data-tone="info"] { color: var(--info); }
+.bg-current-body > .bg-change, #bg-send-stored { width: 100%; justify-content: center; font-weight: 600; }
+.video-status { margin: 0; }
+.bg-windows { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--well); }
+.bg-windows .field { margin: 0; }
+.bg-windows-explain { display: flex; align-items: center; gap: 12px; }
+.bg-windows-explain .hint { margin: 0; }
+.bg-windows-art { flex: none; }
+.bg-windows-screen { stroke: var(--border); }
+.bg-windows-window { fill: color-mix(in srgb, var(--info) 22%, transparent); stroke: var(--info); stroke-dasharray: 3 2; }
+.bg-windows-count { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-compact); color: var(--muted); }
+.bg-windows-count .bg-select { min-height: 28px; padding-inline: 8px; color: var(--accent-ink); font-weight: 600; }
+.inspector .bg-note { display: flex; gap: 8px; margin: 0; color: var(--dim); }
+.bg-note .ic { flex: none; margin-top: 2px; }
+.bg-link { align-self: flex-start; }
+
+/* Change background (D-25, artboard BgChooser): the sources, one open at a time, then old → new. */
+.inspector:has(> .bg-chooser) { display: flex; overflow: hidden; }
+.bg-chooser { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.bg-chooser > .bg-sources { flex: 1; min-height: 0; overflow: hidden; }
+.bg-chooser > :not(.bg-sources), .bg-sources > .bg-source { flex-shrink: 0; }
+.bg-chooser-head { display: flex; align-items: center; gap: 8px; margin: -4px 0 0; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.inspector .bg-chooser-head h2 { margin: 0; font-size: var(--fs-title); font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); }
+.inspector .bg-chooser-intro { margin: 0; font-size: var(--fs-field); line-height: 1.5; color: var(--text-3); }
+.bg-source { display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface-2); }
+.bg-source[data-open="true"] { flex-shrink: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface-2)); }
+.bg-source-head.list-card { flex-shrink: 0; display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px; border: 0; border-radius: 12px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.bg-source-head:disabled { cursor: default; opacity: 0.55; }
+.bg-source-head > .ic:last-child { margin-top: 10px; color: var(--dim); }
+.bg-source[data-open="true"] .bg-source-head > .ic:last-child { color: var(--accent-ink); }
+.bg-source-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--border); }
+.bg-source-icon[data-source="computer"] { border-color: transparent; background: var(--accent-soft); color: var(--accent-ink); }
+.bg-source-icon[data-source="screen"] { border-color: transparent; background: var(--info-soft); color: var(--info); }
+.bg-source-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bg-source-title { white-space: normal; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.bg-in-use { font-size: var(--fs-tiny); line-height: 16px; min-height: 16px; padding: 0 5px; text-transform: uppercase; }
+.bg-source-head .bg-source-hint { white-space: normal; font-family: var(--font-sans); font-size: var(--fs-compact); line-height: 1.4; color: var(--muted); }
+.inspector .bg-source-reason { margin: 0; padding: 0 12px 12px; }
+.bg-source-body { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; padding: 0 12px 12px; }
+.bg-source-body > .bg-options { min-height: 0; overflow-y: auto; }
+.bg-source-body > :not(.bg-options) { flex-shrink: 0; }
+.bg-source-body .field, .bg-source-body .hint { margin: 0; }
+.bg-options { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.bg-options-head { display: flex; align-items: center; gap: 6px; padding: 4px 2px; font-family: var(--font-mono); font-size: var(--fs-meta); text-transform: uppercase; color: var(--muted); }
+.bg-options-head .count { color: var(--text-3); }
+.bg-option { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid transparent; border-radius: 9px; cursor: pointer; }
+.bg-option:hover { border-color: var(--border); }
+.bg-option:has(input:checked) { border-color: var(--accent-line); background: var(--accent-soft); }
+.bg-option input { flex: none; margin: 0; accent-color: var(--accent); }
+.bg-option-thumb { flex: none; display: flex; align-items: center; justify-content: center; width: 52px; height: 20px; border-radius: 3px; background: var(--screen-thumb) center / cover no-repeat; color: var(--screen-thumb-ink); }
+.bg-option-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bg-option-meta { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--muted); }
+.bg-option-current { flex: none; font-size: var(--fs-caps); color: var(--muted); }
+.bg-pick { width: 100%; justify-content: center; }
+.bg-send { width: 100%; justify-content: flex-start; border-style: dashed; }
+.bg-send .ic { color: var(--accent-ink); }
+.bg-chooser-foot { display: flex; flex-direction: column; gap: 10px; margin: 0 -12px -12px; padding: 12px; border-top: 1px solid var(--line); background: var(--chrome); }
+.inspector .bg-change-line { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--fs-compact); color: var(--muted); overflow-wrap: anywhere; }
+.bg-change-line strong { color: var(--text); }
+.bg-chooser-actions { display: flex; gap: 8px; }
+.bg-chooser-actions button { flex: 1 1 0; justify-content: center; }
+.bg-chooser-actions .primary-button { flex-grow: 1.4; }
 
 /* The Framing group of a video background. */
 .inspector .framing { margin: 4px 0 12px; padding: 10px 12px 4px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
