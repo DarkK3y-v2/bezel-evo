@@ -366,3 +366,8 @@ Primitivos reutilizados: `segmented`, `prefixedField`, `propertySection`, `.text
 | e2e afetados (`e2e-slot`): stage-focus, inspector-stepping, corner-radii, background-kind, video-background, device-video, editing-017, inspector-sections/preview, video-framing, gif-search, themes… | todos verdes. O único vermelho foi `canvas-wheel-zoom:87` (light-pt) em paralelo, verde em série 60/60 com `--workers=1 --repeat-each=3`; com e sem a correção ele se comporta igual |
 | `npm test` completo, quatro projetos, axe | 612/612 |
 | `shoot.mjs --area inspector --only app`, dark e light | conferido: cantos (Shape, Barra pill, capa do Player) e Sfondo (Colore, Dal PC, Dallo schermo sem quebra de linha) |
+
+### Facetas da Card mais claras (D-2026-10-15-studio-redesign-fidelity-21)
+- Feito com ChatGPT/Codex no branch fid/card-faces (51a0520, 3053859, 024bcc5), merge na windows-improvements. "Base" → "Sfondo comune" (linha separada, explicada); clique numa face = "Modifica questa faccia"; rotação automática vira trigger temporal "Ogni N s → faccia successiva | faccia X" com migração automática dos temas antigos (testada em Rust); faces em fila com transição por par (fallback para a transição geral). Relatório completo em `reports/studio-card-faces-d21.md`.
+- Pós-merge: a Card usa `shapeForm()`, então o controle único de cantos (D-22) já a cobre; aplicado o rótulo `cardInsp.base` no seletor de face dos membros.
+- Gates após todos os merges: cargo test 1108 ok, clippy limpo, unit 476/476, Playwright 615/616 com `canvas-wheel-zoom` (timing sob carga) verde em série 60/60.
