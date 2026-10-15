@@ -14,14 +14,57 @@ export function iconButton(label, paths, onclick, { size = 18, class: extra = ''
   return el('button', { type: 'button', class: `icon-button ${extra}`.trim(), 'aria-label': label, title: label, onclick, ...attrs }, [icon(paths, size)]);
 }
 
+// What each number input of these builders does on change, kept apart from
+// the input so a form drawn again can hand it to the input still focused.
+const changeOf = new WeakMap();
+
+/** A number input whose `change` calls its handler with the parsed value (`step` 1 rounds to integers). */
+function numberInput(attrs, step, onChange) {
+  const input = el('input', { ...attrs, type: 'number', step });
+  changeOf.set(input, onChange);
+  input.addEventListener('change', () => {
+    const v = Number(input.value);
+    if (Number.isFinite(v)) changeOf.get(input)(step === 1 ? Math.round(v) : v);
+  });
+  return input;
+}
+
+/** What the input of a form drawn again takes from its counterpart in the new form. */
+const ADOPTED = Object.freeze(['id', 'min', 'max', 'step', 'aria-label', 'disabled']);
+
+/**
+ * Keeps `current`, a number input of these builders that has focus, in the
+ * place of `fresh`, its counterpart in a form drawn again (both in the
+ * document): `current` takes the handler, attributes and value of `fresh`
+ * (unless it shows the same number), so stepping it with the arrow keys or
+ * its spin buttons keeps focus, caret and key repeat. Moved with
+ * `moveBefore` (focus kept); elsewhere moved and focused again.
+ * @returns {boolean} false when either input is not one of these builders'
+ */
+export function adoptControl(current, fresh) {
+  if (current === fresh || !changeOf.has(current) || !changeOf.has(fresh) || !fresh.parentNode) return false;
+  changeOf.set(current, changeOf.get(fresh));
+  for (const name of ADOPTED) {
+    const v = fresh.getAttribute(name);
+    if (v === null) current.removeAttribute(name);
+    else current.setAttribute(name, v);
+  }
+  if (Number(current.value) !== Number(fresh.value) || current.value === '') current.value = fresh.value;
+  const parent = fresh.parentNode;
+  try {
+    parent.moveBefore(current, fresh);
+  } catch {
+    parent.insertBefore(current, fresh);
+    current.focus({ preventScroll: true });
+  }
+  fresh.remove();
+  return true;
+}
+
 /** A labelled number input. `step` 1 rounds to integers. */
 export function numberField(label, value, onChange, { min, max, step = 1 } = {}) {
   const id = fieldId();
-  const input = el('input', { id, type: 'number', value: String(value ?? ''), min, max, step });
-  input.addEventListener('change', () => {
-    const v = Number(input.value);
-    if (Number.isFinite(v)) onChange(step === 1 ? Math.round(v) : v);
-  });
+  const input = numberInput({ id, value: String(value ?? ''), min, max }, step, onChange);
   return el('label', { class: 'field', for: id }, [el('span', { text: label }), input]);
 }
 
@@ -92,11 +135,7 @@ export function segmented(label, value, options, onChange, { bare = false } = {}
  */
 export function prefixedField(prefix, label, value, onChange, { min, max, step = 1, unit } = {}) {
   const id = fieldId();
-  const input = el('input', { id, type: 'number', value: String(value ?? ''), min, max, step, 'aria-label': label });
-  input.addEventListener('change', () => {
-    const v = Number(input.value);
-    if (Number.isFinite(v)) onChange(step === 1 ? Math.round(v) : v);
-  });
+  const input = numberInput({ id, value: String(value ?? ''), min, max, 'aria-label': label }, step, onChange);
   return el('label', { class: 'fld', for: id }, [
     el('span', { class: 'fld-prefix', 'aria-hidden': 'true', text: prefix }),
     input,
@@ -250,16 +289,17 @@ export function colorField(label, hex, onChange, { alphaLabel }) {
   const { rgb, alpha } = splitColor(hex);
   const picker = el('input', { type: 'color', value: rgb, 'aria-label': label });
   const text = el('input', { type: 'text', value: rgb, 'aria-label': label, spellcheck: false });
-  const a = el('input', { type: 'number', min: 0, max: 100, step: 1, value: String(alpha), 'aria-label': alphaLabel });
-  const commit = () => onChange(joinColor(picker.value, Number(a.value)));
+  // The alpha input may be one adopted from the form drawn before: read it where it is.
+  const row = el('div', { class: 'color-field' }, [picker, text]);
+  const commit = (percent = Number(row.querySelector('input[type="number"]').value)) => onChange(joinColor(picker.value, percent));
+  row.append(numberInput({ min: 0, max: 100, value: String(alpha), 'aria-label': alphaLabel }, 1, (percent) => commit(percent)));
   picker.addEventListener('input', () => { text.value = picker.value; });
-  picker.addEventListener('change', commit);
+  picker.addEventListener('change', () => commit());
   text.addEventListener('change', () => {
     if (/^#[0-9a-f]{6}$/i.test(text.value)) {
       picker.value = text.value.toLowerCase();
       commit();
     }
   });
-  a.addEventListener('change', commit);
-  return el('div', { class: 'field' }, [el('span', { text: label }), el('div', { class: 'color-field' }, [picker, text, a])]);
+  return el('div', { class: 'field' }, [el('span', { text: label }), row]);
 }

@@ -15,7 +15,7 @@ import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
   checkField, chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
-  iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
+  adoptControl, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
 } from './fields.js';
 import { sentenceParts } from '../sentence.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
@@ -986,6 +986,20 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ]);
   }
 
+  /**
+   * The same object's preview drawn again keeps the picture shown until the
+   * next one arrives, so the panel does not shrink and jump meanwhile.
+   */
+  function keepPreviewPicture(next) {
+    const before = root.querySelector('.inspector-preview');
+    const after = next.querySelector('.inspector-preview');
+    if (!before || !after || before.dataset.elementId !== after.dataset.elementId) return;
+    const stage = before.querySelector('.inspector-preview-stage');
+    const freshStage = after.querySelector('.inspector-preview-stage');
+    stage.querySelector('canvas').setAttribute('aria-label', freshStage.querySelector('canvas').getAttribute('aria-label'));
+    freshStage.replaceWith(stage);
+  }
+
   /** Asks for the selected object's preview again. */
   function requestPreview() {
     previewAnimation.stop();
@@ -1187,7 +1201,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     } else if (chosen.length === 1) nodes = elementForm(chosen[0], theme, assets);
     else nodes = multiForm(chosen.map((e) => e.id));
     // Keep focus where the user was: on the same tab, on the field of the
-    // same label, or of the same stable id (the framing's).
+    // same label, or of the same stable id (the framing's). A number field
+    // stepped with its arrows or spin buttons stays the same input (focus,
+    // caret, key repeat), the preview keeps its picture until the next one
+    // and the panel its scroll (D-2026-10-15-studio-redesign-fidelity-22).
     const active = document.activeElement;
     const inside = root.contains(active);
     const scope = inside ? active.closest('[data-focus-scope]')?.dataset.focusScope : null;
@@ -1197,13 +1214,25 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const nativeLabel = inside && !tab && !id && !label ? active.labels?.[0]?.textContent : null;
     const buttonText = inside && active.tagName === 'BUTTON' ? active.textContent : null;
     const controlSelector = inside ? `${active.tagName.toLowerCase()}${active.tagName === 'INPUT' ? `[type="${active.type}"]` : ''}` : null;
-    root.replaceChildren(...nodes.filter(Boolean));
-    const focusRoot = scope ? root.querySelector(`[data-focus-scope="${CSS.escape(scope)}"]`) ?? root : root;
-    if (tab) root.querySelector(`[role="tab"][data-tab="${CSS.escape(tab)}"]`)?.focus();
-    else if (id) document.getElementById(id)?.focus();
-    else if (label) focusRoot.querySelector(`${controlSelector}[aria-label="${CSS.escape(label)}"]`)?.focus();
-    else if (nativeLabel) Array.from(root.querySelectorAll(controlSelector)).find((node) => node.labels?.[0]?.textContent === nativeLabel)?.focus();
-    else if (buttonText !== null) Array.from(root.querySelectorAll('button')).find((node) => node.textContent === buttonText)?.focus();
+    const counterpart = (within) => {
+      const focusRoot = scope ? within.querySelector(`[data-focus-scope="${CSS.escape(scope)}"]`) ?? within : within;
+      if (tab) return within.querySelector(`[role="tab"][data-tab="${CSS.escape(tab)}"]`);
+      if (id) return within.querySelector(`#${CSS.escape(id)}`);
+      if (label) return focusRoot.querySelector(`${controlSelector}[aria-label="${CSS.escape(label)}"]`);
+      if (nativeLabel) return Array.from(within.querySelectorAll(controlSelector)).find((node) => node.labels?.[0]?.textContent === nativeLabel) ?? null;
+      if (buttonText !== null) return Array.from(within.querySelectorAll('button')).find((node) => node.textContent === buttonText) ?? null;
+      return null;
+    };
+    const scrollTop = root.scrollTop;
+    const next = el('div', {}, nodes.filter(Boolean));
+    keepPreviewPicture(next);
+    const fresh = inside ? counterpart(next) : null;
+    const old = Array.from(root.childNodes);
+    root.append(...next.childNodes);
+    const kept = fresh !== null && adoptControl(active, fresh);
+    old.forEach((child) => child.remove());
+    if (!kept && inside) counterpart(root)?.focus({ preventScroll: true });
+    root.scrollTop = scrollTop;
     requestPreview();
     refreshLive();
     shown = { assets, signature: videoSignature() };
