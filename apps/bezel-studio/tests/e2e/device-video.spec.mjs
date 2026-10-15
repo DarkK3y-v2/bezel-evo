@@ -14,7 +14,7 @@ test('stored screen video becomes theme background with loop, windows and linear
   const detail = page.locator('#inspector');
   await expect(detail).toContainText('AMD.mp4');
   await expect(detail).toContainText(t('deviceVideo.preview'));
-  const loop = detail.getByRole('checkbox', { name: t('deviceVideo.loop'), exact: true });
+  const loop = detail.getByRole('switch', { name: t('deviceVideo.loop'), exact: true });
   await expect(loop).toBeChecked();
   await loop.uncheck();
   await page.locator('#undo').click();

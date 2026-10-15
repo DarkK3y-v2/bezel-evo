@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CARD_TABS, DURATION_UNITS, GRAPH_INTERVAL_MAX, HISTORY_MAX, HISTORY_MIN, INTERVAL_UNITS, OBJECT_TABS, QUICK_DURATIONS, RULER_TICKS_MAX, TIME_UNITS, appChips, appName, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, pluralOf, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
+import { CARD_TABS, DURATION_UNITS, GRAPH_INTERVAL_MAX, HISTORY_MAX, HISTORY_MIN, INTERVAL_UNITS, OBJECT_TABS, QUICK_DURATIONS, QUICK_REFRESHES, RULER_TICKS_MAX, TIME_UNITS, appChips, appName, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, pluralOf, layerFacts, quickDurations, refreshChoices, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
 
 test('a card has faces, motion, triggers and look; every other object data and look', () => {
   assert.deepEqual(tabsOf('card'), ['faces', 'motion', 'triggers', 'look']);
@@ -203,4 +203,15 @@ test('the app chips list each media app once, playing ones first, the followed o
   assert.deepEqual(appChips({ media: [{ source: 'chrome', playing: false }, { source: 'Chrome.exe', playing: true }] }).chips,
     [{ name: 'chrome', playing: true, pressed: false }]);
   assert.deepEqual(appChips(undefined), { chips: [], custom: null });
+});
+
+test('the theme refresh offers quick values and keeps a value of its own', () => {
+  assert.deepEqual(QUICK_REFRESHES, [0.5, 1, 2, 5]);
+  const shown = (current, min) => refreshChoices(current, min).map((c) => `${c.seconds}${c.pressed ? '*' : ''}`);
+  assert.deepEqual(shown(1, 0.5), ['0.5', '1*', '2', '5']);
+  assert.deepEqual(shown(1, 1), ['1*', '2', '5'], 'faster than the backend allows: not offered');
+  assert.deepEqual(shown(3, 1), ['1', '2', '3*', '5'], 'another value saved in the theme stays, in order');
+  assert.deepEqual(shown(10), ['0.5', '1', '2', '5', '10*']);
+  assert.deepEqual(shown(0, 1), ['1', '2', '5'], 'no value: none pressed');
+  assert.deepEqual(shown(undefined), ['0.5', '1', '2', '5']);
 });

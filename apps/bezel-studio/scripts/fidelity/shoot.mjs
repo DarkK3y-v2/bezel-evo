@@ -15,7 +15,7 @@
 // artboard the shim could not expand is shot as it is and marked STATIC.
 // `--diff` compares two such trees pixel by pixel and exits 1 on a difference.
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -112,11 +112,13 @@ async function loadRecipes(area) {
   return Promise.all(names.map(async (name) => (await import(`./recipes/${name}.mjs`)).default));
 }
 
-async function shootMocks(browser, mockUrl, artboards, scheme, out) {
-  const canvas = JSON.parse(readFileSync(join(DESIGN, 'canvas.json'), 'utf8'));
+async function shootMocks(browser, mockUrl, artboards, scheme, out, design = DESIGN) {
+  const canvasPath = join(design, 'canvas.json');
+  const canvas = existsSync(canvasPath) ? JSON.parse(readFileSync(canvasPath, 'utf8')) : null;
   const entries = [];
   for (const name of artboards) {
-    const board = canvas.boards[`${name}.dc.html`];
+    const preview = canvas ? null : JSON.parse(readFileSync(join(design, `${name}.dc.html`), 'utf8').match(/data-props='([^']+)'/)[1]).$preview;
+    const board = canvas?.boards[`${name}.dc.html`] ?? { w: preview.width, h: preview.height };
     const context = await browser.newContext({ viewport: { width: board.w, height: board.h }, colorScheme: scheme });
     await routeFonts(context);
     const page = await context.newPage();
@@ -194,18 +196,27 @@ async function shoot(args) {
   const browser = await chromium.launch();
   const mock = args.only === 'app' ? null : await startMockServer();
   const app = args.only === 'mock' ? null : await startAppServer();
+  const extraMocks = new Map();
   const entries = [];
   try {
+    if (mock) for (const recipe of recipes) for (const design of recipe.mockDesigns ?? []) {
+      if (!extraMocks.has(design.root)) extraMocks.set(design.root, await startMockServer({ root: design.root }));
+    }
     for (const scheme of schemes) {
       for (const recipe of recipes) {
         const artboards = recipe.artboards.filter((name) => !args.artboard || name === args.artboard);
         if (mock) entries.push(...(await shootMocks(browser, mock.url, artboards, scheme, args.out)));
-        if (app && (!args.artboard || artboards.length)) entries.push(...(await shootApp(browser, app.url, recipe, scheme, args.out)));
+        for (const design of recipe.mockDesigns ?? []) {
+          const boards = design.artboards.filter((name) => !args.artboard || name === args.artboard);
+          if (mock) entries.push(...(await shootMocks(browser, extraMocks.get(design.root).url, boards, scheme, args.out, design.root)));
+        }
+        if (app && (!args.artboard || artboards.length || recipe.mockDesigns?.some(design => design.artboards.includes(args.artboard)))) entries.push(...(await shootApp(browser, app.url, recipe, scheme, args.out)));
       }
     }
   } finally {
     await browser.close();
     await mock?.close();
+    for (const server of extraMocks.values()) await server.close();
     app?.close();
   }
   mkdirSync(args.out, { recursive: true });

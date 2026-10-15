@@ -138,9 +138,10 @@ export function createConfirm(t, { refocus = () => {} } = {}) {
  * @param {object} deps.bridge
  * @param {(message: string) => void} deps.notify short confirmation (toast)
  * @param {() => {screen: object|null, live: boolean, liveVideo: {state: string, path?: string}|null}} deps.context
+ * @param {(screen: string, overview: object) => void} [deps.onOverview] shares the fresh storage listing with the inspector
  * @param {(key: string) => void} [deps.restart] restarts a screen that stopped responding
  */
-export function createStoragePanel({ root, t, locale, bridge, notify, context, restart = () => {}, useBackground = () => {} }) {
+export function createStoragePanel({ root, t, locale, bridge, notify, context, restart = () => {}, useBackground = () => {}, onOverview = () => {} }) {
   const view = {
     key: null,
     shown: false,
@@ -207,6 +208,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       const [data, tools] = await Promise.all([bridge.managerOverview(key), bridge.mediaTools()]);
       if (key !== view.key) return;
       Object.assign(view, { data, tools, status: 'ready', error: null });
+      onOverview(key, data);
     } catch (e) {
       if (key !== view.key) return;
       Object.assign(view, { status: 'error', error: e });
@@ -824,6 +826,17 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       if (!view.job) renderBody();
     },
     refresh: load,
+    /**
+     * Restore onto `medium`, only `path` checked when given (the inspector's
+     * "Send … to the screen" for a background video's local copy).
+     */
+    async restore(medium, path = null) {
+      if (busy()) return;
+      if (view.status !== 'ready') await load();
+      if (view.status === 'ready' && !busy()) await manager.restore(medium, path);
+    },
+    /** Asks for a file and sends it to `medium` (the background chooser's "Send a video to the screen…"). */
+    choose: (medium) => choose(medium),
     /** The screen was restarted: an error from before it no longer stands. */
     afterRestart() {
       view.notice = null;

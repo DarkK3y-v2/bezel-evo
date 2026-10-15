@@ -64,6 +64,21 @@ export function layerFacts(theme, element) {
 /** The graph's quick durations, seconds (artboard GraphData). */
 export const QUICK_DURATIONS = Object.freeze([30, 60, 300, 900, 3600]);
 
+/** The theme's quick refresh values, seconds (D-2026-10-16-studio-redesign-fidelity-25). */
+export const QUICK_REFRESHES = Object.freeze([0.5, 1, 2, 5]);
+
+/**
+ * The refresh values offered for a theme refreshing every `current`
+ * seconds: the quick ones the backend allows (`min` and up), and the
+ * theme's own value in its place when it is another, so none saved is lost.
+ * @returns {{seconds: number, pressed: boolean}[]}
+ */
+export function refreshChoices(current, min = 0) {
+  const values = QUICK_REFRESHES.filter((s) => s >= min);
+  if (Number.isFinite(current) && current > 0 && !values.includes(current)) values.push(current);
+  return values.sort((a, b) => a - b).map((seconds) => ({ seconds, pressed: seconds === current }));
+}
+
 /** The fewest and most points a graph draws (the backend's GRAPH_POINTS_MIN/MAX). */
 export const HISTORY_MIN = 2;
 export const HISTORY_MAX = 3600;
