@@ -410,3 +410,9 @@ Nota: la richiesta iniziale chiedeva questa sezione in pt-BR; il commit `4a7422f
 | `shoot.mjs --area card` e `--area inspector`, dark e light | controllati a vista: lista, menu ⋮, sfondo comune, transizione su una riga, angoli 342×432 e copertina quadrata |
 
 Test e2e cambiati di proposito: le asserzioni sulle miniature e sui pixel delle facce e il test dei connettori di coppia sono stati sostituiti da test sulla lista, sul menu ⋮ da tastiera e sulla transizione unica, perché quelle funzioni non esistono più (D-24).
+
+### Sfondo del tema: scheda in uso e scelta (D-2026-10-16-studio-redesign-fidelity-25)
+- Fatto in parte da Claude (modello puro, 7ceb3bb) e completato con ChatGPT/Codex (31a6e4d, aae960c), branch fid/bg, unione 91da510. Report in `reports/studio-theme-background-d25.md`.
+- La sezione Sfondo mostra UNA scheda dello sfondo in uso (anteprima, tipo, file, spiegazione, stato con pallino, "Cambia sfondo…") e solo le opzioni di quel tipo. "Cambia sfondo" apre un pannello nell'inspector con tre fonti espandibili ("IN USO"), nulla cambia fino alla conferma, piede "vecchio → nuovo", Annulla/Indietro/Esc senza modifiche, conferma = un passo di annullamento. Casi limite: video dello schermo mancante (invio solo con copia locale), fonte disabilitata con motivo. Orientamento a due pulsanti, aggiornamento con valori rapidi. Formato del tema invariato.
+- Conflitto all'unione solo in `tests/e2e/helpers.mjs` (helper della Card e dello Sfondo, tenuti entrambi).
+- Controlli dopo l'unione: cargo test 1108 ok, unit 498/498, Playwright completo 660/660.
