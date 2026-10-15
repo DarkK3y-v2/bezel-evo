@@ -361,6 +361,13 @@ impl Transitions {
             })
     }
 
+    /// Whether a preview of `theme` eases a visible element (motion not
+    /// reduced): it then wants a frame at the next sample, when a
+    /// transition starts.
+    pub fn eases_in_previews(&self, theme: &Theme) -> bool {
+        !self.still_previews && Self::eased(theme).any(|(element, _)| theme.is_visible(element))
+    }
+
     /// What `view` draws at `at` for the visible elements of `theme`.
     pub fn shown(&self, theme: &Theme, at: Duration, view: View) -> ShownValues {
         self.moving(theme, at, view)
@@ -639,7 +646,9 @@ mod tests {
         let mut tr = Transitions::default();
         tr.retarget(&t, &snapshot(0.0), Some(ms(0)));
         tr.retarget(&t, &snapshot(100.0), Some(ms(1_000)));
+        assert!(tr.eases_in_previews(&t));
         tr.still_previews(true);
+        assert!(!tr.eases_in_previews(&t));
         assert!(
             tr.shown(&t, ms(1_100), View::Preview).is_empty(),
             "reduced motion"
@@ -656,6 +665,7 @@ mod tests {
             Some(ms(1_150))
         );
         t.elements[0].visible = false;
+        assert!(!tr.eases_in_previews(&t));
         assert!(tr.shown(&t, ms(1_100), View::Screen).is_empty());
         assert_eq!(tr.next_change(&t, ms(1_100), View::Screen), None);
     }

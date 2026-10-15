@@ -278,8 +278,27 @@ fn previews_ease_unless_motion_is_reduced() {
         .expect("frame");
     assert!(r.shown[2] < 80.0, "at the last clock given: {}", r.shown[2]);
     let (_, next) = rt.preview(&mut r, TIME, ms(1_400)).expect("preview");
-    assert_eq!(next, None, "landed");
+    assert_eq!(next, Some(ms(2_000)), "landed: wakes at the next sample");
     assert_eq!(r.shown[3], 80.0);
+    // The loop is late with that sample: a step later, not at once.
+    let (_, next) = rt.preview(&mut r, TIME, ms(2_010)).expect("preview");
+    assert_eq!(next, Some(ms(2_060)));
+    rt.still_previews(true);
+    let (_, next) = rt.preview(&mut r, TIME, ms(2_020)).expect("preview");
+    assert_eq!(next, None, "reduced motion: no frames for samples either");
+}
+
+#[test]
+fn a_preview_before_any_timed_sample_does_not_poll() {
+    let mut rt = runtime(Some(ValueTransition::smooth(400)));
+    let mut r = Recorder::default();
+    let (_, next) = rt.preview(&mut r, TIME, ms(10)).expect("preview");
+    assert_eq!(next, None);
+    let mut plain = runtime(None);
+    let mut s = sensors(&[20.0]);
+    plain.sample_on_time(&mut s, ms(0)).expect("sample");
+    let (_, next) = plain.preview(&mut r, TIME, ms(10)).expect("preview");
+    assert_eq!(next, None, "nothing eases: no frame for the sample");
 }
 
 #[test]

@@ -71,7 +71,7 @@ use crate::domain::media::{
 use crate::domain::sensor::{Quantities, SensorInfo, Snapshot, Wanted};
 use crate::domain::storage::{FileName, Medium, RemotePath, Repeat, StorageLocation};
 use crate::domain::theme::{AssetRef, Background, Theme, refresh_interval};
-use crate::domain::transition::{ShownValues, Transitions, View};
+use crate::domain::transition::{MIN_TRANSITION_STEP, ShownValues, Transitions, View};
 use crate::ports::{
     Backdrop, FrameRenderer, MediaLocation, MediaTranscoder, RenderContext, ScreenLink,
     ScreenStorage, SensorSource, VideoFrames,
@@ -1178,15 +1178,39 @@ impl ThemeRuntime {
 
     /// When what `view` shows next changes by itself after `at`: an
     /// animated image, the renderer's card transition, a card timer, or the
-    /// next step of a value transition (at `view`'s pace).
+    /// next step of a value transition (at `view`'s pace); for a preview
+    /// that eases a value, also the next sample, where a transition starts.
     fn change_after(&self, at: Duration, view: View) -> Option<Duration> {
         let theme = self.card_timers.theme(&self.scene.theme);
+        let sample = match view {
+            View::Preview => self.sample_wake(&theme, at),
+            View::Screen => None,
+        };
         image_change(&theme, &self.timelines, at)
             .into_iter()
             .chain(self.renderer_change)
             .chain(self.card_timers.next)
             .chain(self.transitions.next_change(&theme, at, view))
+            .chain(sample)
             .min()
+    }
+
+    /// When a preview of `theme` drawn at `at` that eases a value wants its
+    /// next frame for the next sample: when it is due, or a transition step
+    /// later while the loop has not taken one that is overdue. `None`
+    /// without an eased value, or before a loop samples on time (nothing
+    /// would ever start a transition).
+    fn sample_wake(&self, theme: &Theme, at: Duration) -> Option<Duration> {
+        self.cadence.sample?;
+        if !self.transitions.eases_in_previews(theme) {
+            return None;
+        }
+        let due = self.next_sample();
+        Some(if due > at {
+            due
+        } else {
+            at + MIN_TRANSITION_STEP
+        })
     }
 
     /// An editor's preview at `now`: the frame over the poster with the
@@ -1262,6 +1286,7 @@ impl ThemeRuntime {
             .into_iter()
             .chain(renderer.next_change())
             .chain(self.transitions.next_change(theme, now, View::Preview))
+            .chain(self.sample_wake(theme, now))
             .min();
         Ok((frame, change))
     }
