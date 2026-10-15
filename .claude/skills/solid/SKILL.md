@@ -3,11 +3,11 @@ name: solid
 description: SOLID. Robert C. Martin's 5 OO design principles - SRP, OCP, LSP, ISP, DIP. Applicable in any language with types/classes/interfaces (C#, Java, TS, Python, Go, Rust, Kotlin, Swift, etc). Direct summary + anti-patterns + detection heuristics.
 ---
 <!-- jdi:lang-directive -->
-> **IDIOMA:** comunique-se com o usuário em português (pt-BR) durante toda a sessão — no chat,
-> nos arquivos que você escreve (CONTEXT.md, PLAN.md, resumos, corpo de commits, comentários de
-> PR) e nas perguntas ao usuário. Mantenha em inglês: nomes de arquivo, comandos e flags
-> (`/jdi-plan`, `--dry-run`), identificadores de código, e valores literais de estado
-> (`APPROVED`, `BLOCKED`, `MANUAL_REQUIRED`, `SHIPPED`, etc.).
+> **LINGUA:** comunica con l'utente in italiano per tutta la sessione: in chat, nelle domande
+> all'utente e nei file che scrivi in `.jdi/` (CONTEXT.md, PLAN.md, SUMMARY.md, REVIEW.md, decisioni,
+> riepiloghi, report). Restano in inglese: codice, identificatori, nomi di file, comandi e flag
+> (`/jdi-plan`, `--dry-run`), messaggi di commit e PR, e i valori letterali di stato
+> (`APPROVED`, `BLOCKED`, `MANUAL_REQUIRED`, `SHIPPED`, ecc.).
 
 
 # Skill: SOLID

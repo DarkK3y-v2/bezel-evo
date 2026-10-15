@@ -3,11 +3,11 @@ name: yagni
 description: YAGNI (You Aren't Gonna Need It). Build only what the current requirement asks for. Generalize after the 3rd real case, never before. Code not written is code with no bug, no maintenance cost, no pending test. Applies in any language.
 ---
 <!-- jdi:lang-directive -->
-> **IDIOMA:** comunique-se com o usuário em português (pt-BR) durante toda a sessão — no chat,
-> nos arquivos que você escreve (CONTEXT.md, PLAN.md, resumos, corpo de commits, comentários de
-> PR) e nas perguntas ao usuário. Mantenha em inglês: nomes de arquivo, comandos e flags
-> (`/jdi-plan`, `--dry-run`), identificadores de código, e valores literais de estado
-> (`APPROVED`, `BLOCKED`, `MANUAL_REQUIRED`, `SHIPPED`, etc.).
+> **LINGUA:** comunica con l'utente in italiano per tutta la sessione: in chat, nelle domande
+> all'utente e nei file che scrivi in `.jdi/` (CONTEXT.md, PLAN.md, SUMMARY.md, REVIEW.md, decisioni,
+> riepiloghi, report). Restano in inglese: codice, identificatori, nomi di file, comandi e flag
+> (`/jdi-plan`, `--dry-run`), messaggi di commit e PR, e i valori letterali di stato
+> (`APPROVED`, `BLOCKED`, `MANUAL_REQUIRED`, `SHIPPED`, ecc.).
 
 
 # Skill: YAGNI

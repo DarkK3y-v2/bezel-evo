@@ -35,12 +35,12 @@ bezel
 - has_frontend: true (D-2026-09-30-studio-app-6)
 - App: `apps/bezel-studio/src` — HTML/CSS/JS ES modules sem bundler, embutidos pelo Tauri; ponte `bridge.js` (Tauri ou modo demo)
 - Testes: `cd apps/bezel-studio && npm test` (node --test com piso de 80% de linhas nos módulos de lógica; Playwright + axe em claro e escuro sobre o modo demo)
-- Regras: i18n pt-BR/en com paridade de chaves e nenhuma string fixa no JS; tokens de cor com claro/escuro; operável por teclado; `prefers-reduced-motion`; diálogos in-app (nunca `window.confirm`); CSP estrita
+- Regras: i18n en/pt-BR/it com paridade de chaves e nenhuma string fixa no JS; tokens de cor com claro/escuro; operável por teclado; `prefers-reduced-motion`; diálogos in-app (nunca `window.confirm`); CSP estrita
 
 ## Global constraints
 - Cobertura mínima 80% (linhas) em `crates/` e `apps/`
 - Conventional Commits, commits atômicos por task
-- Idioma: código, commits e PRs em inglês; discussão e artefatos em `.jdi/` em pt-BR; UI com i18n (pt-BR + en), nunca string fixa no JS
+- Lingua: codice, commit e PR in inglese; discussione con l'utente e documenti in `.jdi/` in italiano (dal 2026-10-16; i documenti precedenti restano in portoghese); UI con i18n (en + pt-BR + it), mai stringhe fisse nel JS
 - `cargo fmt --check` e `cargo clippy -- -D warnings` limpos; nenhum comando destrutivo (formatar SD, firmware, apagar arquivo) sem confirmação explícita
 - Toda evolução gera build e instalação local (`scripts/install-local.sh` → `~/.local`) para teste no hardware real
 

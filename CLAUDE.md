@@ -77,9 +77,9 @@ Routing em `.jdi/specialists.md` e `.jdi/reviewers.md`.
 
 ## Idioma
 
-- Codigo, commits, PRs: ingles
-- Discussao, docs em `.jdi/`: pt-BR
-- i18n no frontend: nunca string hardcoded em pt-BR no JSX
+- Codice, commit, PR: inglese
+- Discussione con l'utente e documenti in `.jdi/` (decisioni, piani, riepiloghi, report): italiano
+- i18n nel frontend: mai stringhe fisse nell'interfaccia; testi in en, pt-BR e it con parità di chiavi
 
 ## Prioridade quando conflita
 
