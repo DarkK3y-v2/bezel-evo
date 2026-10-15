@@ -146,6 +146,10 @@ export function prefixedField(prefix, label, value, onChange, { min, max, step =
 
 /** The drawing's frame for each mode, CSS px: four fields around it, or one beside it. */
 const CORNER_FRAMES = Object.freeze({ each: { width: 88, height: 72 }, same: { width: 56, height: 40 } });
+/** The least length of a corner's mark along each side, CSS px. */
+const CORNER_MARK = 10;
+/** The style property of each corner's radius, in CORNERS order. */
+const CORNER_RADIUS = Object.freeze(['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius']);
 
 /**
  * Corner radii (D-2026-10-15-studio-redesign-fidelity-22): a drawing of the
@@ -171,8 +175,12 @@ export function cornerRadii(texts, value, onChange, { individual = true, box = n
     ? segmented(texts.mode, mode, [['same', texts.same], ['each', texts.each]], (next) => next !== mode && onChange(withCornerMode(value, next)), { bare: true })
     : null;
   const drawing = cornerDrawing(mode === 'same' ? { radius: value.radius, corners: null } : value, box, CORNER_FRAMES[mode]);
+  // Each corner's mark traces that corner (its arc, or an L when square) and lights while its field is edited.
   const shape = el('span', { class: 'corner-shape', style: { width: `${drawing.width}px`, height: `${drawing.height}px`, borderRadius: drawing.radii.map((r) => `${r}px`).join(' ') } },
-    CORNERS.map((name) => el('span', { class: 'corner-mark', dataset: { corner: name } })));
+    CORNERS.map((name, i) => {
+      const r = drawing.radii[i], side = `${Math.max(CORNER_MARK, r)}px`;
+      return el('span', { class: 'corner-mark', dataset: { corner: name }, style: { width: side, height: side, [CORNER_RADIUS[i]]: `${r}px` } });
+    }));
   const art = el('span', { class: 'corner-drawing', 'aria-hidden': 'true' }, [shape]);
   const field = (prefix, label, r, apply, corner) => {
     const node = prefixedField(prefix, label, r, apply, { min: 0, unit });

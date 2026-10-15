@@ -8,6 +8,8 @@ const addWidget = async (page, t, widget) => {
   await page.getByRole('button', { name: t('library.addWidget', { name: t(`widget.${widget}`) }), exact: true }).click();
 };
 const radiusOf = (control) => control.locator('.corner-shape').evaluate((node) => getComputedStyle(node).borderTopLeftRadius);
+const drawnRadii = (control) => control.locator('.corner-shape').evaluate((node) => ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((c) => parseFloat(getComputedStyle(node)[`border${c}Radius`])));
+const markRadius = (control, corner) => control.locator(`.corner-mark[data-corner="${corner}"]`).evaluate((node, c) => parseFloat(getComputedStyle(node)[`border${c[0].toUpperCase()}${c.slice(1)}Radius`]), corner);
 const lit = (control, corner) => control.locator(`.corner-mark[data-corner="${corner}"]`).evaluate((node) => getComputedStyle(node).opacity);
 
 test('shapes, bars and the player cover share the corner control, by mouse and keyboard', async ({ page, t }) => {
@@ -25,6 +27,17 @@ test('shapes, bars and the player cover share the corner control, by mouse and k
   await expect(radius).toHaveValue('12');
   const drawn = await radiusOf(control);
   expect(parseFloat(drawn)).toBeGreaterThan(0);
+  // D-24: a small radius on a large object is still visibly round (not the 1 px of a strict scale).
+  const size = inspector.getByRole('spinbutton', { name: t('inspector.width'), exact: true });
+  await size.fill('342'); await size.press('Tab');
+  const tall = inspector.getByRole('spinbutton', { name: t('inspector.height'), exact: true });
+  await tall.fill('432'); await tall.press('Tab');
+  await radius.fill('24'); await radius.press('Tab');
+  expect(parseFloat(await radiusOf(control))).toBeGreaterThanOrEqual(5);
+  await radius.fill('12'); await radius.press('Tab');
+  const smaller = parseFloat(await radiusOf(control));
+  expect(smaller).toBeGreaterThanOrEqual(2);
+  expect(smaller).toBeLessThan(5);
   await inspector.getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
   await expect(control).toHaveAttribute('data-mode', 'each');
   const corners = control.getByRole('spinbutton');
@@ -39,8 +52,17 @@ test('shapes, bars and the player cover share the corner control, by mouse and k
   expect(await lit(control, 'bottomRight')).toBe('0');
   await page.keyboard.press('Tab');
   await expect(control.getByRole('spinbutton', { name: t('inspector.topRight'), exact: true })).toBeFocused();
+  // The lit mark traces its corner: the same radius as the drawing's.
+  expect(await markRadius(control, 'topLeft')).toBe((await drawnRadii(control))[0]);
   await tl.fill('0'); await tl.press('Tab');
   expect(await radiusOf(control)).toBe('0px');
+  // Corners set apart are drawn apart, in the same order.
+  const br = control.getByRole('spinbutton', { name: t('inspector.bottomRight'), exact: true });
+  await br.fill('36'); await br.press('Tab');
+  const [d0, d1, d2] = await drawnRadii(control);
+  expect(d0).toBe(0);
+  expect(d2 - d1).toBeGreaterThanOrEqual(2);
+  await page.locator('#undo').click();
   await expect(control.getByRole('spinbutton', { name: t('inspector.topRight'), exact: true })).toHaveValue('12');
   await page.locator('#undo').click();
   await expect(tl).toHaveValue('12');
@@ -65,6 +87,9 @@ test('shapes, bars and the player cover share the corner control, by mouse and k
   await look().click();
   control = inspector.getByRole('group', { name: t('player.coverRadius'), exact: true });
   await expect(control.locator('.corner-shape')).toBeVisible();
+  // The cover is drawn on its own (square) box.
+  const cover = await control.locator('.corner-shape').evaluate((node) => [node.offsetWidth, node.offsetHeight]);
+  expect(cover[0]).toBe(cover[1]);
   await inspector.getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
   await expect(control.getByRole('spinbutton')).toHaveCount(4);
   // Only one corner control in the whole inspector, and the old ones are gone.

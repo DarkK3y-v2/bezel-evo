@@ -18,7 +18,7 @@ import {
   adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
 } from './fields.js';
 import { sentenceParts } from '../sentence.js';
-import { CORNERS, cornerValue } from '../corner-radii.js';
+import { CORNERS, cornerValue, coverBox } from '../corner-radii.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
 import { ORIENTATIONS } from '../editor/geometry.js';
 import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
@@ -608,12 +608,12 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return section('corners', title, [control], { tool });
   }
 
-  /** The cover's corners: a square as tall as the player. */
+  /** The cover's corners, drawn on the cover's own box. */
   function coverCorners(e) {
     const c = e.kind.content;
     return cornersSection(t('insp.corners'), t('player.coverRadius'), cornerValue(c.coverRadius ?? 0, c.coverCorners),
       ({ radius, corners }) => update(e.id, { kind: { content: { coverRadius: radius, coverCorners: corners } } }),
-      { box: { width: e.frame.height, height: e.frame.height } });
+      { box: coverBox(e.frame, c.coverGap ?? e.kind.style.size * 0.3) });
   }
 
   /** The track of a bar or ring: on or off, and its color. */

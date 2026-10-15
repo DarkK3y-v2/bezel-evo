@@ -37,6 +37,23 @@ export default {
       await app.page.locator('#inspector').getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
       await app.page.locator('#inspector .corner-radii').scrollIntoViewIfNeeded();
     } },
+    { name: 'shape-corners-large', run: async (app) => {
+      await standalone(app, 'shape');
+      const inspector = app.page.locator('#inspector');
+      const set = async (name, value) => { const field = inspector.getByRole('spinbutton', { name, exact: true }); await field.fill(String(value)); await field.press('Tab'); };
+      await set(t('inspector.width'), 342); await set(t('inspector.height'), 432); await set(t('inspector.radius'), 24);
+      await inspector.getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
+      for (const [name, value] of [['topLeft', 0], ['topRight', 8], ['bottomRight', 24], ['bottomLeft', 16]]) await set(t(`inspector.${name}`), value);
+      await inspector.getByRole('spinbutton', { name: t('inspector.topRight'), exact: true }).focus();
+      await app.page.locator('#inspector .corner-radii').scrollIntoViewIfNeeded();
+    } },
+    { name: 'shape-radius-24', run: async (app) => {
+      await standalone(app, 'shape');
+      const inspector = app.page.locator('#inspector');
+      const set = async (name, value) => { const field = inspector.getByRole('spinbutton', { name, exact: true }); await field.fill(String(value)); await field.press('Tab'); };
+      await set(t('inspector.width'), 342); await set(t('inspector.height'), 432); await set(t('inspector.radius'), 24);
+      await app.page.locator('#inspector .corner-radii').scrollIntoViewIfNeeded();
+    } },
     { name: 'bar-look', run: async (app) => { await standalone(app, 'bar'); await app.inspectorTab(1); } },
     { name: 'player-custom', run: async (app) => {
       await standalone(app, 'player');

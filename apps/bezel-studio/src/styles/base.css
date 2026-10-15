@@ -108,11 +108,12 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 .corner-drawing { display: grid; place-items: center; min-height: 48px; }
 .corner-radii[data-mode="each"] .corner-drawing { min-height: 84px; }
 .corner-shape { position: relative; box-sizing: border-box; border: 2px solid var(--accent); background: var(--accent-soft); }
-.corner-mark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-ink); opacity: 0; }
-.corner-mark[data-corner="topLeft"] { top: -4px; left: -4px; }
-.corner-mark[data-corner="topRight"] { top: -4px; right: -4px; }
-.corner-mark[data-corner="bottomRight"] { bottom: -4px; right: -4px; }
-.corner-mark[data-corner="bottomLeft"] { bottom: -4px; left: -4px; }
+/* A corner's mark lies on the shape's outer edge and traces that corner in the text colour. */
+.corner-mark { position: absolute; box-sizing: border-box; border: 0 solid var(--text); opacity: 0; }
+.corner-mark[data-corner="topLeft"] { top: -2px; left: -2px; border-top-width: 3px; border-left-width: 3px; }
+.corner-mark[data-corner="topRight"] { top: -2px; right: -2px; border-top-width: 3px; border-right-width: 3px; }
+.corner-mark[data-corner="bottomRight"] { bottom: -2px; right: -2px; border-bottom-width: 3px; border-right-width: 3px; }
+.corner-mark[data-corner="bottomLeft"] { bottom: -2px; left: -2px; border-bottom-width: 3px; border-left-width: 3px; }
 .corner-radii[data-mode="same"]:focus-within .corner-mark,
 .corner-radii:has(.fld[data-corner="topLeft"]:focus-within) .corner-mark[data-corner="topLeft"],
 .corner-radii:has(.fld[data-corner="topRight"]:focus-within) .corner-mark[data-corner="topRight"],
