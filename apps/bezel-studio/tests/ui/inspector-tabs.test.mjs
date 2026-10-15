@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CARD_TABS, OBJECT_TABS, PREVIEW_MAX_SCALE, createTabMemory, previewCrop, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
+import { CARD_TABS, HISTORY_MAX, HISTORY_MIN, OBJECT_TABS, QUICK_DURATIONS, appChips, appName, arcDrawing, createTabMemory, durationParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
 
 test('a card has faces, motion, triggers and look; every other object data and look', () => {
   assert.deepEqual(tabsOf('card'), ['faces', 'motion', 'triggers', 'look']);
@@ -50,38 +50,89 @@ test('other keys and an empty tab list move nowhere', () => {
   assert.equal(tabAfterKey([], 'data', 'ArrowRight'), null);
 });
 
-test('the preview copies the object and fits it in the box, keeping its shape', () => {
-  const canvas = { width: 480, height: 1920 };
-  assert.deepEqual(previewCrop({ x: 40, y: 100, width: 400, height: 200 }, canvas, { width: 260, height: 120 }),
-    { sx: 40, sy: 100, sw: 400, sh: 200, width: 240, height: 120 });
-  assert.deepEqual(previewCrop({ x: 0, y: 0, width: 480, height: 100 }, canvas, { width: 240, height: 120 }),
-    { sx: 0, sy: 0, sw: 480, sh: 100, width: 240, height: 50 });
+const theme = {
+  elements: [
+    { id: 1, name: 'Background' },
+    { id: 2, name: 'Net', isGroup: true },
+    { id: 3, name: 'Download', groupParent: 2 },
+    { id: 4, name: 'Faces', card: {} },
+    { id: 5, name: 'Title', cardMember: { parent: 4, face: 0 } },
+    { id: 6, name: 'Lost', groupParent: 99 },
+  ],
+};
+
+test('the head tells the level among all objects, back to front, and the group or card', () => {
+  assert.deepEqual(layerFacts(theme, theme.elements[0]), { level: 1, total: 6, group: null });
+  assert.deepEqual(layerFacts(theme, theme.elements[2]), { level: 3, total: 6, group: 'Net' });
+  assert.deepEqual(layerFacts(theme, theme.elements[4]), { level: 5, total: 6, group: 'Faces' });
+  assert.deepEqual(layerFacts(theme, theme.elements[5]), { level: 6, total: 6, group: null });
 });
 
-test('a small object is enlarged at most four times', () => {
-  const crop = previewCrop({ x: 10, y: 10, width: 20, height: 10 }, { width: 480, height: 480 }, { width: 260, height: 120 });
-  assert.equal(PREVIEW_MAX_SCALE, 4);
-  assert.deepEqual(crop, { sx: 10, sy: 10, sw: 20, sh: 10, width: 80, height: 40 });
+test('a duration is told in its largest whole unit', () => {
+  assert.deepEqual(durationParts(30), { value: 30, unit: 's' });
+  assert.deepEqual(durationParts(60), { value: 1, unit: 'min' });
+  assert.deepEqual(durationParts(900), { value: 15, unit: 'min' });
+  assert.deepEqual(durationParts(3600), { value: 1, unit: 'h' });
+  assert.deepEqual(durationParts(90), { value: 90, unit: 's' });
+  assert.deepEqual(durationParts(7200), { value: 2, unit: 'h' });
+  assert.deepEqual(durationParts(1.256), { value: 1.26, unit: 's' });
 });
 
-test('the part off the canvas is cut away, fractions widen to whole pixels', () => {
-  const canvas = { width: 100, height: 100 };
-  assert.deepEqual(previewCrop({ x: -20, y: 90, width: 60, height: 40 }, canvas, { width: 400, height: 400 }),
-    { sx: 0, sy: 90, sw: 40, sh: 10, width: 160, height: 40 });
-  assert.deepEqual(previewCrop({ x: 10.5, y: 20.2, width: 10, height: 9.6 }, canvas, { width: 22, height: 400 }),
-    { sx: 10, sy: 20, sw: 11, sh: 10, width: 22, height: 20 });
+test('quick durations turn into samples at the theme refresh, the current one pressed', () => {
+  assert.deepEqual(QUICK_DURATIONS, [30, 60, 300, 900, 3600]);
+  assert.deepEqual(quickDurations(1, 60).map((d) => [d.samples, d.pressed, d.disabled]),
+    [[30, false, false], [60, true, false], [300, false, false], [900, false, false], [3600, false, false]]);
+  assert.deepEqual(quickDurations(0.5, 120).map((d) => [d.samples, d.pressed, d.disabled]),
+    [[60, false, false], [120, true, false], [600, false, false], [1800, false, false], [7200, false, true]]);
+  assert.equal(quickDurations(0, 30)[0].samples, 30);
+  assert.equal(quickDurations(40, 2)[0].disabled, true);
+  assert.equal(HISTORY_MIN, 2);
+  assert.equal(HISTORY_MAX, 3600);
 });
 
-test('nothing to preview off the canvas, with no size or with an empty box', () => {
-  const canvas = { width: 100, height: 100 };
-  assert.equal(previewCrop({ x: 120, y: 0, width: 50, height: 50 }, canvas, { width: 200, height: 100 }), null);
-  assert.equal(previewCrop({ x: 0, y: -80, width: 50, height: 50 }, canvas, { width: 200, height: 100 }), null);
-  assert.equal(previewCrop({ x: 10, y: 10, width: 0, height: 50 }, canvas, { width: 200, height: 100 }), null);
-  assert.equal(previewCrop({ x: 10, y: 10, width: 50, height: 50 }, canvas, { width: 0, height: 100 }), null);
+test('the arc drawing starts where the renderer starts and turns its way', () => {
+  const ring = arcDrawing(-135, 270, true);
+  assert.deepEqual(ring.start, { x: 15.03, y: 48.97 });
+  assert.equal(ring.d, 'M15.03 48.97A24 24 0 1 1 48.97 48.97');
+  assert.equal(ring.full, false);
+  assert.equal(arcDrawing(0, 90, false).d, 'M32 8A24 24 0 0 0 8 32');
+  assert.equal(arcDrawing(0, 90, true).d, 'M32 8A24 24 0 0 1 56 32');
+  const full = arcDrawing(0, 400);
+  assert.equal(full.full, true);
+  assert.equal(full.d, 'M32 8A24 24 0 1 1 32 56A24 24 0 1 1 32 8');
+  assert.equal(arcDrawing(0, 'x').d, 'M32 8A24 24 0 0 1 32 8');
+  assert.deepEqual(arcDrawing(90, 90, true, { size: 20, radius: 10 }).start, { x: 20, y: 10 });
 });
 
-test('a sliver is drawn at least one pixel tall', () => {
-  const crop = previewCrop({ x: 0, y: 0, width: 1000, height: 1 }, { width: 1000, height: 100 }, { width: 100, height: 100 });
-  assert.equal(crop.height, 1);
-  assert.equal(crop.width, 100);
+test('an application name drops its folder and .exe', () => {
+  assert.equal(appName('Spotify.exe'), 'Spotify');
+  assert.equal(appName('C:\\Program Files\\VLC\\vlc.EXE'), 'vlc');
+  assert.equal(appName('/usr/bin/firefox'), 'firefox');
+  assert.equal(appName(null), '');
+});
+
+test('the app chips list each media app once, playing ones first, the followed one pressed', () => {
+  const activity = {
+    media: [
+      { source: 'chrome', playing: false },
+      { source: 'Spotify.exe', playing: true },
+      { source: 'spotify', playing: false },
+      { source: 'vlc.exe', playing: false },
+      { source: '', playing: true },
+    ],
+  };
+  assert.deepEqual(appChips(activity, ''), {
+    chips: [
+      { name: 'Spotify', playing: true, pressed: false },
+      { name: 'chrome', playing: false, pressed: false },
+      { name: 'vlc', playing: false, pressed: false },
+    ],
+    custom: null,
+  });
+  assert.deepEqual(appChips(activity, 'SPOTIFY').chips.map((c) => c.pressed), [true, false, false]);
+  assert.equal(appChips(activity, ' Foobar ').custom, 'Foobar');
+  assert.deepEqual(appChips(null, 'foobar'), { chips: [], custom: 'foobar' });
+  assert.deepEqual(appChips({ media: [{ source: 'chrome', playing: false }, { source: 'Chrome.exe', playing: true }] }).chips,
+    [{ name: 'chrome', playing: true, pressed: false }]);
+  assert.deepEqual(appChips(undefined), { chips: [], custom: null });
 });

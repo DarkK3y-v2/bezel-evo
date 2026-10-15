@@ -13,8 +13,8 @@ test('image and shape share radial controls; player and weather have their own a
   await expect(center).toHaveValue('50');await center.fill('25');await center.press('Tab');await expect(center).toHaveValue('25');
   await mode.selectOption('linear');await expect(page.locator('#inspector').getByRole('spinbutton',{name:t('shape.fadeAngle'),exact:true})).toBeVisible();
  }
- await add(page,t,'player');await expect(page.locator('#inspector').getByRole('textbox',{name:t('player.source'),exact:true})).toBeVisible();
- await tab(page,t,'inspector.tab.look');await page.locator('#inspector').getByRole('checkbox',{name:t('player.showCover'),exact:true}).uncheck();
+ await add(page,t,'player');await page.locator('#inspector').getByRole('button',{name:t('insp.otherApp'),exact:true}).click();await expect(page.locator('#inspector').getByRole('textbox',{name:t('player.source'),exact:true})).toBeVisible();
+ await tab(page,t,'inspector.tab.look');const cover=page.locator('#inspector').getByRole('button',{name:t('insp.cover'),exact:true});await expect(cover).toHaveAttribute('aria-pressed','true');await cover.click();await expect(cover).toHaveAttribute('aria-pressed','false');
  await add(page,t,'weather');await tab(page,t,'inspector.tab.look');const style=page.locator('#inspector').getByRole('combobox',{name:t('weather.iconStyle'),exact:true});
  await style.selectOption('colored');await expect(style).toHaveValue('colored');await style.selectOption('dimensional');await expect(style).toHaveValue('dimensional');
  await expectAccessible(page);expect(errors).toEqual([]);
