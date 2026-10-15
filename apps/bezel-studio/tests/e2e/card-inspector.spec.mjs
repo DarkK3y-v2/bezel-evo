@@ -2,7 +2,7 @@
 // face thumbnails, the base, "Move", the rotation stepper and quick
 // durations, effect cards, the rule sentences, their order and the common
 // return. Every edit is one Undo step.
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab, setPanelWidths } from './helpers.mjs';
 
 /** A card with two faces: a text in the base, a ring in face 1, a bar and a graph in face 2 (in view). */
 async function twoFaceCard(page, t) {
@@ -62,6 +62,7 @@ test('faces are screen thumbnails; the base lists its objects; Move sends an obj
   await expect(inspector.getByRole('tab', { name: t('card.tab.faces'), exact: true })).toHaveCount(0);
   await selectCard();
   await expect(inspector.getByText(t('cardInsp.dropHint'), { exact: true })).toBeVisible();
+  await inspector.getByRole('tabpanel', { name: t('card.tab.faces'), exact: true }).screenshot({ path: test.info().outputPath('faces-content.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
@@ -89,6 +90,9 @@ test('rotation has a stepper and quick durations; effects are picture cards; one
   await expect(seconds).toHaveValue('5');
   await expect(inspector.getByRole('button', { name: t('cardInsp.decrease'), exact: true })).toBeDisabled();
   await expect(inspector).toContainText(t('cardInsp.paused'));
+  await inspector.locator('.card-rotation-help summary').click();
+  await expect(inspector.getByText(t('card.rotationHelp'), { exact: true })).toBeVisible();
+  await inspector.locator('.card-rotation-help summary').click();
   // Effects: four radio cards, each with its picture.
   const effects = inspector.getByRole('radiogroup', { name: t('card.effect'), exact: true });
   await expect(effects.getByRole('radio')).toHaveCount(4);
@@ -104,6 +108,7 @@ test('rotation has a stepper and quick durations; effects are picture cards; one
   await page.locator('#undo').click();
   await expect(inspector.getByRole('group', { name: t('card.direction'), exact: true }).getByRole('button', { name: t('card.direction.left'), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(inspector.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
+  await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('motion-content.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
@@ -161,6 +166,7 @@ test('triggers read as sentences with tokens, reorder by keyboard, and share one
   await page.locator('#undo').click();
   await expect(returnTo).toHaveValue('previous');
   await expect(inspector).toContainText(t('cardInsp.priorityHint'));
+  await inspector.getByRole('tabpanel', { name: t('card.tab.triggers'), exact: true }).screenshot({ path: test.info().outputPath('triggers-content.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
@@ -180,6 +186,77 @@ test('triggers stay off with one face, and a rule removed leaves the return disa
   await inspector.getByRole('button', { name: t('trigger.remove'), exact: true }).click();
   await expect(inspector.locator('.trigger-rule')).toHaveCount(0);
   await expect(inspector.getByRole('combobox', { name: t('trigger.returnFace'), exact: true })).toBeDisabled();
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test.describe('Italian mockup comparison', () => {
+  test.use({ locale: 'it-IT' });
+  test('populated Card panels match the standalone board width', async ({ page, t }) => {
+    const errors = watchErrors(page);
+    await page.setViewportSize({ width: 1440, height: 1440 });
+    await page.goto('/index.html?demo=turing88');
+    await setPanelWidths(page, { inspector: 360 });
+    const { inspector } = await twoFaceCard(page, t);
+    expect(await inspector.evaluate(node => node.getBoundingClientRect().width)).toBe(360);
+    await inspector.getByRole('tabpanel', { name: t('card.tab.faces'), exact: true }).screenshot({ path: test.info().outputPath('CardFaces-it.png') });
+    await tab(page, t, 'card.tab.motion');
+    await inspector.getByRole('switch', { name: t('card.autoRotate'), exact: true }).check();
+    await inspector.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
+    await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('CardMotion-it.png') });
+    await tab(page, t, 'card.tab.triggers');
+    await inspector.getByRole('button', { name: t('trigger.add'), exact: true }).click();
+    await inspector.getByRole('button', { name: t('trigger.add'), exact: true }).click();
+    await inspector.getByRole('tabpanel', { name: t('card.tab.triggers'), exact: true }).screenshot({ path: test.info().outputPath('CardTriggers-it.png') });
+    await expectAccessible(page);
+    expect(errors).toEqual([]);
+  });
+});
+
+test('the shared context renders real face pixels and supplies live trigger app choices', async ({ page, t, lang }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  // Exercise the pending host wiring without editing the frozen inspector.
+  await page.evaluate(async locale => {
+    const [{ renderCardPanel }, { createStore }, { createDemoBackend }, { translator }, { el }, { sectionTitle }] = await Promise.all([
+      import('/ui/inspector-card.js'), import('/editor/store.js'), import('/demo-backend.js'), import('/i18n/index.js'), import('/ui/dom.js'), import('/ui/fields.js'),
+    ]);
+    const bridge = createDemoBackend('turing88');
+    const store = createStore((await bridge.session()).theme);
+    const translate = translator(locale);
+    store.dispatch('add', { widget: 'card', x: 240, y: 960 });
+    const id = store.getState().selection[0];
+    store.dispatch('add', { widget: 'ring', x: 240, y: 960 });
+    store.dispatch('addCardFace', { id, name: translate('card.faceName', { number: 2 }) });
+    store.dispatch('add', { widget: 'bar', x: 240, y: 960 });
+    store.select([id]);
+    let sample = await bridge.sample();
+    let selectedTab = 'faces';
+    const root = el('aside', { id: 'card-probe', class: 'inspector', style: { position: 'fixed', inset: '52px 0 30px auto', width: '360px', zIndex: '100' } });
+    document.body.append(root);
+    const render = () => root.replaceChildren(...renderCardPanel(selectedTab, {
+      element: store.getState().theme.elements.find(e => e.id === id), store, t: translate, bridge,
+      host: { lastSample: () => sample }, update: (elementId, patch) => store.dispatch('update', { id: elementId, patch }),
+      section: (key, label, nodes) => el('section', { class: 'property-section', dataset: { section: key } }, [sectionTitle(label), el('div', { class: 'property-section-body' }, nodes.filter(Boolean))]),
+    }).filter(Boolean));
+    store.subscribe(render);
+    render();
+    globalThis.cardProbe = { triggers: () => { selectedTab = 'triggers'; render(); }, stopActivity: () => { sample = { ...sample, activity: null }; } };
+  }, lang);
+  const probe = page.locator('#card-probe');
+  await expect(probe.locator('.face-render')).toHaveCount(3);
+  const pixels = await probe.locator('.face-render').evaluateAll(nodes => nodes.map(canvas => Array.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data)));
+  expect(pixels[0].some((value, i) => i % 4 === 3 && value > 0)).toBe(true);
+  expect(pixels[1]).not.toEqual(pixels[0]);
+  await page.evaluate(() => cardProbe.triggers());
+  await probe.getByRole('button', { name: t('trigger.add'), exact: true }).click();
+  await probe.getByRole('combobox', { name: t('trigger.condition'), exact: true }).selectOption('foreground');
+  await expect(probe.getByRole('combobox', { name: t('trigger.app'), exact: true })).toHaveValue('chrome');
+  await expect(probe.locator('datalist option[value="chrome"]')).toHaveCount(1);
+  await expect(probe.locator('datalist option[value="explorer"]')).toHaveCount(1);
+  await page.evaluate(() => cardProbe.stopActivity());
+  await expect(probe.locator('datalist option[value="explorer"]')).toHaveCount(0);
+  await expect(probe.getByRole('combobox', { name: t('trigger.app'), exact: true })).toHaveValue('chrome');
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
