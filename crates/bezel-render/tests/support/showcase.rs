@@ -477,6 +477,7 @@ impl Scene {
             animation: std::time::Duration::ZERO,
             language: Language::English,
             backdrop: Backdrop::Poster,
+            shown: &bezel_core::domain::transition::NOTHING_SHOWN,
         }
     }
 }

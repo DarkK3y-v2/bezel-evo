@@ -1505,3 +1505,44 @@ fn independent_shape_corners_clip_only_the_selected_corners() {
     assert_eq!(px(&frame, 79, 79), BLACK);
     assert_eq!(px(&frame, 0, 79), RED);
 }
+
+/// A value easing to a new reading (D-2026-10-15-studio-redesign-fidelity-18)
+/// draws exactly what that value as a reading draws, with the same range
+/// and format; another element's easing value changes nothing.
+pub(crate) fn eased_values(r: &mut SkiaRenderer) {
+    let whole = BoxF::new(0.0, 0.0, 64.0, 64.0);
+    let sensor_text = TextContent::Sensor {
+        key: crate::testkit::key(keys::CPU_USAGE),
+        format: DisplayFormat::default(),
+        prefix: String::new(),
+        suffix: String::new(),
+    };
+    let kinds = [
+        ("eased_bar", bar(Direction::LeftToRight, None, 0.0), whole),
+        ("eased_ring", ring(0.0, 360.0, true, Cap::Butt, None), whole),
+        ("eased_needle", needle(None, (0.5, 0.5)), whole),
+        (
+            "eased_text",
+            text(
+                sensor_text,
+                style(16.0, HAlign::Center, VAlign::Middle),
+                whole,
+            )
+            .kind,
+            whole,
+        ),
+    ];
+    for (name, kind, frame) in kinds {
+        let t = theme(64, 64, Background::Color(BLACK), vec![element(frame, kind)]);
+        let reading = shot(r, name, &t, &Scene::empty().with(keys::CPU_USAGE, 73.0));
+        let easing = Scene::empty().with(keys::CPU_USAGE, 20.0).easing(1, 73.0);
+        assert!(shot(r, name, &t, &easing) == reading, "{name}: drawn as 73");
+        let other = Scene::empty().with(keys::CPU_USAGE, 20.0).easing(2, 73.0);
+        let plain = shot(r, name, &t, &Scene::empty().with(keys::CPU_USAGE, 20.0));
+        assert!(
+            shot(r, name, &t, &other) == plain,
+            "{name}: another element"
+        );
+        assert!(plain != reading, "{name}: the values differ");
+    }
+}

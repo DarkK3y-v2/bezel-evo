@@ -182,6 +182,15 @@ impl Tween {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ShownValues(BTreeMap<ElementId, f64>);
 
+/// Nothing moving: every element shows its reading (a one-off frame).
+pub static NOTHING_SHOWN: ShownValues = ShownValues(BTreeMap::new());
+
+impl FromIterator<(ElementId, f64)> for ShownValues {
+    fn from_iter<I: IntoIterator<Item = (ElementId, f64)>>(values: I) -> Self {
+        Self(values.into_iter().collect())
+    }
+}
+
 impl ShownValues {
     /// The value element `id` shows, when it is moving.
     pub fn get(&self, id: ElementId) -> Option<f64> {
@@ -354,11 +363,9 @@ impl Transitions {
 
     /// What `view` draws at `at` for the visible elements of `theme`.
     pub fn shown(&self, theme: &Theme, at: Duration, view: View) -> ShownValues {
-        ShownValues(
-            self.moving(theme, at, view)
-                .map(|(id, tween)| (id, tween.value_at(at)))
-                .collect(),
-        )
+        self.moving(theme, at, view)
+            .map(|(id, tween)| (id, tween.value_at(at)))
+            .collect()
     }
 
     /// When `view` needs its next frame after one drawn at `at`: a step

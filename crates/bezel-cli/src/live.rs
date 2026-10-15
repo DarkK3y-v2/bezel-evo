@@ -560,7 +560,12 @@ where
                 Err(e) => Err(e.into()),
             };
             match sent {
-                Ok(Sent::Shown) => frames += 1,
+                Ok(Sent::Shown) => {
+                    frames += 1;
+                    // How long it took to show: value transitions keep that pace.
+                    let shown = since(pace, origin);
+                    self.runtime.screen_pace(shown.saturating_sub(now));
+                }
                 Ok(Sent::Back) => continue,
                 Ok(Sent::Stopped) => break,
                 Err(e) => return (frames, Err(e)),

@@ -19,6 +19,7 @@ use crate::domain::storage::{
     Confirmed, FileName, RemotePath, Repeat, StorageInfo, StorageLocation,
 };
 use crate::domain::theme::{AssetRef, Theme};
+use crate::domain::transition::ShownValues;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
@@ -433,6 +434,10 @@ pub struct RenderContext<'a> {
     pub language: Language,
     /// What a video background shows.
     pub backdrop: Backdrop<'a>,
+    /// The values of elements whose transition still moves, drawn in place
+    /// of their readings with the same range and format (empty: every
+    /// element shows its reading).
+    pub shown: &'a ShownValues,
 }
 
 /// Native card drawing costs, separate from serial delivery.
