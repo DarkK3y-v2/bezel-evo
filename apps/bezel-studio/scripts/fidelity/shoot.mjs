@@ -53,7 +53,7 @@ function parseArgs(argv) {
     } else if (flag === '--diff') {
       args.diff = [argv[i + 1], argv[i + 2]];
       i += 2;
-    } else if (['--area', '--artboard', '--scheme', '--only', '--out'].includes(flag)) {
+    } else if (['--area', '--artboard', '--scheme', '--only', '--out', '--state'].includes(flag)) {
       args[flag.slice(2)] = argv[i + 1];
       i += 1;
     } else {
@@ -186,7 +186,10 @@ async function shootApp(browser, appUrl, recipe, scheme, out) {
 }
 
 async function shoot(args) {
-  const recipes = await loadRecipes(args.area);
+  const recipes = (await loadRecipes(args.area)).map(recipe => ({ ...recipe,
+    states: recipe.states.filter(state => !args.state || args.state.split(',').includes(state.name)),
+  }));
+  if (args.state && !recipes.some(recipe => recipe.states.length)) throw new Error(`Unknown state: ${args.state}`);
   const schemes = args.scheme === 'both' ? ['dark', 'light'] : [args.scheme];
   const browser = await chromium.launch();
   const mock = args.only === 'app' ? null : await startMockServer();

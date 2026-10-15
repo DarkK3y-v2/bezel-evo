@@ -50,5 +50,5 @@ export default {
       await app.page.clock.pauseAt(new Date('2026-10-09T10:00:01Z'));
       await app.page.locator('#status-libre-restart').click();
     } },
-  ].map(state => ({ ...state, ...(state.name.startsWith('settings') ? { capture: '#screen-panel' } : state.name.startsWith('storage') ? { capture: '#storage-panel' } : {}) })),
+  ].map(state => ({ ...state, ...(state.name.startsWith('settings') ? { capture: '#screen-device' } : state.name.startsWith('storage') ? { capture: '#storage-panel' } : {}) })),
 };
