@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ALL_CATEGORIES, axisOf, groupSensors, sensorCategories, shownSensorKeys } from '../../src/ui/library.js';
+import { ALL_CATEGORIES, axisOf, catalogKeysInView, groupSensors, sensorCategories } from '../../src/ui/library.js';
 import { joinColor, splitColor } from '../../src/ui/fields.js';
 
 const catalog = [
@@ -30,15 +30,15 @@ test('one category keeps only its sensors, with the text filter on top', () => {
   assert.deepEqual(groupSensors(catalog, '', 'gpu').map(([c, items]) => [c, items.map((s) => s.key)]), [['gpu', ['gpu.usage']]]);
   assert.deepEqual(groupSensors(catalog, 'cpu', 'gpu'), []);
   assert.deepEqual(groupSensors(catalog, '', ALL_CATEGORIES).length, 5);
-  assert.deepEqual(shownSensorKeys(catalog, '', true, 'network'), ['net.down'], 'only the shown category is measured');
+  assert.deepEqual(catalogKeysInView(catalog, '', true, 'network'), ['net.down'], 'only the shown category is measured');
 });
 
 test('the list shows the filtered sensors while open, and none while closed', () => {
   const withPing = [...catalog, { key: 'net.ping', category: 'network', label: 'Ping' }];
-  assert.deepEqual(shownSensorKeys(withPing, '', true), ['cpu.usage', 'gpu.usage', 'net.down', 'net.ping', 'x.z', 'x.y']);
-  assert.deepEqual(shownSensorKeys(withPing, 'usage', true), ['cpu.usage', 'gpu.usage'], 'the ping filtered out');
-  assert.deepEqual(shownSensorKeys(withPing, 'ping', true), ['net.ping']);
-  assert.deepEqual(shownSensorKeys(withPing, '', false), [], 'another tab, or the window hidden');
+  assert.deepEqual(catalogKeysInView(withPing, '', true), ['cpu.usage', 'gpu.usage', 'net.down', 'net.ping', 'x.z', 'x.y']);
+  assert.deepEqual(catalogKeysInView(withPing, 'usage', true), ['cpu.usage', 'gpu.usage'], 'the ping filtered out');
+  assert.deepEqual(catalogKeysInView(withPing, 'ping', true), ['net.ping']);
+  assert.deepEqual(catalogKeysInView(withPing, '', false), [], 'another tab, or the window hidden');
 });
 
 test('colors split into rgb and alpha percent and join back', () => {

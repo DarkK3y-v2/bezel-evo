@@ -57,7 +57,7 @@ export function groupSensors(catalog, filter = '', category = ALL_CATEGORIES) {
  * app measures them with the theme's; `net.ping` sends packets only while
  * something shown uses it (D-2026-09-30-release-polish-11).
  */
-export function shownSensorKeys(catalog, filter, open, category = ALL_CATEGORIES) {
+export function catalogKeysInView(catalog, filter, open, category = ALL_CATEGORIES) {
   if (!open) return [];
   return groupSensors(catalog, filter, category).flatMap(([, items]) => items.map((s) => s.key));
 }
@@ -252,7 +252,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   let reported = null;
   function reportShown() {
     const open = !$('panel-sensors').hidden && document.visibilityState !== 'hidden';
-    const keys = shownSensorKeys(catalog, sensorSearch.value, open, shownCategory());
+    const keys = catalogKeysInView(catalog, sensorSearch.value, open, shownCategory());
     if (keys.join(' ') === reported) return;
     reported = keys.join(' ');
     actions.showSensors(keys);

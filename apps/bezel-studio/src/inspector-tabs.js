@@ -2,15 +2,6 @@
 // which one is open for each kind of object (kept through edits, re-renders
 // and Undo), where the arrow keys move, what the head says of an object, the
 // graph's quick durations, the ring's arc drawing and the player's app chips.
-import { widgetOf } from './editor/widgets.js';
-
-/** Extra sampling is needed only while an activity editor is actually shown. */
-export function shownSensorKeys(keys, { theme, selection }, visible = true, inspectorShown = true) {
-  if (!visible) return [];
-  const element = selection.length === 1 ? theme.elements.find(e => e.id === selection[0]) : null;
-  const activity = inspectorShown && element && (widgetOf(element) === 'player' || element.card?.triggers?.length > 0);
-  return [...new Set([...keys, ...(activity ? ['activity.processes', 'media.sessions'] : [])])];
-}
 
 /** A card's tabs: its faces, how they change, what brings one forward, and how it looks. */
 export const CARD_TABS = Object.freeze(['faces', 'motion', 'triggers', 'look']);

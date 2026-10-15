@@ -9,7 +9,7 @@ import { createLibrary } from './ui/library.js';
 import { createScreenPanel } from './ui/screen-panel.js';
 import { openVideoPreview } from './ui/video-preview.js';
 import { createInspector } from './ui/inspector.js';
-import { shownSensorKeys } from './inspector-tabs.js';
+import { sampledSensorKeys } from './sensor-sampling.js';
 import { createConfirm, createStoragePanel, formatBytes, wireSubtabs } from './ui/storage.js';
 import { applyIcons, el, icon } from './ui/dom.js';
 import { ICONS } from './ui/icons.js';
@@ -165,7 +165,7 @@ let librarySensorKeys = [];
 let requestedSensorKeys = null;
 function reportShownSensors(keys = librarySensorKeys) {
   librarySensorKeys = keys;
-  const wanted = shownSensorKeys(keys, store.getState(), !document.hidden,
+  const wanted = sampledSensorKeys(keys, store.getState(), !document.hidden,
     !document.querySelector('.workspace.storage-wide'));
   const signature = JSON.stringify(wanted);
   if (signature === requestedSensorKeys) return;
