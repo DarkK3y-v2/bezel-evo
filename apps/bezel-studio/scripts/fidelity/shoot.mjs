@@ -48,7 +48,9 @@ function parseArgs(argv) {
   const args = { area: 'all', artboard: null, scheme: 'both', only: null, out: DEFAULT_OUT, diff: null };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
-    if (flag === '--diff') {
+    if (flag === '--merge') {
+      args.merge = true;
+    } else if (flag === '--diff') {
       args.diff = [argv[i + 1], argv[i + 2]];
       i += 2;
     } else if (['--area', '--artboard', '--scheme', '--only', '--out'].includes(flag)) {
@@ -160,7 +162,7 @@ function appSteps(page) {
 async function shootApp(browser, appUrl, recipe, scheme, out) {
   const entries = [];
   for (const state of recipe.states) {
-    const context = await browser.newContext({ viewport: VIEWPORT, colorScheme: scheme, locale: 'it-IT' });
+    const context = await browser.newContext({ viewport: state.viewport ?? VIEWPORT, colorScheme: scheme, locale: 'it-IT' });
     const page = await context.newPage();
     await page.clock.setFixedTime(FIXED_TIME);
     await page.goto(`${appUrl}/index.html?demo=${state.demo ?? 'turing88'}${state.query ?? ''}`);
@@ -171,8 +173,13 @@ async function shootApp(browser, appUrl, recipe, scheme, out) {
     mkdirSync(dirname(file), { recursive: true });
     // The render time is the one value the clock cannot fix.
     await page.screenshot({ path: file, animations: 'disabled', caret: 'hide', mask: [page.locator('#status-render')] });
+    let detail;
+    if (state.capture) {
+      detail = join(out, scheme, 'app', recipe.area, `${state.name}-detail.png`);
+      await page.locator(state.capture).screenshot({ path: detail, animations: 'disabled', caret: 'hide' });
+    }
     await context.close();
-    entries.push({ kind: 'app', scheme, area: recipe.area, state: state.name, file });
+    entries.push({ kind: 'app', scheme, area: recipe.area, state: state.name, file, ...(detail ? { detail } : {}) });
     console.log(`app ${scheme} ${recipe.area}/${state.name}`);
   }
   return entries;
@@ -199,7 +206,11 @@ async function shoot(args) {
     app?.close();
   }
   mkdirSync(args.out, { recursive: true });
-  writeFileSync(join(args.out, 'manifest.json'), `${JSON.stringify(entries.map((entry) => ({ ...entry, file: relative(args.out, entry.file).replaceAll('\\', '/') })), null, 2)}\n`);
+  const captured = entries.map(entry => ({ ...entry, file: relative(args.out, entry.file).replaceAll('\\', '/'), ...(entry.detail ? { detail: relative(args.out, entry.detail).replaceAll('\\', '/') } : {}) }));
+  const identity = entry => JSON.stringify([entry.kind, entry.scheme, entry.artboard ?? [entry.area, entry.state]]);
+  const updated = new Set(captured.map(identity));
+  const kept = args.merge ? JSON.parse(readFileSync(join(args.out, 'manifest.json'), 'utf8')).filter(entry => !updated.has(identity(entry))) : [];
+  writeFileSync(join(args.out, 'manifest.json'), `${JSON.stringify([...kept, ...captured], null, 2)}\n`);
   console.log(`${entries.length} screenshots in ${args.out}`);
 }
 

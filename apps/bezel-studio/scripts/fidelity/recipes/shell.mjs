@@ -1,9 +1,10 @@
 // The shell (artboard Main): topbar, rail, stage and statusbar.
 export default {
   area: 'shell',
-  artboards: ['Main'],
+  artboards: ['Main', 'Logo'],
   states: [
     { name: 'main', run: async () => {} },
+    { name: 'logo', capture: '.brand', run: async () => {} },
     // An edit: "Unsaved" in the breadcrumb and the statusbar.
     { name: 'unsaved', run: (app) => app.add('ring') },
     { name: 'live', run: (app) => app.click('label.live-toggle') },

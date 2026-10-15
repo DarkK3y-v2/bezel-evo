@@ -45,5 +45,5 @@ export default {
     { name: 'themes-panel', run: (app) => app.tab('themes') },
     { name: 'themes', run: themes },
     { name: 'themes-all', run: async (app) => { await themes(app); await app.click('#theme-scope [data-scope=all]'); } },
-  ],
+  ].map(state => ({ ...state, capture: state.name.startsWith('themes') && state.name !== 'themes-panel' ? '.themes-dialog' : state.name === 'gif-search' ? '.gif-dialog' : '.sidebar' })),
 };

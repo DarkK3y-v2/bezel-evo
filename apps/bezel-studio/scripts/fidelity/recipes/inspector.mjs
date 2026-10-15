@@ -38,5 +38,5 @@ export default {
       await standalone(app, 'player');
       await app.page.locator('#inspector').getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) }).check();
     } },
-  ],
+  ].map(state => ({ ...state, capture: '#inspector' })),
 };
