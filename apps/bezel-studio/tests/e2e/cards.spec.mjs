@@ -52,13 +52,13 @@ test('card faces, shared base, grouping and clipboard are editable', async ({ pa
   await expect(tree.locator('[data-face="1"]')).toHaveClass(/active-face/);
   await selectCard();
   await tab('card.tab.motion');
-  await detail.getByRole('checkbox', { name: t('card.autoRotate'), exact: true }).check();
+  await detail.getByRole('switch', { name: t('card.autoRotate'), exact: true }).check();
   await expect(detail.getByRole('spinbutton', { name: t('card.rotationSeconds'), exact: true })).toHaveValue('10');
   await detail.getByRole('spinbutton', { name: t('card.rotationSeconds'), exact: true }).fill('5');
   await detail.getByRole('spinbutton', { name: t('card.rotationSeconds'), exact: true }).press('Tab');
   await expect(detail).toContainText(t('card.rotationHelp'));
   await page.screenshot({ path: test.info().outputPath('card-timer.png') });
-  await detail.getByRole('checkbox', { name: t('card.autoRotate'), exact: true }).uncheck();
+  await detail.getByRole('switch', { name: t('card.autoRotate'), exact: true }).uncheck();
   await expect(detail.getByRole('spinbutton', { name: t('card.rotationSeconds'), exact: true })).toHaveCount(0);
   await tab('card.tab.faces');
   await detail.getByRole('button', { name: t('card.duplicateFace'), exact: true }).click();

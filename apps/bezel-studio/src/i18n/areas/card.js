@@ -1,12 +1,55 @@
-// Texts of one area. The card's inspector (artboards CardFaces, CardMotion, CardTriggers).
-// Every key starts with one of PREFIXES; i18n/index.js merges the three
-// languages into the base tables and refuses a key defined twice.
-
-/** The key prefixes this area owns. */
+// Card content translations. Common action labels stay in the base catalogue.
 export const PREFIXES = Object.freeze(['cardInsp.']);
-
 export default {
-  en: {},
-  'pt-BR': {},
-  it: {},
+  en: {
+    'cardInsp.base': 'Base', 'cardInsp.layout': 'Member layout',
+    'cardInsp.layoutHint': 'Thumbnails show where the objects are on the screen.',
+    'cardInsp.objectsIn': 'Objects in {face}', 'cardInsp.emptyFace': 'No objects on this face.',
+    'cardInsp.selectObject': 'Select {name}', 'cardInsp.moveObject': 'Move {name}',
+    'cardInsp.dropHint': 'Drag objects onto the face in Layers, or use Move to choose another face.',
+    'cardInsp.every': 'every', 'cardInsp.increase': 'Increase interval', 'cardInsp.decrease': 'Decrease interval',
+    'cardInsp.quickDurations': 'Quick intervals', 'cardInsp.minutes': '{value} min',
+    'cardInsp.paused': 'Rotation is paused while this Card is being edited.',
+    'cardInsp.fast': 'fast', 'cardInsp.slow': 'slow',
+    'cardInsp.triggersIntro': 'When something happens on the PC, the Card switches to a face and pauses rotation.',
+    'cardInsp.when': 'When', 'cardInsp.in': 'in', 'cardInsp.show': 'show', 'cardInsp.anyApp': 'Any app',
+    'cardInsp.priority': 'priority', 'cardInsp.return': 'return', 'cardInsp.reorder': 'Reorder rule {value}',
+    'cardInsp.priorityHint': 'Higher priority wins. With equal priority, the first rule wins. Drag the handle or use its arrow keys to reorder.',
+    'cardInsp.needsFaces': 'Add another face to use triggers.', 'cardInsp.whenEnds': 'When a trigger ends',
+    'cardInsp.mixed': 'Different return faces', 'cardInsp.appHint': 'Choose a running app or type its name. An empty media app matches any media session.',
+  },
+  'pt-BR': {
+    'cardInsp.base': 'Base', 'cardInsp.layout': 'Posição dos objetos',
+    'cardInsp.layoutHint': 'As miniaturas mostram onde os objetos ficam na tela.',
+    'cardInsp.objectsIn': 'Objetos em {face}', 'cardInsp.emptyFace': 'Nenhum objeto nesta face.',
+    'cardInsp.selectObject': 'Selecionar {name}', 'cardInsp.moveObject': 'Mover {name}',
+    'cardInsp.dropHint': 'Arraste objetos para a face em Camadas, ou use Mover para escolher outra face.',
+    'cardInsp.every': 'a cada', 'cardInsp.increase': 'Aumentar intervalo', 'cardInsp.decrease': 'Diminuir intervalo',
+    'cardInsp.quickDurations': 'Intervalos rápidos', 'cardInsp.minutes': '{value} min',
+    'cardInsp.paused': 'A rotação fica pausada enquanto esta Card é editada.',
+    'cardInsp.fast': 'rápido', 'cardInsp.slow': 'lento',
+    'cardInsp.triggersIntro': 'Quando algo acontece no PC, a Card muda de face e pausa a rotação.',
+    'cardInsp.when': 'Quando', 'cardInsp.in': 'em', 'cardInsp.show': 'mostrar', 'cardInsp.anyApp': 'Qualquer app',
+    'cardInsp.priority': 'prioridade', 'cardInsp.return': 'retorno', 'cardInsp.reorder': 'Reordenar regra {value}',
+    'cardInsp.priorityHint': 'A maior prioridade vence. Em empate, vence a primeira regra. Arraste a alça ou use suas setas para reordenar.',
+    'cardInsp.needsFaces': 'Adicione outra face para usar triggers.', 'cardInsp.whenEnds': 'Quando um trigger termina',
+    'cardInsp.mixed': 'Faces de retorno diferentes', 'cardInsp.appHint': 'Escolha um app aberto ou escreva seu nome. App vazio em mídia corresponde a qualquer sessão.',
+  },
+  it: {
+    'cardInsp.base': 'Base', 'cardInsp.layout': 'Posizione degli oggetti',
+    'cardInsp.layoutHint': 'Le miniature mostrano dove si trovano gli oggetti sullo schermo.',
+    'cardInsp.objectsIn': 'Oggetti in {face}', 'cardInsp.emptyFace': 'Nessun oggetto in questa faccia.',
+    'cardInsp.selectObject': 'Seleziona {name}', 'cardInsp.moveObject': 'Sposta {name}',
+    'cardInsp.dropHint': 'Trascina gli oggetti sulla faccia in Livelli, oppure usa Sposta per scegliere un’altra faccia.',
+    'cardInsp.every': 'ogni', 'cardInsp.increase': 'Aumenta intervallo', 'cardInsp.decrease': 'Riduci intervallo',
+    'cardInsp.quickDurations': 'Intervalli rapidi', 'cardInsp.minutes': '{value} min',
+    'cardInsp.paused': 'La rotazione è in pausa mentre modifichi questa Card.',
+    'cardInsp.fast': 'rapida', 'cardInsp.slow': 'lenta',
+    'cardInsp.triggersIntro': 'Quando succede qualcosa sul PC, la Card passa a una faccia e mette in pausa la rotazione.',
+    'cardInsp.when': 'Quando', 'cardInsp.in': 'in', 'cardInsp.show': 'mostra', 'cardInsp.anyApp': 'Qualsiasi app',
+    'cardInsp.priority': 'priorità', 'cardInsp.return': 'ritorno', 'cardInsp.reorder': 'Riordina regola {value}',
+    'cardInsp.priorityHint': 'Vince la priorità più alta. A parità, vince la prima regola. Trascina la maniglia o usa i suoi tasti freccia per riordinare.',
+    'cardInsp.needsFaces': 'Aggiungi un’altra faccia per usare i trigger.', 'cardInsp.whenEnds': 'Quando un trigger finisce',
+    'cardInsp.mixed': 'Facce di ritorno diverse', 'cardInsp.appHint': 'Scegli un’app aperta oppure scrivi il suo nome. Un’app multimediale vuota corrisponde a qualsiasi sessione.',
+  },
 };

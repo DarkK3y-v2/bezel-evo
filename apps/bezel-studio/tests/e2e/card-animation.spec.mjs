@@ -22,13 +22,14 @@ test('card built in the editor previews fade, slide and flip with changing frame
   await add('ring');
   await selectCard();
   await detail.getByRole('tab', { name: t('card.tab.motion'), exact: true }).click();
-  await detail.getByRole('combobox', { name: t('card.effect'), exact: true }).selectOption('flip');
-  await expect(detail.getByRole('combobox', { name: t('card.effect'), exact: true })).toHaveValue('flip');
+  const effects = detail.getByRole('radiogroup', { name: t('card.effect'), exact: true });
+  await effects.getByRole('radio', { name: t('card.effect.flip'), exact: true }).check();
+  await expect(effects.getByRole('radio', { name: t('card.effect.flip'), exact: true })).toBeChecked();
   const duration = detail.getByRole('slider', { name: new RegExp(t('card.duration')) });
   await duration.evaluate(e => { e.value = '1000'; e.dispatchEvent(new Event('change', { bubbles: true })); });
-  await detail.getByRole('combobox', { name: t('card.direction'), exact: true }).selectOption('right');
+  await detail.getByRole('group', { name: t('card.direction'), exact: true }).getByRole('button', { name: t('card.direction.right'), exact: true }).click();
   for (const effect of ['fade', 'slide', 'flip']) {
-    await detail.getByRole('combobox', { name: t('card.effect'), exact: true }).selectOption(effect);
+    await effects.getByRole('radio', { name: t(`card.effect.${effect}`), exact: true }).check();
     await page.waitForTimeout(150);
     const sampling = page.evaluate(async () => {
       const source = document.querySelector('#preview');
@@ -47,7 +48,7 @@ test('card built in the editor previews fade, slide and flip with changing frame
     expect(new Set(hashes).size, effect).toBeGreaterThanOrEqual(4);
     await expect(detail.getByRole('slider', { name: new RegExp(t('card.duration')) })).toHaveValue('1000');
   }
-  await detail.getByRole('checkbox', { name: t('card.includeBase'), exact: true }).uncheck();
+  await detail.getByRole('switch', { name: t('card.includeBase'), exact: true }).uncheck();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await detail.getByRole('button', { name: t('card.animateNext'), exact: true }).click();
   await expectAccessible(page);
