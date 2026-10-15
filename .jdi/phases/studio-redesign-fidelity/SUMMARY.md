@@ -311,3 +311,58 @@ O diff visual tem ruído pré-existente: duas baselines do mesmo commit `da86d86
 - Amostragem única em `bezel-sensors` (`memory.rs`, `memory/windows.rs`): Toolhelp para enumerar processos, caminhos canônicos dos executáveis e SID do usuário (só esta instalação/usuário); `GetProcessMemoryInfo` → `PrivateWorkingSetSize`; resultado (inclusive falhas) em cache de 5 s; outros SOs → indisponível. `unsafe` só em chamadas Win32 de leitura, com justificativa, como em `windows/activity.rs`.
 - Studio: pill "memoria N MB" na statusbar com detalhe por processo (Studio, WebView2, Light, leitor de sensores); consulta enquanto visível; demo com valores marcados. Light: item informativo desabilitado no menu do tray, atualizado ao abrir o menu.
 - Commits b029a6d, b668e09, 735385e, e9eace4 (feitos com ChatGPT/Codex, branch fid/memory). Após o merge: cargo test 1098 ok, clippy/fmt limpos, unit 455/455, e2e memória/shell/transições/zoom 48/48.
+
+### Um controle de cantos, foco do stage, passos numéricos e tipo de fundo (D-2026-10-15-studio-redesign-fidelity-22 e -23)
+
+- `d78312f` - **Anel de foco do stage só pelo teclado.**
+  - Causa: `onPointerDown` chama `preventDefault()` e foca `#stage-scroll` por script. Nesse caso o Chromium marca `:focus-visible`, e o anel aparecia em volta do stage inteiro depois de qualquer clique. Depois de um pan com o botão do meio o anel continuava lá.
+  - Correção: `focus({ preventScroll: true, focusVisible: false })` no stage e no overlay do enquadramento. Tab continua mostrando o anel.
+  - Spec `stage-focus.spec` (cliques, teclas, pan com e sem foco, Tab de volta, axe). Ela falha sem a correção.
+- `a607505` - **Setas e spin buttons sem a UI pular.**
+  - Causa: cada passo dispara `change`, o store atualiza e `inspector.render()` faz `replaceChildren`. O input focado era trocado por outro, e com isso se perdiam o caret, a repetição da tecla e o spin button. O preview novo nascia vazio (≈80 px mais baixo), então o `scrollTop` do painel era cortado. No Anel, aba Aspetto, no fim do painel: 228 → 148.
+  - Correção:
+    - Os inputs numéricos de `ui/fields.js` (`numberField`, `prefixedField`, alpha do `colorField`) guardam o handler num `WeakMap`.
+    - `adoptControl(current, fresh)` mantém o input focado no lugar do seu equivalente no form novo. Ele recebe o handler, os atributos e o valor do novo, e é movido com `moveBefore` (o foco fica). Sem `moveBefore`, faz `insertBefore` e foca de novo.
+    - `render()` anexa o form novo antes de tirar o velho e restaura o `scrollTop`. Quando o foco não é adotado, ele volta com `preventScroll`.
+    - O preview do mesmo objeto mantém a imagem até chegar a próxima.
+  - Spec `inspector-stepping.spec`: segura ArrowUp 12× em dois campos e verifica que o nó é o mesmo, que está focado, o valor, o `scrollTop` idêntico, a aba Aspetto e o Undo por passo. Ela falha sem a correção.
+- `62b94d2` - **Um controle de raio de canto (D-14).** O desenho da capa do Player virou a primitiva `cornerRadii()`. Shape (retângulo), Barra (só raio único) e capa do Player usam essa primitiva. Saíram o switch "Angoli singoli" + números do Shape, o número solto da Barra, `.corner-grid/.corner-cover` e a chave órfã `inspector.individualCorners`. O `editing-017.spec` agora usa o botão "Singoli" no lugar do switch, com as mesmas asserções e mais uma de `aria-pressed`. Spec nova: `corner-radii.spec`.
+- `d8c651e` - **Tipo de fundo explícito (D-23).**
+  - A seção Sfondo do tema abre com o segmented `Colore | Dal PC | Dallo schermo` (`insp.bgType`).
+    - Colore: cor + opacidade.
+    - Dal PC: uma linha de explicação, o link "Apri il pannello Media" (`#bg-open-media`, novo `video.openMedia`) e "Usa un'immagine…/Usa un video…". Com vídeo, mostra o vídeo com enquadramento como antes.
+    - Dallo schermo: uma linha, o link "Apri Schermo › Archivio" (`#bg-open-storage`), o nome do arquivo, o loop e a cor de fora para as janelas de vídeo.
+  - Cada troca é um único comando `setTheme` (um passo de Undo) e traz de volta o último fundo daquele tipo; Dal PC só se o asset ainda existe. Um tipo ainda sem arquivo fica só escolhido na UI, com a dica "Lo sfondo resta com'è finché non scegli un file", e o tema não muda.
+  - "Usa un colore pieno" e "Rimuovi lo sfondo" viraram a opção Colore (chaves removidas). "Colore" reutiliza `inspector.color`.
+  - `video-background.spec` foi ajustado sem enfraquecer: o Colore aparece como escolha, Dal PC traz o vídeo de volta e o Undo volta à cor. Spec nova: `background-kind.spec`, com os três tipos, os dois links, teclado e um passo de Undo por troca, também com vídeo do display em `?demo=vendorCard`.
+  - Receitas do `shoot.mjs` (inspector): `theme-pc`, `theme-screen`, `shape-corners`, `bar-look`.
+
+**API da primitiva `cornerRadii` (`ui/fields.js`, estilos em `base.css`, modelo puro em `src/corner-radii.js`):**
+
+```js
+const { tool, control } = cornerRadii(
+  { label, prefix, mode, same, each, corners: { topLeft, topRight, bottomRight, bottomLeft } }, // textos já traduzidos
+  { radius, corners },          // corners: null (todos = radius) ou [tl, tr, br, bl]
+  (next) => { /* next: { radius, corners } , nunca < 0 */ },
+  { individual = true, box = null, unit = 'px' },  // box {width,height}: proporções do objeto no desenho
+);
+section('corners', titulo, [control], { tool });   // tool = segmented Uguali|Singoli (null se !individual)
+```
+
+- O `control` é um `role="group"` com `aria-label=label` e `data-mode="same|each"`.
+  - Em `same`: o desenho e um `prefixedField` (aria-label `label`).
+  - Em `each`: quatro `prefixedField` (`data-corner`) em volta do desenho, em ordem de leitura tl, tr, bl, br.
+- O campo focado acende o canto dele (`.corner-mark`). O desenho é `aria-hidden`.
+- `src/corner-radii.js`: `CORNERS`, `cornerValue(radius, corners)`, `cornerMode`, `withCornerMode`, `withRadius`, `withCorner`, `radiiOf`, `cornerDrawing(value, box, frame)`. Cada raio mantém a sua fração do lado menor, de modo que uma barra pill continua pill no desenho. Coberto por `tests/ui/corner-radii.test.mjs`.
+- No inspector, `cornersSection(title, label, value, onChange, opts)` faz o mapeamento para os campos do tema: `coverRadius/coverCorners`, `radius/corners`, `radius`.
+
+**Card:** o raio de canto do Card não existe nesta árvore. As faces do Card são de outra ferramenta, no worktree `bezel-fid-card` (`inspector-card.js`, `card.css`). Para alinhar quando houver controle de cantos lá, usar `cornerRadii()` + `cornerValue()` e não criar uma variante local.
+
+Primitivos reutilizados: `segmented`, `prefixedField`, `propertySection`, `.text-button`, `icon`/`ICONS.media`/`ICONS.sdCard`, `.hint`, `checkField`, `colorField`. Nenhuma duplicação.
+
+| Gate | Resultado |
+| --- | --- |
+| `npm run test:unit` | 471/471; linhas 99,43% (`corner-radii.js` coberto) |
+| e2e afetados (`e2e-slot`): stage-focus, inspector-stepping, corner-radii, background-kind, video-background, device-video, editing-017, inspector-sections/preview, video-framing, gif-search, themes… | todos verdes. O único vermelho foi `canvas-wheel-zoom:87` (light-pt) em paralelo, verde em série 60/60 com `--workers=1 --repeat-each=3`; com e sem a correção ele se comporta igual |
+| `npm test` completo, quatro projetos, axe | 612/612 |
+| `shoot.mjs --area inspector --only app`, dark e light | conferido: cantos (Shape, Barra pill, capa do Player) e Sfondo (Colore, Dal PC, Dallo schermo sem quebra de linha) |
