@@ -60,7 +60,11 @@ const boards = Object.keys(JSON.parse(readFileSync(join(DESIGN, 'canvas.json'), 
   .map(name => name.replace('.dc.html', '')).filter(name => !['Connect', 'LogoAlternatives'].includes(name));
 for (const board of boards) if (!pairs[board]) throw new Error(`Missing gallery mapping: ${board}`);
 const escape = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
-const img = (file, alt) => `<a href="captures/${escape(file)}" target="_blank" rel="noopener"><img loading="lazy" src="captures/${escape(file)}" alt="${escape(alt)}"></a>`;
+const img = (file, alt) => {
+  const png = readFileSync(join(shots, file));
+  const width = png.readUInt32BE(16), height = png.readUInt32BE(20);
+  return `<a href="captures/${escape(file)}" target="_blank" rel="noopener"><img loading="lazy" width="${width}" height="${height}" src="captures/${escape(file)}" alt="${escape(alt)}"></a>`;
+};
 const sections = [];
 for (const scheme of ['dark', 'light']) {
   for (const board of boards) {
