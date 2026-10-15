@@ -2,13 +2,18 @@
 
 [Português (Brasil)](pt-BR/install.md)
 
-This Windows development fork currently has no published binary releases.
-See the [fork's build instructions](../../README.md#build-and-setup-on-windows) to build
-its changes; future packages will appear on
-[this fork's releases page](https://github.com/jripper77/bezel/releases).
-The package instructions below describe the inherited installer formats and
-apply when such packages are available. Upstream packages do not include this
-fork's modifications.
+For Bezel Evo on Windows 10/11 x64, download the Setup executable or portable ZIP
+from [this fork's Releases page](https://github.com/jripper77/bezel/releases).
+Follow the [Windows installation guide](../../packaging/windows/README.md) for
+the bundled sensor reader, optional Light at sign-in and updates.
+[Source builds](../build-windows.md) have a separate guide.
+
+## Inherited package reference
+
+The Linux packages and Windows MSI/CLI-only formats below describe upstream
+Bezel; they are not a promise of Bezel Evo release assets. Upstream binaries do
+not include this fork's modifications.
+
 Each release has these files (`<version>` is the release number, such as `1.0.0`):
 
 | System | File | Contents |
@@ -89,6 +94,9 @@ bezel --version
 
 ## Windows
 
+For Bezel Evo, use the [current Windows guide](../../packaging/windows/README.md).
+The following names and MSI behavior refer to upstream packages.
+
 Run `bezel_<version>_x64-setup.exe` (installs for your user) or the `.msi`
 (installs for every user of the computer and asks for administrator rights).
 Bezel then appears in the Start menu. If Microsoft Edge WebView2 is missing, the
@@ -108,4 +116,4 @@ LibreHardwareMonitor.
 
 ## From source
 
-See the Windows build instructions in the project [README](../../README.md#build-and-setup-on-windows).
+See the Windows build instructions in the project [source-build guide](../build-windows.md).

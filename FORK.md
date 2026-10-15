@@ -1,4 +1,4 @@
-# Bezel Evo ? Windows improvements
+# Bezel Evo - Windows implementation notes
 
 This is a personal development fork of [slipalison/bezel](https://github.com/slipalison/bezel), based on `3f6144fe7dce7c14f2d79a8f23bbe27e0315e353`.
 The original project remains upstream. `main` follows the original; `windows-improvements` carries the locally tested changes.
@@ -516,3 +516,118 @@ Validation: all six edges/centers with reversed selection order, unequal sizes,
 locked references/targets, Undo, existing group/card/editor tests, and accessible
 browser checks for actual click order and both center axes.
 Includes the previously prepared 0.1.18 independent cover corner controls.
+
+
+## Windows feature reference
+
+Moved from the project front page; implementation details and limitations are
+kept here so the README can focus on getting started.
+
+- **Light runtime with a native tray icon:** runs saved themes without keeping
+  the editor's WebView open. Open Studio from the tray; closing Studio returns
+  control to Light. Unsaved changes are handled before closing.
+- **Multiple screens:** separate themes, orientations and live selections;
+  Light drives the saved active screens together and shares sensor sampling. Studio delivers frames on an independent
+  worker per display, with one outstanding frame per connection and completion
+  notifications to keep slow screens from pausing faster ones. Rendering and
+  sensor state remain shared.
+- **Integrated Windows sensors:** a headless LibreHardwareMonitorLib 0.9.6
+  helper reads CPU temperature, fans, power and other available sensors. Only
+  the configured helper requires administrator rights. Studio provides reader
+  health, restart and diagnostic logs. The helper does not control fans or LEDs.
+- **Windows serial fixes:** bounded writes, transfer diagnostics and retries
+  for transient port access errors, tested on Turing 8.8-inch Rev C ROM 1.90.
+  Protocol framing and command bytes are preserved.
+- **Offline vector icons:** searchable Tabler and hardware collections, with
+  color, outline, opacity and shadow editing, plus Italian search aliases.
+- **Customizable dates and clocks:** language, presets, custom formats and
+  casing per object, including Italian dates and day names.
+- **Ordinary object groups:** group selected objects without creating a card or
+  animation, including nested groups and groups within card faces. Move/resize
+  a group together and edit individual members through Layers.
+- **Object copy and paste:** duplicate single objects or selections while
+  preserving properties, with independent IDs and Undo support.
+- **Card widgets:** shared base and named faces, manual face selection, face
+  duplication and ordering, grouping existing objects, movement, resizing and
+  clipboard support. Face changes support fade, slide and flip transitions,
+  configurable duration/direction and optional base movement. Rotate faces on a timer
+  or select a face while an app runs, is closed, is in foreground or plays media.
+  Rules have priorities and a return delay; rotation resumes after the override.
+- **Weather widgets:** city search, units, language, icon size and spacing, with
+  outline, filled, colored and shaded 3D-style vector icons authored in this fork.
+- **Windows media player:** display title, artist, cover and timeline from Windows
+  media sessions. Filter an app (e.g. Spotify) or automatically prefer a playing
+  session; hide stopped sessions or configure the empty label. App-provided
+  metadata and timing vary; this widget does not send playback commands.
+- **Image and shape transparency:** shared linear/radial controls with center,
+  radius and start/end opacity. Images retain their existing fit/framing.
+- **Screen sleep timer:** discoverable under Screen settings; default 5 minutes,
+  per-display persistence and capability checks. Turing Rev C firmware supports
+  1 to 10 minutes after PC shutdown; active Live updates keep the display awake.
+  Choose Keep in the shutdown options to disable the Off fallback.
+- **Ring gradients:** start/end colors and an adjustable transition along the
+  full arc, plus a checkbox to preview the ring at 100%.
+- **Stored-video backgrounds:** select a video in Screen Storage as the
+  background, with looping and shape windows. Shape windows support linear/radial opacity.
+- **Local video previews:** a player in Media and Screen Storage with playback,
+  pause and seeking. Storage uses an associated local copy and offers
+  original-file association when missing. Previewing does not alter the theme.
+- **Login and shutdown integration:** launch Light and the helper at login and
+  apply saved shutdown actions through the active screen connection.
+- **Recovery after long pauses:** Light detects a tray-loop pause of at least
+  ten seconds, stops the old render workers, restarts the configured sensor
+  helper off the UI thread, verifies a fresh sensor snapshot and reopens the
+  saved displays. Studio and Light also retry a missing or stalled bundled
+  reader from their sensor worker. The wake MCU and
+  display port of one screen no longer create duplicate workers.
+
+## Hardware validation and current limits
+
+Testing focuses on Windows with a Turing Smart Screen 8.8-inch Rev C ROM 1.90
+and a Turing 3.5-inch display. Other drivers and Linux support are inherited
+from Bezel; these additions have not been physically verified on every model
+or on Linux.
+
+Local video previews require a copy on the PC, are limited to 64 MiB and depend
+on WebView codecs. The current protocol cannot retrieve device-only videos;
+those backgrounds show a placeholder in the editor. Partial alpha blending
+over stored video on ROM 1.90 still needs hardware confirmation.
+
+The corrected login configuration has been tested by launching Light and the
+helper; the next Windows login must confirm the latest path and port fixes.
+
+## Technical guides
+
+- [Windows source builds and manual setup](docs/build-windows.md)
+- [Live performance measurements and Debug overlay](docs/live-diagnostics.md)
+- [Studio editing reference](docs/user/studio-editing.md)
+- [Third-party credits and licences](THIRD_PARTY.md)
+
+## Historical planning snapshot
+
+The following planning text was moved from the old README. It is retained as
+a historical snapshot, not as a current feature-availability list: several
+items are already described as implemented above. Consult the implementation
+notes and [TODO.md](TODO.md) before treating an item as pending.
+
+The [roadmap](TODO.md) tracks face containers in Layers, timed/software/media card
+triggers and player widgets, linear/radial image transparency, radial shape
+transparency, per-screen sleep timing (default five minutes), additional colored
+and 3D-style weather icons, editor/property organization, calculated variables and
+PC-idle screensavers. These items are planned; availability and licensing of
+external event sources and icon collections still need evaluation.
+
+## Windows distribution and updating
+
+Windows x64 releases provide a **Setup executable**, a **portable ZIP**, checksums
+and the corresponding source archive on the [Releases page](https://github.com/jripper77/bezel/releases).
+The Setup installs Studio, Light, bundled themes and the headless sensor reader.
+It offers optional Light at sign-in and sensor setup; only configuring/removing
+an owned sensor task requests administrator approval. Existing tasks from other
+installations and external Libre are preserved.
+
+Save and exit Studio and quit Light before updating. Updates and uninstall retain
+personal themes, preferences and caches. Silent installation does not enable
+new optional services. These first packages are unsigned; video tools such as
+FFmpeg and hardware-access drivers are not installed automatically.
+See [Windows installation and build details](packaging/windows/README.md).

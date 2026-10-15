@@ -103,5 +103,5 @@ do LibreHardwareMonitor.
 
 ## Compilando o código-fonte
 
-Veja *Build from source* no [README](../../../README.md#build-from-source) do
+Veja *Build from source* no [guia de build para Windows](../../build-windows.md) do
 projeto.
