@@ -170,16 +170,21 @@ pub fn enter_studio(directory: &Path, timeout: Duration) -> io::Result<StudioSes
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::mpsc;
     use std::time::SystemTime;
 
     fn directory() -> std::path::PathBuf {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
         let unique = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path =
-            std::env::temp_dir().join(format!("bezel-handoff-{}-{unique}", std::process::id()));
+        let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "bezel-handoff-{}-{unique}-{sequence}",
+            std::process::id()
+        ));
         std::fs::create_dir(&path).unwrap();
         path
     }
