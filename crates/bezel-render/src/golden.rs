@@ -950,6 +950,18 @@ pub(crate) fn graphs(r: &mut SkiaRenderer) {
         assert_px(&f, x, y, expected, 0);
     }
 
+    // A graph draws its own window of the series, never the older points a
+    // longer graph of the same sensor keeps (the inspector's residue).
+    let older = [Some(100.0), Some(100.0), Some(0.0), Some(0.0)];
+    let f = graph_frame(
+        r,
+        "graph_own_window",
+        graph(GraphStyle::Line, 2, false),
+        &older,
+    );
+    assert_px(&f, 8, 1, BLACK, 0);
+    assert_px(&f, 32, 30, WHITE, 64);
+
     let f = graph_frame(
         r,
         "graph_autoscale",

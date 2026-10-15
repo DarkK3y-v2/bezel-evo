@@ -57,7 +57,7 @@ impl FrameRenderer for RecordingRenderer {
             time: context.time,
             language: context.language,
             cpu: context.snapshot.get(&cpu),
-            cpu_history: context.histories.get(&cpu),
+            cpu_history: context.histories.points(&cpu, window(theme)),
             cpu_quantity: context.quantities.get(&cpu),
             assets: assets.len(),
         });
@@ -78,6 +78,18 @@ impl SensorSource for NoCatalog {
         s.insert(key(keys::CPU_USAGE), Reading::Value(7.0));
         Ok(s)
     }
+}
+
+/// How many points the theme's graph shows (its window of the history).
+fn window(theme: &Theme) -> usize {
+    theme
+        .elements
+        .iter()
+        .find_map(|e| match e.kind {
+            ElementKind::Graph { history, .. } => Some(usize::from(history)),
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// A portrait 8.8" theme graphing CPU usage over `history` samples.

@@ -61,12 +61,24 @@ impl FrameRenderer for Recorder {
         self.seen.push(Drawn {
             theme: theme.name.clone(),
             assets: assets.keys().cloned().collect(),
-            history: context.histories.get(&usage),
+            history: context.histories.points(&usage, window(theme)),
             usage: context.snapshot.get(&usage),
             unit: context.quantities.get(&usage),
         });
         Ok(Frame::filled(theme.canvas, Rgba::default()))
     }
+}
+
+/// How many points the theme's graph shows (its window of the history).
+fn window(theme: &Theme) -> usize {
+    theme
+        .elements
+        .iter()
+        .find_map(|e| match e.kind {
+            ElementKind::Graph { history, .. } => Some(usize::from(history)),
+            _ => None,
+        })
+        .unwrap_or(0)
 }
 
 /// A theme graphing `cpu.usage` over `history` samples.
@@ -155,11 +167,31 @@ fn edits_keep_the_assets_and_the_graph_history() {
     rt.render(&mut r, TIME, Default::default()).expect("frame");
     assert_eq!(r.seen[1].history, [Some(20.0), Some(30.0)]);
 
-    // Another document brings its own assets and still keeps the history.
+    // Another document brings its own assets and still keeps the history,
+    // all of it: the shorter window in between cut nothing.
     rt.replace(graphing("other", 3), BTreeMap::new());
     rt.render(&mut r, TIME, Default::default()).expect("frame");
     assert!(r.seen[2].assets.is_empty());
-    assert_eq!(r.seen[2].history, [Some(20.0), Some(30.0)]);
+    assert_eq!(r.seen[2].history, [Some(10.0), Some(20.0), Some(30.0)]);
+}
+
+#[test]
+fn a_window_cut_short_then_widened_again_keeps_its_points() {
+    let mut rt = ThemeRuntime::new(graphing("t", 4), BTreeMap::new(), Language::English);
+    let mut sensors = usage(&[10.0, 20.0, 30.0, 40.0]);
+    for _ in 0..4 {
+        rt.sample(&mut sensors).expect("sample");
+    }
+    // Every preview swaps the edited theme in: a short window in between
+    // must not cut what the graph recorded.
+    rt.replace_theme(graphing("short", 2));
+    rt.replace_theme(graphing("wide", 4));
+    let mut r = Recorder::default();
+    rt.render(&mut r, TIME, Default::default()).expect("frame");
+    assert_eq!(
+        r.seen[0].history,
+        [Some(10.0), Some(20.0), Some(30.0), Some(40.0)]
+    );
 }
 
 #[test]

@@ -1188,7 +1188,9 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         min: binding.min,
         max: binding.max,
     };
-    let values = context.histories.get(&binding.key);
+    let values = context
+        .histories
+        .points(&binding.key, usize::from(*history));
     graph::draw(layer, element.frame, &values, &spec);
 }
 
