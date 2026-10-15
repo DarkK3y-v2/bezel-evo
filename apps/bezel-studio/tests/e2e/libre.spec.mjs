@@ -58,7 +58,7 @@ test('the Libre dialog opens Sensors and closes on a click outside', async ({ pa
   await dot.click();
   await popover.getByRole('button', { name: t('sensorStatus.openSensors') }).click();
   await expect(popover).toBeHidden();
-  await expect(page.getByRole('tab', { name: t('library.sensors') })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: t('common.sensors') })).toHaveAttribute('aria-selected', 'true');
   expect(errors).toEqual([]);
 });
 

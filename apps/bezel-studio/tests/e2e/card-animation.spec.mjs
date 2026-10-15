@@ -47,7 +47,7 @@ test('card built in the editor previews fade, slide and flip with changing frame
     await page.getByRole('button', { name: t('library.addWidget', { name: t(`widget.${widget}`) }), exact: true }).click();
   };
   await add('card');
-  const cardName = await detail.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const cardName = await detail.getByLabel(t('common.name'), { exact: true }).inputValue();
   const selectCard = async () => {
     await page.locator('#tab-layers').click();
     await page.locator('.layer-name').filter({ hasText: cardName }).first().click();
@@ -63,7 +63,7 @@ test('card built in the editor previews fade, slide and flip with changing frame
   await expect(effects.getByRole('radio', { name: t('card.effect.flip'), exact: true })).toBeChecked();
   const duration = detail.getByRole('slider', { name: new RegExp(t('card.duration')) });
   await duration.evaluate(e => { e.value = '1000'; e.dispatchEvent(new Event('change', { bubbles: true })); });
-  await detail.getByRole('group', { name: t('card.direction'), exact: true }).getByRole('button', { name: t('card.direction.right'), exact: true }).click();
+  await detail.getByRole('group', { name: t('common.direction'), exact: true }).getByRole('button', { name: t('common.right'), exact: true }).click();
   for (const effect of ['fade', 'slide', 'flip']) {
     await effects.getByRole('radio', { name: t(`card.effect.${effect}`), exact: true }).check();
     await page.waitForTimeout(150);

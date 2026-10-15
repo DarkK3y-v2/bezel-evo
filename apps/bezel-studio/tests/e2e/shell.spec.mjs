@@ -1,6 +1,6 @@
 // The window's shell: the vertical rail of panels, the floating bars over the
 // stage and the status bar, by keyboard and pointer, in every scheme and language.
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, libraryTabKey } from './helpers.mjs';
 
 const PANELS = ['widgets', 'sensors', 'layers', 'themes', 'media', 'screen'];
 
@@ -10,7 +10,7 @@ test('the panel rail is a vertical tab list the arrows walk', async ({ page, t }
   const rail = page.getByRole('tablist', { name: t('library.title'), exact: true });
   await expect(rail).toHaveAttribute('aria-orientation', 'vertical');
   for (const name of PANELS) {
-    await expect(rail.getByRole('tab', { name: t(`library.${name}`), exact: true })).toHaveAttribute('id', `tab-${name}`);
+    await expect(rail.getByRole('tab', { name: t(libraryTabKey(name)), exact: true })).toHaveAttribute('id', `tab-${name}`);
   }
   const tab = (name) => page.locator(`#tab-${name}`);
   await tab('widgets').click();
@@ -54,7 +54,7 @@ test('the floating bars over the stage edit and zoom', async ({ page, t }) => {
     expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
   }
 
-  await page.getByRole('button', { name: t('library.addWidget', { name: t('inspector.text') }), exact: true }).click();
+  await page.getByRole('button', { name: t('library.addWidget', { name: t('common.text') }), exact: true }).click();
   await expect(page.locator('#undo')).toBeEnabled();
   await page.locator('#undo').click();
   await expect(page.locator('#redo')).toBeEnabled();

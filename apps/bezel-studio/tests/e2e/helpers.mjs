@@ -68,6 +68,9 @@ export const layers = (page) => page.locator('#layer-list .layer-row');
 /** Adds `widget` with its button in the Widgets panel. */
 export const clickAddWidget = (page, t, widget) => page.getByRole('button', { name: t('library.addWidget', { name: t(`widget.${widget}`) }), exact: true }).click();
 
+/** The key of a Library tab's label: the Sensors one reads the shared `common.sensors`. */
+export const libraryTabKey = (name) => (name === 'sensors' ? 'common.sensors' : `library.${name}`);
+
 /** Opens the inspector's tab named by the translation `key`. */
 export const openInspectorTab = (page, t, key) => page.locator('#inspector').getByRole('tab', { name: t(key), exact: true }).click();
 

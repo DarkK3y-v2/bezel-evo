@@ -14,17 +14,17 @@ test('drag a widget onto the canvas', async ({ page, t }) => {
   await expect(page.locator('.sel-box')).toHaveCount(1);
   await expect(page.locator('#status-main')).toHaveText(t('status.unsaved'));
   await expect(page.locator('#inspector')).toContainText(t('inspector.position'));
-  await expect(page.locator('#inspector').getByRole('textbox', { name: t('inspector.name'), exact: true })).toHaveValue(t('widget.bar'));
+  await expect(page.locator('#inspector').getByRole('textbox', { name: t('common.name'), exact: true })).toHaveValue(t('widget.bar'));
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await expect(layers(page)).toHaveCount(4);
   await expectAccessible(page);
 
-  await page.getByRole('tab', { name: t('library.sensors') }).click();
+  await page.getByRole('tab', { name: t('common.sensors') }).click();
   const gpuTemperature = t('sensor.gpu.temperature');
   await page.getByRole('searchbox', { name: t('library.searchSensors') }).fill(gpuTemperature.toLowerCase());
   await dragTo(page, page.getByRole('button', { name: literally(gpuTemperature) }), page.locator('#canvas-box'), { x: 0.3, y: 0.8 });
   await expect(page.locator('#inspector').getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('gpu.temperature');
-  await expect(page.locator('#inspector').getByRole('textbox', { name: t('inspector.name'), exact: true })).toHaveValue(gpuTemperature);
+  await expect(page.locator('#inspector').getByRole('textbox', { name: t('common.name'), exact: true })).toHaveValue(gpuTemperature);
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await expect(layers(page)).toHaveCount(5);
 
@@ -92,7 +92,7 @@ test('the sensor list tells the app which sensors it shows', async ({ page, t })
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   const html = page.locator('html');
   await expect(html).toHaveAttribute('data-demo-sensors', '');
-  await page.getByRole('tab', { name: t('library.sensors') }).click();
+  await page.getByRole('tab', { name: t('common.sensors') }).click();
   await expect(html).toHaveAttribute('data-demo-sensors', /^cpu\.usage .*net\.down net\.up/);
   await page.getByRole('searchbox', { name: t('library.searchSensors') }).fill('net.');
   await expect(html).toHaveAttribute('data-demo-sensors', 'net.down net.up');

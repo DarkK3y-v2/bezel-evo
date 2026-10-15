@@ -25,7 +25,7 @@ export function createThemesDialog({ root, t, openTheme, duplicateTheme }) {
     selection.textContent = selected ? t('themesPanel.selected', { name: selected.name }) : '';
     closeButton.title = t('dialog.close');
     closeButton.setAttribute('aria-label', t('dialog.close'));
-    duplicate.textContent = t('inspector.duplicate');
+    duplicate.textContent = t('common.duplicate');
     open.textContent = t('themesPanel.openEditor');
     duplicate.disabled = open.disabled = busy || !selected;
     if (!dialog.open) return;

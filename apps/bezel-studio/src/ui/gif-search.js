@@ -191,7 +191,7 @@ export function createGifSearch({ t, bridge, locale, onCollected = () => {} }) {
     parts.help = helpPanel();
     return el('form', { class: 'gif-key', onsubmit: (evt) => void saveKey(evt) }, [
       el('label', { for: 'gif-key-input', text: t('gifs.key') }),
-      el('div', { class: 'gif-key-row' }, [parts.keyInput, el('button', { type: 'submit', class: 'text-button', text: t('top.save') }), parts.remove, parts.helpButton, parts.help]),
+      el('div', { class: 'gif-key-row' }, [parts.keyInput, el('button', { type: 'submit', class: 'text-button', text: t('common.save') }), parts.remove, parts.helpButton, parts.help]),
       parts.keyStatusLine,
       parts.keyError,
     ]);
@@ -346,7 +346,7 @@ export function createGifSearch({ t, bridge, locale, onCollected = () => {} }) {
     }
     const actions = {
       partnerPanel: () => el('button', { type: 'button', class: 'text-button', text: t('gifs.partnerPanel'), onclick: openPartnerPanel }),
-      retry: () => retry && el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), onclick: retry }),
+      retry: () => retry && el('button', { type: 'button', class: 'text-button', text: t('common.retry'), onclick: retry }),
       help: () => null,
     };
     problem.replaceChildren(el('div', { class: 'dialog-warning' }, [

@@ -349,7 +349,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   function layerName(e, widget, selected) {
     if (editing === e.id) {
       return el('input', {
-        type: 'text', value: e.name, 'aria-label': t('inspector.name'), class: 'layer-name',
+        type: 'text', value: e.name, 'aria-label': t('common.name'), class: 'layer-name',
         onkeydown: (evt) => {
           if (evt.key === 'Enter') evt.target.blur();
           if (evt.key === 'Escape') { editing = null; renderLayers(); }
@@ -398,8 +398,8 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       el('span', { class: 'layer-tools' }, [
         btn(t('layers.up'), ICONS.up, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.up : index + 1 }), neighbors ? neighbors.up == null : index === total - 1),
         btn(t('layers.down'), ICONS.down, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.down : index - 1 }), neighbors ? neighbors.down == null : index === 0),
-        btn(e.visible === false ? t('collection.filter') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
-        btn(e.locked ? t('layers.unlock') : t('layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => store.dispatch('update', { id: e.id, patch: { locked: !e.locked } }), false, Boolean(e.locked), e.locked ? ' layer-flag' : ''),
+        btn(e.visible === false ? t('common.show') : t('common.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
+        btn(e.locked ? t('common.unlock') : t('common.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => store.dispatch('update', { id: e.id, patch: { locked: !e.locked } }), false, Boolean(e.locked), e.locked ? ' layer-flag' : ''),
       ]),
     ]);
   }
@@ -582,7 +582,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
         ]),
       ]),
       el('button', {
-        type: 'button', class: 'icon-button quiet theme-duplicate', title: t('inspector.duplicate'), 'aria-label': t('themesPanel.duplicateLabel', { name: th.name }),
+        type: 'button', class: 'icon-button quiet theme-duplicate', title: t('common.duplicate'), 'aria-label': t('themesPanel.duplicateLabel', { name: th.name }),
         onclick: () => duplicateTheme(th),
       }, [icon(ICONS.copy, 16)]),
     ]);
@@ -710,7 +710,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   // --------------------------------------------------------------- media --
   /** A file's badge: Video, else its format (`PNG`, `GIF`). */
   function kindOf(a) {
-    if (a.kind === 'video') return t('media.video');
+    if (a.kind === 'video') return t('common.video');
     const name = fileNameOf(a.ref);
     const ext = name.includes('.') ? name.split('.').pop().toUpperCase() : '';
     return ext || (moves(a) ? t('collection.kind.gif') : t('media.kindImage'));
@@ -725,14 +725,14 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     const moving = moves(a);
     const poster = moving && a.poster ? assets.find((p) => p.ref === a.poster)?.dataUrl : null;
     const preview = poster ?? a.dataUrl ?? null;
-    const label = a.kind === 'video' ? t('media.video') : t('media.animatedGif');
+    const label = a.kind === 'video' ? t('common.video') : t('media.animatedGif');
     const details = moving ? [label, ...videoFacts(a, (n) => formatBytes(n, locale()))].join(' · ') : null;
     const action = (text, paths, onclick) => el('button', { type: 'button', class: 'icon-button quiet', title: text, 'aria-label': text, onclick }, [icon(paths, 16)]);
     return el('li', { class: 'media-item', dataset: { ref: a.ref } }, [
       el('span', { class: 'thumb', style: preview ? { backgroundImage: `url(${preview})` } : {} }, [
         preview ? null : icon(a.kind === 'video' ? ICONS.video : ICONS.image, 22),
         el('span', { class: 'tag media-kind', text: kindOf(a) }),
-        el('span', { class: 'tag media-bg', hidden: true, text: t('inspector.background') }),
+        el('span', { class: 'tag media-bg', hidden: true, text: t('common.background') }),
       ]),
       el('span', { class: 'media-name' }, [
         el('span', { text: fileNameOf(a.ref) }),

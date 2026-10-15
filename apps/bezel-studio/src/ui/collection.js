@@ -73,7 +73,7 @@ export function createCollectionPanel({ root, t, locale, bridge, canvas, stage, 
       return;
     }
     const lines = loadError ? [t('collection.loadFailed'), errorText(t, loadError)] : [errorText(t, actionError)];
-    const retry = loadError && el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), onclick: () => void refresh() });
+    const retry = loadError && el('button', { type: 'button', class: 'text-button', text: t('common.retry'), onclick: () => void refresh() });
     parts.problem.replaceChildren(el('div', { class: 'dialog-warning' }, [
       icon(ICONS.warning, 18),
       el('div', {}, [...lines.map((text) => el('p', { text })), retry]),
@@ -137,7 +137,7 @@ export function createCollectionPanel({ root, t, locale, bridge, canvas, stage, 
     const answer = await askChoice(t, {
       title: t('collection.deleteTitle', { name: item.name }),
       body: deleteText(t, users, locale()),
-      actions: [{ id: 'delete', label: t('inspector.delete'), kind: 'danger' }],
+      actions: [{ id: 'delete', label: t('common.delete'), kind: 'danger' }],
       initial: 'cancel',
     });
     if (answer !== 'delete') return;
@@ -273,7 +273,7 @@ export function createCollectionPanel({ root, t, locale, bridge, canvas, stage, 
     return {
       image,
       background: button('background', t('collection.useBackground'), () => void act(item, 'background', null)),
-      rename: button('rename', t('collection.rename'), () => startRename(item)),
+      rename: button('rename', t('common.rename'), () => startRename(item)),
       delete: button('delete', t('collection.delete'), () => void remove(item)),
     };
   }
@@ -376,7 +376,7 @@ export function createCollectionPanel({ root, t, locale, bridge, canvas, stage, 
   }
 
   function build() {
-    parts.filters = el('div', { class: 'segmented collection-filter', role: 'group', 'aria-label': t('collection.filter') }, COLLECTION_FILTERS.map((f) => el('button', {
+    parts.filters = el('div', { class: 'segmented collection-filter', role: 'group', 'aria-label': t('common.show') }, COLLECTION_FILTERS.map((f) => el('button', {
       type: 'button', dataset: { filter: f }, 'aria-pressed': String(f === filter), text: t(`collection.filter.${f}`), onclick: () => chooseFilter(f),
     })));
     parts.count = el('p', { class: 'hint collection-count' });

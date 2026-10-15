@@ -47,7 +47,7 @@ test('layer row dragging reorders with Undo, cancellation, and outside-canvas de
   const name = rows.first().locator('input.layer-name');
   await name.fill('Renamed layer'); await name.press('Enter');
   await expect(rows.first()).toContainText('Renamed layer');
-  await rows.first().getByRole('button', { name: t('layers.hide'), exact: true }).click();
+  await rows.first().getByRole('button', { name: t('common.hide'), exact: true }).click();
   await expect(rows.first()).toHaveClass(/hidden-el/);
   await expectAccessible(page);
   expect(errors).toEqual([]);

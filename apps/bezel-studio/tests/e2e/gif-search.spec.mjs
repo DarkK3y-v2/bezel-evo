@@ -265,7 +265,7 @@ test.describe('gif search', () => {
 
     // Saving with the field empty says so on the field, in the UI's language.
     await expect(key).toHaveValue('');
-    await dialog.getByRole('button', { name: t('top.save') }).click();
+    await dialog.getByRole('button', { name: t('common.save') }).click();
     await expect(dialog.getByText(t('gifs.keyEmpty'), { exact: true })).toBeVisible();
     await expect(key).toHaveAttribute('aria-invalid', 'true');
     await expect(key).toHaveAttribute('aria-describedby', /\bgif-key-error\b/);
@@ -275,7 +275,7 @@ test.describe('gif search', () => {
 
     // A key that is not one; then a key KLIPY refuses at the first search, which opens the help.
     await key.fill('not a key!');
-    await dialog.getByRole('button', { name: t('top.save') }).click();
+    await dialog.getByRole('button', { name: t('common.save') }).click();
     await expect(dialog.getByText(t('gifs.keyInvalid'))).toBeVisible();
     await expect(key).toHaveAttribute('aria-invalid', 'true');
     await key.fill('refused-key');
@@ -330,7 +330,7 @@ test.describe('gif search', () => {
     // nor when the window is hidden and shown again (the sensor list open
     // shows the page heard it), a minute each way; nor when the dialog opens.
     const outside = await startIdle(page, 'gifs');
-    await page.getByRole('tab', { name: t('library.sensors') }).click();
+    await page.getByRole('tab', { name: t('common.sensors') }).click();
     await expect(root(page)).toHaveAttribute('data-demo-sensors', /^cpu\.usage /);
     await hideAndShow(page, HIDDEN_AND_SHOWN);
     expect(await outside()).toEqual(NOTHING_OUT);
@@ -621,7 +621,7 @@ test.describe('gif collection', () => {
     await expect(count).toContainText(t('collection.count', { count: 3, size: '' }).trim());
 
     // The filter: stickers, GIFs, all.
-    const filters = panel.getByRole('group', { name: t('collection.filter') });
+    const filters = panel.getByRole('group', { name: t('common.show') });
     const stickers = filters.getByRole('button', { name: t('collection.filter.sticker') });
     await stickers.click();
     await expect(stickers).toHaveAttribute('aria-pressed', 'true');
@@ -643,12 +643,12 @@ test.describe('gif collection', () => {
     await expect(status).toHaveText(t('collection.addedImage', { name: 'Happy dance' }));
     expect(await said()).toEqual([t('collection.using', { name: 'Happy dance' }), t('collection.addedImage', { name: 'Happy dance' })]);
     const inspector = page.locator('#inspector');
-    await expect(inspector.getByRole('combobox', { name: t('inspector.asset'), exact: true })).toHaveValue('assets/happy-dance.gif');
-    await expect(inspector.getByRole('textbox', { name: t('inspector.name'), exact: true })).toHaveValue('Happy dance');
+    await expect(inspector.getByRole('combobox', { name: t('common.image'), exact: true })).toHaveValue('assets/happy-dance.gif');
+    await expect(inspector.getByRole('textbox', { name: t('common.name'), exact: true })).toHaveValue('Happy dance');
     await expectCenter(page, t, { x: 240, y: 960 });
 
     // Rename in place: Esc keeps the name, an empty one is refused, Enter saves.
-    const rename = happy.getByRole('button', { name: t('collection.rename') });
+    const rename = happy.getByRole('button', { name: t('common.rename') });
     await rename.click();
     const field = panel.getByRole('textbox', { name: t('collection.nameField', { name: 'Happy dance' }) });
     await expect(field).toBeFocused();
@@ -670,7 +670,7 @@ test.describe('gif collection', () => {
     await field.press('Enter');
     await expect(status).toHaveText(t('collection.renamed', { old: 'Happy dance', name: 'Party time' }));
     const party = items.filter({ hasText: 'Party time' });
-    await expect(party.getByRole('button', { name: t('collection.rename') })).toBeFocused();
+    await expect(party.getByRole('button', { name: t('common.rename') })).toBeFocused();
     await expect(items.nth(2)).toContainText('Party time');
 
     // Delete asks first; Cancel keeps the item, and the focus goes back.
@@ -686,7 +686,7 @@ test.describe('gif collection', () => {
     await expect(thumbs.getByRole('button', { name: t('collection.delete') })).toBeFocused();
     // Confirmed: it goes, and the focus moves to the next item.
     await page.keyboard.press('Enter');
-    await confirm.getByRole('button', { name: t('inspector.delete'), exact: true }).click();
+    await confirm.getByRole('button', { name: t('common.delete'), exact: true }).click();
     await expect(items).toHaveCount(2);
     await expect(status).toHaveText(t('collection.deleted', { name: 'Thumbs up' }));
     await expect(party.getByRole('button', { name: t('collection.delete') })).toBeFocused();
@@ -701,14 +701,14 @@ test.describe('gif collection', () => {
     await expect(confirm).toContainText('“Mine”');
     await expect(confirm).toContainText(t('collection.openTheme'));
     await expectAccessible(page);
-    await confirm.getByRole('button', { name: t('inspector.delete'), exact: true }).click();
+    await confirm.getByRole('button', { name: t('common.delete'), exact: true }).click();
     await expect(items).toHaveCount(1);
     await expect(items.first().getByRole('button', { name: t('collection.delete') })).toBeFocused();
-    await expect(inspector.getByRole('combobox', { name: t('inspector.asset'), exact: true })).toHaveValue('assets/happy-dance.gif');
+    await expect(inspector.getByRole('combobox', { name: t('common.image'), exact: true })).toHaveValue('assets/happy-dance.gif');
 
     // The last one: the collection is empty again, and the focus goes to the search.
     await items.first().getByRole('button', { name: t('collection.delete') }).click();
-    await page.getByRole('dialog').getByRole('button', { name: t('inspector.delete'), exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: t('common.delete'), exact: true }).click();
     await expect(panel.getByText(t('collection.empty'))).toBeVisible();
     await expect(count).toBeHidden();
     await expect(page.getByRole('button', { name: t('media.searchGifs') })).toBeFocused();
@@ -744,7 +744,7 @@ test.describe('gif collection', () => {
       // Add as image: in the middle of the canvas.
       await star.getByRole('button', { name: t('collection.addImage') }).click();
       await expect(status).toHaveText(t('collection.addedImage', { name: 'Star' }));
-      await expect(inspector.getByRole('combobox', { name: t('inspector.asset'), exact: true })).toHaveValue(/^assets\/star(-\d+)?\.gif$/);
+      await expect(inspector.getByRole('combobox', { name: t('common.image'), exact: true })).toHaveValue(/^assets\/star(-\d+)?\.gif$/);
       await expectCenter(page, t, { x: canvas.width / 2, y: canvas.height / 2 });
       // Its preview dragged onto the canvas: where it is dropped.
       await dragTo(page, star.locator('.collection-thumb'), page.locator('#canvas-box'), drop);
@@ -777,7 +777,7 @@ test.describe('gif collection', () => {
       await expect(preview).toHaveAttribute('src', /^data:image\/svg/);
       await expect(preview).not.toHaveAttribute('src', /animate/);
     }
-    const filter = panel.getByRole('group', { name: t('collection.filter') }).getByRole('button', { name: t('collection.filter.all') });
+    const filter = panel.getByRole('group', { name: t('common.show') }).getByRole('button', { name: t('collection.filter.all') });
     expect(await filter.evaluate((button) => getComputedStyle(button).transitionDuration)).toBe('0s');
     await expectAccessible(page);
 

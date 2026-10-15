@@ -84,6 +84,35 @@ test('the prefixes of the areas are disjoint, and no base key uses one', () => {
   assert.deepEqual(Object.keys(baseEn).filter((key) => owned.some(([, prefix]) => key.startsWith(prefix))), []);
 });
 
+// ---------------------------------------------------------------- common --
+// A text that unrelated parts of the window both show ("Done", "Delete",
+// "Sensors") lives under `common.` in the base tables. No area owns that
+// prefix, so rewording one area's text cannot change another's (D-14).
+
+/** Each `common.` key and what reads it: the UI files and index.html that quote it, and the aliases that resolve to it. */
+function commonReaders() {
+  const readers = new Map(Object.keys(baseEn).filter((key) => key.startsWith('common.')).map((key) => [key, new Set()]));
+  const files = [...uiFiles(), 'index.html'].map((file) => [file, readFileSync(new URL(file, src), 'utf8')]);
+  for (const [file, code] of files) {
+    for (const [, key] of code.matchAll(/['"`](common\.[A-Za-z]+)['"`]/g)) readers.get(key)?.add(file);
+  }
+  for (const [derived, canonical] of Object.entries(SHARED_LABELS)) readers.get(canonical)?.add(`alias ${derived}`);
+  return readers;
+}
+
+test('the shared labels live under common. in the base tables, a prefix no area owns', () => {
+  const common = Object.keys(LOCALES.en).filter((key) => key.startsWith('common.'));
+  assert.ok(common.length >= 10, 'the shared labels are there');
+  assert.deepEqual(common.filter((key) => !Object.hasOwn(baseEn, key)), []);
+  const owners = Object.entries(AREAS).filter(([, area]) => area.prefixes.some((prefix) => prefix.startsWith('common')));
+  assert.deepEqual(owners.map(([name]) => name), []);
+});
+
+test('every common. label is read from more than one place, else it belongs to its area', () => {
+  const lonely = [...commonReaders()].filter(([, readers]) => readers.size < 2).map(([key, readers]) => `${key}: ${[...readers].join(', ') || 'unread'}`);
+  assert.deepEqual(lonely, []);
+});
+
 /** For each locale, the keys of `en` it lacks and the keys it has that `en` does not. */
 function keyDrift(tables) {
   const base = Object.keys(tables.en);
@@ -144,7 +173,7 @@ test('the guide opens in Portuguese for pt-BR and in English otherwise', () => {
 test('the Italian translator substitutes params', () => {
   const t = translator('it');
   assert.equal(t('inspector.multi', { count: 2 }), '2 elementi selezionati');
-  assert.equal(t('top.save'), 'Salva');
+  assert.equal(t('common.save'), 'Salva');
 });
 
 test('translator substitutes params and falls back', () => {
@@ -152,7 +181,7 @@ test('translator substitutes params and falls back', () => {
   assert.equal(t('inspector.multi', { count: 2 }), '2 elementos selecionados');
   assert.equal(t('inspector.multi'), '{count} elementos selecionados');
   assert.equal(t('no.such.key'), 'no.such.key');
-  assert.equal(translator('xx')('top.save'), 'Save');
+  assert.equal(translator('xx')('common.save'), 'Save');
 });
 
 test('every static key used by the code exists', () => {
@@ -669,7 +698,7 @@ test('every data-i18n key used in index.html exists', () => {
 
 test('applyTranslations fills text, title, aria-label and placeholder', () => {
   const el = (dataset) => ({ dataset, textContent: '', title: '', placeholder: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } });
-  const text = el({ i18n: 'top.save' });
+  const text = el({ i18n: 'common.save' });
   const title = el({ i18nTitle: 'top.undo' });
   const aria = el({ i18nAriaLabel: 'library.title' });
   const hint = el({ i18nPlaceholder: 'library.searchSensors' });

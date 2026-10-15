@@ -229,7 +229,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     if (view.status === 'error') {
       return [
         el('p', { class: 'field-error', role: 'status', text: t('standby.loadError', { message: errorText(t, view.error) }) }),
-        el('div', { class: 'button-row' }, [el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), dataset: { focus: 'retry' }, onclick: () => void load() })]),
+        el('div', { class: 'button-row' }, [el('button', { type: 'button', class: 'text-button', text: t('common.retry'), dataset: { focus: 'retry' }, onclick: () => void load() })]),
       ];
     }
     if (!offered(view.data)) return [el('p', { class: 'hint', text: t('standby.unsupported') })];
@@ -352,7 +352,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
         return el('label', { class: 'check video-choice' }, [input, el('span', { text: v.name }), el('small', { text: bytes(v.size) })]);
       }),
     ]));
-    return el('fieldset', { class: 'check-list standby-videos' }, [el('legend', { text: t('media.video') }), ...groups]);
+    return el('fieldset', { class: 'check-list standby-videos' }, [el('legend', { text: t('common.video') }), ...groups]);
   }
 
   /** Asks the confirmation of `keep`, `off` or `video`: the request, or `null`. */
@@ -463,7 +463,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
 
     function photoItem(photo) {
       const remove = el('button', {
-        type: 'button', class: 'icon-button', title: t('standby.album.remove', { name: photo.name }), 'aria-label': t('standby.album.remove', { name: photo.name }),
+        type: 'button', class: 'icon-button', title: t('common.deleteNamed', { name: photo.name }), 'aria-label': t('common.deleteNamed', { name: photo.name }),
         dataset: { photo: photo.name }, onclick: () => void removePhoto(photo),
       }, [icon(ICONS.trash, 16)]);
       return el('li', { class: 'album-photo' }, [

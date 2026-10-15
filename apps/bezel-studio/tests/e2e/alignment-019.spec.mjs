@@ -3,7 +3,7 @@ test('alignment references the first clicked object rather than paint order',asy
  const errors=watchErrors(page);await page.goto('/index.html?demo=turing88');await expect(page.locator('#theme-name')).toHaveValue('Demo');
  const field=(key)=>page.locator('#inspector').getByRole('spinbutton',{name:t(`inspector.${key}`),exact:true});
  for(const values of [{x:100,y:1000,width:100,height:100},{x:300,y:1200,width:60,height:80}]){
-  await page.locator('#tab-widgets').click();await page.getByRole('button',{name:t('library.addWidget',{name:t('inspector.shape')}),exact:true}).click();
+  await page.locator('#tab-widgets').click();await page.getByRole('button',{name:t('library.addWidget',{name:t('common.shape')}),exact:true}).click();
   for(const [key,value]of Object.entries(values)){await field(key).fill(String(value));await field(key).press('Tab');}
  }
  await page.locator('#tab-layers').click();const first=page.locator('.layer-row[data-element-id="5"] .layer-name'),second=page.locator('.layer-row[data-element-id="4"] .layer-name');

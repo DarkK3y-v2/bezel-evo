@@ -19,7 +19,7 @@ test('stored screen video becomes theme background with loop, windows and linear
   await loop.uncheck();
   await page.locator('#undo').click();
   await expect(loop).toBeChecked();
-  await page.getByRole('button', { name: t('library.addWidget', { name: t('inspector.shape') }), exact: true }).click();
+  await page.getByRole('button', { name: t('library.addWidget', { name: t('common.shape') }), exact: true }).click();
   const window = detail.getByRole('switch', { name: t('shape.videoWindow'), exact: true });
   await window.check();
   const fade = detail.getByRole('combobox', { name: t('fade.mode'), exact: true });

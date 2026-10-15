@@ -21,16 +21,16 @@ export function wireObjectMenu({store,canvasView,stage,layers,t}) {
   const dispatch=(command,args={})=>()=>store.dispatch(command,{ids:selection,...args});
   menu=el('div',{class:'object-menu',role:'menu','aria-label':t('menu.title')},[
    action(t('menu.cut'),()=>store.cutSelection(),!editable),action(t('menu.copy'),()=>store.copySelection(),!selected.length),
-   action(t('menu.paste'),()=>store.paste(),!store.canPaste()),action(t('inspector.duplicate'),dispatch('duplicate'),!selected.length),
+   action(t('menu.paste'),()=>store.paste(),!store.canPaste()),action(t('common.duplicate'),dispatch('duplicate'),!selected.length),
    el('hr',{role:'separator'}),action(t('group.create'),dispatch('groupSelection'),!canGroup(theme,selection)),
    action(t('group.ungroup'),dispatch('ungroup'),!selected.some(e=>e.isGroup&&!e.locked)),
    action(t('card.group'),dispatch('cardFromSelection'),!editable||selected.some(e=>e.card)),
    el('hr',{role:'separator'}),action(t('inspector.front'),dispatch('orderSelection',{front:true}),!selected.length),
    action(t('inspector.back'),dispatch('orderSelection',{front:false}),!selected.length),
    action(t('menu.detach'),dispatch('placeLayer',{root:true}),!selected.some(e=>e.groupParent!=null||e.cardMember)),
-   action(t(selected.every(e=>e.locked)?'layers.unlock':'layers.lock'),dispatch('updateSelection',{patch:{locked:!selected.every(e=>e.locked)}}),!selected.length),
-   action(t(selected.every(e=>e.visible===false)?'collection.filter':'layers.hide'),dispatch('updateSelection',{patch:{visible:selected.every(e=>e.visible===false)}}),!selected.length),
-   el('hr',{role:'separator'}),action(t('inspector.delete'),dispatch('remove',{ids:selected.filter(e=>!owners(theme,e).some(p=>p.locked)).map(e=>e.id)}),!editable),
+   action(t(selected.every(e=>e.locked)?'common.unlock':'common.lock'),dispatch('updateSelection',{patch:{locked:!selected.every(e=>e.locked)}}),!selected.length),
+   action(t(selected.every(e=>e.visible===false)?'common.show':'common.hide'),dispatch('updateSelection',{patch:{visible:selected.every(e=>e.visible===false)}}),!selected.length),
+   el('hr',{role:'separator'}),action(t('common.delete'),dispatch('remove',{ids:selected.filter(e=>!owners(theme,e).some(p=>p.locked)).map(e=>e.id)}),!editable),
   ]);
   document.body.append(menu);
   const box=keyboard?evt.target.getBoundingClientRect():null;

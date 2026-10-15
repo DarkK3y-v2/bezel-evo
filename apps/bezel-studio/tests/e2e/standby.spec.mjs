@@ -397,7 +397,7 @@ test.describe('standby', () => {
     await expectAccessible(page);
 
     // Remove asks first and names the photo; Esc keeps it, and the album stays open.
-    const remove = album.getByRole('button', { name: t('standby.album.remove', { name: 'praia.png' }) });
+    const remove = album.getByRole('button', { name: t('common.deleteNamed', { name: 'praia.png' }) });
     await remove.click();
     const confirm = page.getByRole('dialog', { name: t('standby.album.removeTitle', { name: 'praia.png' }) });
     await expect(confirm).toContainText(t('storage.confirmDelete', { name: 'praia.png', place: t('storage.from.sd') }));
@@ -418,7 +418,7 @@ test.describe('standby', () => {
     await expect(toast(page)).toHaveText(t('standby.album.removed', { name: 'praia.png' }));
     await expect(photos).toHaveCount(1);
     await expect(album).not.toContainText('praia.png');
-    await expect(album.getByRole('button', { name: t('standby.album.remove', { name: 'img_0042.jpg' }) })).toBeFocused();
+    await expect(album.getByRole('button', { name: t('common.deleteNamed', { name: 'img_0042.jpg' }) })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(album).toHaveCount(0);
 

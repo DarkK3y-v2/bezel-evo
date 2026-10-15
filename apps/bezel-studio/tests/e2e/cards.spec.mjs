@@ -14,7 +14,7 @@ test('card faces, shared base, grouping and clipboard are editable', async ({ pa
   const inView = faces.locator('[aria-pressed="true"]');
   const tab = name => detail.getByRole('tab', { name: t(name), exact: true }).click();
   await add('card');
-  const cardName = await detail.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const cardName = await detail.getByLabel(t('common.name'), { exact: true }).inputValue();
   await detail.getByLabel(t('card.faceTitle'), { exact: true }).fill('Metrics');
   await detail.getByLabel(t('card.faceTitle'), { exact: true }).press('Tab');
   await add('text');

@@ -19,7 +19,7 @@ test('Debug owns logging and its screen-readings suboption independently', async
     await corner.selectOption(value);
     await expect(corner).toHaveValue(value);
   }
-  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('common.done') }).click();
   await page.getByRole('button', { name: t('prefs.title') }).click();
   await expect(debug).toBeChecked();
   await expect(overlay).toBeChecked();

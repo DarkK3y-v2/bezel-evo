@@ -140,7 +140,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
 
   function sensorsSection() {
     return el('section', { class: 'prefs-section', 'aria-labelledby': 'prefs-sensors-title' }, [
-      el('h3', { id: 'prefs-sensors-title', text: t('library.sensors') }),
+      el('h3', { id: 'prefs-sensors-title', text: t('common.sensors') }),
       ...pingField(),
       ...mangohudField(),
     ]);
@@ -192,7 +192,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
     dialog.replaceChildren(
       el('div', { class: 'dialog-head' }, [el('h2', { id: 'prefs-title', text: t('prefs.title') }), close]),
       el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), debugSection(), sensorsSection()]),
-      el('div', { class: 'dialog-actions' }, [el('button', { type: 'button', class: 'primary-button', text: t('framing.done'), onclick: () => dialog.close() })]),
+      el('div', { class: 'dialog-actions' }, [el('button', { type: 'button', class: 'primary-button', text: t('common.done'), onclick: () => dialog.close() })]),
     );
     if (focused) (dialog.querySelector(`#${focused}`) ?? dialog.querySelector('#prefs-mangohud-choose'))?.focus();
   }

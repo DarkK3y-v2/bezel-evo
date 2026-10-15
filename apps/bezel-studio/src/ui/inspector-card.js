@@ -108,7 +108,7 @@ function motionForm(ctx) {
     const art = icon(EFFECT_ART[value], 44); art.classList.add('effect-art');
     label.append(input, art, el('span', { text: t(`card.effect.${value}`) })); return label;
   }));
-  const directions = transition && segmented(t('card.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => set({ transition: { direction } }), { bare: true });
+  const directions = transition && segmented(t('common.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => set({ transition: { direction } }), { bare: true });
   if (directions) Array.from(directions.children).forEach((button, i) => { button.setAttribute('aria-label', button.textContent); button.title = button.textContent; button.replaceChildren(icon(ICONS[['arrowLeft', 'arrowRight', 'up', 'down'][i]], 18)); });
   return [cardSection(ctx, 'rotation', t('card.rotation'), [
     switchRow(t('card.autoRotate'), seconds != null, enabled => set({ rotationSeconds: enabled ? 10 : null })),

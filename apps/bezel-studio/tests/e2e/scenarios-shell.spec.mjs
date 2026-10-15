@@ -5,7 +5,7 @@
 // theme, closing the window, quitting from the tray), the screen turns
 // between vertical and horizontal, and the preferences switch the language,
 // set the sensors and keep the Light switch.
-import { test, expect, watchErrors, expectAccessible, prefixOf, layers } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, prefixOf, layers, libraryTabKey } from './helpers.mjs';
 import { translator } from '../../src/i18n/index.js';
 
 test('the editor opens the demo theme', async ({ page, t, lang }) => {
@@ -21,7 +21,7 @@ test('the editor opens the demo theme', async ({ page, t, lang }) => {
   expect(Math.round(box.height / box.width)).toBe(4);
   await expectAccessible(page);
   for (const tab of ['sensors', 'layers', 'themes', 'media', 'screen']) {
-    await page.getByRole('tab', { name: t(`library.${tab}`) }).click();
+    await page.getByRole('tab', { name: t(libraryTabKey(tab)) }).click();
     await expectAccessible(page);
   }
   expect(errors).toEqual([]);
@@ -31,10 +31,10 @@ test('every panel reads in one language, with no key or placeholder showing', as
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=desktop');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  const leftovers = /\b(?:storage|error|importWarning|inspector|library|toast|top|status|screen|prefs|desktop|udev|sensor|widget|category|themes|media|layers|unsaved|restart)\.[a-zA-Z]|\{[a-z]+\}|undefined|NaN/;
+  const leftovers = /\b(?:common|storage|error|importWarning|inspector|library|toast|top|status|screen|prefs|desktop|udev|sensor|widget|category|themes|media|layers|unsaved|restart)\.[a-zA-Z]|\{[a-z]+\}|undefined|NaN/;
   const tabs = ['widgets', 'sensors', 'layers', 'themes', 'media', 'screen'];
   for (const tab of tabs) {
-    await page.getByRole('tab', { name: t(`library.${tab}`) }).click();
+    await page.getByRole('tab', { name: t(libraryTabKey(tab)) }).click();
     expect(await page.locator('body').innerText()).not.toMatch(leftovers);
   }
   await page.getByRole('tab', { name: t('screen.storageTab') }).click();
@@ -132,7 +132,7 @@ test('unsaved edits are not lost to another theme', async ({ page, t }) => {
   await newHorizontal.click();
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(t('unsaved.body', { name: 'Demo' }));
-  await expect(dialog.getByRole('button', { name: t('top.save') })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: t('common.save') })).toBeFocused();
   await expectAccessible(page);
 
   // Cancel and Esc keep the edits.
@@ -157,7 +157,7 @@ test('unsaved edits are not lost to another theme', async ({ page, t }) => {
   await page.locator('#theme-name').press('Tab');
   await expect(page.locator('#status-main')).toHaveText(t('status.unsaved'));
   await page.locator('#theme-grid .theme-card').first().click();
-  await dialog.getByRole('button', { name: t('top.save') }).click();
+  await dialog.getByRole('button', { name: t('common.save') }).click();
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
   await expect(page.locator('#theme-grid .theme-card')).toHaveCount(2);
@@ -212,7 +212,7 @@ test('quitting from the tray over unsaved edits shows the window and asks', asyn
   await page.goto('/index.html?demo=turing88');
   await page.getByRole('button', { name: t('prefs.title') }).click();
   await page.getByRole('switch', { name: t('prefs.lightOnClose') }).uncheck();
-  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('common.done') }).click();
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await page.getByRole('button', { name: /^CPU/ }).click();
   await page.keyboard.press('Delete');
@@ -321,7 +321,7 @@ test('the language follows the system until one is chosen', async ({ page, t, la
   await language.selectOption(other);
   await expect(html).toHaveAttribute('lang', other);
   await expect(page.getByRole('dialog', { name: u('prefs.title') })).toBeVisible();
-  await expect(page.getByRole('tab', { name: u('library.sensors') })).toBeVisible();
+  await expect(page.getByRole('tab', { name: u('common.sensors') })).toBeVisible();
   await expect(page.locator('#status-main')).toHaveText(u('status.saved'));
   await expect(page.locator('#inspector').getByRole('heading', { name: u('inspector.theme') })).toBeVisible();
   await expectAccessible(page);
@@ -333,8 +333,8 @@ test('the language follows the system until one is chosen', async ({ page, t, la
   await page.getByRole('button', { name: u('prefs.title') }).click();
   await page.getByRole('dialog').getByRole('combobox', { name: u('prefs.language') }).selectOption('');
   await expect(html).toHaveAttribute('lang', lang);
-  await page.getByRole('dialog').getByRole('button', { name: t('framing.done') }).click();
-  await expect(page.getByRole('tab', { name: t('library.sensors') })).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: t('common.done') }).click();
+  await expect(page.getByRole('tab', { name: t('common.sensors') })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -381,11 +381,11 @@ test('the Light switch persists and protects unsaved live edits on close', async
   await expect(toggle).toBeChecked();
   await expectAccessible(page);
   await toggle.uncheck();
-  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('common.done') }).click();
   await page.getByRole('button', { name: t('prefs.title') }).click();
   await expect(toggle).not.toBeChecked();
   await toggle.check();
-  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('common.done') }).click();
   await page.getByRole('switch').click({ force: true });
   await expect(page.getByRole('switch')).toBeChecked();
   await page.getByRole('tab', { name: t('library.layers') }).click();

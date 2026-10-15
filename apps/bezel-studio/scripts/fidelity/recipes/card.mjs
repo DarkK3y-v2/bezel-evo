@@ -7,7 +7,7 @@ async function populated(app) {
   await app.page.reload();
   await app.add('card');
   const inspector = app.page.locator('#inspector');
-  const name = await inspector.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const name = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   const select = async () => {
     await app.tab('layers');
     await app.page.locator('.layer-name').filter({ hasText: name }).first().click();

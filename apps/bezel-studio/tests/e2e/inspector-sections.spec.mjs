@@ -26,7 +26,7 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   await expect(actions).toBeHidden();
   await more.click();
   await expect(more).toHaveAttribute('aria-expanded', 'true');
-  await expect(actions.getByRole('button', { name: t('inspector.duplicate'), exact: true })).toBeVisible();
+  await expect(actions.getByRole('button', { name: t('common.duplicate'), exact: true })).toBeVisible();
   await more.click();
   await expect(actions).toBeHidden();
   const fillMode = inspector.getByRole('combobox', { name: t('ring.fillMode'), exact: true });
@@ -62,12 +62,12 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   await page.keyboard.press('End');
 
   // Another kind opens on its own first tab; the ring comes back on Look.
-  const ring = await inspector.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const ring = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   await addWidget(page, t, 'bar');
   await expect(inspector.getByRole('tab', { name: t('inspector.tab.data'), exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.locator('#tab-layers').click();
   await page.locator('.layer-name').filter({ hasText: ring }).first().click();
-  await expect(inspector.getByLabel(t('inspector.name'), { exact: true })).toHaveValue(ring);
+  await expect(inspector.getByLabel(t('common.name'), { exact: true })).toHaveValue(ring);
   await expect(inspector.getByRole('tab', { name: t('inspector.tab.look'), exact: true })).toHaveAttribute('aria-selected', 'true');
   await expectAccessible(page); expect(errors).toEqual([]);
 });
@@ -77,7 +77,7 @@ test('the preview shows the selected object rendered alone, on or off the canvas
   await page.goto('/index.html?demo=turing88');
   await addWidget(page, t, 'ring');
   const inspector = page.locator('#inspector');
-  const name = await inspector.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const name = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   const preview = inspector.getByRole('img', { name: t('inspector.previewOf', { name }), exact: true });
   await expect(preview).toBeVisible();
   await expect(inspector.locator('.inspector-preview')).toContainText(t('inspector.previewLive'));

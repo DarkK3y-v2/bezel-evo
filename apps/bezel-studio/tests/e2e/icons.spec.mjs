@@ -24,8 +24,8 @@ test('offline icons search, insert as SVG and undo in one step', async ({ page, 
   await page.locator('[data-icon="cpu"]').click();
   const detail = page.locator('#inspector');
   // The picture is on the Data tab, its paint on Look: the file is read on either.
-  const asset = detail.getByRole('combobox', { name: t('inspector.asset'), exact: true, includeHidden: true });
-  await expect(detail.getByRole('combobox', { name: t('inspector.asset'), exact: true })).toHaveValue(/tabler-cpu.*\.svg$/);
+  const asset = detail.getByRole('combobox', { name: t('common.image'), exact: true, includeHidden: true });
+  await expect(detail.getByRole('combobox', { name: t('common.image'), exact: true })).toHaveValue(/tabler-cpu.*\.svg$/);
   await expect(page.getByRole('spinbutton', { name: t('inspector.width'), exact: true })).toHaveValue('96');
   const original = await asset.inputValue();
   await detail.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
@@ -81,7 +81,7 @@ test('electrical aliases and hardware pump icons remain editable and undoable', 
   await page.locator('#icon-source').selectOption('mdi');
   await page.locator('[data-icon="mdi-water-pump"]').click();
   const detail = page.locator('#inspector');
-  const asset = detail.getByRole('combobox', { name: t('inspector.asset'), exact: true, includeHidden: true });
+  const asset = detail.getByRole('combobox', { name: t('common.image'), exact: true, includeHidden: true });
   await expect(asset).toHaveValue(/mdi-water-pump.*\.svg$/);
   const original = await asset.inputValue();
   await detail.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();

@@ -27,7 +27,7 @@ test('the preview draws the object alone: an object under it is absent, and its 
   await add(page, t, 'shape');
   await add(page, t, 'ring');
   const inspector = page.locator('#inspector');
-  const name = await inspector.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const name = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   const preview = inspector.getByRole('img', { name: t('inspector.previewOf', { name }), exact: true });
   await expect(preview).toBeVisible();
   await expect.poll(() => anyPixel(preview, 'any')).toBe(true);
@@ -60,21 +60,21 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   await page.locator('#tab-layers').click();
   await expect(page.locator('#layer-list .layer-row')).toHaveCount(Number(total));
 
-  const name = inspector.getByRole('textbox', { name: t('inspector.name'), exact: true });
+  const name = inspector.getByRole('textbox', { name: t('common.name'), exact: true });
   await name.fill('Gauge 42');
   await name.press('Tab');
   await expect(page.locator('.layer-name').filter({ hasText: 'Gauge 42' })).toHaveCount(1);
 
-  await inspector.getByRole('button', { name: t('layers.hide'), exact: true }).click();
-  const show = inspector.getByRole('button', { name: t('collection.filter'), exact: true });
+  await inspector.getByRole('button', { name: t('common.hide'), exact: true }).click();
+  const show = inspector.getByRole('button', { name: t('common.show'), exact: true });
   await expect(show).toBeVisible();
   await show.click();
-  await expect(inspector.getByRole('button', { name: t('layers.hide'), exact: true })).toBeVisible();
+  await expect(inspector.getByRole('button', { name: t('common.hide'), exact: true })).toBeVisible();
 
-  const lock = inspector.getByRole('button', { name: t('layers.lock'), exact: true });
+  const lock = inspector.getByRole('button', { name: t('common.lock'), exact: true });
   await expect(lock).toHaveAttribute('aria-pressed', 'false');
   await lock.click();
-  await expect(inspector.getByRole('button', { name: t('layers.unlock'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(inspector.getByRole('button', { name: t('common.unlock'), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#undo').click();
   await expect(lock).toHaveAttribute('aria-pressed', 'false');
 
@@ -237,7 +237,7 @@ test('late isolated frames are discarded and Player chips follow newly available
   const canvas = probe.getByRole('img');
   await expect.poll(() => page.evaluate(() => inspectorProbe.calls())).toBe(2);
   await expect.poll(() => alphaAt(canvas, 0.5, 0.5)).toBe(255);
-  await expect(canvas).toHaveAttribute('aria-label', t('inspector.previewOf', { name: await probe.getByLabel(t('inspector.name'), { exact: true }).inputValue() }));
+  await expect(canvas).toHaveAttribute('aria-label', t('inspector.previewOf', { name: await probe.getByLabel(t('common.name'), { exact: true }).inputValue() }));
 
   await page.evaluate(() => inspectorProbe.store.dispatch('add', { widget: 'player', x: 200, y: 400 }));
   await expect(probe.locator('.player-apps-hint')).toHaveText(t('insp.appsNone'));

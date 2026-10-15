@@ -238,7 +238,7 @@ test('storage manager renames and restores from the local copies', async ({ page
   await field.press('Enter');
   const confirmRename = page.getByRole('dialog', { name: t('storage.plan.title.rename', { name: 'jyanme.mp4' }) });
   await expect(confirmRename).toContainText(t('storage.plan.step', { source: place(t, 'jyanme.mp4', 'internal'), target: place(t, 'jyanme_2.mp4', 'internal'), size: formatBytes(4_404_019, lang) }));
-  await confirmRename.getByRole('button', { name: t('collection.rename'), exact: true }).click();
+  await confirmRename.getByRole('button', { name: t('common.rename'), exact: true }).click();
   await letGo(page);
   await expect(page.getByRole('region', { name: t('storage.report.finished') })).toContainText(t('storage.report.done.rename', { count: 1 }));
   await expect(option(internal, 'jyanme_2.mp4')).toHaveCount(1);

@@ -36,7 +36,7 @@ test('a video added from the Media panel becomes the background, and undo takes 
   await page.getByRole('button', { name: t('media.addVideo') }).click();
   await expect(toast(page)).toHaveText(t('toast.videoAdded', { name: 'ferias.mp4', details: feriasDetails(lang) }));
   const item = page.locator('.media-item[data-ref="assets/ferias.mp4"]');
-  await expect(item).toContainText(`${t('media.video')} · ${feriasDetails(lang)}`);
+  await expect(item).toContainText(`${t('common.video')} · ${feriasDetails(lang)}`);
   await expect(item.locator('.thumb')).toHaveCSS('background-image', /^url\("data:image\/svg\+xml/);
   await expect(page.locator('.media-item[data-ref="assets/ferias-poster.png"]')).toHaveCount(0);
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'), { timeout: 1000 });

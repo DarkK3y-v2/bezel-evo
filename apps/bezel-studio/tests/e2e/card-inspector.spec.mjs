@@ -10,7 +10,7 @@ async function twoFaceCard(page, t) {
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   const inspector = page.locator('#inspector');
   await add(page, t, 'card');
-  const cardName = await inspector.getByLabel(t('inspector.name'), { exact: true }).inputValue();
+  const cardName = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   const selectCard = async () => {
     await page.locator('#tab-layers').click();
     await page.locator('.layer-name').filter({ hasText: cardName }).first().click();
@@ -102,11 +102,11 @@ test('rotation has a stepper and quick durations; effects are picture cards; one
   await effects.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
   await expect(inspector.getByRole('slider', { name: new RegExp(t('card.duration')) })).toHaveValue('650');
   await expect(inspector.locator('.card-scale')).toContainText(t('cardInsp.fast'));
-  const up = inspector.getByRole('group', { name: t('card.direction'), exact: true }).getByRole('button', { name: t('card.direction.up'), exact: true });
+  const up = inspector.getByRole('group', { name: t('common.direction'), exact: true }).getByRole('button', { name: t('card.direction.up'), exact: true });
   await up.click();
   await expect(up).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#undo').click();
-  await expect(inspector.getByRole('group', { name: t('card.direction'), exact: true }).getByRole('button', { name: t('card.direction.left'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(inspector.getByRole('group', { name: t('common.direction'), exact: true }).getByRole('button', { name: t('common.left'), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(inspector.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
   await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('motion-content.png') });
   await expectAccessible(page);

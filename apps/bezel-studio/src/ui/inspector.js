@@ -139,7 +139,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function sourceCard(id, key, patchFor) {
     const options = sensorOptions();
     const known = Object.values(options).flat().some(([k]) => k === key);
-    if (!known) options[t('inspector.otherSensor')] = [[key, key]];
+    if (!known) options[t('common.other')] = [[key, key]];
     const select = selectField(t('inspector.sensor'), key, options, (k) => update(id, patchFor(k))).querySelector('select');
     select.setAttribute('aria-label', t('inspector.sensor'));
     const entry = sensors.catalog().find((s) => s.key === key);
@@ -354,11 +354,11 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function themeForm(theme, assets) {
     return [
       el('h2', { text: t('inspector.theme') }),
-      textField(t('inspector.name'), theme.name, (v) => store.dispatch('setTheme', { patch: { name: v } })),
+      textField(t('common.name'), theme.name, (v) => store.dispatch('setTheme', { patch: { name: v } })),
       el('p', { class: 'hint', text: t('inspector.canvas', { width: theme.canvas.width, height: theme.canvas.height }) }),
       selectField(t('inspector.orientation'), theme.orientation, ORIENTATIONS.map((o) => [o, t(`orientation.${o}`)]), (o) => store.dispatch('setOrientation', { orientation: o })),
       el('div', { class: 'background-heading' }, [
-        el('h3', { text: t('inspector.background') }),
+        el('h3', { text: t('common.background') }),
         theme.background.type !== 'color' && button(t('inspector.removeBackground'), () => store.dispatch('setTheme', {
           patch: { background: { type: 'color', color: theme.background.color ?? '#0c0e16ff' } },
         })),
@@ -391,7 +391,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         selectField(t('inspector.weight'), String(s.font.weight), [300, 400, 500, 600, 700, 800, 900].map((w) => [String(w), t(`weight.${w}`)]), (v) => update(e.id, { kind: { style: { font: { weight: Number(v) } } } })),
       ]),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
-      segmented(t('inspector.align'), s.align, [['left', t('card.direction.left')], ['center', t('inspector.alignCenter')], ['right', t('card.direction.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
+      segmented(t('inspector.align'), s.align, [['left', t('common.left')], ['center', t('inspector.alignCenter')], ['right', t('common.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
       segmented(t('axis.vertical'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
       numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any' }),
     ];
@@ -403,7 +403,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const c = k.content;
     if (c.type === 'player') return playerForm(e);
     const nodes = [], weatherAppearance = [];
-    if (c.type === 'static') nodes.push(textField(t('inspector.text'), c.text, (v) => update(e.id, { kind: { content: { text: v } } })));
+    if (c.type === 'static') nodes.push(textField(t('common.text'), c.text, (v) => update(e.id, { kind: { content: { text: v } } })));
     if (c.type === 'clock') {
       nodes.push(selectField(t('clock.language'), c.language ?? '', [['', t('clock.system')], ['it', t('language.it')], ['en', t('language.en')], ['pt-BR', t('language.pt-BR')]], (language) => update(e.id, { kind: { content: { language: language || null } } })));
       nodes.push(selectField(t('clock.format'), CLOCK_PATTERNS.includes(c.pattern) ? c.pattern : 'custom', [...CLOCK_PATTERNS.map((pattern) => [pattern, formatClock(pattern, new Date(), c.language, c.casing)]), ['custom', t('clock.custom')]], (pattern) => {
@@ -581,7 +581,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }))];
     const look = [section('appearance', t('inspector.appearance'), [
-      selectField(t('card.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
+      selectField(t('common.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
       ...trackFields(e),
       numberField(t('inspector.radius'), k.radius ?? 0, (v) => update(e.id, { kind: { radius: Math.max(0, v) } }), { min: 0 }),
@@ -714,7 +714,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     if (k.asset && !options.some(([r]) => r === k.asset)) options.push([k.asset, k.asset]);
     const data = [section('content', t('inspector.content'), [
       options.length
-        ? selectField(t('inspector.asset'), k.asset, [['', t('inspector.noImage')], ...options], (v) => update(e.id, { kind: { asset: v } }))
+        ? selectField(t('common.image'), k.asset, [['', t('inspector.noImage')], ...options], (v) => update(e.id, { kind: { asset: v } }))
         : el('p', { class: 'hint', text: t('inspector.addMediaFirst') }),
     ])];
     const look = [section('appearance', t('inspector.appearance'), [
@@ -752,7 +752,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function shapeForm(e) {
     const k = e.kind;
     return { look: [section('appearance', t('inspector.appearance'), [
-      segmented(t('inspector.shape'), k.shape, [['rect', t('shape.rect')], ['ellipse', t('shape.ellipse')]], (v) => update(e.id, { kind: { shape: v } })),
+      segmented(t('common.shape'), k.shape, [['rect', t('shape.rect')], ['ellipse', t('shape.ellipse')]], (v) => update(e.id, { kind: { shape: v } })),
       ...(k.shape === 'rect' ? [
         switchRow(t('inspector.individualCorners'), Boolean(k.corners), enabled => update(e.id, { kind: { corners: enabled ? Array(4).fill(k.radius ?? 0) : null, radius: k.corners?.[0] ?? k.radius ?? 0 } })),
         ...(k.corners ? ['topLeft','topRight','bottomRight','bottomLeft'].map((name,i)=>numberField(t(`inspector.${name}`),k.corners[i],v=>update(e.id,{kind:{corners:k.corners.map((r,n)=>n===i?Math.max(0,v):r)}}),{min:0})) : [numberField(t('inspector.radius'),k.radius ?? 0,v=>update(e.id,{kind:{radius:Math.max(0,v)}}),{min:0})]),
@@ -968,7 +968,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   function header(e, widget, theme) {
     const facts = layerFacts(theme, e);
     const where = facts.group ? t('insp.inGroup', { group: facts.group }) : t('insp.layer', { level: facts.level, total: facts.total });
-    const name = el('input', { type: 'text', class: 'inspector-name', value: e.name, 'aria-label': t('inspector.name'), spellcheck: false });
+    const name = el('input', { type: 'text', class: 'inspector-name', value: e.name, 'aria-label': t('common.name'), spellcheck: false });
     name.addEventListener('change', () => {
       const v = name.value.trim();
       if (v) update(e.id, { name: v });
@@ -979,8 +979,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
       el('div', { class: 'inspector-title' }, [name, el('div', { class: 'inspector-sub' }, [el('h2', { text: t(`widget.${widget}`) }), ` · ${where}`])]),
-      tool(t(hidden ? 'collection.filter' : 'layers.hide'), hidden ? ICONS.eyeOff : ICONS.eye, () => update(e.id, { visible: hidden })),
-      tool(t(e.locked ? 'layers.unlock' : 'layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => update(e.id, { locked: !e.locked }), { 'aria-pressed': String(Boolean(e.locked)) }),
+      tool(t(hidden ? 'common.show' : 'common.hide'), hidden ? ICONS.eyeOff : ICONS.eye, () => update(e.id, { visible: hidden })),
+      tool(t(e.locked ? 'common.unlock' : 'common.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => update(e.id, { locked: !e.locked }), { 'aria-pressed': String(Boolean(e.locked)) }),
       tool(t('insp.more'), ICONS.more, (evt) => {
         actionsOpen = !actionsOpen;
         evt.currentTarget.setAttribute('aria-expanded', String(actionsOpen));
@@ -1027,8 +1027,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       e.isGroup && el('button', { type: 'button', class: 'text-button', text: t('group.ungroup'), onclick: () => store.dispatch('ungroup', { ids: [e.id] }) }),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: theme.elements.length }) }, [t('inspector.front')]),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: 0 }) }, [t('inspector.back')]),
-      el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('duplicate', { ids: [e.id] }) }, [icon(ICONS.copy, 16), t('inspector.duplicate')]),
-      el('button', { type: 'button', class: 'text-button danger', onclick: () => store.dispatch('remove', { ids: [e.id] }) }, [icon(ICONS.trash, 16), t('inspector.delete')]),
+      el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('duplicate', { ids: [e.id] }) }, [icon(ICONS.copy, 16), t('common.duplicate')]),
+      el('button', { type: 'button', class: 'text-button danger', onclick: () => store.dispatch('remove', { ids: [e.id] }) }, [icon(ICONS.trash, 16), t('common.delete')]),
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
@@ -1064,8 +1064,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       ]),
       section('actions', t('inspector.actions'), [
         el('div', { class: 'actions' }, [
-          el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('duplicate', { ids }) }, [icon(ICONS.copy, 16), t('inspector.duplicate')]),
-          el('button', { type: 'button', class: 'text-button danger', onclick: () => store.dispatch('remove', { ids }) }, [icon(ICONS.trash, 16), t('inspector.delete')]),
+          el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('duplicate', { ids }) }, [icon(ICONS.copy, 16), t('common.duplicate')]),
+          el('button', { type: 'button', class: 'text-button danger', onclick: () => store.dispatch('remove', { ids }) }, [icon(ICONS.trash, 16), t('common.delete')]),
         ]),
       ]),
     ];

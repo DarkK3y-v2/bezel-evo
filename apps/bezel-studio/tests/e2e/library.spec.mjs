@@ -4,9 +4,9 @@
 // binding it, the Libre notice, Layers names in full, its filter and the
 // multiple-selection bar, the "New theme" card, the theme search and
 // Duplicate, and the Media totals.
-import { test, expect, watchErrors, expectAccessible, dragTo, layers } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, dragTo, layers, libraryTabKey } from './helpers.mjs';
 
-const tab = (page, t, name) => page.getByRole('tab', { name: t(`library.${name}`), exact: true }).click();
+const tab = (page, t, name) => page.getByRole('tab', { name: t(libraryTabKey(name)), exact: true }).click();
 
 test('widgets come in three groups with a count, a search and the hint at the foot', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -30,7 +30,7 @@ test('widgets come in three groups with a count, a search and the hint at the fo
   await expect(panel.locator('.widget-tile')).toHaveCount(13);
 
   // Enter on a focused tile adds it at the centre, as the hint says.
-  await panel.getByRole('button', { name: t('library.addWidget', { name: t('inspector.text') }), exact: true }).focus();
+  await panel.getByRole('button', { name: t('library.addWidget', { name: t('common.text') }), exact: true }).focus();
   await page.keyboard.press('Enter');
   await tab(page, t, 'layers');
   await expect(layers(page)).toHaveCount(4);
@@ -279,7 +279,7 @@ test('the Themes dialog reuses its grid, selects before opening, duplicates and 
   await expect(dialog.locator('.themes-gallery-selection')).toHaveText(t('themesPanel.selected', { name }));
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await expectAccessible(page);
-  await dialog.getByRole('button', { name: t('inspector.duplicate'), exact: true }).click();
+  await dialog.getByRole('button', { name: t('common.duplicate'), exact: true }).click();
   await expect(cards).toHaveCount(count + 1);
   await expect(dialog.locator('#theme-grid')).toContainText(t('layers.copyOf', { name }));
   await search.fill('zzzz');
@@ -314,7 +314,7 @@ test('Media lists bridge imports, counts files without posters and applies their
   await panel.locator('#media-add-video').click();
   await expect(items).toHaveCount(2);
   await expect(panel.locator('#media-head .count')).toContainText(t('media.count', { count: 2 }));
-  const video = items.filter({ has: page.getByText(t('media.video'), { exact: true }) });
+  const video = items.filter({ has: page.getByText(t('common.video'), { exact: true }) });
   await expect(video).toHaveCount(1);
   await video.getByRole('button', { name: t('collection.useBackground'), exact: true }).click();
   await expect(video).toHaveClass(/is-background/);

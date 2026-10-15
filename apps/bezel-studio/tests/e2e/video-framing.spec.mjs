@@ -193,7 +193,7 @@ test('video framing on the canvas: drag, wheel and keys, one undo step each', as
   await expect(page.locator('#framing-hud')).toBeHidden();
   // The done button and a selection end it too.
   await framing(page, t).getByRole('button', { name: t('framing.onCanvas') }).click();
-  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('common.done') }).click();
   await expect(page.locator('#framing-hud')).toBeHidden();
   expect(errors).toEqual([]);
 });

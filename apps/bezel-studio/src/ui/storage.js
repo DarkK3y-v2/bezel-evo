@@ -500,7 +500,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
         children.push(el('ul', { class: 'stored-files compact' }, candidates.map((c) => el('li', { class: 'stored-file' }, [
           el('span', { class: 'file-name', title: c.name, text: c.name }),
           el('span', { class: 'file-size', text: bytes(c.size) }),
-          el('button', { type: 'button', class: 'icon-button', title: t('standby.album.remove', { name: c.name }), 'aria-label': t('standby.album.remove', { name: c.name }), disabled: busy(), onclick: () => askDelete(c) }, [icon(ICONS.trash, 16)]),
+          el('button', { type: 'button', class: 'icon-button', title: t('common.deleteNamed', { name: c.name }), 'aria-label': t('common.deleteNamed', { name: c.name }), disabled: busy(), onclick: () => askDelete(c) }, [icon(ICONS.trash, 16)]),
         ]))));
       }
       if (n.refusal.code === 'needsConverter') children.push(ffmpegHelp());
@@ -512,7 +512,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     if (n.hung && screen()?.restartable) children.push(buttonRow(restartButton()));
     if (n.path && storageFeatures(screen()).remove) {
       const file = fileOf(n.path);
-      children.push(buttonRow(el('button', { type: 'button', class: 'text-button', text: t('standby.album.remove', { name: file.name }), disabled: busy(), onclick: () => askDelete(file) })));
+      children.push(buttonRow(el('button', { type: 'button', class: 'text-button', text: t('common.deleteNamed', { name: file.name }), disabled: busy(), onclick: () => askDelete(file) })));
     }
     return notice('error', ICONS.warning, t('storage.errorTitle'), children, { dismiss: true });
   }
@@ -622,7 +622,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
   function summary() {
     const legend = el('ul', { class: 'storage-legend', 'aria-hidden': 'true' }, BAR_KINDS.map((kind) => el('li', { dataset: { kind } }, [
       el('i', { class: 'storage-swatch' }),
-      kind === 'other' ? t('inspector.otherSensor') : t(`storage.kind.${kind}`),
+      kind === 'other' ? t('common.other') : t(`storage.kind.${kind}`),
     ])));
     return el('div', { class: 'storage-summary' }, [el('div', { class: 'storage-meters' }, MEDIA.map(meter)), legend]);
   }
@@ -749,7 +749,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       body.replaceChildren(
         el('p', { class: 'empty-note', role: 'alert', text: t('storage.loadError', { message: errorText(t, view.error) }) }),
         ...(command ? [el('p', { class: 'hint', text: t('udev.explain') }), udevCommand(t, command, notify)] : []),
-        buttonRow(el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), onclick: load })),
+        buttonRow(el('button', { type: 'button', class: 'text-button', text: t('common.retry'), onclick: load })),
       );
       return;
     }
