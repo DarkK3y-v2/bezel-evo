@@ -72,10 +72,6 @@ impl Cards {
                     settings: card.transition,
                 };
             }
-            if state.settings != card.transition {
-                state.from = state.active;
-                state.settings = card.transition;
-            }
             if state.active != card.active_face {
                 // Interrupt rather than queue rapid changes; keep the latest request.
                 let visible = if state.settings.is_some_and(|t| {
@@ -90,8 +86,15 @@ impl Cards {
                 state.from = visible;
                 state.active = card.active_face;
                 state.started = now;
+                state.settings = card.transition_for(state.from, state.active);
+            } else {
+                let desired = card.transition_for(state.from, state.active);
+                if state.settings != desired {
+                    state.from = state.active;
+                    state.settings = desired;
+                }
             }
-            let Some(settings) = card.transition.filter(|t| t.effect != CardEffect::None) else {
+            let Some(settings) = state.settings.filter(|t| t.effect != CardEffect::None) else {
                 continue;
             };
             let elapsed = now.saturating_sub(state.started);
@@ -224,6 +227,61 @@ mod tests {
             },
         }
     }
+    #[test]
+    fn directed_pairs_select_effect_duration_and_direction_then_fall_back() {
+        use crate::testkit;
+        use bezel_core::domain::frame::Rgba;
+        use bezel_core::domain::theme::{
+            Background, Card, CardPairTransition, ElementKind, ShapeKind,
+        };
+        let general = transition(CardEffect::Fade, 0.).settings;
+        let pair = CardTransition {
+            effect: CardEffect::Slide,
+            direction: CardDirection::Up,
+            duration_ms: 400,
+            include_base: false,
+        };
+        let mut e = testkit::element(
+            BoxF::new(0., 0., 32., 32.),
+            ElementKind::Shape {
+                video_window: false,
+                fade: None,
+                shape: ShapeKind::Rect { radius: 0. },
+                fill: None,
+                stroke: None,
+            },
+        );
+        e.card = Some(Card {
+            triggers: Vec::new(),
+            faces: vec!["A".into(), "B".into(), "C".into()],
+            active_face: 0,
+            rotation_seconds: None,
+            pair_transitions: vec![CardPairTransition {
+                from: 0,
+                to: 1,
+                transition: pair,
+            }],
+            transition: Some(general),
+        });
+        let mut theme = testkit::theme(32, 32, Background::Color(Rgba::BLACK), vec![e]);
+        let mut cards = Cards::new();
+        assert!(cards.update(&theme, Duration::ZERO).is_empty());
+        theme.elements[0].card.as_mut().unwrap().active_face = 1;
+        assert_eq!(
+            cards.update(&theme, Duration::from_millis(10))[&ElementId(1)].settings,
+            pair
+        );
+        assert!(cards.update(&theme, Duration::from_millis(410)).is_empty());
+        theme.elements[0].card.as_mut().unwrap().active_face = 0;
+        assert_eq!(
+            cards.update(&theme, Duration::from_millis(500))[&ElementId(1)].settings,
+            general,
+            "reverse pair falls back"
+        );
+        cards.motion = false;
+        assert!(cards.update(&theme, Duration::from_millis(600)).is_empty());
+    }
+
     #[test]
     fn flip_never_mirrors_text_and_switches_at_the_edge() {
         let b = BoxF::new(10.0, 20.0, 100.0, 80.0);

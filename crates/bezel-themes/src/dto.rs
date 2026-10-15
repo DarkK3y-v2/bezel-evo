@@ -411,14 +411,21 @@ pub struct CardDto {
     pub rotation_seconds: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<CardTransitionDto>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pair_transitions: Vec<CardPairTransitionDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CardTriggerDto {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval_seconds: Option<u32>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub next_face: bool,
     pub source: String,
     #[serde(default)]
     pub app: String,
+    #[serde(default)]
     pub face: usize,
     #[serde(default)]
     pub priority: u32,
@@ -436,6 +443,49 @@ pub struct CardTransitionDto {
     pub duration_ms: u32,
     #[serde(default)]
     pub include_base: bool,
+}
+
+/// Transition override for a directed face pair.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CardPairTransitionDto {
+    pub from: usize,
+    pub to: usize,
+    pub transition: CardTransitionDto,
+}
+
+fn card_transition_dto(t: bezel_core::domain::theme::CardTransition) -> CardTransitionDto {
+    CardTransitionDto {
+        effect: format!("{:?}", t.effect).to_lowercase(),
+        direction: format!("{:?}", t.direction).to_lowercase(),
+        duration_ms: t.duration_ms,
+        include_base: t.include_base,
+    }
+}
+fn card_transition(t: &CardTransitionDto) -> R<bezel_core::domain::theme::CardTransition> {
+    use bezel_core::domain::theme::{CardDirection, CardEffect, CardTransition};
+    let effect = match t.effect.as_str() {
+        "none" => CardEffect::None,
+        "fade" => CardEffect::Fade,
+        "slide" => CardEffect::Slide,
+        "flip" => CardEffect::Flip,
+        _ => return err("unknown card transition effect"),
+    };
+    let direction = match t.direction.as_str() {
+        "left" => CardDirection::Left,
+        "right" => CardDirection::Right,
+        "up" => CardDirection::Up,
+        "down" => CardDirection::Down,
+        _ => return err("unknown card transition direction"),
+    };
+    if !(150..=3000).contains(&t.duration_ms) {
+        return err("card transition duration must be 150 to 3000 ms");
+    }
+    Ok(CardTransition {
+        effect,
+        direction,
+        duration_ms: t.duration_ms,
+        include_base: t.include_base,
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1511,12 +1561,17 @@ impl From<&Theme> for ThemeDto {
                 .elements
                 .iter()
                 .map(|e| ElementDto {
-                    card: e.card.as_ref().map(|c| CardDto {
-                        triggers: c
-                            .triggers
-                            .iter()
-                            .map(|r| CardTriggerDto {
+                    card: e.card.as_ref().map(|c| {
+                        let c = c.normalized();
+                        CardDto {
+                            triggers: c
+                                .triggers
+                                .iter()
+                                .map(|r| {
+                                    CardTriggerDto {
+                                interval_seconds: r.interval_seconds, next_face: r.next_face,
                                 source: match r.source {
+                                    bezel_core::domain::playback::TriggerSource::Timer => "timer",
                                     bezel_core::domain::playback::TriggerSource::Process => {
                                         "process"
                                     }
@@ -1536,17 +1591,23 @@ impl From<&Theme> for ThemeDto {
                                 priority: r.priority,
                                 return_seconds: r.return_seconds,
                                 return_face: r.return_face,
-                            })
-                            .collect(),
-                        faces: c.faces.clone(),
-                        active_face: c.active_face,
-                        rotation_seconds: c.rotation_seconds,
-                        transition: c.transition.map(|t| CardTransitionDto {
-                            effect: format!("{:?}", t.effect).to_lowercase(),
-                            direction: format!("{:?}", t.direction).to_lowercase(),
-                            duration_ms: t.duration_ms,
-                            include_base: t.include_base,
-                        }),
+                            }
+                                })
+                                .collect(),
+                            faces: c.faces.clone(),
+                            active_face: c.active_face,
+                            pair_transitions: c
+                                .pair_transitions
+                                .iter()
+                                .map(|p| CardPairTransitionDto {
+                                    from: p.from,
+                                    to: p.to,
+                                    transition: card_transition_dto(p.transition),
+                                })
+                                .collect(),
+                            rotation_seconds: c.rotation_seconds,
+                            transition: c.transition.map(card_transition_dto),
+                        }
                     }),
                     is_group: e.is_group,
                     group_parent: e.group_parent.map(|id| id.0),
@@ -1632,15 +1693,13 @@ impl TryFrom<&ThemeDto> for Theme {
                         .card
                         .as_ref()
                         .map(|c| -> R<bezel_core::domain::theme::Card> {
-                            use bezel_core::domain::theme::{
-                                CardDirection, CardEffect, CardTransition,
-                            };
                             if c.rotation_seconds
                                 .is_some_and(|seconds| !(5..=3600).contains(&seconds))
                             {
                                 return err("card rotation interval must be 5 to 3600 seconds");
                             }
-                            if c.triggers.len() > 32 {
+                            if c.triggers.len() > if c.rotation_seconds.is_some() { 32 } else { 33 }
+                            {
                                 return err("too many card triggers");
                             }
                             let triggers = c
@@ -1651,6 +1710,7 @@ impl TryFrom<&ThemeDto> for Theme {
                                         CardTrigger, TriggerSource,
                                     };
                                     let source = match r.source.as_str() {
+                                        "timer" => TriggerSource::Timer,
                                         "process" => TriggerSource::Process,
                                         "processClosed" => TriggerSource::ProcessClosed,
                                         "foreground" => TriggerSource::Foreground,
@@ -1659,8 +1719,17 @@ impl TryFrom<&ThemeDto> for Theme {
                                     };
                                     if r.app.chars().count() > 160
                                         || (r.app.trim().is_empty()
-                                            && source != TriggerSource::MediaPlaying)
-                                        || r.face >= c.faces.len()
+                                            && !matches!(
+                                                source,
+                                                TriggerSource::MediaPlaying | TriggerSource::Timer
+                                            ))
+                                        || (!r.next_face && r.face >= c.faces.len())
+                                        || (source == TriggerSource::Timer
+                                            && !r
+                                                .interval_seconds
+                                                .is_some_and(|s| (5..=3600).contains(&s)))
+                                        || (source != TriggerSource::Timer
+                                            && (r.interval_seconds.is_some() || r.next_face))
                                         || r.priority > 100
                                         || r.return_seconds > 300
                                         || r.return_face.is_some_and(|f| f >= c.faces.len())
@@ -1668,6 +1737,8 @@ impl TryFrom<&ThemeDto> for Theme {
                                         return err("invalid card trigger");
                                     }
                                     Ok(CardTrigger {
+                                        interval_seconds: r.interval_seconds,
+                                        next_face: r.next_face,
                                         source,
                                         app: r.app.clone(),
                                         face: r.face,
@@ -1677,44 +1748,37 @@ impl TryFrom<&ThemeDto> for Theme {
                                     })
                                 })
                                 .collect::<R<Vec<_>>>()?;
-                            let transition = c
-                                .transition
-                                .as_ref()
-                                .map(|t| -> R<CardTransition> {
-                                    let effect = match t.effect.as_str() {
-                                        "none" => CardEffect::None,
-                                        "fade" => CardEffect::Fade,
-                                        "slide" => CardEffect::Slide,
-                                        "flip" => CardEffect::Flip,
-                                        _ => return err("unknown card transition effect"),
-                                    };
-                                    let direction = match t.direction.as_str() {
-                                        "left" => CardDirection::Left,
-                                        "right" => CardDirection::Right,
-                                        "up" => CardDirection::Up,
-                                        "down" => CardDirection::Down,
-                                        _ => return err("unknown card transition direction"),
-                                    };
-                                    if !(150..=3000).contains(&t.duration_ms) {
-                                        return err(
-                                            "card transition duration must be 150 to 3000 ms",
-                                        );
+                            let transition =
+                                c.transition.as_ref().map(card_transition).transpose()?;
+                            let mut seen = std::collections::BTreeSet::new();
+                            let pair_transitions = c
+                                .pair_transitions
+                                .iter()
+                                .map(|p| {
+                                    if p.from >= c.faces.len()
+                                        || p.to >= c.faces.len()
+                                        || p.from == p.to
+                                        || !seen.insert((p.from, p.to))
+                                    {
+                                        return err("invalid card transition pair");
                                     }
-                                    Ok(CardTransition {
-                                        effect,
-                                        direction,
-                                        duration_ms: t.duration_ms,
-                                        include_base: t.include_base,
+                                    Ok(bezel_core::domain::theme::CardPairTransition {
+                                        from: p.from,
+                                        to: p.to,
+                                        transition: card_transition(&p.transition)?,
                                     })
                                 })
-                                .transpose()?;
+                                .collect::<R<Vec<_>>>()?;
                             Ok(bezel_core::domain::theme::Card {
                                 triggers,
                                 faces: c.faces.clone(),
                                 active_face: c.active_face,
+                                pair_transitions,
                                 rotation_seconds: c.rotation_seconds,
                                 transition,
-                            })
+                            }
+                            .normalized()
+                            .into_owned())
                         })
                         .transpose()?,
                     is_group: e.is_group,

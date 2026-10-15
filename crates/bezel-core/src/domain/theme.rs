@@ -468,10 +468,53 @@ pub struct Card {
     pub faces: Vec<String>,
     /// Face shown by the renderer.
     pub active_face: usize,
-    /// Automatic rotation interval, 5 to 3600 seconds; none disables it.
+    /// Legacy rotation input, normalized to a timed trigger at persistence/runtime boundaries.
     pub rotation_seconds: Option<u32>,
+    /// Directed face changes; missing pairs use the general transition.
+    pub pair_transitions: Vec<CardPairTransition>,
     /// Optional face transition; absent means an immediate switch.
     pub transition: Option<CardTransition>,
+}
+
+/// Override for one directed face change.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CardPairTransition {
+    /// Face being left.
+    pub from: usize,
+    /// Face being entered.
+    pub to: usize,
+    /// Settings for this change.
+    pub transition: CardTransition,
+}
+impl Card {
+    /// Settings of a directed pair, falling back to the Card's general transition.
+    pub fn transition_for(&self, from: usize, to: usize) -> Option<CardTransition> {
+        self.pair_transitions
+            .iter()
+            .find(|p| p.from == from && p.to == to)
+            .map(|p| p.transition)
+            .or(self.transition)
+    }
+
+    /// Read legacy rotation as a timed trigger, without losing existing app rules.
+    pub fn normalized(&self) -> std::borrow::Cow<'_, Self> {
+        let Some(seconds) = self.rotation_seconds else {
+            return std::borrow::Cow::Borrowed(self);
+        };
+        let mut card = self.clone();
+        card.rotation_seconds = None;
+        card.triggers.push(super::playback::CardTrigger {
+            source: super::playback::TriggerSource::Timer,
+            interval_seconds: Some(seconds),
+            next_face: true,
+            app: String::new(),
+            face: 0,
+            priority: 0,
+            return_seconds: 0,
+            return_face: None,
+        });
+        std::borrow::Cow::Owned(card)
+    }
 }
 
 /// Face transition style.
@@ -747,6 +790,7 @@ impl Theme {
             if let Some(card) = &e.card {
                 for rule in &card.triggers {
                     let key = match rule.source {
+                        super::playback::TriggerSource::Timer => continue,
                         super::playback::TriggerSource::MediaPlaying => "media.sessions",
                         _ => "activity.processes",
                     };

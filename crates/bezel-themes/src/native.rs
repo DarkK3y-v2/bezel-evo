@@ -1242,6 +1242,63 @@ mod tests {
     }
 
     #[test]
+    fn legacy_rotation_migrates_and_pairs_round_trip_with_validation() {
+        let (theme, _) = every_kind();
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        let parent = json["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["kind"]["type"] == "shape")
+            .unwrap();
+        parent["card"] = serde_json::json!({"faces":["A","B","C"],"activeFace":1,"rotationSeconds":10,
+            "triggers":[{"source":"foreground","app":"game.exe","face":2,"priority":7,"returnSeconds":3}],
+            "transition":{"effect":"fade","direction":"left","durationMs":650,"includeBase":true},
+            "pairTransitions":[{"from":1,"to":2,"transition":{"effect":"slide","direction":"up","durationMs":400}}]});
+        let parsed = parse_manifest(&serde_json::to_vec(&json).unwrap()).unwrap();
+        let c = parsed
+            .elements
+            .iter()
+            .find_map(|e| e.card.as_ref())
+            .unwrap();
+        assert_eq!(c.rotation_seconds, None);
+        assert_eq!(c.active_face, 1);
+        assert_eq!(c.triggers.len(), 2);
+        assert_eq!(c.triggers[0].priority, 7);
+        assert_eq!(c.triggers[0].return_seconds, 3);
+        let timer = &c.triggers[1];
+        assert_eq!(
+            timer.source,
+            bezel_core::domain::playback::TriggerSource::Timer
+        );
+        assert_eq!(timer.interval_seconds, Some(10));
+        assert!(timer.next_face);
+        assert_eq!(c.transition_for(1, 2).unwrap().duration_ms, 400);
+        assert_eq!(c.transition_for(2, 1), c.transition);
+        let saved = manifest(&parsed).unwrap();
+        assert_eq!(parse_manifest(&saved).unwrap(), parsed);
+        assert!(!String::from_utf8_lossy(&saved).contains("rotationSeconds"));
+        let mut bad = serde_json::to_value(ThemeDto::from(&parsed)).unwrap();
+        let parent = bad["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["card"].is_object())
+            .unwrap();
+        parent["card"]["pairTransitions"][0]["to"] = serde_json::json!(99);
+        assert!(parse_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+        let mut bad = serde_json::to_value(ThemeDto::from(&parsed)).unwrap();
+        let parent = bad["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["card"].is_object())
+            .unwrap();
+        parent["card"]["triggers"][1]["intervalSeconds"] = serde_json::json!(4);
+        assert!(parse_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+
+    #[test]
     fn cards_round_trip_and_validate_ownership() {
         use bezel_core::domain::theme::{
             Card, CardDirection, CardEffect, CardMember, CardTransition,
@@ -1262,6 +1319,7 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["Metrics".into(), "Music".into()],
             active_face: 1,
+            pair_transitions: Vec::new(),
             rotation_seconds: None,
             transition: None,
         });
@@ -1297,7 +1355,20 @@ mod tests {
             .as_mut()
             .unwrap()
             .rotation_seconds = Some(10);
-        assert_eq!(parse_manifest(&manifest(&timed).unwrap()).unwrap(), timed);
+        let saved = manifest(&timed).unwrap();
+        let mut expected = timed.clone();
+        let card = expected
+            .elements
+            .iter_mut()
+            .find(|e| e.id == parent)
+            .unwrap()
+            .card
+            .as_mut()
+            .unwrap();
+        *card = card.normalized().into_owned();
+        assert_eq!(parse_manifest(&saved).unwrap(), expected);
+        assert!(!String::from_utf8_lossy(&saved).contains("rotationSeconds"));
+        assert!(String::from_utf8_lossy(&saved).contains("intervalSeconds"));
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         for seconds in [0, 4, 3601] {
             let mut bad = json.clone();
