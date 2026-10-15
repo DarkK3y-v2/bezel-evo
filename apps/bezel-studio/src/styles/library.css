@@ -37,14 +37,14 @@
 .sensor-group { display: grid; gap: 2px; }
 .sensor-group .section-head { margin: 0; padding: 0 4px 6px; }
 .sensor-group .section-head .count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.sensor-row { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; padding: 10px 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: grab; touch-action: none; user-select: none; }
+.sensor-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 60px 80px; align-items: center; column-gap: 10px; text-align: left; padding: 10px 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: grab; touch-action: none; user-select: none; }
 .sensor-row:hover, .sensor-row:focus-visible { border-color: var(--border); background: var(--surface-2); }
 .sensor-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
 .sensor-row .key { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: 10.5px; font-family: var(--font-mono); }
-.sensor-row .value { flex: none; min-width: 44px; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sensor-row .value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
 .sensor-row .value.unavailable { color: var(--dim); font-weight: 400; }
 /* A sensor's recent values, in the colour of its hardware. */
-.sparkline { flex: none; width: 44px; height: 20px; color: var(--dim); }
+.sparkline { width: 60px; height: 20px; color: var(--dim); }
 .sparkline path { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .sparkline[data-category="cpu"] { color: var(--info); }
 .sparkline[data-category="gpu"] { color: var(--accent); }
