@@ -221,7 +221,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   function framePress(evt) {
     const fv = framingView();
     if (!fv) return;
-    overlay.focus({ preventScroll: true });
+    overlay.focus({ preventScroll: true, focusVisible: false });
     const picture = pictureBox(fv.view.source, fv.view.rotation, fv.framing, size);
     press = { mode: 'frame', start: fv.framing, picture, client: [evt.clientX, evt.clientY], started: false };
     overlay.classList.add('grabbing');
@@ -240,7 +240,9 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     if (evt.clientX >= viewport.left + scroll.clientWidth || evt.clientY >= viewport.top + scroll.clientHeight) return;
     if (framing && !containsClient(evt.clientX, evt.clientY)) return;
     evt.preventDefault();
-    if (!framing) { scroll.tabIndex = 0; scroll.focus({preventScroll:true}); }
+    // A press takes the keys to the stage without the keyboard's focus ring
+    // (D-2026-10-15-studio-redesign-fidelity-22): only the keyboard shows it.
+    if (!framing) { scroll.tabIndex = 0; scroll.focus({ preventScroll: true, focusVisible: false }); }
     scroll.setPointerCapture?.(evt.pointerId);
     if (framing) {
       framePress(evt);
