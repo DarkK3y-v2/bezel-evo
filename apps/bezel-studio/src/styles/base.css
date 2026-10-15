@@ -269,6 +269,14 @@ button.pill:hover { border-color: var(--accent); }
 .property-section-body .hint { margin: 0; font-size: var(--fs-small); line-height: 1.45; }
 .property-section-body .chip-group { margin: 0; }
 
+/* A sentence the user completes (fields.js sentence()): card triggers, a graph's window. */
+.sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.sentence .field { min-width: 0; max-width: 100%; }
+.sentence .field > span { display: none; }
+.sentence-word { color: var(--muted); font-size: var(--fs-compact); }
+.sentence-word.is-joined { margin-left: -6px; }
+.sentence .sentence-token { max-width: 100%; min-width: 0; height: 28px; padding: 2px 6px; font-size: var(--fs-compact); }
+
 /* Shared layouts and control states used across panels. */
 .connect-device-list, .layer-groups { list-style: none; margin: 0; padding: 0; }
 .libre-popover-head, .samples-row { display: flex; align-items: center; gap: 10px; }

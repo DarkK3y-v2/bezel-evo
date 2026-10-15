@@ -4,6 +4,7 @@
 // the theme. Texts come translated from the caller.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
+import { joinsPrevious } from '../sentence.js';
 
 let counter = 0;
 const fieldId = () => `f${(counter += 1)}`;
@@ -101,6 +102,23 @@ export function prefixedField(prefix, label, value, onChange, { min, max, step =
     input,
     unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null,
   ]);
+}
+
+/**
+ * A sentence the user completes (card triggers, a graph's window): `parts`
+ * are words (strings) and tokens (nodes), in reading order. The input or
+ * select of a token takes the token look; a word that starts with
+ * punctuation sticks to the token before it.
+ * @param {(string|Node)[]} parts
+ * @param {Record<string, any>} [attrs]
+ */
+export function sentence(parts, attrs = {}) {
+  return el('div', { ...attrs, class: `sentence ${attrs.class ?? ''}`.trim() }, parts.map((part) => {
+    if (typeof part === 'string') return el('span', { class: joinsPrevious(part) ? 'sentence-word is-joined' : 'sentence-word', text: part });
+    const control = part.matches('input, select') ? part : part.querySelector('input, select');
+    control?.classList.add('sentence-token');
+    return part;
+  }));
 }
 
 /** Prefixed fields two by two (position and size, min and max). */

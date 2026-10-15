@@ -127,10 +127,10 @@ test('triggers read as sentences with tokens, reorder by keyboard, and share one
   await expect(rules).toHaveCount(2);
   const first = inspector.getByRole('group', { name: t('trigger.rule', { value: 1 }), exact: true });
   // Music in any app: the sentence says "in" before the app, empty = any app.
-  await expect(first.locator('.rule-word')).toHaveText([t('cardInsp.when'), t('cardInsp.in'), t('cardInsp.show')]);
+  await expect(first.locator('.sentence-word')).toHaveText([t('cardInsp.when'), t('cardInsp.in'), t('cardInsp.show')]);
   await expect(first.getByRole('combobox', { name: t('trigger.app') })).toHaveAttribute('placeholder', t('cardInsp.anyApp'));
   await first.getByRole('combobox', { name: t('trigger.condition'), exact: true }).selectOption('foreground');
-  await expect(first.locator('.rule-word')).toHaveText([t('cardInsp.when'), t('cardInsp.show')]);
+  await expect(first.locator('.sentence-word')).toHaveText([t('cardInsp.when'), t('cardInsp.show')]);
   const app = first.getByRole('combobox', { name: t('trigger.app') });
   await expect(app).not.toHaveValue('');
   await app.fill('obs64');

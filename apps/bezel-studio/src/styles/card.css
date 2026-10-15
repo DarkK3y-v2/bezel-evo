@@ -41,12 +41,8 @@
 .trigger-rule-head .danger { margin-left: auto; }
 .rule-handle { touch-action: none; cursor: grab; }
 .trigger-rule.dragging { border-color: var(--accent); }
-.rule-sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.rule-sentence .field { min-width: 0; max-width: 100%; }
-.rule-sentence .field > span { display: none; }
-.rule-word { color: var(--muted); font-size: var(--fs-compact); }
-.rule-sentence .rule-token { max-width: 100%; min-width: 0; height: 28px; padding: 2px 6px; font-size: var(--fs-compact); }
-.rule-token[list] { width: 120px; font-family: var(--font-mono); }
+/* A trigger's app: a mono name with its suggestions. */
+.sentence-token[list] { width: 120px; font-family: var(--font-mono); }
 .trigger-rule .fld { gap: 4px; padding-inline: 6px; }
 .trigger-rule .fld-prefix { font-size: var(--fs-tiny); }
 .trigger-add { width: 100%; border-style: dashed; }

@@ -1,7 +1,7 @@
 // Card content only: the inspector owns header, tabs, geometry and preview.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { chipButton, dashedHint, fieldGrid, iconButton, listCard, prefixedField, rangeField, screenThumb, segmented, selectField, switchRow, textField } from './fields.js';
+import { chipButton, dashedHint, fieldGrid, iconButton, listCard, prefixedField, rangeField, screenThumb, segmented, selectField, sentence as sentenceOfParts, switchRow, textField } from './fields.js';
 import { widgetOf } from '../editor/widgets.js';
 import { selectionRoots } from '../editor/cards.js';
 import { MAX_RULES, ROTATION_PRESETS, ROTATION_MIN, ROTATION_MAX, TRIGGER_SOURCES, appSuggestions, clampPriority, clampReturn, clampRotation, commonReturn, durationParts, moveRule, newRule, sentenceOf, withApp, withReturn, withSource, dropIndex } from '../card-rules.js';
@@ -171,8 +171,7 @@ function triggerForm(ctx) {
     const faceField = selectField(t('trigger.face'), String(rule.face), faceOptions, value => change(i, { ...rule, face: Number(value) }));
     const face = faceField.querySelector('select'); face.setAttribute('aria-label', t('trigger.face'));
     const tokens = { source: sourceField, app: appField, face: faceField };
-    [source, input, face].forEach(node => node.classList.add('rule-token'));
-    const sentence = el('div', { class: 'rule-sentence' }, sentenceOf(rule).map(part => part.word ? el('span', { class: 'rule-word', text: t(`cardInsp.${part.word}`) }) : tokens[part.token]));
+    const sentence = sentenceOfParts(sentenceOf(rule).map(part => part.word ? t(`cardInsp.${part.word}`) : tokens[part.token]));
     list.append(el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('trigger.rule', { value: i + 1 }), dataset: { ruleIndex: String(i), cardId: String(e.id) } }, [
       el('div', { class: 'trigger-rule-head' }, [handle, el('span', { class: 'mono', text: t('trigger.rule', { value: i + 1 }) }), tool(t('trigger.remove'), 'trash', () => set(rules.filter((_, n) => n !== i)), false, 'danger')]), sentence, suggestions,
       fieldGrid([prefixedField(t('cardInsp.priority'), t('trigger.priority'), rule.priority ?? 0, value => change(i, { ...rule, priority: clampPriority(value) }), { min: 0, max: 100 }), prefixedField(t('cardInsp.return'), t('trigger.return'), rule.returnSeconds ?? 0, value => change(i, { ...rule, returnSeconds: clampReturn(value) }), { min: 0, max: 300, unit: 's' })]),
