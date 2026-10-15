@@ -64,9 +64,58 @@ export function layerFacts(theme, element) {
 /** The graph's quick durations, seconds (artboard GraphData). */
 export const QUICK_DURATIONS = Object.freeze([30, 60, 300, 900, 3600]);
 
-/** The fewest and most samples a graph keeps (the store's bounds). */
+/** The fewest and most points a graph draws (the backend's GRAPH_POINTS_MIN/MAX). */
 export const HISTORY_MIN = 2;
 export const HISTORY_MAX = 3600;
+
+/** The longest time between two points of a graph, seconds (the backend's GRAPH_INTERVAL_MAX_SECONDS). */
+export const GRAPH_INTERVAL_MAX = 3600;
+
+/** Seconds in each unit a graph's duration (s, min, h) or interval (s, min) is written in. */
+export const TIME_UNITS = Object.freeze({ s: 1, min: 60, h: 3600 });
+
+/**
+ * A graph's timing (D-2026-10-15-studio-redesign-fidelity-16): a point
+ * every `interval` seconds, `points` of them, over `duration` seconds.
+ * `own` says the graph has its own interval; without one (themes made
+ * before it) it takes a point per refresh of the theme, as the backend does.
+ * @param {{history: number, intervalSeconds?: number|null}} kind
+ * @param {number} refreshSeconds
+ * @returns {{interval: number, own: boolean, points: number, duration: number}}
+ */
+export function graphTiming(kind, refreshSeconds) {
+  const own = Number.isInteger(kind.intervalSeconds) && kind.intervalSeconds > 0;
+  const interval = own ? Math.min(kind.intervalSeconds, GRAPH_INTERVAL_MAX) : refreshSeconds > 0 ? refreshSeconds : 1;
+  return { interval, own, points: kind.history, duration: kind.history * interval };
+}
+
+/**
+ * The graph fields for a window of `duration` seconds with a point every
+ * `interval` seconds: the interval in whole seconds (1 s to an hour), the
+ * points it takes ({@link HISTORY_MIN} to {@link HISTORY_MAX}) and the
+ * window they really cover, with `clamped` saying when the points were
+ * bounded (`min`, `max`; null when not).
+ * @returns {{history: number, intervalSeconds: number, duration: number, clamped: 'min'|'max'|null}}
+ */
+export function graphTimingPatch(duration, interval) {
+  const every = Math.min(GRAPH_INTERVAL_MAX, Math.max(1, Math.round(Number(interval) || 1)));
+  const wanted = Math.round((Number(duration) || 0) / every);
+  const history = Math.min(HISTORY_MAX, Math.max(HISTORY_MIN, wanted));
+  const clamped = wanted < HISTORY_MIN ? 'min' : wanted > HISTORY_MAX ? 'max' : null;
+  return { history, intervalSeconds: every, duration: history * every, clamped };
+}
+
+/** The shortest and longest window a graph with a point every `interval` seconds can show, seconds. */
+export function graphWindowRange(interval) {
+  const every = Math.min(GRAPH_INTERVAL_MAX, Math.max(1, Math.round(Number(interval) || 1)));
+  return { min: HISTORY_MIN * every, max: HISTORY_MAX * every };
+}
+
+/** An interval as its largest whole unit, seconds or minutes: `{value, unit}`. */
+export function intervalParts(seconds) {
+  if (seconds >= 60 && seconds % 60 === 0) return { value: seconds / 60, unit: 'min' };
+  return { value: Math.round(seconds * 100) / 100, unit: 's' };
+}
 
 /**
  * A duration as its largest whole unit: `{value, unit}` with `unit` one of
@@ -79,16 +128,16 @@ export function durationParts(seconds) {
 }
 
 /**
- * The quick durations of a graph refreshed every `refreshSeconds` that
- * keeps `history` samples: how many samples each takes, whether that is
- * the graph's window now, and whether the graph can keep that many.
+ * The quick durations of a graph taking a point every `intervalSeconds`
+ * and drawing `history` of them: how many points each takes, whether that
+ * is the graph's window now, and whether the graph can draw that many.
  * @returns {{seconds: number, samples: number, pressed: boolean, disabled: boolean}[]}
  */
-export function quickDurations(refreshSeconds, history) {
-  const refresh = refreshSeconds > 0 ? refreshSeconds : 1;
+export function quickDurations(intervalSeconds, history) {
+  const interval = intervalSeconds > 0 ? intervalSeconds : 1;
   return QUICK_DURATIONS.map((seconds) => {
-    const samples = Math.round(seconds / refresh);
-    return { seconds, samples, pressed: samples === history, disabled: samples < HISTORY_MIN || samples > HISTORY_MAX };
+    const samples = Math.round(seconds / interval);
+    return { seconds, samples, pressed: samples === history && samples * interval === seconds, disabled: samples < HISTORY_MIN || samples > HISTORY_MAX };
   });
 }
 

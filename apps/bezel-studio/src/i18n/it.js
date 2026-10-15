@@ -393,7 +393,6 @@ export default {
   "inspector.front": "Porta in primo piano",
   "inspector.gap": "Spaziatura",
   "inspector.height": "Altezza (px)",
-  "inspector.history": "Campioni",
   "inspector.letterSpacing": "Spaziatura tra lettere (px)",
   "inspector.lineWidth": "Spessore linea",
   "inspector.locked": "Bloccato",

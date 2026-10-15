@@ -74,8 +74,10 @@
 .fld-grid.is-muted input { color: var(--text-3); }
 .align-row { display: flex; gap: 4px; }
 .align-row .icon-button { border-color: transparent; }
+/* A graph's duration and time between two points: the value, then its unit. */
 .samples-row .fld { flex: 1 1 auto; }
-.samples-row .hint { flex: none; margin: 0; }
+.samples-row .segmented { flex: none; }
+.graph-points { margin: 0; font-family: var(--font-mono); }
 
 /* The sensor a widget reads: a list card with the native select over it. */
 .source-card { position: relative; }

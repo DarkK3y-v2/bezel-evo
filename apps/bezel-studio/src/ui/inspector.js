@@ -19,7 +19,7 @@ import { ORIENTATIONS } from '../editor/geometry.js';
 import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
-import { HISTORY_MAX, HISTORY_MIN, appChips, arcDrawing, createTabMemory, durationParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
+import { TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
@@ -664,13 +664,48 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return t('unit.seconds', { value });
   }
 
-  /** The window a graph looks back over, ms (its samples at the theme refresh). */
-  const graphWindowMs = (e) => e.kind.history * store.getState().theme.refreshSeconds * 1000;
+  /** A graph's timing: its own interval, else the theme refresh (D-2026-10-15-studio-redesign-fidelity-16). */
+  const timingOf = (e) => graphTiming(e.kind, store.getState().theme.refreshSeconds);
+
+  /** The window a graph looks back over, ms. */
+  const graphWindowMs = (e) => timingOf(e).duration * 1000;
+
+  /** Short unit names of the duration and interval pickers. */
+  const unitName = (unit) => t(unit === 'h' ? 'insp.unitHours' : unit === 'min' ? 'insp.unitMinutes' : 'insp.unitSeconds');
+
+  /**
+   * A value in a well with its unit picked beside it: `seconds` shown in
+   * its largest whole unit of `units`, `onChange(seconds)` when either changes.
+   */
+  function timeField(prefix, label, unitLabel, seconds, units, parts, onChange) {
+    const { value, unit } = parts(seconds);
+    const shown = units.includes(unit) ? { value, unit } : { value: seconds, unit: 's' };
+    return el('div', { class: 'samples-row' }, [
+      prefixedField(prefix, label, shown.value, (v) => onChange(v * TIME_UNITS[shown.unit]), { min: 0, step: 'any' }),
+      segmented(unitLabel, shown.unit, units.map((u) => [u, unitName(u)]), (u) => onChange(shown.value * TIME_UNITS[u]), { bare: true }),
+    ]);
+  }
+
+  /** The graph's window: quick durations, its duration and the time between two points, and what they make. */
+  function graphWindow(e) {
+    const timing = timingOf(e);
+    const setTiming = (duration, interval) => {
+      const { history, intervalSeconds } = graphTimingPatch(duration, interval);
+      update(e.id, { kind: { history, intervalSeconds } });
+    };
+    const range = graphWindowRange(timing.interval);
+    return section('window', t('insp.window'), [
+      el('div', { class: 'chip-group', role: 'group', 'aria-label': t('insp.quickDurations') },
+        quickDurations(timing.interval, timing.points).map((d) => chipButton(durationText(d.seconds), d.pressed, () => setTiming(d.seconds, timing.interval), { disabled: d.disabled }))),
+      timeField(t('insp.durationPrefix'), t('insp.durationLabel'), t('insp.durationUnit'), timing.duration, ['s', 'min', 'h'], durationParts, (d) => setTiming(d, timing.interval)),
+      timeField(t('insp.pointEveryPrefix'), t('insp.intervalLabel'), t('insp.intervalUnit'), timing.interval, ['s', 'min'], intervalParts, (i) => setTiming(timing.duration, i)),
+      el('p', { class: 'hint graph-points', 'aria-live': 'polite', text: t('insp.points', { points: timing.points, min: durationText(range.min), max: durationText(range.max) }) }),
+      timing.own ? null : el('p', { class: 'hint', text: t('insp.followsRefresh', { seconds: timing.interval }) }),
+    ]);
+  }
 
   function graphForm(e) {
     const k = e.kind;
-    const refresh = store.getState().theme.refreshSeconds;
-    const setHistory = (v) => update(e.id, { kind: { history: Math.min(Math.max(HISTORY_MIN, v), HISTORY_MAX) } });
     // Data (artboard GraphData): what it plots, its vertical scale and how far back it looks.
     const data = [
       sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }), { range: false }),
@@ -679,14 +714,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         rangeFields(e.id, k.binding, { muted: Boolean(k.autoscale) }),
         k.autoscale ? el('p', { class: 'hint' }, [t('insp.autoscaleHint'), ' ', t('insp.peak'), ' ', el('span', { class: 'mono graph-peak', dataset: { peakKey: k.binding.key, windowMs: String(graphWindowMs(e)) }, text: '—' })]) : null,
       ]),
-      section('window', t('insp.window'), [
-        el('div', { class: 'chip-group', role: 'group', 'aria-label': t('insp.quickDurations') },
-          quickDurations(refresh, k.history).map((d) => chipButton(durationText(d.seconds), d.pressed, () => setHistory(d.samples), { disabled: d.disabled }))),
-        el('div', { class: 'samples-row' }, [
-          prefixedField(t('insp.samples'), t('inspector.history'), k.history, setHistory, { min: HISTORY_MIN, max: HISTORY_MAX }),
-          el('span', { class: 'hint', text: t('insp.perRefresh', { seconds: refresh }) }),
-        ]),
-      ]),
+      graphWindow(e),
       dashedHint([t('insp.historyHint')], { iconName: 'info' }),
     ];
     // Look (artboard GraphLook): the style, the color, the fill of an area and the line.
@@ -905,7 +933,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   /** The preview: "Preview · live", the value its sensor reads now, the object alone, and a graph's time axis. */
   function preview(e) {
     const key = e.isGroup || e.card ? null : boundKey(e);
-    const seconds = e.kind?.type === 'graph' ? Math.round(graphWindowMs(e) / 1000) : null;
+    const seconds = e.kind?.type === 'graph' ? timingOf(e).duration : null;
     return el('figure', { class: 'inspector-preview', dataset: { elementId: String(e.id) } }, [
       el('figcaption', { class: 'inspector-preview-head' }, [
         el('span', { class: 'inspector-preview-label', text: t('inspector.previewLive') }),
@@ -915,7 +943,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         el('canvas', { width: 1, height: 1, role: 'img', 'aria-label': t('inspector.previewOf', { name: e.name }) }),
         el('p', { class: 'hint inspector-preview-off', hidden: true, text: t('insp.previewNone') }),
       ]),
-      seconds === null ? null : el('div', { class: 'inspector-preview-axis', 'aria-hidden': 'true' }, [el('span', { text: t('insp.ago', { seconds }) }), el('span', { text: t('insp.now') })]),
+      seconds === null ? null : el('div', { class: 'inspector-preview-axis', 'aria-hidden': 'true' }, [el('span', { text: t('insp.ago', { duration: durationText(seconds) }) }), el('span', { text: t('insp.now') })]),
     ]);
   }
 

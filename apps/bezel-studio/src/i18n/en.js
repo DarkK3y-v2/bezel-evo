@@ -393,7 +393,6 @@ export default {
   'inspector.front': 'Bring to front',
   'inspector.gap': 'Gap',
   'inspector.height': 'Height (px)',
-  'inspector.history': 'Samples',
   'inspector.letterSpacing': 'Letter spacing (px)',
   'inspector.lineWidth': 'Line width',
   'inspector.locked': 'Locked',

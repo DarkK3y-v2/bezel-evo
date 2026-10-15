@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CARD_TABS, HISTORY_MAX, HISTORY_MIN, OBJECT_TABS, QUICK_DURATIONS, appChips, appName, arcDrawing, createTabMemory, durationParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
+import { CARD_TABS, GRAPH_INTERVAL_MAX, HISTORY_MAX, HISTORY_MIN, OBJECT_TABS, QUICK_DURATIONS, TIME_UNITS, appChips, appName, arcDrawing, createTabMemory, durationParts, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
 
 test('a card has faces, motion, triggers and look; every other object data and look', () => {
   assert.deepEqual(tabsOf('card'), ['faces', 'motion', 'triggers', 'look']);
@@ -78,7 +78,35 @@ test('a duration is told in its largest whole unit', () => {
   assert.deepEqual(durationParts(1.256), { value: 1.26, unit: 's' });
 });
 
-test('quick durations turn into samples at the theme refresh, the current one pressed', () => {
+test('a graph times itself by its own interval, else by the theme refresh (D-16)', () => {
+  assert.deepEqual(graphTiming({ history: 120, intervalSeconds: 30 }, 1), { interval: 30, own: true, points: 120, duration: 3600 });
+  assert.deepEqual(graphTiming({ history: 60 }, 2), { interval: 2, own: false, points: 60, duration: 120 });
+  assert.deepEqual(graphTiming({ history: 60, intervalSeconds: 0 }, 0), { interval: 1, own: false, points: 60, duration: 60 });
+  assert.equal(graphTiming({ history: 2, intervalSeconds: 99999 }, 1).interval, GRAPH_INTERVAL_MAX);
+});
+
+test('a duration and an interval make the points, bounded and said so', () => {
+  // "1 hour, one point every 30 s".
+  assert.deepEqual(graphTimingPatch(3600, 30), { history: 120, intervalSeconds: 30, duration: 3600, clamped: null });
+  assert.deepEqual(graphTimingPatch(7200, 1), { history: HISTORY_MAX, intervalSeconds: 1, duration: 3600, clamped: 'max' });
+  assert.deepEqual(graphTimingPatch(30, 60), { history: HISTORY_MIN, intervalSeconds: 60, duration: 120, clamped: 'min' });
+  assert.deepEqual(graphTimingPatch(90, 0.4), { history: 90, intervalSeconds: 1, duration: 90, clamped: null }, 'whole seconds, at least one');
+  assert.equal(graphTimingPatch(60, 1e9).intervalSeconds, GRAPH_INTERVAL_MAX);
+  assert.deepEqual(graphTimingPatch(Number.NaN, Number.NaN), { history: HISTORY_MIN, intervalSeconds: 1, duration: 2, clamped: 'min' });
+  assert.deepEqual(graphWindowRange(30), { min: 60, max: 108000 });
+  assert.deepEqual(graphWindowRange(0), { min: 2, max: 3600 });
+  assert.deepEqual(TIME_UNITS, { s: 1, min: 60, h: 3600 });
+});
+
+test('an interval is told in seconds or whole minutes', () => {
+  assert.deepEqual(intervalParts(30), { value: 30, unit: 's' });
+  assert.deepEqual(intervalParts(120), { value: 2, unit: 'min' });
+  assert.deepEqual(intervalParts(3600), { value: 60, unit: 'min' });
+  assert.deepEqual(intervalParts(90), { value: 90, unit: 's' });
+  assert.deepEqual(intervalParts(0.5), { value: 0.5, unit: 's' });
+});
+
+test('quick durations turn into points at the graph interval, the current one pressed', () => {
   assert.deepEqual(QUICK_DURATIONS, [30, 60, 300, 900, 3600]);
   assert.deepEqual(quickDurations(1, 60).map((d) => [d.samples, d.pressed, d.disabled]),
     [[30, false, false], [60, true, false], [300, false, false], [900, false, false], [3600, false, false]]);
@@ -86,6 +114,8 @@ test('quick durations turn into samples at the theme refresh, the current one pr
     [[60, false, false], [120, true, false], [600, false, false], [1800, false, false], [7200, false, true]]);
   assert.equal(quickDurations(0, 30)[0].samples, 30);
   assert.equal(quickDurations(40, 2)[0].disabled, true);
+  assert.deepEqual(quickDurations(30, 120).map((d) => [d.samples, d.pressed, d.disabled]),
+    [[1, false, true], [2, false, false], [10, false, false], [30, false, false], [120, true, false]]);
   assert.equal(HISTORY_MIN, 2);
   assert.equal(HISTORY_MAX, 3600);
 });

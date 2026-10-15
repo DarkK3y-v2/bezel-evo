@@ -86,7 +86,7 @@ export function createWidget(widget, canvas, sensor = {}) {
       };
     case 'graph':
       return {
-        kind: { type: 'graph', binding, history: 60, style: 'area', color: ACCENT, fill: '#38bdf840', lineWidth: 2, autoscale: false },
+        kind: { type: 'graph', binding, history: 60, intervalSeconds: 1, style: 'area', color: ACCENT, fill: '#38bdf840', lineWidth: 2, autoscale: false },
         width: short * 0.8,
         height: short * 0.35,
       };

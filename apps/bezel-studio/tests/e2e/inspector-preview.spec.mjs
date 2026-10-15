@@ -107,19 +107,60 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   expect(errors).toEqual([]);
 });
 
-test('the graph scales itself and shows its peak; quick durations set its samples', async ({ page, t }) => {
+test('the graph has its own duration and time between two points; it scales itself and shows its peak', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await add(page, t, 'graph');
   const inspector = page.locator('#inspector');
-  const samples = inspector.getByRole('spinbutton', { name: t('inspector.history'), exact: true });
-  await expect(samples).toHaveValue('60');
-  const minute = inspector.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true });
-  await expect(minute).toHaveAttribute('aria-pressed', 'true');
-  await inspector.getByRole('button', { name: t('unit.minutes', { value: 5 }), exact: true }).click();
-  await expect(samples).toHaveValue('300');
-  await expect(inspector.getByRole('button', { name: t('unit.minutes', { value: 5 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(inspector.locator('.inspector-preview-axis')).toContainText(t('insp.ago', { seconds: 300 }));
+  // D-2026-10-15-studio-redesign-fidelity-16: a duration and a point every so long, not samples.
+  const duration = inspector.getByRole('spinbutton', { name: t('insp.durationLabel'), exact: true });
+  const every = inspector.getByRole('spinbutton', { name: t('insp.intervalLabel'), exact: true });
+  const durationUnit = (unit) => inspector.getByRole('group', { name: t('insp.durationUnit'), exact: true }).getByRole('button', { name: t(unit), exact: true });
+  const everyUnit = (unit) => inspector.getByRole('group', { name: t('insp.intervalUnit'), exact: true }).getByRole('button', { name: t(unit), exact: true });
+  const points = inspector.locator('.graph-points');
+  const axis = inspector.locator('.inspector-preview-axis');
+  const quick = (key, value) => inspector.getByRole('group', { name: t('insp.quickDurations'), exact: true }).getByRole('button', { name: t(key, { value }), exact: true });
+  const told = (count, interval) => t('insp.points', { points: count, min: interval.min, max: interval.max });
+  const everySecond = { min: t('unit.seconds', { value: 2 }), max: t('unit.hours', { value: 1 }) };
+
+  await expect(duration).toHaveValue('1');
+  await expect(durationUnit('insp.unitMinutes')).toHaveAttribute('aria-pressed', 'true');
+  await expect(every).toHaveValue('1');
+  await expect(everyUnit('insp.unitSeconds')).toHaveAttribute('aria-pressed', 'true');
+  await expect(points).toHaveText(told(60, everySecond));
+  await expect(quick('unit.minutes', 1)).toHaveAttribute('aria-pressed', 'true');
+
+  await quick('unit.minutes', 5).click();
+  await expect(duration).toHaveValue('5');
+  await expect(points).toHaveText(told(300, everySecond));
+  await expect(quick('unit.minutes', 5)).toHaveAttribute('aria-pressed', 'true');
+  await expect(axis).toContainText(t('insp.ago', { duration: t('unit.minutes', { value: 5 }) }));
+
+  // One hour, one point every 30 s: 120 points.
+  await every.fill('30');
+  await every.press('Tab');
+  const every30 = { min: t('unit.minutes', { value: 1 }), max: t('unit.hours', { value: 30 }) };
+  await expect(points).toHaveText(told(10, every30));
+  await expect(duration).toHaveValue('5');
+  await duration.fill('1');
+  await duration.press('Tab');
+  await durationUnit('insp.unitHours').click();
+  await expect(duration).toHaveValue('1');
+  await expect(durationUnit('insp.unitHours')).toHaveAttribute('aria-pressed', 'true');
+  await expect(points).toHaveText(told(120, every30));
+  await expect(quick('unit.hours', 1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(quick('unit.seconds', 30)).toBeDisabled();
+  await expect(axis).toContainText(t('insp.ago', { duration: t('unit.hours', { value: 1 }) }));
+
+  // A point every second cannot cover two hours: the window stops at 3600 points.
+  await everyUnit('insp.unitSeconds').click();
+  await every.fill('1');
+  await every.press('Tab');
+  await duration.fill('2');
+  await duration.press('Tab');
+  await expect(points).toHaveText(told(3600, everySecond));
+  await expect(duration).toHaveValue('1');
+  await expect(axis).toContainText(t('insp.ago', { duration: t('unit.hours', { value: 1 }) }));
 
   await expect(inspector.locator('.graph-peak')).toHaveCount(0);
   await inspector.getByRole('button', { name: t('insp.automatic'), exact: true }).click();
