@@ -2410,6 +2410,7 @@ mod tests {
         theme.refresh_seconds = 1.0;
         let key = SensorKey::new("cpu.usage").unwrap();
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: Some(ValueTransition::smooth(400)),
             id: ElementId(1),
             name: "CPU".into(),
@@ -2552,6 +2553,7 @@ mod tests {
         let mut theme = theme_88();
         theme.refresh_seconds = 1.0;
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             id: ElementId(1),
             name: "Card".into(),
@@ -3025,6 +3027,7 @@ mod tests {
     /// `theme` graphing `cpu.usage` over 8 samples.
     fn graphing(mut theme: Theme) -> Theme {
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,
@@ -3306,6 +3309,7 @@ mod tests {
         // The preview shows a theme that prints the ping.
         let mut theme = s.theme().clone();
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,

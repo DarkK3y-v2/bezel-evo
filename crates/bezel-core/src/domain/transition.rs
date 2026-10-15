@@ -422,6 +422,7 @@ mod tests {
             opacity: 1.0,
             visible: true,
             locked: false,
+            color_by_value: None,
             value_transition: transition,
             kind,
         }

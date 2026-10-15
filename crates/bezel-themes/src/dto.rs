@@ -14,6 +14,7 @@ use bezel_core::domain::theme::{
 use bezel_core::domain::transition::{
     MAX_TRANSITION_MS, MIN_TRANSITION_MS, TransitionMode, ValueTransition,
 };
+use bezel_core::domain::value_color::{ColorByValue, ColorThreshold};
 use serde::{Deserialize, Serialize};
 
 use crate::color::{from_hex, to_hex};
@@ -284,8 +285,73 @@ pub struct ElementDto {
     /// themes written before it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value_transition: Option<ValueTransitionDto>,
+    /// Optional step colours; absent keeps the original fixed paint.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color_by_value: Option<ColorByValueDto>,
     /// Kind.
     pub kind: KindDto,
+}
+
+/// Sensor-driven step colours, in the sensor's native units.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColorByValueDto {
+    /// Used only by otherwise unbound objects.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor: Option<String>,
+    /// Colour below all thresholds and for unavailable readings.
+    pub base: String,
+    /// Inclusive lower bounds, in presentation order; at most 32.
+    pub thresholds: Vec<ColorThresholdDto>,
+}
+
+/// One inclusive lower bound and its colour.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ColorThresholdDto {
+    /// Native sensor value.
+    pub value: f64,
+    /// RGBA hex colour.
+    pub color: String,
+}
+
+fn color_by_value_dto(rule: &ColorByValue) -> ColorByValueDto {
+    ColorByValueDto {
+        sensor: rule.sensor.as_ref().map(|s| s.as_str().to_owned()),
+        base: to_hex(rule.base),
+        thresholds: rule
+            .thresholds
+            .iter()
+            .map(|t| ColorThresholdDto {
+                value: t.value,
+                color: to_hex(t.color),
+            })
+            .collect(),
+    }
+}
+fn color_by_value(rule: &ColorByValueDto) -> R<ColorByValue> {
+    if rule.thresholds.len() > 32 || rule.thresholds.iter().any(|t| !t.value.is_finite()) {
+        return err("colorByValue needs at most 32 finite thresholds");
+    }
+    Ok(ColorByValue {
+        sensor: rule
+            .sensor
+            .as_ref()
+            .map(|s| {
+                SensorKey::new(s).ok_or_else(|| DtoError("invalid colorByValue sensor".into()))
+            })
+            .transpose()?,
+        base: color(&rule.base)?,
+        thresholds: rule
+            .thresholds
+            .iter()
+            .map(|t| {
+                Ok(ColorThreshold {
+                    value: t.value,
+                    color: color(&t.color)?,
+                })
+            })
+            .collect::<R<_>>()?,
+    })
 }
 
 /// An element's value transition: `{"mode": "smooth", "durationMs": 400}`.
@@ -1499,6 +1565,7 @@ impl From<&Theme> for ThemeDto {
                     opacity: e.opacity,
                     visible: e.visible,
                     locked: e.locked,
+                    color_by_value: e.color_by_value.as_ref().map(color_by_value_dto),
                     value_transition: value_transition_dto(e.value_transition),
                     kind: kind_dto(&e.kind),
                 })
@@ -1664,6 +1731,7 @@ impl TryFrom<&ThemeDto> for Theme {
                     opacity: e.opacity.clamp(0.0, 1.0),
                     visible: e.visible,
                     locked: e.locked,
+                    color_by_value: e.color_by_value.as_ref().map(color_by_value).transpose()?,
                     value_transition: value_transition(e.value_transition),
                     kind: kind(&e.kind)
                         .map_err(|x| DtoError(format!("element {} ({}): {}", e.id, e.name, x.0)))?,

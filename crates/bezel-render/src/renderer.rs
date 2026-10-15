@@ -48,11 +48,12 @@ impl TextFurniture {
                 gap: w.icon_gap.unwrap_or(style.size * 0.3).max(0.),
                 progress: 0.,
             },
-            TextContent::Player(p)
-                if bezel_core::domain::playback::session(context.snapshot, &p.source).is_some() =>
-            {
-                let media = bezel_core::domain::playback::session(context.snapshot, &p.source)
-                    .expect("session present");
+            TextContent::Player(p) => {
+                let Some(media) =
+                    bezel_core::domain::playback::session(context.snapshot, &p.source)
+                else {
+                    return Self::default();
+                };
                 Self {
                     side: if p.show_cover {
                         Some(f32::INFINITY)
@@ -156,6 +157,9 @@ const FACE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 /// Elements whose pixels depend on nothing but themselves (no sensor, no
 /// clock, no asset), so their layer can be kept between frames.
 fn is_static(element: &Element) -> bool {
+    if element.color_by_value.is_some() {
+        return false;
+    }
     match &element.kind {
         ElementKind::Shape { video_window, .. } => !video_window,
         ElementKind::Text {
@@ -1020,6 +1024,26 @@ impl SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: &RenderContext<'_>,
     ) {
+        let color = element.value_color(context.snapshot, context.shown);
+        let mut resolved;
+        let element = if let Some(color) = color {
+            resolved = element.clone();
+            use bezel_core::domain::theme::Paint;
+            match &mut resolved.kind {
+                ElementKind::Text { style, .. } => style.paint = Paint::solid(color),
+                ElementKind::Bar { fill, .. } | ElementKind::Ring { fill, .. } => {
+                    *fill = Paint::solid(color)
+                }
+                ElementKind::Shape { fill, .. } => *fill = Some(Paint::solid(color)),
+                ElementKind::Needle { color: c, .. } | ElementKind::Graph { color: c, .. } => {
+                    *c = color
+                }
+                _ => {}
+            }
+            &resolved
+        } else {
+            element
+        };
         let area = element.frame;
         match &element.kind {
             ElementKind::Text { content, style } => {
@@ -1137,6 +1161,9 @@ impl SkiaRenderer {
             }
             ElementKind::Image { asset, fit, .. } => {
                 self.draw_image(layer, asset, *fit, area, assets, context);
+                if let Some(color) = color {
+                    tint(layer, color);
+                }
             }
             ElementKind::Shape {
                 video_window,
@@ -1249,7 +1276,19 @@ impl SkiaRenderer {
             let placement =
                 Transform::from_translate(plan.at.0, plan.at.1).post_rotate_at(pose.angle, px, py);
             layer.draw_transformed(frame.as_ref(), placement);
+            if let Some(color) = element.value_color(context.snapshot, context.shown) {
+                tint(layer, color);
+            }
         }
+    }
+}
+
+/// Recolour existing image coverage without changing cached source pixels.
+fn tint(layer: &mut Layer<'_>, color: Rgba) {
+    for pixel in layer.pixmap.data_mut().as_chunks_mut::<4>().0 {
+        let alpha = (u16::from(pixel[3]) * u16::from(color.a) + 127) / 255;
+        *pixel =
+            [color.r, color.g, color.b, 255].map(|c| ((u16::from(c) * alpha + 127) / 255) as u8);
     }
 }
 
@@ -1348,6 +1387,169 @@ mod tests {
         e
     }
 
+    #[test]
+    fn value_colour_reaches_every_supported_renderer_paint() {
+        use bezel_core::domain::theme::{Cap, Direction, GraphStyle, TextStyle};
+        use bezel_core::domain::value_color::{ColorByValue, ColorThreshold};
+        let green = Rgba::opaque(0, 200, 0);
+        let red = Rgba::opaque(255, 0, 0);
+        let binding = Binding {
+            key: testkit::key("cpu.usage"),
+            min: 0.,
+            max: 100.,
+        };
+        let kinds = vec![
+            ElementKind::Shape {
+                shape: ShapeKind::Rect { radius: 0. },
+                fill: Some(Paint::solid(Rgba::WHITE)),
+                stroke: None,
+                fade: None,
+                video_window: false,
+            },
+            ElementKind::Text {
+                content: TextContent::Static("X".into()),
+                style: TextStyle {
+                    size: 20.,
+                    ..Default::default()
+                },
+            },
+            ElementKind::Text {
+                content: TextContent::Sensor {
+                    key: binding.key.clone(),
+                    format: Default::default(),
+                    prefix: String::new(),
+                    suffix: String::new(),
+                },
+                style: TextStyle {
+                    size: 16.,
+                    ..Default::default()
+                },
+            },
+            ElementKind::Bar {
+                binding: binding.clone(),
+                direction: Direction::LeftToRight,
+                fill: Paint::solid(Rgba::WHITE),
+                track: None,
+                radius: 0.,
+                segments: None,
+            },
+            ElementKind::Ring {
+                binding: binding.clone(),
+                start_angle: 0.,
+                sweep: 360.,
+                thickness: 4.,
+                clockwise: true,
+                fill: Paint::solid(Rgba::WHITE),
+                track: None,
+                cap: Cap::Butt,
+                segments: None,
+                test_full: false,
+            },
+            ElementKind::Needle {
+                binding: binding.clone(),
+                asset: None,
+                pivot: (0.5, 0.5),
+                start_angle: 0.,
+                sweep: 180.,
+                color: Rgba::WHITE,
+                width: 4.,
+            },
+            ElementKind::Needle {
+                binding: binding.clone(),
+                asset: Some(AssetRef("icon.svg".into())),
+                pivot: (0.5, 0.5),
+                start_angle: 0.,
+                sweep: 180.,
+                color: Rgba::WHITE,
+                width: 4.,
+            },
+            ElementKind::Graph {
+                binding: binding.clone(),
+                history: 4,
+                interval_seconds: None,
+                style: GraphStyle::Line,
+                color: Rgba::WHITE,
+                fill: None,
+                line_width: 4.,
+                autoscale: false,
+            },
+            ElementKind::Image {
+                asset: AssetRef("icon.svg".into()),
+                fit: Fit::Contain,
+                fade: None,
+            },
+        ];
+        let scene = Scene::empty().with("cpu.usage",90.).history("cpu.usage", &[Some(10.),Some(30.),Some(70.),Some(90.)])
+            .asset("icon.svg", br#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="white"/></svg>"#.to_vec());
+        let mut renderer = testkit::renderer();
+        for kind in kinds {
+            let mut e = element(BoxF::new(0., 0., 32., 32.), kind);
+            e.color_by_value = Some(ColorByValue {
+                sensor: Some(binding.key.clone()),
+                base: green,
+                thresholds: vec![ColorThreshold {
+                    value: 60.,
+                    color: red,
+                }],
+            });
+            let mut theme = testkit::theme(32, 32, Background::Color(Rgba::BLACK), vec![e]);
+            let frame = render_over(&mut renderer, &theme, &scene, Backdrop::Poster);
+            assert!(
+                count(&frame, (0, 0, 32, 32), |p| p.r > p.g && p.r > 100) > 0,
+                "red for {:?}",
+                theme.elements[0].kind
+            );
+            let empty =
+                Scene::empty().history("cpu.usage", &[Some(10.), Some(30.), Some(70.), Some(90.)]);
+            // Keep the icon asset while removing the sample.
+            let mut empty = empty;
+            empty.assets = scene.assets.clone();
+            let frame = render_over(&mut renderer, &theme, &empty, Backdrop::Poster);
+            if !matches!(
+                theme.elements[0].kind,
+                ElementKind::Bar { .. } | ElementKind::Ring { .. } | ElementKind::Needle { .. }
+            ) {
+                assert!(
+                    count(&frame, (0, 0, 32, 32), |p| p.g > p.r && p.g > 100) > 0,
+                    "base for {:?}",
+                    theme.elements[0].kind
+                );
+            }
+            let e = &mut theme.elements[0];
+            if e.bound_sensor().is_some() {
+                let eased = Scene::empty().with("cpu.usage", 90.).easing(1, 59.);
+                assert_eq!(e.value_color(&eased.snapshot, &eased.shown), Some(green));
+                let eased = eased.easing(1, 60.);
+                assert_eq!(e.value_color(&eased.snapshot, &eased.shown), Some(red));
+                let missing = Scene::empty().easing(1, 90.);
+                assert_eq!(
+                    e.value_color(&missing.snapshot, &missing.shown),
+                    Some(green)
+                );
+                e.color_by_value.as_mut().unwrap().sensor = Some(testkit::key("ignored.sensor"));
+                assert_eq!(e.color_sensor(), Some(&binding.key));
+            }
+        }
+    }
+
+    #[test]
+    fn rule_sensors_are_wanted_only_while_sampled() {
+        use bezel_core::domain::value_color::ColorByValue;
+        let mut e = rect(BoxF::new(0., 0., 32., 32.), Rgba::WHITE, 1.);
+        e.color_by_value = Some(ColorByValue {
+            sensor: Some(testkit::key("cpu.temperature")),
+            base: Rgba::WHITE,
+            thresholds: Vec::new(),
+        });
+        let mut theme = testkit::theme(32, 32, Background::Color(Rgba::BLACK), vec![e]);
+        assert_eq!(
+            theme.sensor_keys(),
+            [testkit::key("cpu.temperature")].into_iter().collect()
+        );
+        theme.elements[0].visible = false;
+        assert!(theme.sensor_keys().is_empty());
+    }
+
     fn measure(r: &mut SkiaRenderer, theme: &Theme, scene: &Scene) -> Option<BoxF> {
         let context = RenderContext {
             snapshot: &scene.snapshot,
@@ -1443,6 +1645,50 @@ mod tests {
             theme.elements[0].locked = true;
             assert_eq!(measure(&mut renderer, &theme, &scene), None);
         }
+    }
+
+    #[test]
+    fn measurement_follows_shown_reading_format_size_and_spacing() {
+        use bezel_core::domain::theme::TextStyle;
+        let e = element(
+            BoxF::new(0., 0., 300., 100.),
+            ElementKind::Text {
+                content: TextContent::Sensor {
+                    key: testkit::key("cpu.usage"),
+                    format: Default::default(),
+                    prefix: String::new(),
+                    suffix: String::new(),
+                },
+                style: TextStyle {
+                    size: 20.,
+                    ..Default::default()
+                },
+            },
+        );
+        let mut theme = testkit::theme(400, 400, Background::Color(Rgba::BLACK), vec![e]);
+        let mut renderer = testkit::renderer();
+        let scene = Scene::empty().with("cpu.usage", 9.);
+        let small = measure(&mut renderer, &theme, &scene).unwrap();
+        let shown = Scene::empty().with("cpu.usage", 9.).easing(1, 100.);
+        assert!(measure(&mut renderer, &theme, &shown).unwrap().width > small.width);
+        if let ElementKind::Text {
+            content: TextContent::Sensor { format, .. },
+            ..
+        } = &mut theme.elements[0].kind
+        {
+            format.decimals = Some(3);
+        }
+        let formatted = measure(&mut renderer, &theme, &scene).unwrap();
+        assert!(formatted.width > small.width);
+        if let ElementKind::Text { style, .. } = &mut theme.elements[0].kind {
+            style.size = 40.;
+        }
+        let large = measure(&mut renderer, &theme, &scene).unwrap();
+        assert!(large.width > formatted.width * 1.8 && large.height > formatted.height);
+        if let ElementKind::Text { style, .. } = &mut theme.elements[0].kind {
+            style.letter_spacing = 8.;
+        }
+        assert!(measure(&mut renderer, &theme, &scene).unwrap().width > large.width);
     }
 
     #[test]

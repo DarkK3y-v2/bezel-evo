@@ -881,6 +881,7 @@ mod tests {
         let location = ThemeLocation(path.display().to_string());
         let (mut theme, assets) = FsThemeStore.load(&location).unwrap();
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,
@@ -1464,6 +1465,7 @@ mod tests {
         let gif = AssetRef("assets/spin.gif".into());
         assets.insert(gif.clone(), spinning_gif());
         theme.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,

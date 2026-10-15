@@ -1936,6 +1936,7 @@ mod tests {
         f.backend.studio().sample().unwrap();
         let fill = Rgba::opaque(0, 200, 0);
         let bar = |max: f64| Element {
+            color_by_value: None,
             value_transition: None,
             is_group: false,
             group_parent: None,

@@ -108,6 +108,7 @@ fn graphing_every(history: u16, interval_seconds: Option<u32>, refresh_seconds: 
 fn graphing(name: &str, history: u16) -> Theme {
     let mut theme = Theme::blank(name, Size::new(480, 1920), Orientation::Portrait);
     theme.elements.push(Element {
+        color_by_value: None,
         value_transition: None,
         card: None,
         is_group: false,
