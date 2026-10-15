@@ -44,6 +44,8 @@ pub struct Player {
 /// State condition used to override a card face.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TriggerSource {
+    /// Periodic face change, independent of desktop activity.
+    Timer,
     /// Executable is running.
     Process,
     /// Executable is absent from a successful process scan.
@@ -56,6 +58,10 @@ pub enum TriggerSource {
 /// Rules with a higher priority win; ties keep their saved order.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CardTrigger {
+    /// Interval of a timed rule, 5 to 3600 seconds.
+    pub interval_seconds: Option<u32>,
+    /// Timed rules may advance from the currently displayed face.
+    pub next_face: bool,
     /// Application condition.
     pub source: TriggerSource,
     /// Executable name or media source filter.
@@ -92,6 +98,7 @@ impl CardTrigger {
     pub fn matches(&self, snapshot: &Snapshot) -> bool {
         let app = app_name(&self.app);
         match self.source {
+            TriggerSource::Timer => false,
             TriggerSource::Process => {
                 snapshot.activity_available && snapshot.applications.contains(&app)
             }

@@ -1,3 +1,4 @@
+import { normalizeCardTheme, remapPairs } from '../card-config.js';
 // The editor store: the theme being edited (theme.json shape), the
 // selection, and an undo/redo history. Every change goes through a command;
 // commands are pure functions returning a new theme, so history is just a
@@ -125,7 +126,7 @@ export const commands = {
     if (!parent?.card || parent.card.faces.length <= 1) return { theme };
     const face = parent.card.activeFace;
     const elements = theme.elements.filter(e => !(e.cardMember?.parent === id && e.cardMember.face === face)).map(e => {
-      if (e.id === id) return { ...e, card: { ...e.card, triggers:(e.card.triggers ?? []).filter(r=>r.face!==face).map(r=>({...r,face:r.face>face?r.face-1:r.face,returnFace:r.returnFace==null?null:r.returnFace===face?null:r.returnFace>face?r.returnFace-1:r.returnFace})), faces: e.card.faces.filter((_, i) => i !== face), activeFace: Math.min(face, e.card.faces.length - 2) } };
+      if (e.id === id) return { ...e, card: { ...e.card, pairTransitions: remapPairs(e.card, i => i === face ? null : i > face ? i - 1 : i), triggers:(e.card.triggers ?? []).filter(r=>r.nextFace||r.face!==face).map(r=>({...r,face:r.nextFace?0:r.face>face?r.face-1:r.face,returnFace:r.returnFace==null?null:r.returnFace===face?null:r.returnFace>face?r.returnFace-1:r.returnFace})), faces: e.card.faces.filter((_, i) => i !== face), activeFace: Math.min(face, e.card.faces.length - 2) } };
       if (e.cardMember?.parent === id && e.cardMember.face !== null && e.cardMember.face > face) return { ...e, cardMember: { ...e.cardMember, face: e.cardMember.face - 1 } };
       return e;
     });
@@ -138,7 +139,7 @@ export const commands = {
     if (![-1, 1].includes(direction) || to < 0 || to >= parent.card.faces.length) return { theme };
     const swap = i => i === from ? to : i === to ? from : i;
     const elements = theme.elements.map(e => {
-      if (e.id === id) { const faces = [...e.card.faces]; [faces[from], faces[to]] = [faces[to], faces[from]]; return { ...e, card: { ...e.card, triggers:(e.card.triggers ?? []).map(r=>({...r,face:swap(r.face),returnFace:r.returnFace==null?null:swap(r.returnFace)})), faces, activeFace: to } }; }
+      if (e.id === id) { const faces = [...e.card.faces]; [faces[from], faces[to]] = [faces[to], faces[from]]; return { ...e, card: { ...e.card, pairTransitions: remapPairs(e.card, swap), triggers:(e.card.triggers ?? []).map(r=>({...r,face:r.nextFace?0:swap(r.face),returnFace:r.returnFace==null?null:swap(r.returnFace)})), faces, activeFace: to } }; }
       if (e.cardMember?.parent === id && e.cardMember.face !== null) return { ...e, cardMember: { ...e.cardMember, face: swap(e.cardMember.face) } };
       return e;
     });
@@ -350,7 +351,7 @@ const ENGLISH = Object.freeze({
  *   how new elements and copies are named (English by default)
  */
 export function createStore(theme, { names = ENGLISH } = {}) {
-  let state = { theme: clone(theme), selection: [] };
+  let state = { theme: clone(normalizeCardTheme(theme)), selection: [] };
   let past = [];
   let future = [];
   let gesture = null;
@@ -479,7 +480,7 @@ export function createStore(theme, { names = ENGLISH } = {}) {
 
     /** Replaces the whole theme (open/import): clears history. */
     load(next) {
-      state = { theme: clone(next), selection: [] };
+      state = { theme: clone(normalizeCardTheme(next)), selection: [] };
       past = [];
       future = [];
       saved = state.theme;

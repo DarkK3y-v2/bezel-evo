@@ -15,6 +15,6 @@ const ACTIVITY_KEYS = Object.freeze(['activity.processes', 'media.sessions']);
 export function sampledSensorKeys(libraryKeys, { theme, selection }, visible = true, inspectorShown = true) {
   if (!visible) return [];
   const element = selection.length === 1 ? theme.elements.find(e => e.id === selection[0]) : null;
-  const activity = inspectorShown && element && (widgetOf(element) === 'player' || element.card?.triggers?.length > 0);
+  const activity = inspectorShown && element && (widgetOf(element) === 'player' || element.card?.triggers?.some(r => r.source !== 'timer'));
   return [...new Set([...libraryKeys, ...(activity ? ACTIVITY_KEYS : [])])];
 }

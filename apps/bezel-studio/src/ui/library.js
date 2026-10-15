@@ -420,7 +420,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
 
   function faceHeading(card, face, elements) {
     const active = face !== null && card.card.activeFace === face;
-    const label = face === null ? t('card.base') : card.card.faces[face];
+    const label = face === null ? t('cardInsp.base') : card.card.faces[face];
     const heading = face === null
       ? el('span', { class: 'layer-group-title', text: label })
       : el('button', {

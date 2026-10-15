@@ -60,6 +60,7 @@ fn theme() -> Theme {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into(), "C".into()],
             active_face: 0,
+            pair_transitions: Vec::new(),
             rotation_seconds: Some(5),
             transition: None,
         }),

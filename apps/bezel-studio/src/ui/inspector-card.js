@@ -4,11 +4,13 @@ import { ICONS } from './icons.js';
 import { chipButton, dashedHint, fieldGrid, iconButton, listCard, prefixedField, rangeField, screenThumb, segmented, selectField, sentence as sentenceOfParts, switchRow, textField } from './fields.js';
 import { widgetOf } from '../editor/widgets.js';
 import { selectionRoots } from '../editor/cards.js';
-import { MAX_RULES, ROTATION_PRESETS, ROTATION_MIN, ROTATION_MAX, TRIGGER_SOURCES, appSuggestions, clampPriority, clampReturn, clampRotation, commonReturn, durationParts, moveRule, newRule, sentenceOf, withApp, withReturn, withSource, dropIndex } from '../card-rules.js';
+import { MAX_RULES, ROTATION_MIN, ROTATION_MAX, TRIGGER_SOURCES, appSuggestions, clampPriority, clampReturn, commonReturn, moveRule, newRule, newTimedRule, timedParts, timedSeconds, sentenceOf, withApp, withReturn, withSource, dropIndex } from '../card-rules.js';
 
+import { transitionFor, withPairTransition } from '../card-config.js';
 import { CARD_TABS as ALL_CARD_TABS } from '../inspector-tabs.js';
 export const CARD_TABS = Object.freeze(ALL_CARD_TABS.slice(0, -1));
 const baseViews = new WeakMap();
+const pairViews = new WeakMap();
 const tool = (label, name, onclick, disabled = false, extra = '') => iconButton(label, ICONS[name], onclick, { size: 16, disabled, class: extra });
 
 // Card content uses the same section contract as every inspector property.
@@ -28,7 +30,10 @@ function facesForm(ctx) {
   if (!baseViews.has(store)) baseViews.set(store, new Map());
   const views = baseViews.get(store);
   const base = views.get(e.id) === c.activeFace;
+  if (!pairViews.has(store)) pairViews.set(store, new Map());
+  const pairs = pairViews.get(store);
   const choose = (face) => {
+    pairs.delete(e.id);
     views.delete(e.id);
     if (face === c.activeFace) store.select([e.id]);
     else store.dispatch('cardFace', { id: e.id, face });
@@ -47,14 +52,42 @@ function facesForm(ctx) {
   };
   const chips = c.faces.map((name, i) => {
     const thumb = makeThumb(i);
-    const active = !base && i === c.activeFace;
-    return el('button', { type: 'button', class: 'face-chip', dataset: { face: String(i) }, 'aria-pressed': String(active), 'aria-current': active ? 'true' : null, title: active ? t('layers.inViewHint') : name, onclick: () => choose(i) }, [thumb, el('span', { class: 'face-chip-name', text: name }), active && el('span', { class: 'face-badge', 'aria-hidden': 'true', text: t('layers.inView') })]);
+    const active = i === c.activeFace;
+    return el('button', { type: 'button', class: 'face-chip', dataset: { face: String(i) }, 'aria-pressed': String(active), 'aria-current': active ? 'true' : null, 'aria-label': t('cardInsp.editFace', { name }), title: t('cardInsp.editFace', { name }), onclick: () => choose(i) }, [thumb, el('span', { class: 'face-chip-name', text: name }), active && el('span', { class: 'face-badge', 'aria-hidden': 'true', text: t('layers.inView') })]);
   });
-  const baseButton = chipButton(t('cardInsp.base'), base, () => { views.set(e.id, c.activeFace); store.select([e.id]); }, { class: 'face-chip base-chip', 'aria-label': t('cardInsp.base') });
-  baseButton.replaceChildren(makeThumb(null), el('span', { class: 'face-chip-name', text: t('cardInsp.base') }));
-  const faces = el('div', { class: 'face-chips', role: 'group', 'aria-label': t('card.activeFace') }, [baseButton, ...chips,
-    el('button', { type: 'button', class: 'face-chip face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16, onclick: () => { views.delete(e.id); store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }); } }, [icon(ICONS.plus, 28)]),
+  const baseButton = listCard({ icon: 'layers', title: t('cardInsp.base'), subtitle: t('cardInsp.sharedHint'),
+    label: t('cardInsp.base'), pressed: base, onClick: () => { pairs.delete(e.id); views.set(e.id, c.activeFace); store.select([e.id]); } });
+  baseButton.classList.add('shared-background');
+  baseButton.setAttribute('aria-description', t('cardInsp.sharedHint'));
+  baseButton.prepend(makeThumb(null));
+  const pairNodes = [];
+  for (let i = 0; i < chips.length; i++) {
+    pairNodes.push(chips[i]);
+    if (chips.length > 1) {
+      const to = (i + 1) % chips.length, settings = transitionFor(c, i, to);
+      const key = `${i}:${to}`, label = t('cardInsp.changeBetween', { from: c.faces[i], to: c.faces[to] });
+      const button = chipButton(`${t(`card.effect.${settings?.effect ?? 'none'}`)}${settings?.effect && settings.effect !== 'none' ? ` ${settings.durationMs} ms` : ''}`, pairs.get(e.id) === key,
+        () => { pairs.set(e.id, pairs.get(e.id) === key ? null : key); store.select([e.id]); },
+        { class: 'chip face-transition', 'aria-label': label, title: label, 'aria-expanded': String(pairs.get(e.id) === key), 'aria-controls': `card-pair-${e.id}`, dataset: { pair: key } });
+      button.prepend(icon(ICONS.arrowRight, 14));
+      if (settings && ['slide','flip'].includes(settings.effect)) button.append(icon(ICONS[{ left: 'arrowLeft', right: 'arrowRight', up: 'up', down: 'down' }[settings.direction]], 14));
+      pairNodes.push(button);
+    }
+  }
+  const faces = el('div', { class: 'face-chips', role: 'group', 'aria-label': t('card.activeFace') }, [...pairNodes,
+    el('button', { type: 'button', class: 'face-chip face-add', 'aria-label': t('card.addFace'), title: t('card.addFace'), disabled: c.faces.length >= 16, onclick: () => { pairs.delete(e.id); views.delete(e.id); store.dispatch('addCardFace', { id: e.id, name: t('card.faceName', { number: c.faces.length + 1 }) }); } }, [icon(ICONS.plus, 28)]),
   ]);
+  const selectedPair = pairs.get(e.id)?.split(':').map(Number);
+  let pairEditor = el('div', { id: `card-pair-${e.id}`, hidden: true });
+  if (selectedPair && selectedPair.every(i => i < c.faces.length)) {
+    const [from, to] = selectedPair, own = c.pairTransitions?.find(p => p.from === from && p.to === to);
+    const set = patch => update(e.id, { card: { pairTransitions: withPairTransition(c, from, to, { ...(transitionFor(c, from, to) ?? {}), ...patch }) } });
+    pairEditor = cardSection(ctx, 'pair-transition', t('cardInsp.changeBetween', { from: c.faces[from], to: c.faces[to] }), [
+      chipButton(t('cardInsp.useGeneral'), !own, () => update(e.id, { card: { pairTransitions: withPairTransition(c, from, to, null) } }), { disabled: !own }),
+      ...transitionControls(ctx, transitionFor(c, from, to), set, `pair-${from}-${to}`),
+    ]);
+    pairEditor.id = `card-pair-${e.id}`;
+  }
   // The real renderer draws the card with each face, without changing the document.
   if (ctx.bridge) queueMicrotask(async () => {
     for (const { thumb, face } of thumbs) {
@@ -74,7 +107,7 @@ function facesForm(ctx) {
   const face = base ? null : c.activeFace;
   const objects = members(ctx, face);
   const name = base ? t('cardInsp.base') : c.faces[face];
-  const command = (action, args = {}) => () => { views.delete(e.id); store.dispatch(action, { id: e.id, ...args }); };
+  const command = (action, args = {}) => () => { pairs.delete(e.id); views.delete(e.id); store.dispatch(action, { id: e.id, ...args }); };
   const editor = base ? null : el('div', { class: 'face-editor' }, [
     textField(t('card.faceTitle'), name, value => {
       const clean = Array.from(value.trim()).slice(0, 32).join('');
@@ -90,36 +123,35 @@ function facesForm(ctx) {
     move.querySelector('select').setAttribute('aria-label', t('cardInsp.moveObject', { name: item.name }));
     return el('div', { class: 'face-object' }, [card, move]);
   });
-  return [cardSection(ctx, 'faces', t('card.tab.faces'), [faces, el('p', { class: 'hint', text: t('card.facesHint') }), el('p', { class: 'hint face-layout-note', text: t('cardInsp.layoutHint') })], c.faces.length), editor,
+  return [cardSection(ctx, 'faces', t('card.tab.faces'), [baseButton, faces, el('p', { class: 'hint', text: t('cardInsp.editFaceHint') }), el('p', { class: 'hint face-layout-note', text: t('cardInsp.layoutHint') })], c.faces.length), pairEditor, editor,
     cardSection(ctx, 'objects', t('cardInsp.objectsIn', { face: name }), rows.length ? rows : [el('p', { class: 'hint', text: t('cardInsp.emptyFace') })], objects.length), dashedHint([t('cardInsp.dropHint')])];
 }
 
 const EFFECT_ART = { none: ['M3 5h7v14H3z', 'M14 5h7v14h-7z'], fade: ['M3 5h10v14H3z', 'M10 5h11v14H10z'], slide: ['M3 5h7v14H3z', 'M17 5h4v14h-4z', 'M11 12h5', 'M14 10l2 2-2 2'], flip: ['M7 5h10v14H7z', 'M3 9v6', 'M21 9v6', 'M10 3h4', 'M10 21h4'] };
-function motionForm(ctx) {
-  const { element: e, t, store, update } = ctx, c = e.card;
-  const transition = c.transition?.effect !== 'none' ? c.transition : null;
-  const set = patch => update(e.id, { card: patch });
-  const seconds = c.rotationSeconds;
-  const field = seconds == null ? null : prefixedField(t('cardInsp.every'), t('card.rotationSeconds'), seconds, value => set({ rotationSeconds: clampRotation(value) }), { min: ROTATION_MIN, max: ROTATION_MAX, unit: 's' });
+function transitionControls(ctx, settings, set, scope) {
+  const { element: e, t } = ctx;
+  const transition = settings?.effect !== 'none' ? settings : null;
   const effects = el('div', { class: 'card-effects', role: 'radiogroup', 'aria-label': t('card.effect') }, Object.keys(EFFECT_ART).map(value => {
-    const label = el('label', { class: 'card-effect', dataset: { checked: String((c.transition?.effect ?? 'none') === value) } });
-    const input = el('input', { type: 'radio', name: `card-effect-${e.id}`, checked: (c.transition?.effect ?? 'none') === value, 'aria-label': t(`card.effect.${value}`) });
-    input.addEventListener('change', () => input.checked && set({ transition: { effect: value, direction: c.transition?.direction ?? 'left', durationMs: c.transition?.durationMs ?? 650, includeBase: c.transition?.includeBase ?? true } }));
+    const label = el('label', { class: 'card-effect', dataset: { checked: String((settings?.effect ?? 'none') === value) } });
+    const input = el('input', { type: 'radio', name: `card-effect-${e.id}-${scope}`, checked: (settings?.effect ?? 'none') === value, 'aria-label': t(`card.effect.${value}`) });
+    input.addEventListener('change', () => input.checked && set({ effect: value, direction: settings?.direction ?? 'left', durationMs: settings?.durationMs ?? 650, includeBase: settings?.includeBase ?? true }));
     const art = icon(EFFECT_ART[value], 44); art.classList.add('effect-art');
     label.append(input, art, el('span', { text: t(`card.effect.${value}`) })); return label;
   }));
-  const directions = transition && segmented(t('common.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => set({ transition: { direction } }), { bare: true });
+  const directions = transition && segmented(t('common.direction'), transition.direction, ['left', 'right', 'up', 'down'].map(value => [value, t(`card.direction.${value}`)]), direction => set({ direction }), { bare: true });
   if (directions) Array.from(directions.children).forEach((button, i) => { button.setAttribute('aria-label', button.textContent); button.title = button.textContent; button.replaceChildren(icon(ICONS[['arrowLeft', 'arrowRight', 'up', 'down'][i]], 18)); });
-  return [cardSection(ctx, 'rotation', t('card.rotation'), [
-    switchRow(t('card.autoRotate'), seconds != null, enabled => set({ rotationSeconds: enabled ? 10 : null })),
-    field && el('div', { class: 'card-stepper' }, [tool(t('cardInsp.decrease'), 'minus', () => set({ rotationSeconds: clampRotation(seconds - 1) }), seconds <= ROTATION_MIN), field, tool(t('cardInsp.increase'), 'plus', () => set({ rotationSeconds: clampRotation(seconds + 1) }), seconds >= ROTATION_MAX)]),
-    seconds != null && el('div', { class: 'chip-group', role: 'group', 'aria-label': t('cardInsp.quickDurations') }, ROTATION_PRESETS.map(value => { const d = durationParts(value); return chipButton(d.unit === 'min' ? t('unit.minutes', { value: d.value }) : t('unit.seconds', { value }), value === seconds, () => set({ rotationSeconds: value })); })),
-    el('details', { class: 'card-rotation-help' }, [el('summary', { text: t('cardInsp.paused') }), el('p', { class: 'hint', text: t('card.rotationHelp') })]),
-  ]), cardSection(ctx, 'animation', t('card.animation'), [effects,
-    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ transition: { durationMs } }), { min: 150, max: 1500, step: 50, format: value => `${value} ms` }),
+  return [effects,
+    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ durationMs }), { min: 150, max: 1500, step: 50, format: value => `${value} ms` }),
     transition && el('div', { class: 'card-scale' }, [el('span', { text: t('cardInsp.fast') }), el('span', { text: t('cardInsp.slow') })]), directions,
-    transition && switchRow(t('card.includeBase'), transition.includeBase, includeBase => set({ transition: { includeBase } })),
-    el('button', { type: 'button', class: 'text-button play-button', disabled: c.faces.length < 2, onclick: () => store.dispatch('cardFace', { id: e.id, face: (c.activeFace + 1) % c.faces.length }) }, [icon(ICONS.play, 16), t('card.animateNext')]),
+    transition && switchRow(t('cardInsp.animateShared'), transition.includeBase, includeBase => set({ includeBase })),
+  ];
+}
+function motionForm(ctx) {
+  const { element: e, t, store, update } = ctx;
+  return [cardSection(ctx, 'animation', t('cardInsp.generalTransition'), [
+    el('p', { class: 'hint', text: t('cardInsp.fallbackHint') }),
+    ...transitionControls(ctx, e.card.transition, patch => update(e.id, { card: { transition: patch } }), 'general'),
+    el('button', { type: 'button', class: 'text-button play-button', disabled: e.card.faces.length < 2, onclick: () => store.dispatch('cardFace', { id: e.id, face: (e.card.activeFace + 1) % e.card.faces.length }) }, [icon(ICONS.play, 16), t('card.animateNext')]),
     dashedHint([t('card.animationHelp')], { iconName: 'info' }),
   ])];
 }
@@ -159,7 +191,7 @@ function triggerForm(ctx) {
       const cancel = () => { handle.removeEventListener('pointerup', finish); handle.removeEventListener('pointercancel', cancel); row.classList.remove('dragging'); };
       handle.addEventListener('pointerup', finish); handle.addEventListener('pointercancel', cancel);
     });
-    const sourceField = selectField(t('trigger.condition'), rule.source, TRIGGER_SOURCES.map(value => [value, t(`trigger.${value}`)]), value => change(i, withSource(rule, value, activity())));
+    const sourceField = selectField(t('trigger.condition'), rule.source, TRIGGER_SOURCES.map(value => [value, t(value === 'timer' ? 'inspector.refreshSeconds' : `trigger.${value}`)]), value => change(i, withSource(rule, value, activity())));
     const source = sourceField.querySelector('select');
     source.setAttribute('aria-label', t('trigger.condition'));
     const suggestions = el('datalist', { id: `card-app-${e.id}-${i}` });
@@ -168,22 +200,29 @@ function triggerForm(ctx) {
     input.setAttribute('aria-label', t('trigger.app'));
     const refresh = () => suggestions.replaceChildren(...appSuggestions(activity(), rule.source, rule.app).map(value => el('option', { value })));
     refresh(); refreshers.push(refresh);
-    const faceField = selectField(t('trigger.face'), String(rule.face), faceOptions, value => change(i, { ...rule, face: Number(value) }));
+    const faceField = selectField(t('trigger.face'), rule.nextFace ? 'next' : String(rule.face), [...(rule.source === 'timer' ? [['next', t('cardInsp.nextFace')]] : []), ...faceOptions], value => change(i, { ...rule, face: value === 'next' ? 0 : Number(value), ...(rule.source === 'timer' ? { nextFace: value === 'next' } : {}) }));
     const face = faceField.querySelector('select'); face.setAttribute('aria-label', t('trigger.face'));
-    const tokens = { source: sourceField, app: appField, face: faceField };
+    const timing = timedParts(rule);
+    const intervalField = prefixedField('', t('cardInsp.interval'), timing.value, value => change(i, { ...rule, intervalSeconds: timedSeconds(value, timing.unit) }), { min: timing.unit === 'min' ? ROTATION_MIN / 60 : ROTATION_MIN, max: timing.unit === 'min' ? ROTATION_MAX / 60 : ROTATION_MAX, step: timing.unit === 's' ? 1 : 'any' });
+    const unitField = selectField(t('cardInsp.intervalUnit'), timing.unit, ['s','min'].map(unit => [unit, t(`unit.${unit === 'min' ? 'minutes' : 'seconds'}`, { value: '' }).trim()]), unit => change(i, { ...rule, intervalSeconds: timedSeconds(timing.value, unit) }));
+    unitField.querySelector('select').setAttribute('aria-label', t('cardInsp.intervalUnit'));
+    const tokens = { source: sourceField, app: appField, face: faceField, interval: intervalField, unit: unitField };
     const sentence = sentenceOfParts(sentenceOf(rule).map(part => part.word ? t(`cardInsp.${part.word}`) : tokens[part.token]));
     list.append(el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('trigger.rule', { value: i + 1 }), dataset: { ruleIndex: String(i), cardId: String(e.id) } }, [
-      el('div', { class: 'trigger-rule-head' }, [handle, el('span', { class: 'mono', text: t('trigger.rule', { value: i + 1 }) }), tool(t('trigger.remove'), 'trash', () => set(rules.filter((_, n) => n !== i)), false, 'danger')]), sentence, suggestions,
-      fieldGrid([prefixedField(t('cardInsp.priority'), t('trigger.priority'), rule.priority ?? 0, value => change(i, { ...rule, priority: clampPriority(value) }), { min: 0, max: 100 }), prefixedField(t('cardInsp.return'), t('trigger.return'), rule.returnSeconds ?? 0, value => change(i, { ...rule, returnSeconds: clampReturn(value) }), { min: 0, max: 300, unit: 's' })]),
+      el('div', { class: 'trigger-rule-head' }, [handle, el('span', { class: 'mono', text: t('trigger.rule', { value: i + 1 }) }), tool(t('trigger.remove'), 'trash', () => set(rules.filter((_, n) => n !== i)), false, 'danger')]), sentence, rule.source !== 'timer' && suggestions,
+      rule.source !== 'timer' && fieldGrid([prefixedField(t('cardInsp.priority'), t('trigger.priority'), rule.priority ?? 0, value => change(i, { ...rule, priority: clampPriority(value) }), { min: 0, max: 100 }), prefixedField(t('cardInsp.return'), t('trigger.return'), rule.returnSeconds ?? 0, value => change(i, { ...rule, returnSeconds: clampReturn(value) }), { min: 0, max: 300, unit: 's' })]),
     ]));
   });
   // Stop polling when this render is replaced; no synthetic application names.
   if (ctx.host) queueMicrotask(function refreshActivity() { if (!list.isConnected) return; refreshers.forEach(refresh => refresh()); setTimeout(refreshActivity, 1000); });
-  const common = commonReturn(rules);
+  const appRules = rules.filter(r => r.source !== 'timer');
+  const common = commonReturn(appRules);
   const returnTo = selectField(t('trigger.returnFace'), common === null ? 'previous' : String(common), [['previous', t('trigger.previous')], ...(common === 'mixed' ? [['mixed', t('cardInsp.mixed')]] : []), ...faceOptions], value => value !== 'mixed' && set(withReturn(rules, value === 'previous' ? value : Number(value))));
-  returnTo.querySelector('select').disabled = !rules.length;
-  return [cardSection(ctx, 'triggers', t('trigger.title'), [el('p', { class: 'hint', text: t('cardInsp.triggersIntro') }), list,
+  returnTo.querySelector('select').disabled = !appRules.length;
+  return [cardSection(ctx, 'triggers', t('cardInsp.triggersTitle'), [el('p', { class: 'hint', text: t('cardInsp.triggersIntro') }), list,
     el('button', { type: 'button', class: 'text-button trigger-add', disabled: rules.length >= MAX_RULES || c.faces.length < 2, onclick: () => set([...rules, newRule(c)]) }, [icon(ICONS.plus, 16), t('trigger.add')]),
+    el('button', { type: 'button', class: 'text-button trigger-add', disabled: rules.length >= MAX_RULES || c.faces.length < 2, onclick: () => set([...rules, newTimedRule(c)]) }, [icon(ICONS.plus, 16), t('cardInsp.addTimed')]),
+    rules.some(r => r.source === 'timer') && el('p', { class: 'hint', text: t('cardInsp.paused') }),
     c.faces.length < 2 && el('p', { class: 'hint', text: t('cardInsp.needsFaces') }), el('p', { class: 'hint', text: t('cardInsp.priorityHint') }),
   ], rules.length), cardSection(ctx, 'return', t('cardInsp.whenEnds'), [returnTo, el('p', { class: 'hint', text: t('cardInsp.appHint') })])];
 }

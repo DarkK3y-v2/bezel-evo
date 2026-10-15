@@ -7,6 +7,7 @@ const theme = { elements: [
   { id: 2, card: { triggers: [] } },
   { id: 3, card: { triggers: [{}] } },
   { id: 4, kind: { type: 'ring' } },
+  { id: 5, card: { triggers: [{ source: 'timer', intervalSeconds: 10 }] } },
 ] };
 test('activity sampling follows only the visible inspector selection, preserving library requests', () => {
   const keys = ['cpu.usage', 'cpu.usage'];
@@ -16,7 +17,7 @@ test('activity sampling follows only the visible inspector selection, preserving
     assert.deepEqual(sampledSensorKeys(keys, { theme, selection }, true, false), ['cpu.usage']);
     assert.deepEqual(sampledSensorKeys(keys, { theme, selection }, false), []);
   }
-  for (const selection of [[], [2], [4], [1, 3], [99]]) {
+  for (const selection of [[], [2], [4], [5], [1, 3], [99]]) {
     assert.deepEqual(sampledSensorKeys(keys, { theme, selection }), ['cpu.usage']);
   }
   assert.deepEqual(sampledSensorKeys(['media.sessions'], { theme, selection: [] }), ['media.sessions']);

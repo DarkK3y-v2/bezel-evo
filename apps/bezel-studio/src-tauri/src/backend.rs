@@ -1987,6 +1987,7 @@ mod tests {
             triggers: Vec::new(),
             faces: vec!["A".into(), "B".into()],
             active_face: 1,
+            pair_transitions: Vec::new(),
             rotation_seconds: Some(5),
             transition: None,
         });

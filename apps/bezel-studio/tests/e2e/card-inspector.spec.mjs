@@ -51,9 +51,13 @@ test('faces are screen thumbnails; the base lists its objects; Move sends an obj
   const base = inspector.getByRole('button', { name: t('cardInsp.base'), exact: true });
   await base.click();
   await expect(base).toHaveAttribute('aria-pressed', 'true');
+  await expect(base).not.toHaveClass(/face-chip/);
+  await expect(base.getByText(t('cardInsp.sharedHint'), { exact: true })).toBeVisible();
+  await expect(faces.locator('[data-face="1"]')).toHaveAttribute('aria-current', 'true');
   await expect(objects.getByRole('heading')).toHaveText(t('cardInsp.objectsIn', { face: t('cardInsp.base') }));
   await expect(objects.locator('.face-object')).toHaveCount(1);
   await expect(inspector.getByLabel(t('card.faceTitle'), { exact: true })).toHaveCount(0);
+  await expect(faces.locator('[data-face="1"]')).toHaveAccessibleName(t('cardInsp.editFace', { name: t('card.faceName', { number: 2 }) }));
   await faces.locator('[data-face="1"]').click();
   await expect(base).toHaveAttribute('aria-pressed', 'false');
   await expect(inspector.getByLabel(t('card.faceTitle'), { exact: true })).toBeVisible();
@@ -67,32 +71,32 @@ test('faces are screen thumbnails; the base lists its objects; Move sends an obj
   expect(errors).toEqual([]);
 });
 
-test('rotation has a stepper and quick durations; effects are picture cards; one Undo step each', async ({ page, t }) => {
+test('timed triggers edit intervals with bounds and Undo; general effects are picture cards', async ({ page, t }) => {
   const errors = watchErrors(page);
   const { inspector } = await twoFaceCard(page, t);
   await tab(page, t, 'card.tab.motion');
-  await inspector.getByRole('switch', { name: t('card.autoRotate'), exact: true }).check();
-  const seconds = inspector.getByRole('spinbutton', { name: t('card.rotationSeconds'), exact: true });
+  await expect(inspector.getByRole('switch', { name: t('card.autoRotate'), exact: true })).toHaveCount(0);
+  await tab(page, t, 'card.tab.triggers');
+  await inspector.getByRole('button', { name: t('cardInsp.addTimed'), exact: true }).click();
+  const seconds = inspector.getByRole('spinbutton', { name: t('cardInsp.interval'), exact: true });
+  const unit = inspector.getByRole('combobox', { name: t('cardInsp.intervalUnit'), exact: true });
   await expect(seconds).toHaveValue('10');
-  await inspector.getByRole('button', { name: t('cardInsp.increase'), exact: true }).click();
+  await seconds.focus(); await seconds.press('ArrowUp'); await seconds.press('Tab');
   await expect(seconds).toHaveValue('11');
-  await inspector.getByRole('button', { name: t('cardInsp.decrease'), exact: true }).click();
-  await inspector.getByRole('button', { name: t('cardInsp.decrease'), exact: true }).click();
+  await seconds.focus(); await seconds.press('ArrowDown'); await seconds.press('ArrowDown'); await seconds.press('Tab');
   await expect(seconds).toHaveValue('9');
-  const quick = inspector.getByRole('group', { name: t('cardInsp.quickDurations'), exact: true });
-  await quick.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true }).click();
-  await expect(seconds).toHaveValue('60');
-  await expect(quick.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await seconds.fill('60'); await seconds.press('Tab');
+  await expect(seconds).toHaveValue('1'); await expect(unit).toHaveValue('min');
   await page.locator('#undo').click();
-  await expect(seconds).toHaveValue('9');
-  await seconds.fill('2');
-  await seconds.press('Tab');
-  await expect(seconds).toHaveValue('5');
-  await expect(inspector.getByRole('button', { name: t('cardInsp.decrease'), exact: true })).toBeDisabled();
-  await expect(inspector).toContainText(t('cardInsp.paused'));
-  await inspector.locator('.card-rotation-help summary').click();
-  await expect(inspector.getByText(t('card.rotationHelp'), { exact: true })).toBeVisible();
-  await inspector.locator('.card-rotation-help summary').click();
+  await expect(seconds).toHaveValue('9'); await expect(unit).toHaveValue('s');
+  await seconds.fill('2'); await seconds.press('Tab');
+  await expect(seconds).toHaveValue('5'); await expect(seconds).toHaveAttribute('min', '5');
+  await expect(inspector.getByText(t('cardInsp.paused'), { exact: true })).toBeVisible();
+  const face = inspector.getByRole('combobox', { name: t('trigger.face'), exact: true });
+  await expect(face).toHaveValue('next');
+  await face.selectOption('0'); await expect(face).toHaveValue('0');
+  await page.locator('#undo').click(); await expect(face).toHaveValue('next');
+  await tab(page, t, 'card.tab.motion');
   // Effects: four radio cards, each with its picture.
   const effects = inspector.getByRole('radiogroup', { name: t('card.effect'), exact: true });
   await expect(effects.getByRole('radio')).toHaveCount(4);
@@ -111,6 +115,33 @@ test('rotation has a stepper and quick durations; effects are picture cards; one
   await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('motion-content.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
+});
+
+test('face connectors edit only their directed pair and can restore the general transition with Undo', async ({ page, t }) => {
+  const { inspector } = await twoFaceCard(page, t);
+  await inspector.getByRole('button', { name: t('card.addFace'), exact: true }).click();
+  const connector = inspector.locator('.face-transition[data-pair="0:1"]');
+  await expect(inspector.locator('.face-transition')).toHaveCount(3);
+  await connector.focus(); await page.keyboard.press('Enter');
+  const panel = inspector.locator('[data-section="pair-transition"]');
+  await expect(panel).toBeVisible();
+  await panel.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
+  await panel.getByRole('button', { name: t('card.direction.up'), exact: true }).click();
+  const duration = panel.getByRole('slider', { name: new RegExp(t('card.duration')) });
+  await duration.focus(); await duration.press('Home');
+  for (let i = 0; i < 5; i++) await duration.press('ArrowRight');
+  await expect(duration).toHaveValue('400');
+  await expect(connector).toContainText('400 ms');
+  await panel.getByRole('button', { name: t('cardInsp.useGeneral'), exact: true }).click();
+  await expect(panel.getByRole('radio', { name: t('card.effect.none'), exact: true })).toBeChecked();
+  await page.locator('#undo').click();
+  await expect(duration).toHaveValue('400');
+  await expect(panel.getByRole('radio', { name: t('card.effect.slide'), exact: true })).toBeChecked();
+  await expect(panel.getByRole('button', { name: t('card.direction.up'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await tab(page, t, 'card.tab.motion');
+  await expect(inspector.getByRole('radio', { name: t('card.effect.none'), exact: true })).toBeChecked();
+  await expect(inspector.getByRole('button', { name: t('card.animateNext'), exact: true })).toBeEnabled();
+  await expectAccessible(page);
 });
 
 test('triggers read as sentences with tokens, reorder by keyboard, and share one return', async ({ page, t }) => {
@@ -201,12 +232,13 @@ test.describe('Italian mockup comparison', () => {
     expect(await inspector.evaluate(node => node.getBoundingClientRect().width)).toBe(360);
     await inspector.getByRole('tabpanel', { name: t('card.tab.faces'), exact: true }).screenshot({ path: test.info().outputPath('CardFaces-it.png') });
     await tab(page, t, 'card.tab.motion');
-    await inspector.getByRole('switch', { name: t('card.autoRotate'), exact: true }).check();
     await inspector.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
     await inspector.getByRole('tabpanel', { name: t('card.tab.motion'), exact: true }).screenshot({ path: test.info().outputPath('CardMotion-it.png') });
     await tab(page, t, 'card.tab.triggers');
     await inspector.getByRole('button', { name: t('trigger.add'), exact: true }).click();
     await inspector.getByRole('button', { name: t('trigger.add'), exact: true }).click();
+    await inspector.getByRole('button', { name: t('cardInsp.addTimed'), exact: true }).click();
+    await expect(inspector.getByRole('spinbutton', { name: t('cardInsp.interval'), exact: true })).toHaveValue('10');
     await inspector.getByRole('tabpanel', { name: t('card.tab.triggers'), exact: true }).screenshot({ path: test.info().outputPath('CardTriggers-it.png') });
     await expectAccessible(page);
     expect(errors).toEqual([]);
