@@ -145,6 +145,9 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     return { x: (clientX - r.left) / zoom, y: (clientY - r.top) / zoom };
   }
 
+  /** What keeps the wheel for itself over the stage: its floating bars and form controls. */
+  const WHEEL_KEEPERS = ['.stage-tools', '.stage-zoom', 'input', 'select', 'textarea'].join();
+
   function containsClient(clientX, clientY) {
     const r = box.getBoundingClientRect();
     return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
@@ -371,7 +374,8 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
    * even tiny pinch deltas contribute to the next zoom.
    */
   function onViewWheel(evt) {
-    if (evt.defaultPrevented || !containsClient(evt.clientX, evt.clientY)) return;
+    // The whole stage zooms (the dotted area too); its floating bars and form controls keep the wheel.
+    if (evt.defaultPrevented || evt.target.closest?.(WHEEL_KEEPERS)) return;
     const delta = wheelPixels(evt);
     if (!delta) return;
     evt.preventDefault();
@@ -383,30 +387,61 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
       const anchor = point(client.x, client.y);
       const next = zoom * ZOOM_STEP ** (-wheelDelta / 100);
       setZoom(next);
-      // Start alignment plus a positive margin/scroll pair can place the
-      // origin on either side of the viewport, including when the canvas is
-      // smaller than it. Scroll alone would clamp and lose the cursor anchor.
-      stageFrame.style.justifySelf = 'start';
-      stageFrame.style.alignSelf = 'start';
       const rect = box.getBoundingClientRect();
-      const dx = client.x - anchor.x * zoom - rect.left;
-      const dy = client.y - anchor.y * zoom - rect.top;
-      const left = Math.max(0, Math.ceil(-dx));
-      const top = Math.max(0, Math.ceil(-dy));
-      // Scroll offsets are integral in WebView2/Chromium. Keep the fractional
-      // remainder in the margin so rounding cannot accumulate across turns.
-      stageFrame.style.marginLeft = `${dx + left}px`;
-      stageFrame.style.marginTop = `${dy + top}px`;
-      // When shrinking near the viewport edge, retain enough trailing room
-      // for the requested scroll offset instead of letting it clamp to zero.
-      const viewport = scroll.getBoundingClientRect();
-      const frame = stageFrame.getBoundingClientRect();
-      const padding = getComputedStyle(scroll);
-      stageFrame.style.marginRight = `${Math.max(0, left + scroll.clientWidth - (frame.right - viewport.left) - parseFloat(padding.paddingRight))}px`;
-      stageFrame.style.marginBottom = `${Math.max(0, top + scroll.clientHeight - (frame.bottom - viewport.top) - parseFloat(padding.paddingBottom))}px`;
-      scroll.scrollLeft = left;
-      scroll.scrollTop = top;
+      placeBy(client.x - anchor.x * zoom - rect.left, client.y - anchor.y * zoom - rect.top);
     });
+  }
+
+  /** Moves the canvas by (`dx`, `dy`) CSS pixels inside the stage (the wheel's anchor, the middle-button pan). */
+  function placeBy(dx, dy) {
+    // Where the canvas is now, before any change of alignment.
+    const before = box.getBoundingClientRect();
+    // Start alignment plus a positive margin/scroll pair can place the
+    // origin on either side of the viewport, including when the canvas is
+    // smaller than it. Scroll alone would clamp and lose the cursor anchor.
+    stageFrame.style.justifySelf = 'start';
+    stageFrame.style.alignSelf = 'start';
+    const after = box.getBoundingClientRect();
+    // The offset the margin/scroll pair gives now, plus the move asked for
+    // (relative to where the canvas was seen, whatever the alignment did).
+    const x = (parseFloat(stageFrame.style.marginLeft) || 0) - scroll.scrollLeft + (before.left - after.left) + dx;
+    const y = (parseFloat(stageFrame.style.marginTop) || 0) - scroll.scrollTop + (before.top - after.top) + dy;
+    const left = Math.max(0, Math.ceil(-x));
+    const top = Math.max(0, Math.ceil(-y));
+    // Scroll offsets are integral in WebView2/Chromium. Keep the fractional
+    // remainder in the margin so rounding cannot accumulate across turns.
+    stageFrame.style.marginLeft = `${x + left}px`;
+    stageFrame.style.marginTop = `${y + top}px`;
+    // When shrinking near the viewport edge, retain enough trailing room
+    // for the requested scroll offset instead of letting it clamp to zero.
+    const viewport = scroll.getBoundingClientRect();
+    const frame = stageFrame.getBoundingClientRect();
+    const padding = getComputedStyle(scroll);
+    stageFrame.style.marginRight = `${Math.max(0, left + scroll.clientWidth - (frame.right - viewport.left) - parseFloat(padding.paddingRight))}px`;
+    stageFrame.style.marginBottom = `${Math.max(0, top + scroll.clientHeight - (frame.bottom - viewport.top) - parseFloat(padding.paddingBottom))}px`;
+    scroll.scrollLeft = left;
+    scroll.scrollTop = top;
+  }
+
+  /** The middle button drags the view (pan), from anywhere on the stage. */
+  let pan = null;
+  function onPanDown(evt) {
+    if (evt.button !== 1) return;
+    evt.preventDefault();
+    pan = { id: evt.pointerId, x: evt.clientX, y: evt.clientY };
+    scroll.setPointerCapture(evt.pointerId);
+    scroll.classList.add('panning');
+  }
+  function onPanMove(evt) {
+    if (!pan || evt.pointerId !== pan.id) return;
+    placeBy(evt.clientX - pan.x, evt.clientY - pan.y);
+    pan.x = evt.clientX;
+    pan.y = evt.clientY;
+  }
+  function onPanUp(evt) {
+    if (!pan || evt.pointerId !== pan.id) return;
+    pan = null;
+    scroll.classList.remove('panning');
   }
 
   /** Framing mode's keys: arrows, + and -, 0, Esc and Enter; the rest (undo, save) goes on to the editor. */
@@ -462,6 +497,11 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     drawOverlay();
   }
 
+  scroll.addEventListener('pointerdown', onPanDown);
+  scroll.addEventListener('pointermove', onPanMove);
+  scroll.addEventListener('pointerup', onPanUp);
+  scroll.addEventListener('pointercancel', onPanUp);
+  scroll.addEventListener('auxclick', (evt) => { if (evt.button === 1) evt.preventDefault(); });
   scroll.addEventListener('pointerdown', onPointerDown);
   scroll.addEventListener('pointermove', onPointerMove);
   scroll.addEventListener('pointerup', onPointerUp);

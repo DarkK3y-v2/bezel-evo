@@ -115,8 +115,15 @@ test('fractional wheel travel accumulates, delta modes agree, and zoom respects 
   expect(await scale(page)).toBeCloseTo(0.0625, 5);
   await page.locator('#zoom-fit').click();
   expect(await scale(page)).toBeCloseTo(initial, 4);
-  // Neither the workspace outside the canvas nor other panels swallow wheel.
-  for (const selector of ['#stage-scroll', '#inspector', '#zoom-in']) {
+  // The dotted workspace around the canvas zooms too, anchored at the cursor.
+  const stage = await page.locator('#stage-scroll').boundingBox();
+  const corner = { x: stage.x + 8, y: stage.y + stage.height - 8 };
+  await wheelAt(page, corner, -100, false);
+  expect(await scale(page)).toBeCloseTo(initial * 1.25, 4);
+  await page.locator('#zoom-fit').click();
+  expect(await scale(page)).toBeCloseTo(initial, 4);
+  // Other panels and the floating zoom bar do not swallow the wheel.
+  for (const selector of ['#inspector', '#zoom-in']) {
     const prevented = await page.locator(selector).evaluate(node => {
       const r = node.getBoundingClientRect();
       const evt = new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, clientX: r.left + 2, clientY: r.top + 2, deltaY: -100 });
@@ -153,5 +160,42 @@ test('framing wheel still zooms the video; Ctrl+wheel still zooms only the view'
   await expect(page.locator('#framing-numbers')).toHaveText(t('framing.readout', { zoom: 100, x: 50, y: 50 }));
   expect(await scale(page)).toBeCloseTo(initial * 1.25, 4);
   await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('the middle button pans the view, and the wheel stays anchored after panning', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await expect(canvas(page)).toBeVisible();
+  const at = async () => canvas(page).boundingBox();
+  const start = await at();
+  const stage = await page.locator('#stage-scroll').boundingBox();
+  // Two drags in a row from the dotted area move the canvas by exactly the pointer travel.
+  let from = { x: stage.x + 40, y: stage.y + stage.height - 60 };
+  for (const [dx, dy] of [[120, -40], [-30, 70]]) {
+    const before = await at();
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down({ button: 'middle' });
+    await page.mouse.move(from.x + dx / 2, from.y + dy / 2);
+    await page.mouse.move(from.x + dx, from.y + dy);
+    await page.mouse.up({ button: 'middle' });
+    const after = await at();
+    expect(after.x - before.x).toBeCloseTo(dx, 0);
+    expect(after.y - before.y).toBeCloseTo(dy, 0);
+    from = { x: from.x + dx, y: from.y + dy };
+  }
+  expect(await scale(page)).toBeCloseTo(start.width / (await canvas(page).evaluate(n => n.querySelector('canvas').width)), 4);
+  // After panning, two wheel turns keep the point under the cursor where it was.
+  const box = await at();
+  const cursor = { x: box.x + box.width * 0.3, y: box.y + box.height * 0.6 };
+  const anchor = await canvasPoint(page, cursor);
+  for (const delta of [-100, -100]) {
+    await wheelAt(page, cursor, delta);
+    const now = await canvasPoint(page, cursor);
+    const current = await scale(page);
+    // Same tolerance as the anchor checks above: at most ~1 screen pixel.
+    expect(Math.abs(now.x - anchor.x) * current).toBeLessThanOrEqual(1.1);
+    expect(Math.abs(now.y - anchor.y) * current).toBeLessThanOrEqual(1.1);
+  }
   expect(errors).toEqual([]);
 });

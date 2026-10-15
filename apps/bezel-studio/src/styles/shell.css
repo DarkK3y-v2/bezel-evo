@@ -192,3 +192,5 @@ body.resizing { cursor: col-resize; user-select: none; }
 @media (prefers-reduced-motion: no-preference) {
   .rail [role="tab"], .live-toggle { transition: var(--motion-ui); }
 }
+/* The middle button pans the view (ui/canvas.js). */
+#stage-scroll.panning, #stage-scroll.panning * { cursor: grabbing; }
