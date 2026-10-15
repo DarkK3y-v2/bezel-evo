@@ -27,6 +27,7 @@ pub mod sensor;
 pub mod standby;
 pub mod storage;
 pub mod theme;
+pub mod transition;
 
 pub mod weather;
 

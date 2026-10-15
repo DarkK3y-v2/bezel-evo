@@ -192,6 +192,7 @@ pub(crate) mod tests {
 
     pub(crate) fn shape(id: u32, frame: BoxF, color: Rgba) -> Element {
         Element {
+            value_transition: None,
             is_group: false,
             group_parent: None,
             card: None,

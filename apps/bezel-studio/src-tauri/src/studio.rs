@@ -2364,6 +2364,7 @@ mod tests {
         let mut theme = theme_88();
         theme.refresh_seconds = 1.0;
         theme.elements.push(Element {
+            value_transition: None,
             id: ElementId(1),
             name: "Card".into(),
             frame: BoxF::new(20.0, 20.0, 100.0, 100.0),
@@ -2836,6 +2837,7 @@ mod tests {
     /// `theme` graphing `cpu.usage` over 8 samples.
     fn graphing(mut theme: Theme) -> Theme {
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,
@@ -3116,6 +3118,7 @@ mod tests {
         // The preview shows a theme that prints the ping.
         let mut theme = s.theme().clone();
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,

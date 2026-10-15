@@ -354,6 +354,7 @@ mod tests {
         let mut theme = Theme::blank("Small", Size::new(320, 480), Orientation::Landscape);
         theme.background = bezel_core::domain::theme::Background::Color(Rgba::opaque(1, 2, 3));
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,

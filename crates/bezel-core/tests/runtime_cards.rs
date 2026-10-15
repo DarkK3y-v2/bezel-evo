@@ -45,6 +45,7 @@ fn theme() -> Theme {
     let mut theme = Theme::blank("timed", Size::new(320, 480), Orientation::Portrait);
     theme.refresh_seconds = 60.0;
     theme.elements.push(Element {
+        value_transition: None,
         id: ElementId(1),
         name: "Card".into(),
         frame: BoxF::new(0.0, 0.0, 100.0, 100.0),
