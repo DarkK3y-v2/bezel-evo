@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CARD_TABS, GRAPH_INTERVAL_MAX, HISTORY_MAX, HISTORY_MIN, OBJECT_TABS, QUICK_DURATIONS, TIME_UNITS, appChips, appName, arcDrawing, createTabMemory, durationParts, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
+import { CARD_TABS, DURATION_UNITS, GRAPH_INTERVAL_MAX, HISTORY_MAX, HISTORY_MIN, INTERVAL_UNITS, OBJECT_TABS, QUICK_DURATIONS, RULER_TICKS_MAX, TIME_UNITS, appChips, appName, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, pluralOf, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../../src/inspector-tabs.js';
 
 test('a card has faces, motion, triggers and look; every other object data and look', () => {
   assert.deepEqual(tabsOf('card'), ['faces', 'motion', 'triggers', 'look']);
@@ -104,6 +104,44 @@ test('an interval is told in seconds or whole minutes', () => {
   assert.deepEqual(intervalParts(3600), { value: 60, unit: 'min' });
   assert.deepEqual(intervalParts(90), { value: 90, unit: 's' });
   assert.deepEqual(intervalParts(0.5), { value: 0.5, unit: 's' });
+});
+
+test('the window sentence tells the duration and the interval in whole units, the words agreeing with them', () => {
+  assert.deepEqual(DURATION_UNITS, ['s', 'min', 'h']);
+  assert.deepEqual(INTERVAL_UNITS, ['s', 'min']);
+  assert.equal(pluralOf(1), 'one');
+  assert.equal(pluralOf(2), 'other');
+  assert.equal(pluralOf(1.5), 'other');
+  // One hour, a point every 30 s: "the last [1] [hour], one point every [30] [seconds]".
+  assert.deepEqual(graphSentence({ duration: 3600, interval: 30 }), {
+    last: 'insp.lastHour', duration: { value: 1, unit: 'h', plural: 'one' }, interval: { value: 30, unit: 's', plural: 'other' },
+  });
+  assert.deepEqual(graphSentence({ duration: 7200, interval: 60 }), {
+    last: 'insp.lastHours', duration: { value: 2, unit: 'h', plural: 'other' }, interval: { value: 1, unit: 'min', plural: 'one' },
+  });
+  assert.equal(graphSentence({ duration: 60, interval: 1 }).last, 'insp.lastOne');
+  assert.deepEqual(graphSentence({ duration: 60, interval: 1 }).duration, { value: 1, unit: 'min', plural: 'one' });
+  assert.equal(graphSentence({ duration: 300, interval: 1 }).last, 'insp.lastMany');
+  // Hours are no unit of the interval: an hour between two points reads as 60 minutes.
+  assert.deepEqual(graphSentence({ duration: 7200, interval: 3600 }).interval, { value: 60, unit: 'min', plural: 'other' });
+  assert.deepEqual(graphSentence({ duration: 90, interval: 1.5 }).duration, { value: 90, unit: 's', plural: 'other' });
+});
+
+test('the time ruler marks every point up to its limit, then one in so many, counted from now', () => {
+  assert.equal(RULER_TICKS_MAX, 60);
+  assert.deepEqual(graphRuler(4), { ticks: [0.25, 0.5, 0.75, 1], every: 1 });
+  const hour = graphRuler(120);
+  assert.equal(hour.every, 2);
+  assert.equal(hour.ticks.length, 60);
+  assert.deepEqual([hour.ticks[0], hour.ticks.at(-1)], [0.0167, 1]);
+  const most = graphRuler(3600);
+  assert.equal(most.every, 60);
+  assert.equal(most.ticks.length, 60);
+  assert.equal(graphRuler(61).ticks.length, 31);
+  assert.ok(graphRuler(61).ticks.every((x, i, all) => i === 0 || x > all[i - 1]), 'ascending');
+  assert.deepEqual(graphRuler(10, 5), { ticks: [0.2, 0.4, 0.6, 0.8, 1], every: 2 });
+  assert.deepEqual(graphRuler(0), { ticks: [1], every: 1 });
+  assert.deepEqual(graphRuler(3, 0), { ticks: [1], every: 3 });
 });
 
 test('quick durations turn into points at the graph interval, the current one pressed', () => {

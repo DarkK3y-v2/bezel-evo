@@ -30,3 +30,21 @@ export function sentenceParts(template) {
 
 /** Whether a word sticks to what comes before it (`", with"`): it starts with punctuation. */
 export const joinsPrevious = (word) => /^[,.;:!?)]/.test(String(word));
+
+/**
+ * `parts` (words as strings, tokens as anything else) with the words that
+ * follow each other written as one ("Show", "the last" → "Show the last"),
+ * so a word filled into a slot reads like the rest of the text.
+ * @template T
+ * @param {(string|T)[]} parts
+ * @returns {(string|T)[]}
+ */
+export function joinWords(parts) {
+  const out = [];
+  for (const part of parts) {
+    const before = out.at(-1);
+    if (typeof part === 'string' && typeof before === 'string') out[out.length - 1] = joinsPrevious(part) ? `${before}${part}` : `${before} ${part}`;
+    else out.push(part);
+  }
+  return out;
+}

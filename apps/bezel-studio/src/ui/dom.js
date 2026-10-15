@@ -35,6 +35,13 @@ function draw(svg, paths) {
   }));
 }
 
+/** Creates an SVG element with its attributes (drawings: an arc, a ruler). */
+export function svgEl(tag, attrs = {}) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  return node;
+}
+
 /**
  * An inline SVG icon from path data (decorative): one of ui/icons.js's
  * ICONS, drawn with the `ic` class (base.css: stroke in the current colour).

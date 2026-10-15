@@ -3,6 +3,7 @@
 // (D-2026-10-09-studio-redesign-fidelity-8), the graph's scale and window,
 // and the player's apps, all from the demo's real data.
 import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab } from './helpers.mjs';
+import { joinWords, sentenceParts } from '../../src/sentence.js';
 
 /** Whether the preview's canvas has a pixel drawn (`any`) or a strong red one (`red`). */
 const anyPixel = (preview, kind) => preview.evaluate((canvas, which) => {
@@ -107,32 +108,51 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   expect(errors).toEqual([]);
 });
 
-test('the graph has its own duration and time between two points; it scales itself and shows its peak', async ({ page, t }) => {
+test('the graph window reads as a sentence over a time ruler; it scales itself and shows its peak', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await add(page, t, 'graph');
   const inspector = page.locator('#inspector');
-  // D-2026-10-15-studio-redesign-fidelity-16: a duration and a point every so long, not samples.
-  const duration = inspector.getByRole('spinbutton', { name: t('insp.durationLabel'), exact: true });
-  const every = inspector.getByRole('spinbutton', { name: t('insp.intervalLabel'), exact: true });
-  const durationUnit = (unit) => inspector.getByRole('group', { name: t('insp.durationUnit'), exact: true }).getByRole('button', { name: t(unit), exact: true });
-  const everyUnit = (unit) => inspector.getByRole('group', { name: t('insp.intervalUnit'), exact: true }).getByRole('button', { name: t(unit), exact: true });
-  const points = inspector.locator('.graph-points');
+  // D-2026-10-15-studio-redesign-fidelity-17: "Show the last [1] [minute], with one point every [1] [second]",
+  // in the locale's own word order, then a ruler from -window to now with a mark per point.
+  const sentence = inspector.locator('.graph-window');
+  const duration = sentence.getByRole('spinbutton', { name: t('insp.durationLabel'), exact: true });
+  const every = sentence.getByRole('spinbutton', { name: t('insp.intervalLabel'), exact: true });
+  const durationUnit = sentence.getByRole('combobox', { name: t('insp.durationUnit'), exact: true });
+  const everyUnit = sentence.getByRole('combobox', { name: t('insp.intervalUnit'), exact: true });
+  const words = (last) => joinWords(sentenceParts(t('insp.windowSentence')).map((part) => part.word ?? (part.slot === 'last' ? t(last) : part))).filter((part) => typeof part === 'string');
+  const unitWords = (units, plural) => units.map((unit) => t(`insp.unitWord.${unit}.${plural}`));
+  const ruler = inspector.locator('.graph-ruler');
+  const points = ruler.locator('.graph-points');
+  const ticks = ruler.locator('.graph-ruler-tick');
+  const range = inspector.locator('.graph-range');
   const axis = inspector.locator('.inspector-preview-axis');
   const quick = (key, value) => inspector.getByRole('group', { name: t('insp.quickDurations'), exact: true }).getByRole('button', { name: t(key, { value }), exact: true });
-  const told = (count, interval) => t('insp.points', { points: count, min: interval.min, max: interval.max });
   const everySecond = { min: t('unit.seconds', { value: 2 }), max: t('unit.hours', { value: 1 }) };
 
+  await expect(sentence.locator('.sentence-word')).toHaveText(words('insp.lastOne'));
   await expect(duration).toHaveValue('1');
-  await expect(durationUnit('insp.unitMinutes')).toHaveAttribute('aria-pressed', 'true');
+  await expect(durationUnit).toHaveValue('min');
+  await expect(durationUnit.locator('option')).toHaveText(unitWords(['s', 'min', 'h'], 'one'));
   await expect(every).toHaveValue('1');
-  await expect(everyUnit('insp.unitSeconds')).toHaveAttribute('aria-pressed', 'true');
-  await expect(points).toHaveText(told(60, everySecond));
+  await expect(everyUnit).toHaveValue('s');
+  await expect(everyUnit.locator('option')).toHaveText(unitWords(['s', 'min'], 'one'));
+  await expect(points).toHaveText(t('insp.points', { points: 60 }));
+  await expect(ticks).toHaveCount(60);
+  await expect(ruler).toContainText(t('insp.ago', { duration: t('unit.minutes', { value: 1 }) }));
+  await expect(ruler).toContainText(t('insp.now'));
+  await expect(range).toHaveText(t('insp.windowRange', everySecond));
   await expect(quick('unit.minutes', 1)).toHaveAttribute('aria-pressed', 'true');
+  // The two unit pickers line up: as wide as each other.
+  expect(await durationUnit.evaluate((n) => n.offsetWidth)).toBe(await everyUnit.evaluate((n) => n.offsetWidth));
 
   await quick('unit.minutes', 5).click();
   await expect(duration).toHaveValue('5');
-  await expect(points).toHaveText(told(300, everySecond));
+  await expect(sentence.locator('.sentence-word')).toHaveText(words('insp.lastMany'));
+  await expect(durationUnit.locator('option')).toHaveText(unitWords(['s', 'min', 'h'], 'other'));
+  await expect(points).toHaveText(t('insp.points', { points: 300 }));
+  // 300 points: one mark in five.
+  await expect(ticks).toHaveCount(60);
   await expect(quick('unit.minutes', 5)).toHaveAttribute('aria-pressed', 'true');
   await expect(axis).toContainText(t('insp.ago', { duration: t('unit.minutes', { value: 5 }) }));
 
@@ -140,25 +160,41 @@ test('the graph has its own duration and time between two points; it scales itse
   await every.fill('30');
   await every.press('Tab');
   const every30 = { min: t('unit.minutes', { value: 1 }), max: t('unit.hours', { value: 30 }) };
-  await expect(points).toHaveText(told(10, every30));
+  await expect(points).toHaveText(t('insp.points', { points: 10 }));
+  await expect(ticks).toHaveCount(10);
+  await expect(range).toHaveText(t('insp.windowRange', every30));
+  await expect(everyUnit.locator('option')).toHaveText(unitWords(['s', 'min'], 'other'));
   await expect(duration).toHaveValue('5');
   await duration.fill('1');
   await duration.press('Tab');
-  await durationUnit('insp.unitHours').click();
+  await durationUnit.selectOption('h');
   await expect(duration).toHaveValue('1');
-  await expect(durationUnit('insp.unitHours')).toHaveAttribute('aria-pressed', 'true');
-  await expect(points).toHaveText(told(120, every30));
+  await expect(durationUnit).toHaveValue('h');
+  await expect(sentence.locator('.sentence-word')).toHaveText(words('insp.lastHour'));
+  await expect(points).toHaveText(t('insp.points', { points: 120 }));
+  await expect(ticks).toHaveCount(60);
+  await expect(ruler).toContainText(t('insp.ago', { duration: t('unit.hours', { value: 1 }) }));
   await expect(quick('unit.hours', 1)).toHaveAttribute('aria-pressed', 'true');
   await expect(quick('unit.seconds', 30)).toBeDisabled();
   await expect(axis).toContainText(t('insp.ago', { duration: t('unit.hours', { value: 1 }) }));
 
+  // The unit keeps the number: 30 minutes between two points of an hour make 2 points.
+  await everyUnit.selectOption('min');
+  await expect(every).toHaveValue('30');
+  await expect(everyUnit).toHaveValue('min');
+  await expect(points).toHaveText(t('insp.points', { points: 2 }));
+  await expect(ticks).toHaveCount(2);
+  await everyUnit.selectOption('s');
+  await expect(points).toHaveText(t('insp.points', { points: 120 }));
+
   // A point every second cannot cover two hours: the window stops at 3600 points.
-  await everyUnit('insp.unitSeconds').click();
   await every.fill('1');
   await every.press('Tab');
   await duration.fill('2');
   await duration.press('Tab');
-  await expect(points).toHaveText(told(3600, everySecond));
+  await expect(points).toHaveText(t('insp.points', { points: 3600 }));
+  await expect(ticks).toHaveCount(60);
+  await expect(range).toHaveText(t('insp.windowRange', everySecond));
   await expect(duration).toHaveValue('1');
   await expect(axis).toContainText(t('insp.ago', { duration: t('unit.hours', { value: 1 }) }));
 

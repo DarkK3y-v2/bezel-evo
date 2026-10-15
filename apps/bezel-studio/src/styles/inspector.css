@@ -74,10 +74,16 @@
 .fld-grid.is-muted input { color: var(--text-3); }
 .align-row { display: flex; gap: 4px; }
 .align-row .icon-button { border-color: transparent; }
-/* A graph's duration and time between two points: the value, then its unit. */
-.samples-row .fld { flex: 1 1 auto; }
-.samples-row .segmented { flex: none; }
-.graph-points { margin: 0; font-family: var(--font-mono); }
+/* A graph's window sentence: short numbers, both unit selects as wide. */
+.sentence .sentence-token[type="number"] { width: 7ch; font-family: var(--font-mono); }
+.sentence-unit { min-width: 7.5em; }
+/* Its time ruler: the line from -duration to now, a mark per point, how many. */
+.graph-ruler { display: flex; flex-direction: column; gap: 4px; }
+.graph-ruler-line { display: block; width: 100%; height: 10px; overflow: visible; }
+.graph-ruler-line line { stroke: var(--text-3); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.graph-ruler-line .graph-ruler-tick { stroke: var(--info); }
+.graph-ruler-labels { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--muted); }
+.graph-ruler-labels .graph-points { color: var(--text-2); }
 
 /* The sensor a widget reads: a list card with the native select over it. */
 .source-card { position: relative; }

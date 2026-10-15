@@ -8,18 +8,19 @@
 import { isShown, canGroup } from '../editor/cards.js';
 import { CLOCK_PATTERNS, formatClock } from '../clock-format.js';
 import { readIcon } from '../icon-catalog.js';
-import { el, icon } from './dom.js';
+import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
   checkField, chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
-  iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, splitColor, switchRow, textField,
+  iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
 } from './fields.js';
+import { sentenceParts } from '../sentence.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
 import { ORIENTATIONS } from '../editor/geometry.js';
 import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
-import { TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphTiming, graphTimingPatch, graphWindowRange, intervalParts, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
+import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, layerFacts, quickDurations, tabAfterKey, tabsOf } from '../inspector-tabs.js';
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
@@ -80,12 +81,6 @@ function optionTiles(label, tiles) {
 
 /** The ring's arc in small (artboard Main, "Arco"): the track, the arc and where it starts. */
 function arcPreview(kind) {
-  const SVG = 'http://www.w3.org/2000/svg';
-  const node = (tag, attrs) => {
-    const n = document.createElementNS(SVG, tag);
-    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
-    return n;
-  };
   const arc = arcDrawing(kind.startAngle, kind.sweep, kind.clockwise !== false);
   const svg = node('svg', { class: 'arc-preview', viewBox: '0 0 64 64', width: 64, height: 64, 'aria-hidden': 'true' });
   svg.append(
@@ -670,23 +665,49 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   /** The window a graph looks back over, ms. */
   const graphWindowMs = (e) => timingOf(e).duration * 1000;
 
-  /** Short unit names of the duration and interval pickers. */
-  const unitName = (unit) => t(unit === 'h' ? 'insp.unitHours' : unit === 'min' ? 'insp.unitMinutes' : 'insp.unitSeconds');
-
   /**
-   * A value in a well with its unit picked beside it: `seconds` shown in
-   * its largest whole unit of `units`, `onChange(seconds)` when either changes.
+   * The tokens of a time in the window sentence: its number and the select
+   * of its unit (words agreeing with the number), `onChange(seconds)` when
+   * either changes. Built from numberField and selectField; the sentence
+   * hides their labels, so each control carries its name.
    */
-  function timeField(prefix, label, unitLabel, seconds, units, parts, onChange) {
-    const { value, unit } = parts(seconds);
-    const shown = units.includes(unit) ? { value, unit } : { value: seconds, unit: 's' };
-    return el('div', { class: 'samples-row' }, [
-      prefixedField(prefix, label, shown.value, (v) => onChange(v * TIME_UNITS[shown.unit]), { min: 0, step: 'any' }),
-      segmented(unitLabel, shown.unit, units.map((u) => [u, unitName(u)]), (u) => onChange(shown.value * TIME_UNITS[u]), { bare: true }),
-    ]);
+  function timeTokens(shown, units, label, unitLabel, onChange) {
+    const number = numberField(label, shown.value, (v) => onChange(v * TIME_UNITS[shown.unit]), { min: 0, step: 'any' });
+    const unit = selectField(unitLabel, shown.unit, units.map((u) => [u, t(`insp.unitWord.${u}.${shown.plural}`)]), (u) => onChange(shown.value * TIME_UNITS[u]));
+    number.querySelector('input').setAttribute('aria-label', label);
+    unit.querySelector('select').setAttribute('aria-label', unitLabel);
+    unit.querySelector('select').classList.add('sentence-unit');
+    return { number, unit };
   }
 
-  /** The graph's window: quick durations, its duration and the time between two points, and what they make. */
+  /**
+   * The graph's window as one sentence (D-2026-10-15-studio-redesign-fidelity-17):
+   * "Show the last [1] [hour], with one point every [30] [seconds]", its
+   * word order from the locale's template.
+   */
+  function windowSentence(timing, setTiming) {
+    const shown = graphSentence(timing);
+    const duration = timeTokens(shown.duration, DURATION_UNITS, t('insp.durationLabel'), t('insp.durationUnit'), (d) => setTiming(d, timing.interval));
+    const interval = timeTokens(shown.interval, INTERVAL_UNITS, t('insp.intervalLabel'), t('insp.intervalUnit'), (i) => setTiming(timing.duration, i));
+    const slots = { last: t(shown.last), duration: duration.number, durationUnit: duration.unit, interval: interval.number, intervalUnit: interval.unit };
+    return sentence(sentenceParts(t('insp.windowSentence')).map((part) => part.word ?? slots[part.slot]), { class: 'graph-window' });
+  }
+
+  /** The time ruler under the sentence: from −duration to now, a mark per point (thinned out past a few dozen), how many. */
+  function timeRuler(timing) {
+    const line = node('svg', { class: 'graph-ruler-line', viewBox: '0 0 100 10', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    line.append(
+      node('line', { class: 'graph-ruler-base', x1: 0, y1: 9.5, x2: 100, y2: 9.5 }),
+      ...graphRuler(timing.points).ticks.map((x) => node('line', { class: 'graph-ruler-tick', x1: x * 100, y1: 3, x2: x * 100, y2: 9.5 })),
+    );
+    return el('div', { class: 'graph-ruler' }, [line, el('div', { class: 'graph-ruler-labels' }, [
+      el('span', { 'aria-hidden': 'true', text: t('insp.ago', { duration: durationText(timing.duration) }) }),
+      el('span', { class: 'graph-points', 'aria-live': 'polite', text: t('insp.points', { points: timing.points }) }),
+      el('span', { 'aria-hidden': 'true', text: t('insp.now') }),
+    ])]);
+  }
+
+  /** The graph's window: quick durations, the sentence of its duration and point interval, the ruler of what they make. */
   function graphWindow(e) {
     const timing = timingOf(e);
     const setTiming = (duration, interval) => {
@@ -697,9 +718,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return section('window', t('insp.window'), [
       el('div', { class: 'chip-group', role: 'group', 'aria-label': t('insp.quickDurations') },
         quickDurations(timing.interval, timing.points).map((d) => chipButton(durationText(d.seconds), d.pressed, () => setTiming(d.seconds, timing.interval), { disabled: d.disabled }))),
-      timeField(t('insp.durationPrefix'), t('insp.durationLabel'), t('insp.durationUnit'), timing.duration, ['s', 'min', 'h'], durationParts, (d) => setTiming(d, timing.interval)),
-      timeField(t('insp.pointEveryPrefix'), t('insp.intervalLabel'), t('insp.intervalUnit'), timing.interval, ['s', 'min'], intervalParts, (i) => setTiming(timing.duration, i)),
-      el('p', { class: 'hint graph-points', 'aria-live': 'polite', text: t('insp.points', { points: timing.points, min: durationText(range.min), max: durationText(range.max) }) }),
+      windowSentence(timing, setTiming),
+      timeRuler(timing),
+      el('p', { class: 'hint graph-range', text: t('insp.windowRange', { min: durationText(range.min), max: durationText(range.max) }) }),
       timing.own ? null : el('p', { class: 'hint', text: t('insp.followsRefresh', { seconds: timing.interval }) }),
     ]);
   }

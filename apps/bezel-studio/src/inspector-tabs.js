@@ -117,6 +117,53 @@ export function intervalParts(seconds) {
   return { value: Math.round(seconds * 100) / 100, unit: 's' };
 }
 
+/** The units a graph's duration and the time between two of its points are written in. */
+export const DURATION_UNITS = Object.freeze(['s', 'min', 'h']);
+export const INTERVAL_UNITS = Object.freeze(['s', 'min']);
+
+/** The grammatical number of a count for the words around it: `one` for exactly 1, else `other` (en, pt-BR, it). */
+export const pluralOf = (value) => (value === 1 ? 'one' : 'other');
+
+/**
+ * The slots of a graph's window sentence (D-2026-10-15-studio-redesign-fidelity-17,
+ * "Show the last [1] [hour], with one point every [30] [seconds]"): the
+ * duration and the interval, each in its largest whole unit offered
+ * (seconds when none fits) with its grammatical number, and the key of
+ * the word before the duration, which agrees with its unit (hours are
+ * feminine in Portuguese and Italian) and its number.
+ * @param {{duration: number, interval: number}} timing see {@link graphTiming}
+ * @returns {{last: string, duration: {value: number, unit: string, plural: string}, interval: {value: number, unit: string, plural: string}}}
+ */
+export function graphSentence(timing) {
+  const shown = (seconds, units, parts) => {
+    const whole = parts(seconds);
+    const { value, unit } = units.includes(whole.unit) ? whole : { value: seconds, unit: 's' };
+    return { value, unit, plural: pluralOf(value) };
+  };
+  const duration = shown(timing.duration, DURATION_UNITS, durationParts);
+  const interval = shown(timing.interval, INTERVAL_UNITS, intervalParts);
+  const hours = duration.unit === 'h';
+  const last = duration.plural === 'one' ? (hours ? 'insp.lastHour' : 'insp.lastOne') : (hours ? 'insp.lastHours' : 'insp.lastMany');
+  return { last, duration, interval };
+}
+
+/** The most tick marks a graph's time ruler draws before it thins them out. */
+export const RULER_TICKS_MAX = 60;
+
+/**
+ * The tick marks of a graph's time ruler, from −duration (0) to now (1):
+ * where its `points` fall, the newest at now and one per interval before
+ * it; past `max` marks only one point in `every` is drawn, counted from now.
+ * @returns {{ticks: number[], every: number}} positions ascending, 0..1
+ */
+export function graphRuler(points, max = RULER_TICKS_MAX) {
+  const count = Math.max(1, Math.round(Number(points) || 1));
+  const every = Math.ceil(count / Math.max(1, max));
+  const ticks = [];
+  for (let back = 0; back < count; back += every) ticks.unshift(Math.round((1 - back / count) * 10000) / 10000);
+  return { ticks, every };
+}
+
 /**
  * A duration as its largest whole unit: `{value, unit}` with `unit` one of
  * `s`, `min`, `h` (90 s stays `90 s`).

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { joinsPrevious, sentenceParts } from '../../src/sentence.js';
+import { joinWords, joinsPrevious, sentenceParts } from '../../src/sentence.js';
 
 test('a template splits into its words and slots, in order', () => {
   assert.deepEqual(sentenceParts('Show {last} {duration} {durationUnit}, with one point every {interval} {intervalUnit}'), [
@@ -21,4 +21,11 @@ test('a word starting with punctuation sticks to the token before it', () => {
   assert.equal(joinsPrevious('.'), true);
   assert.equal(joinsPrevious('with'), false);
   assert.equal(joinsPrevious(''), false);
+});
+
+test('words that follow each other read as one, tokens kept between them', () => {
+  const token = { token: 'n' };
+  assert.deepEqual(joinWords(['Show', 'the last', token, 'hours', ', with', token]), ['Show the last', token, 'hours, with', token]);
+  assert.deepEqual(joinWords([token, token]), [token, token]);
+  assert.deepEqual(joinWords([]), []);
 });
