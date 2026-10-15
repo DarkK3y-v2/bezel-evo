@@ -11,6 +11,9 @@ use bezel_core::domain::theme::{
     FontSpec, GraphStyle, HAlign, Paint, Segments, ShapeKind, TextContent, TextStyle, Theme,
     VAlign,
 };
+use bezel_core::domain::transition::{
+    MAX_TRANSITION_MS, MIN_TRANSITION_MS, TransitionMode, ValueTransition,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::color::{from_hex, to_hex};
@@ -276,8 +279,58 @@ pub struct ElementDto {
     /// Locked in the editor.
     #[serde(default)]
     pub locked: bool,
+    /// How a bar, ring, needle or sensor value moves to a new reading
+    /// (D-2026-10-15-studio-redesign-fidelity-18); absent: it jumps, as in
+    /// themes written before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_transition: Option<ValueTransitionDto>,
     /// Kind.
     pub kind: KindDto,
+}
+
+/// An element's value transition: `{"mode": "smooth", "durationMs": 400}`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValueTransitionDto {
+    /// `none` or `smooth`.
+    pub mode: TransitionModeDto,
+    /// Milliseconds a smooth transition lasts (read within
+    /// [`MIN_TRANSITION_MS`]..=[`MAX_TRANSITION_MS`]; 0 jumps).
+    #[serde(default)]
+    pub duration_ms: u32,
+}
+
+/// `none` or `smooth`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TransitionModeDto {
+    /// Jumps.
+    None,
+    /// Eases.
+    Smooth,
+}
+
+fn value_transition_dto(t: Option<ValueTransition>) -> Option<ValueTransitionDto> {
+    t.map(|t| ValueTransitionDto {
+        mode: match t.mode {
+            TransitionMode::None => TransitionModeDto::None,
+            TransitionMode::Smooth => TransitionModeDto::Smooth,
+        },
+        duration_ms: t.duration_ms,
+    })
+}
+
+fn value_transition(t: Option<ValueTransitionDto>) -> Option<ValueTransition> {
+    t.map(|t| ValueTransition {
+        mode: match t.mode {
+            TransitionModeDto::None => TransitionMode::None,
+            TransitionModeDto::Smooth => TransitionMode::Smooth,
+        },
+        duration_ms: match t.duration_ms {
+            0 => 0,
+            ms => ms.clamp(MIN_TRANSITION_MS, MAX_TRANSITION_MS),
+        },
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1446,6 +1499,7 @@ impl From<&Theme> for ThemeDto {
                     opacity: e.opacity,
                     visible: e.visible,
                     locked: e.locked,
+                    value_transition: value_transition_dto(e.value_transition),
                     kind: kind_dto(&e.kind),
                 })
                 .collect(),
@@ -1610,6 +1664,7 @@ impl TryFrom<&ThemeDto> for Theme {
                     opacity: e.opacity.clamp(0.0, 1.0),
                     visible: e.visible,
                     locked: e.locked,
+                    value_transition: value_transition(e.value_transition),
                     kind: kind(&e.kind)
                         .map_err(|x| DtoError(format!("element {} ({}): {}", e.id, e.name, x.0)))?,
                 })

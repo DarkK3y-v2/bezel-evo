@@ -38,6 +38,15 @@
 //! caller shows beside it ([`ThemeRuntime::want_also`], an editor's sensor
 //! list). A sensor whose measuring reaches outside the machine (`net.ping`)
 //! is measured only while wanted (D-2026-09-30-release-polish-11).
+//!
+//! Elements with a smooth value transition
+//! (D-2026-10-15-studio-redesign-fidelity-18) ease to each new sample
+//! ([`crate::domain::transition`]): while one moves, the screen and the
+//! previews get a frame every `MIN_TRANSITION_STEP` at most, and none once
+//! it settles. The screen's pace ([`ThemeRuntime::screen_pace`]) spaces
+//! its frames and, when it cannot draw two within a transition, shows the
+//! new value at once; previews snap when motion is reduced
+//! ([`ThemeRuntime::still_previews`]).
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -62,6 +71,7 @@ use crate::domain::media::{
 use crate::domain::sensor::{Quantities, SensorInfo, Snapshot, Wanted};
 use crate::domain::storage::{FileName, Medium, RemotePath, Repeat, StorageLocation};
 use crate::domain::theme::{AssetRef, Background, Theme, refresh_interval};
+use crate::domain::transition::{MIN_TRANSITION_STEP, ShownValues, Transitions, View};
 use crate::ports::{
     Backdrop, FrameRenderer, MediaLocation, MediaTranscoder, RenderContext, ScreenLink,
     ScreenStorage, SensorSource, VideoFrames,
@@ -176,34 +186,37 @@ fn content_revision() -> u64 {
 
 impl Scene {
     /// Renders the theme from the last sample over `backdrop`, its animated
-    /// images as they are `animation` after the theme started.
+    /// images as they are `animation` after the theme started and its
+    /// moving values as `shown`.
     fn draw(
         &self,
         renderer: &mut dyn FrameRenderer,
         theme: &Theme,
-        time: LocalTime,
-        animation: Duration,
+        moment: Moment,
         backdrop: Backdrop<'_>,
+        shown: &ShownValues,
     ) -> Result<Frame> {
         renderer.set_content_revision(self.revision);
-        renderer.render(theme, &self.assets, self.context(time, animation, backdrop))
+        let context = self.context(moment, backdrop, shown);
+        renderer.render(theme, &self.assets, context)
     }
 
     /// What a frame drawn now depends on besides its theme.
     fn context<'a>(
         &'a self,
-        time: LocalTime,
-        animation: Duration,
+        moment: Moment,
         backdrop: Backdrop<'a>,
+        shown: &'a ShownValues,
     ) -> RenderContext<'a> {
         RenderContext {
             snapshot: &self.snapshot,
             histories: &self.histories,
             quantities: &self.quantities,
-            time,
-            animation,
+            time: moment.time,
+            animation: moment.animation,
             language: self.language,
             backdrop,
+            shown,
         }
     }
 }
@@ -247,9 +260,18 @@ struct Cadence {
     drawn: Option<Duration>,
 }
 
+/// When a frame is drawn: the wall clock its clocks show and the time its
+/// animated images show.
+#[derive(Debug, Clone, Copy)]
+struct Moment {
+    time: LocalTime,
+    animation: Duration,
+}
+
 /// One unpainted frame shared by preview and live within a frame interval.
 struct RecentFrame {
     frame: Frame,
+    shown: ShownValues,
     time: LocalTime,
     at: Duration,
     until: Duration,
@@ -266,6 +288,8 @@ pub struct ThemeRuntime {
     clock: Duration,
     renderer_change: Option<Duration>,
     card_timers: super::card_timer::CardTimers,
+    /// The elements easing to their readings.
+    transitions: Transitions,
     card_rotation: bool,
     reuse_frames: bool,
     recent_frame: Option<RecentFrame>,
@@ -442,6 +466,7 @@ impl ThemeRuntime {
             clock: Duration::ZERO,
             renderer_change: None,
             card_timers: super::card_timer::CardTimers::default(),
+            transitions: Transitions::default(),
             card_rotation: true,
             reuse_frames: false,
             recent_frame: None,
@@ -492,14 +517,17 @@ impl ThemeRuntime {
         time: LocalTime,
         now: Duration,
         backdrop: Backdrop<'_>,
+        view: View,
     ) -> Result<Frame> {
         self.render_reused = false;
+        let shown = self.shown(now, view);
         let eligible = self.reuse_frames
             && matches!(self.video, VideoState::NoVideo)
             && matches!(backdrop, Backdrop::Poster);
         if eligible
             && let Some(recent) = &self.recent_frame
             && recent.time == time
+            && recent.shown == shown
             && now >= recent.at
             && now < recent.until
         {
@@ -507,28 +535,57 @@ impl ThemeRuntime {
             return Ok(recent.frame.clone());
         }
         self.recent_frame = None;
+        let moment = Moment {
+            time,
+            animation: now,
+        };
         let frame = self.scene.draw(
             renderer,
             &self.card_timers.theme(&self.scene.theme),
-            time,
-            now,
+            moment,
             backdrop,
+            &shown,
         )?;
         self.renderer_change = renderer.next_change();
         if eligible {
             // Never cross an image/transition boundary or hold a frame longer
             // than one animation interval. Reuse does not extend its lifetime.
             let until = self
-                .next_animation_change(now)
+                .change_after(now, view)
                 .map_or(now + MIN_FRAME_STEP, |due| due.min(now + MIN_FRAME_STEP));
             self.recent_frame = Some(RecentFrame {
                 frame: frame.clone(),
+                shown,
                 time,
                 at: now,
                 until,
             });
         }
         Ok(frame)
+    }
+
+    /// The values `view` draws at `at` for the elements still easing.
+    fn shown(&self, at: Duration, view: View) -> ShownValues {
+        let theme = self.card_timers.theme(&self.scene.theme);
+        self.transitions.shown(&theme, at, view)
+    }
+
+    /// Whether an element still eases to its reading at `at` on the screen.
+    pub fn transitioning(&self, at: Duration) -> bool {
+        !self.shown(at, View::Screen).is_empty()
+    }
+
+    /// The screen showed a frame that took `cost` from drawing to shown:
+    /// value transitions take that pace, and snap when the screen cannot
+    /// show two frames within one ([`crate::domain::transition::Pace`]).
+    pub fn screen_pace(&mut self, cost: Duration) {
+        self.transitions.screen_pace(cost);
+    }
+
+    /// Whether previews show new readings at once instead of easing to
+    /// them (reduced motion). The screen still eases.
+    pub fn still_previews(&mut self, still: bool) {
+        self.transitions.still_previews(still);
     }
 
     /// The theme being shown.
@@ -646,6 +703,7 @@ impl ThemeRuntime {
             self.video = unstarted(&theme);
             self.host = None;
         }
+        self.transitions.edited(&theme, &self.scene.snapshot);
         self.scene.theme = theme;
         self.scene.histories = histories;
         self.update_wanted();
@@ -759,6 +817,7 @@ impl ThemeRuntime {
         self.host = None;
         self.playing = None;
         self.cadence.drawn = None;
+        self.transitions.forget_screen();
     }
 
     /// Chooses how the theme's video reaches `screen` and starts it. Call it
@@ -908,6 +967,11 @@ impl ThemeRuntime {
             self.use_catalog(&catalog);
         }
         self.scene.histories.push(&snapshot, tick);
+        let now = match tick {
+            Tick::At { now, .. } => Some(now),
+            Tick::Untimed => None,
+        };
+        self.transitions.retarget(&self.scene.theme, &snapshot, now);
         self.scene.snapshot = snapshot;
         Ok(())
     }
@@ -927,12 +991,14 @@ impl ThemeRuntime {
         self.advance_cards(self.clock);
         self.learn_animations(renderer);
         if matches!(self.video, VideoState::NoVideo) {
-            return self.draw_frame(renderer, time, self.clock, Backdrop::Poster);
+            let clock = self.clock;
+            return self.draw_frame(renderer, time, clock, Backdrop::Poster, View::Screen);
         }
         self.recent_frame = None;
         self.render_reused = false;
         let framing = self.video_framing().unwrap_or(ResolvedFraming::plain(0));
         let canvas = self.scene.theme.canvas;
+        let shown = self.shown(self.clock, View::Screen);
         let picture = match (&self.video, self.host.as_mut()) {
             (VideoState::Host, Some(frames)) => {
                 Some(frame_picture(frames.frame_at(video)?, &framing, canvas))
@@ -944,12 +1010,16 @@ impl ThemeRuntime {
             (_, Some(picture)) => Backdrop::Frame(picture),
             _ => Backdrop::Poster,
         };
+        let moment = Moment {
+            time,
+            animation: self.clock,
+        };
         let frame = self.scene.draw(
             renderer,
             &self.card_timers.theme(&self.scene.theme),
-            time,
-            self.clock,
+            moment,
             backdrop,
+            &shown,
         )?;
         self.renderer_change = renderer.next_change();
         Ok(frame)
@@ -964,12 +1034,16 @@ impl ThemeRuntime {
         time: LocalTime,
         backdrop: Backdrop<'_>,
     ) -> Result<Frame> {
+        let moment = Moment {
+            time,
+            animation: self.clock,
+        };
         self.scene.draw(
             renderer,
             &self.card_timers.theme(&self.scene.theme),
-            time,
-            self.clock,
+            moment,
             backdrop,
+            &self.shown(self.clock, View::Preview),
         )
     }
 
@@ -1089,24 +1163,54 @@ impl ThemeRuntime {
         let Some(drawn) = self.cadence.drawn else {
             return Duration::ZERO;
         };
-        match self.next_animation_change(drawn) {
+        match self.change_after(drawn, View::Screen) {
             Some(change) => sample.min(change.max(drawn + MIN_FRAME_STEP)),
             None => sample,
         }
     }
 
-    /// When the visible animated images next change after `at`; `None`
-    /// while none is shown. Known for the images the last render met.
+    /// When the visible animated images or an easing value next change
+    /// after `at` in a preview; `None` while nothing moves. Known for the
+    /// images the last render met.
     pub fn next_animation_change(&self, at: Duration) -> Option<Duration> {
-        image_change(
-            &self.card_timers.theme(&self.scene.theme),
-            &self.timelines,
-            at,
-        )
-        .into_iter()
-        .chain(self.renderer_change)
-        .chain(self.card_timers.next)
-        .min()
+        self.change_after(at, View::Preview)
+    }
+
+    /// When what `view` shows next changes by itself after `at`: an
+    /// animated image, the renderer's card transition, a card timer, or the
+    /// next step of a value transition (at `view`'s pace); for a preview
+    /// that eases a value, also the next sample, where a transition starts.
+    fn change_after(&self, at: Duration, view: View) -> Option<Duration> {
+        let theme = self.card_timers.theme(&self.scene.theme);
+        let sample = match view {
+            View::Preview => self.sample_wake(&theme, at),
+            View::Screen => None,
+        };
+        image_change(&theme, &self.timelines, at)
+            .into_iter()
+            .chain(self.renderer_change)
+            .chain(self.card_timers.next)
+            .chain(self.transitions.next_change(&theme, at, view))
+            .chain(sample)
+            .min()
+    }
+
+    /// When a preview of `theme` drawn at `at` that eases a value wants its
+    /// next frame for the next sample: when it is due, or a transition step
+    /// later while the loop has not taken one that is overdue. `None`
+    /// without an eased value, or before a loop samples on time (nothing
+    /// would ever start a transition).
+    fn sample_wake(&self, theme: &Theme, at: Duration) -> Option<Duration> {
+        self.cadence.sample?;
+        if !self.transitions.eases_in_previews(theme) {
+            return None;
+        }
+        let due = self.next_sample();
+        Some(if due > at {
+            due
+        } else {
+            at + MIN_TRANSITION_STEP
+        })
     }
 
     /// An editor's preview at `now`: the frame over the poster with the
@@ -1148,7 +1252,7 @@ impl ThemeRuntime {
         self.advance_cards(now);
         self.learn_animations(renderer);
         self.clock = now;
-        let frame = self.draw_frame(renderer, time, now, backdrop)?;
+        let frame = self.draw_frame(renderer, time, now, backdrop, View::Preview)?;
         Ok((frame, self.next_animation_change(now)))
     }
 
@@ -1171,11 +1275,18 @@ impl ThemeRuntime {
             self.timelines.insert(asset, timeline);
         }
         renderer.set_content_revision(0);
-        let context = self.scene.context(time, now, Backdrop::Poster);
+        let shown = self.transitions.shown(theme, now, View::Preview);
+        let moment = Moment {
+            time,
+            animation: now,
+        };
+        let context = self.scene.context(moment, Backdrop::Poster, &shown);
         let frame = renderer.render(theme, &self.scene.assets, context)?;
         let change = image_change(theme, &self.timelines, now)
             .into_iter()
             .chain(renderer.next_change())
+            .chain(self.transitions.next_change(theme, now, View::Preview))
+            .chain(self.sample_wake(theme, now))
             .min();
         Ok((frame, change))
     }

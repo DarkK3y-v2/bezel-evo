@@ -609,6 +609,8 @@ export function createBridge(win) {
     onGifCollect: (id) => root?.setAttribute('data-demo-gif-collect', id),
     // And every plan B written to a screen ("When the computer shuts down").
     onStandby: (writes) => root?.setAttribute('data-demo-standby', JSON.stringify(writes)),
+    // And how many preview frames were drawn while a value eased.
+    onTransitionFrame: (count) => root?.setAttribute('data-demo-transition-frames', String(count)),
     languages: win.navigator?.languages ?? [],
     hold: params.has('hold'),
     libre: params.get('libre'),

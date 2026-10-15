@@ -55,6 +55,7 @@ mod tests {
         golden::needles(&mut renderer);
         golden::graphs(&mut renderer);
         golden::composition(&mut renderer);
+        golden::eased_values(&mut renderer);
     }
 }
 

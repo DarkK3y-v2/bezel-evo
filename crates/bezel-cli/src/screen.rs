@@ -169,6 +169,7 @@ where
         animation: Duration::ZERO,
         language: Language::English,
         backdrop: Backdrop::Poster,
+        shown: &bezel_core::domain::transition::NOTHING_SHOWN,
     };
     let frame = renderer.render(&theme, &assets, context)?;
     link.set_orientation(orientation)?;

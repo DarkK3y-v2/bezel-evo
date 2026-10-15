@@ -449,6 +449,10 @@ pub struct Element {
     pub visible: bool,
     /// Locked elements cannot be moved in the editor.
     pub locked: bool,
+    /// How a bar, ring, needle or sensor text moves to a new reading
+    /// (D-2026-10-15-studio-redesign-fidelity-18); `None`: it jumps, as in
+    /// themes written before it. Other elements ignore it.
+    pub value_transition: Option<super::transition::ValueTransition>,
     /// What it is.
     pub kind: ElementKind,
 }
@@ -815,6 +819,7 @@ mod tests {
 
     fn element(id: u32, kind: ElementKind) -> Element {
         Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,

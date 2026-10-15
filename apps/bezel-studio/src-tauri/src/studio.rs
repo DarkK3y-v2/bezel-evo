@@ -1341,6 +1341,8 @@ impl Studio {
     ) -> Result<(Frame, Option<Duration>)> {
         self.runtime
             .reuse_recent_frames(matches!(motion, Motion::Allowed));
+        self.runtime
+            .still_previews(matches!(motion, Motion::Reduced));
         self.renderer.set_motion(matches!(motion, Motion::Allowed));
         let mut playing = match motion {
             Motion::Allowed if !self.video_known() => Playing::Busy,
@@ -1388,6 +1390,8 @@ impl Studio {
             .ok_or_else(|| BezelError::InvalidInput(format!("no element {} in the theme", id.0)))?;
         self.element_renderer
             .set_motion(matches!(motion, Motion::Allowed));
+        self.runtime
+            .still_previews(matches!(motion, Motion::Reduced));
         let clock = self.clock(now);
         let (frame, change) =
             self.runtime
@@ -1896,7 +1900,7 @@ impl Studio {
             present_ms: 0.0,
             handoff_ms: 0.0,
             prepared_at: Instant::now(),
-            animating: self.renderer.next_change().is_some(),
+            animating: self.renderer.next_change().is_some() || self.runtime.transitioning(clock),
             key: live.key.clone(),
             link,
             frame,
@@ -1985,6 +1989,12 @@ impl Studio {
         live.slot = Slot::Here(link);
         if turn.is_some() {
             live.orientation = turn;
+        }
+        // What a frame took from drawing to shown paces value transitions
+        // (D-2026-10-15-studio-redesign-fidelity-18).
+        if let Some(drawn) = live.drawn {
+            self.runtime
+                .screen_pace(now.saturating_duration_since(drawn));
         }
         None
     }
@@ -2357,6 +2367,159 @@ mod tests {
         )
     }
 
+    /// Sensors reading `value` for the bar of [`eased_bar_studio`].
+    fn cpu_reading(value: f64) -> Box<dyn SensorSource> {
+        use bezel_core::domain::sensor::{Reading, Snapshot};
+        let mut snapshot = Snapshot::default();
+        let key = SensorKey::new("cpu.usage").unwrap();
+        snapshot.insert(key, Reading::Value(value));
+        Box::new(FakeSensors::new(Vec::new(), vec![snapshot]))
+    }
+
+    /// A session of an 8.8" theme refreshed every second whose bar eases
+    /// for 400 ms, its sensor reading 20.
+    fn eased_bar_studio() -> Studio {
+        use bezel_core::domain::theme::{Direction, Paint};
+        use bezel_core::domain::transition::ValueTransition;
+        let mut theme = theme_88();
+        theme.refresh_seconds = 1.0;
+        let key = SensorKey::new("cpu.usage").unwrap();
+        theme.elements.push(Element {
+            value_transition: Some(ValueTransition::smooth(400)),
+            id: ElementId(1),
+            name: "CPU".into(),
+            frame: BoxF::new(20.0, 20.0, 200.0, 20.0),
+            opacity: 1.0,
+            visible: true,
+            locked: false,
+            is_group: false,
+            group_parent: None,
+            card_member: None,
+            card: None,
+            kind: ElementKind::Bar {
+                binding: Binding {
+                    key: key.clone(),
+                    min: 0.0,
+                    max: 100.0,
+                },
+                direction: Direction::LeftToRight,
+                fill: Paint::solid(Rgba::WHITE),
+                track: None,
+                radius: 0.0,
+                segments: None,
+            },
+        });
+        Studio::new(
+            cpu_reading(20.0),
+            Box::new(Flat::default()),
+            Language::English,
+            theme,
+        )
+    }
+
+    /// Runs the live screen until `until_ms`, every frame taking `send_ms`
+    /// to show, the bar's sensor reading 80 from 1 s on: when each frame
+    /// was drawn, ms into the session.
+    fn live_run(s: &mut Studio, send_ms: u64, until_ms: u64) -> Vec<u64> {
+        let mut drawn = Vec::new();
+        let mut t = 0;
+        let mut changed = false;
+        while t < until_ms {
+            if t >= 1_000 && !changed {
+                s.replace_sensors(cpu_reading(80.0)).unwrap();
+                changed = true;
+            }
+            let now = at(s, t);
+            let delivered = s.tick(TIME, now).unwrap();
+            let took = if delivered.is_some() {
+                drawn.push(t);
+                send_ms
+            } else {
+                0
+            };
+            show(s, Ok(delivered), at(s, t + took)).unwrap();
+            let due = s.next_due_all().saturating_duration_since(s.origin);
+            let due = u64::try_from(due.as_millis()).unwrap();
+            t = due.max(t + took).max(t + 1);
+        }
+        drawn
+    }
+
+    #[test]
+    fn value_transitions_reach_the_screen_at_a_capped_rate_and_degrade() {
+        // D-2026-10-15-studio-redesign-fidelity-18: one frame out at a
+        // time, a frame every 50 ms at most while the bar moves, none once
+        // it settles.
+        let fps = |drawn: &[u64]| {
+            let n = drawn.iter().filter(|t| (1_000..1_400).contains(*t)).count();
+            n as f64 / 0.4
+        };
+        let connector = FakeConnector::default();
+        let mut s = eased_bar_studio();
+        s.go_live(
+            "k".into(),
+            open_screen(&FakeBus::turing_88(), &connector, None).unwrap(),
+        );
+        let drawn = live_run(&mut s, 5, 2_500);
+        assert_eq!(
+            drawn,
+            [
+                0, 1_000, 1_050, 1_100, 1_150, 1_200, 1_250, 1_300, 1_350, 1_400, 2_000
+            ]
+        );
+        assert_eq!(fps(&drawn), 20.0);
+        println!("studio, 5 ms screen: {} frames/s while easing", fps(&drawn));
+        assert_eq!(connector.log().frames.len(), drawn.len());
+
+        // A screen taking 150 ms a frame: fewer frames, never queued.
+        let mut s = eased_bar_studio();
+        s.go_live(
+            "k".into(),
+            open_screen(&FakeBus::turing_88(), &connector, None).unwrap(),
+        );
+        let drawn = live_run(&mut s, 150, 2_500);
+        assert_eq!(drawn, [0, 1_000, 1_150, 1_300, 1_450, 2_000]);
+        println!(
+            "studio, 150 ms screen: {} frames/s while easing",
+            fps(&drawn)
+        );
+
+        // 250 ms a frame: two frames do not fit in 400 ms, the bar snaps.
+        let mut s = eased_bar_studio();
+        s.go_live(
+            "k".into(),
+            open_screen(&FakeBus::turing_88(), &connector, None).unwrap(),
+        );
+        let drawn = live_run(&mut s, 250, 2_500);
+        assert_eq!(drawn, [0, 1_000, 2_000]);
+    }
+
+    #[test]
+    fn previews_with_reduced_motion_show_the_reading_at_once() {
+        let mut s = eased_bar_studio();
+        let clock = |s: &Studio, ms| at(s, ms);
+        s.runtime
+            .sample_on_time(s.sensors.as_mut(), Duration::from_millis(0))
+            .unwrap();
+        s.replace_sensors(cpu_reading(80.0)).unwrap();
+        s.runtime
+            .sample_on_time(s.sensors.as_mut(), Duration::from_millis(1_000))
+            .unwrap();
+        let now = clock(&s, 1_100);
+        let (_, next) = s.preview(TIME, now, Motion::Allowed).unwrap();
+        assert_eq!(next, Some(Duration::from_millis(50)), "the next step");
+        let (_, next) = s.preview(TIME, now, Motion::Reduced).unwrap();
+        assert_eq!(next, None, "nothing moves");
+        let (_, next) = s
+            .element_preview(ElementId(1), TIME, now, Motion::Allowed)
+            .unwrap();
+        assert_eq!(next, Some(Duration::from_millis(50)));
+        let (_, next) = s
+            .element_preview(ElementId(1), TIME, now, Motion::Reduced)
+            .unwrap();
+        assert_eq!(next, None);
+    }
+
     fn card_animation_studio() -> Studio {
         use bezel_core::domain::theme::{
             Card, CardDirection, CardEffect, CardTransition, Paint, ShapeKind,
@@ -2364,6 +2527,7 @@ mod tests {
         let mut theme = theme_88();
         theme.refresh_seconds = 1.0;
         theme.elements.push(Element {
+            value_transition: None,
             id: ElementId(1),
             name: "Card".into(),
             frame: BoxF::new(20.0, 20.0, 100.0, 100.0),
@@ -2836,6 +3000,7 @@ mod tests {
     /// `theme` graphing `cpu.usage` over 8 samples.
     fn graphing(mut theme: Theme) -> Theme {
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,
@@ -3116,6 +3281,7 @@ mod tests {
         // The preview shows a theme that prints the ping.
         let mut theme = s.theme().clone();
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,

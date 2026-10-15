@@ -1,6 +1,9 @@
 // The widget palette: what each draggable widget creates, in theme.json
 // shape (see crates/bezel-themes/src/dto.rs). Defaults are sized relative to
 // the canvas so they look right on a 0.96" and on a 12.3" panel alike.
+// Objects that show a value (value, bar, ring, needle) ease to each new
+// reading (D-2026-10-15-studio-redesign-fidelity-18): `valueTransition`.
+import { defaultTransition } from '../value-transition.js';
 
 const WHITE = '#ffffffff';
 const ACCENT = '#38bdf8ff';
@@ -37,7 +40,7 @@ export const WIDGETS = Object.freeze(['text', 'value', 'clock', 'weather', 'play
  * @param {string} widget one of WIDGETS
  * @param {{width:number,height:number}} canvas
  * @param {{key?:string, quantity?:string}} [sensor] sensor to bind, when dropped from the sensor browser
- * @returns {{kind: object, width: number, height: number}}
+ * @returns {{kind: object, width: number, height: number, valueTransition?: object, card?: object}}
  */
 export function createWidget(widget, canvas, sensor = {}) {
   const short = Math.min(canvas.width, canvas.height);
@@ -52,6 +55,7 @@ export function createWidget(widget, canvas, sensor = {}) {
       return { kind: { type: 'text', content: { type: 'static', text: 'Text' }, style: textStyle(fontSize) }, width: short * 0.6, height: fontSize * 1.5 };
     case 'value':
       return {
+        valueTransition: defaultTransition(),
         kind: {
           type: 'text',
           content: { type: 'sensor', key, format: { showUnit: true, fahrenheit: false, decimalBytes: false }, prefix: '', suffix: '' },
@@ -71,15 +75,17 @@ export function createWidget(widget, canvas, sensor = {}) {
     case 'shape':
       return { kind: { type: 'shape', shape: 'rect', radius: Math.round(short / 24), fill: '#1e293bff', strokeWidth: 0 }, width: short * 0.8, height: short * 0.3 };
     case 'bar':
-      return { kind: { type: 'bar', binding, direction: 'leftToRight', fill: ACCENT, track: TRACK, radius: Math.round(short / 48) }, width: short * 0.8, height: Math.max(6, Math.round(short / 24)) };
+      return { valueTransition: defaultTransition(), kind: { type: 'bar', binding, direction: 'leftToRight', fill: ACCENT, track: TRACK, radius: Math.round(short / 48) }, width: short * 0.8, height: Math.max(6, Math.round(short / 24)) };
     case 'ring':
       return {
+        valueTransition: defaultTransition(),
         kind: { type: 'ring', binding, startAngle: -135, sweep: 270, thickness: Math.max(4, Math.round(short / 20)), clockwise: true, fill: ACCENT, track: TRACK, roundCaps: true },
         width: short * 0.6,
         height: short * 0.6,
       };
     case 'needle':
       return {
+        valueTransition: defaultTransition(),
         kind: { type: 'needle', binding, pivot: [0.5, 0.5], startAngle: -120, sweep: 240, color: '#f97316ff', width: Math.max(2, Math.round(short / 80)) },
         width: short * 0.6,
         height: short * 0.6,

@@ -226,6 +226,7 @@ mod tests {
         Background, Binding, BoxF, Cap, Direction, Element, ElementId, ElementKind, Fit,
         GraphStyle, HAlign, Paint, Segments, ShapeKind, TextContent, TextStyle, VAlign,
     };
+    use bezel_core::domain::transition::{TransitionMode, ValueTransition};
 
     fn key(k: &str) -> SensorKey {
         SensorKey::new(k).expect("key")
@@ -241,6 +242,7 @@ mod tests {
 
     fn el(id: u32, kind: ElementKind) -> Element {
         Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,
@@ -488,6 +490,85 @@ mod tests {
         let bytes = manifest(&timed).unwrap();
         assert!(String::from_utf8_lossy(&bytes).contains("\"intervalSeconds\": 30"));
         assert_eq!(parse_manifest(&bytes).unwrap(), timed);
+    }
+
+    /// The value transition of the theme's ring after a trip through JSON
+    /// where `edit` changed the ring element.
+    fn ring_transition_after(
+        edit: impl Fn(&mut serde_json::Value),
+    ) -> std::result::Result<Option<ValueTransition>, String> {
+        let (theme, _) = every_kind();
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        let ring = json["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["kind"]["type"] == "ring")
+            .unwrap();
+        edit(ring);
+        let read =
+            parse_manifest(&serde_json::to_vec(&json).unwrap()).map_err(|e| e.to_string())?;
+        Ok(read
+            .elements
+            .iter()
+            .find(|e| matches!(e.kind, ElementKind::Ring { .. }))
+            .unwrap()
+            .value_transition)
+    }
+
+    #[test]
+    fn a_value_transition_round_trips_and_old_themes_jump() {
+        // D-2026-10-15-studio-redesign-fidelity-18.
+        let (theme, _) = every_kind();
+        let json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        assert!(
+            json["elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("valueTransition").is_none()),
+            "not written when absent"
+        );
+        assert_eq!(ring_transition_after(|_| {}), Ok(None), "an old theme");
+        let set = |v: serde_json::Value| {
+            move |e: &mut serde_json::Value| e["valueTransition"] = v.clone()
+        };
+        let smooth = |ms: u32| serde_json::json!({"mode": "smooth", "durationMs": ms});
+        assert_eq!(
+            ring_transition_after(set(smooth(400))),
+            Ok(Some(ValueTransition::smooth(400)))
+        );
+        assert_eq!(
+            ring_transition_after(set(serde_json::json!({"mode": "none", "durationMs": 700}))),
+            Ok(Some(ValueTransition {
+                mode: TransitionMode::None,
+                duration_ms: 700
+            })),
+            "the duration is kept for when it is turned on again"
+        );
+        assert_eq!(
+            ring_transition_after(set(smooth(99_000))),
+            Ok(Some(ValueTransition::smooth(5_000))),
+            "at most five seconds"
+        );
+        assert_eq!(
+            ring_transition_after(set(smooth(1))),
+            Ok(Some(ValueTransition::smooth(50)))
+        );
+        assert_eq!(
+            ring_transition_after(set(serde_json::json!({"mode": "smooth"}))),
+            Ok(Some(ValueTransition::smooth(0))),
+            "no duration: it jumps"
+        );
+        assert!(ring_transition_after(set(serde_json::json!({"mode": "bounce"}))).is_err());
+
+        let mut eased = theme.clone();
+        for e in &mut eased.elements {
+            e.value_transition = Some(ValueTransition::smooth(400));
+        }
+        let bytes = manifest(&eased).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("\"durationMs\": 400"));
+        assert_eq!(parse_manifest(&bytes).unwrap(), eased);
     }
 
     #[test]

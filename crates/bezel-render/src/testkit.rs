@@ -16,6 +16,7 @@ static NO_QUANTITIES: Quantities = Quantities::new();
 use bezel_core::domain::theme::{
     AssetRef, Background, BoxF, Element, ElementId, ElementKind, Theme,
 };
+use bezel_core::domain::transition::ShownValues;
 use bezel_core::ports::{Backdrop, FrameRenderer, RenderContext};
 use image::codecs::gif::GifEncoder;
 use image::{Delay, ImageFormat, RgbaImage};
@@ -52,6 +53,7 @@ pub(crate) fn key(k: &str) -> SensorKey {
 /// A visible, opaque element.
 pub(crate) fn element(frame: BoxF, kind: ElementKind) -> Element {
     Element {
+        value_transition: None,
         card: None,
         is_group: false,
         group_parent: None,
@@ -83,6 +85,8 @@ pub(crate) struct Scene {
     pub time: LocalTime,
     /// How long the theme has been showing (animated images).
     pub animation: Duration,
+    /// Values of elements still easing to their readings.
+    pub shown: ShownValues,
 }
 
 impl Scene {
@@ -94,7 +98,14 @@ impl Scene {
             assets: BTreeMap::new(),
             time: TIME,
             animation: Duration::ZERO,
+            shown: ShownValues::default(),
         }
+    }
+
+    /// With element `id` easing through `value`.
+    pub fn easing(mut self, id: u32, value: f64) -> Self {
+        self.shown = [(ElementId(id), value)].into_iter().collect();
+        self
     }
 
     /// With `key` reading `value`.
@@ -144,6 +155,7 @@ pub(crate) fn render_over(
         animation: scene.animation,
         language: Language::English,
         backdrop,
+        shown: &scene.shown,
     };
     renderer
         .render(theme, &scene.assets, context)

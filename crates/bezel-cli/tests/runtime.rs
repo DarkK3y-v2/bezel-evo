@@ -99,6 +99,7 @@ fn window(theme: &Theme) -> usize {
 fn graphing(name: &str, history: u16) -> Theme {
     let mut theme = Theme::blank(name, Size::new(480, 1920), Orientation::Portrait);
     theme.elements.push(Element {
+        value_transition: None,
         card: None,
         is_group: false,
         group_parent: None,

@@ -3,6 +3,7 @@ import { isShown, effectiveOpacity, visibleWithoutFace } from './editor/cards.js
 import { fadeLine } from './shape-fade.js';
 import { weatherText } from './weather-format.js';
 import { formatClock } from './clock-format.js';
+import { easedDemoValue } from './value-transition.js';
 // An approximate renderer for demo mode (browser only). The real preview is
 // the Rust renderer's frame; this only has to look plausible and be fast.
 
@@ -30,6 +31,16 @@ function fraction(t, i) {
 }
 
 /**
+ * The value element `e` shows at `t` seconds, as a fraction: its reading
+ * at the last sample (every `refresh` s), eased from the one before when
+ * it has a smooth transition and motion is allowed, like the backend
+ * (D-2026-10-15-studio-redesign-fidelity-18).
+ */
+function shownFraction(e, t, refresh, motion) {
+  return easedDemoValue(e, (s) => fraction(s, e.id), t, refresh, motion);
+}
+
+/**
  * The demo's points of a graph at `t` seconds, oldest first, as fractions
  * of its height: like the backend (D-2026-10-15-studio-redesign-fidelity-16),
  * `history` points one `intervalSeconds` apart (one per `refreshSeconds`
@@ -43,7 +54,7 @@ export function demoGraphPoints(kind, refreshSeconds, t, seed) {
   return Array.from({ length: count }, (_, i) => fraction(newest - (count - 1 - i) * every, seed));
 }
 
-function drawText(ctx, e, t) {
+function drawText(ctx, e, t, value) {
   const k = e.kind;
   const s = k.style;
   let text = k.content.text ?? '';
@@ -55,7 +66,7 @@ function drawText(ctx, e, t) {
   } else if (k.content.type === 'player') {
     text = `Demo track\nDemo artist${k.content.showSource ? '\nDemo media app' : ''}${k.content.showProgress ? '\n1:24 / 3:30' : ''}`;
   } else if (k.content.type === 'sensor') {
-    text = `${k.content.prefix ?? ''}${Math.round(fraction(t, e.id) * 100)}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
+    text = `${k.content.prefix ?? ''}${Math.round(value * 100)}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
   }
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
@@ -95,14 +106,14 @@ function drawText(ctx, e, t) {
   } else ctx.fillText(text, x, y, f.width);
 }
 
-function drawElement(ctx, e, t, refresh = 1) {
+function drawElement(ctx, e, t, refresh = 1, motion = true) {
   const k = e.kind;
   const f = e.frame;
   if (['shape', 'image'].includes(k.type) && k.fade && f.width > 0 && f.height > 0) {
     const layer = new OffscreenCanvas(Math.ceil(f.width), Math.ceil(f.height));
     const lc = layer.getContext('2d');
     lc.translate(-f.x, -f.y);
-    drawElement(lc, { ...e, opacity: 1, kind: { ...k, fade: null } }, t, refresh);
+    drawElement(lc, { ...e, opacity: 1, kind: { ...k, fade: null } }, t, refresh, motion);
     lc.globalCompositeOperation = 'destination-in';
     lc.save();
     if (k.fade.radial) { lc.translate(f.x, f.y); lc.scale(f.width, f.height); }
@@ -119,12 +130,12 @@ function drawElement(ctx, e, t, refresh = 1) {
     ctx.drawImage(layer, f.x, f.y); ctx.restore();
     return;
   }
-  const frac = fraction(t, e.id);
+  const frac = shownFraction(e, t, refresh, motion);
   ctx.save();
   ctx.globalAlpha = e.opacity ?? 1;
   switch (k.type) {
     case 'text':
-      drawText(ctx, e, t);
+      drawText(ctx, e, t, frac);
       break;
     case 'shape':
       ctx.fillStyle = k.videoWindow ? '#1f2330' : paint(k.fill);
@@ -347,9 +358,10 @@ function drawCardTransition(ctx, theme, parent, transition, t) {
  * Renders a theme to RGBA pixels; `video` is the video background's picture
  * the demo backend chose (see `drawBackdrop`), if any. `scale` (at most 1)
  * reduces the picture: the canvas shrinks, the theme is drawn the same.
+ * Without `motion` values show their last sample (no easing).
  * @returns {{width:number, height:number, rgba: Uint8ClampedArray}}
  */
-export function renderApprox(theme, t, video = null, transitions = new Map(), scale = 1) {
+export function renderApprox(theme, t, video = null, transitions = new Map(), scale = 1, motion = true) {
   const width = Math.max(1, Math.round(theme.canvas.width * scale));
   const height = Math.max(1, Math.round(theme.canvas.height * scale));
   const canvas = new OffscreenCanvas(width, height);
@@ -365,7 +377,7 @@ export function renderApprox(theme, t, video = null, transitions = new Map(), sc
     if (e.isGroup) continue;
     if (transitions.has(e.id)) { drawCardTransition(ctx, theme, e, transitions.get(e.id), t); continue; }
     if (transitions.has(e.cardMember?.parent) || !isShown(theme, e)) continue;
-    drawElement(ctx, { ...e, opacity: effectiveOpacity(theme, e) }, t, theme.refreshSeconds);
+    drawElement(ctx, { ...e, opacity: effectiveOpacity(theme, e) }, t, theme.refreshSeconds, motion);
   }
   return { width, height, rgba: ctx.getImageData(0, 0, width, height).data };
 }

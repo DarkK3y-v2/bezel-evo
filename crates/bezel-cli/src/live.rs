@@ -560,7 +560,12 @@ where
                 Err(e) => Err(e.into()),
             };
             match sent {
-                Ok(Sent::Shown) => frames += 1,
+                Ok(Sent::Shown) => {
+                    frames += 1;
+                    // How long it took to show: value transitions keep that pace.
+                    let shown = since(pace, origin);
+                    self.runtime.screen_pace(shown.saturating_sub(now));
+                }
                 Ok(Sent::Back) => continue,
                 Ok(Sent::Stopped) => break,
                 Err(e) => return (frames, Err(e)),
@@ -876,6 +881,7 @@ mod tests {
         let location = ThemeLocation(path.display().to_string());
         let (mut theme, assets) = FsThemeStore.load(&location).unwrap();
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,
@@ -1458,6 +1464,7 @@ mod tests {
         let gif = AssetRef("assets/spin.gif".into());
         assets.insert(gif.clone(), spinning_gif());
         theme.elements.push(Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,

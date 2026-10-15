@@ -15,6 +15,7 @@ import { framingOf, isPlainFraming, pictureBox, resolvedRotation } from './edito
 import { pickLocale } from './i18n/index.js';
 import { liveScreenIn } from './live-screen.js';
 import { AXES, SCOPES } from './theme-filter.js';
+import { demoSampleDue, demoTransitionDue } from './value-transition.js';
 
 /** Well-known demo sensors: key, category, label, quantity, base value, swing. */
 export const DEMO_SENSORS = Object.freeze([
@@ -1148,6 +1149,24 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     { key: 'lhm.psu.corsair.0.power.14', category: 'board', label: 'Corsair HX1500i Total Output', quantity: 'watts', source: 'LibreHardwareMonitor' },
   ] : [];
   const now = clock.now ?? (() => Date.now() / 1000);
+  // Frames drawn while a value eases (D-2026-10-15-studio-redesign-fidelity-18),
+  // counted for the page (`hooks.onTransitionFrame`): the e2e measures their rate.
+  let transitionFrames = 0;
+  /**
+   * When the next frame of `theme`'s eased values is due, ms: a step later
+   * while one moves (a frame `count`ed), else at the next sample, where the
+   * next transition starts; null when nothing eases.
+   */
+  const valuesDue = (theme, t, motion, count = true) => {
+    const options = { motion, shown: (e) => isShown(theme, e) };
+    const due = demoTransitionDue(theme.elements ?? [], t, theme.refreshSeconds, options);
+    if (due === null) return demoSampleDue(theme.elements ?? [], t, theme.refreshSeconds, options);
+    if (count) {
+      transitionFrames += 1;
+      hooks.onTransitionFrame?.(transitionFrames);
+    }
+    return due;
+  };
   const delay = clock.delay ?? ((ms) => new Promise((resolve) => { setTimeout(resolve, ms); }));
   const chosen = SCENARIOS[scenario] ?? SCENARIOS.turing88;
   let theme = structuredClone(chosen.theme ?? DEMO_THEME);
@@ -1422,8 +1441,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       const playback = cardTimers.update(next, t * 1000, cardRotation);
       const video = videoPicture(playback.theme, motion, t * 1000);
       const transitions = cards.update(playback.theme, t * 1000, motion);
-      const frame = renderApprox(playback.theme, t, video, transitions);
-      const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null].filter((ms) => ms !== null);
+      const frame = renderApprox(playback.theme, t, video, transitions, 1, motion);
+      const easing = valuesDue(playback.theme, t, motion);
+      const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null, easing].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, millis: performance.now() - started, nextMs: due.length ? Math.min(...due) : null });
     },
     /**
@@ -1433,7 +1453,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
      * moves card transitions and videos, which an element alone never
      * plays; a GIF still says when it changes.
      */
-    renderElement: (next, elementId, { max = DEMO_ELEMENT_SIDE } = {}) => {
+    renderElement: (next, elementId, { max = DEMO_ELEMENT_SIDE, motion = true } = {}) => {
       const started = performance.now();
       const alone = demoIsolate(next, elementId);
       if (!alone) {
@@ -1442,8 +1462,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       }
       const t = now();
       const { width, height } = alone.canvas;
-      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)));
-      return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: demoNextChange(alone, t * 1000), millis: performance.now() - started });
+      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)), motion);
+      const due = [demoNextChange(alone, t * 1000), valuesDue(alone, t, motion, false)].filter((ms) => ms !== null);
+      return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: due.length ? Math.min(...due) : null, millis: performance.now() - started });
     },
     /** What Auto is for the theme's video background, like `video_auto`. */
     videoAuto: (next) => Promise.resolve(autoOf(next)),

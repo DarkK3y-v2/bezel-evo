@@ -315,3 +315,19 @@ section 3 (vendor app).
 Recommended model for Bezel: compose a full frame with real alpha (like the vendor app), then compute changed regions
 for protocols that accept partial updates. Python themes still render correctly under this model because their widgets
 are opaque over the background.
+
+### 4.1 Value transitions (D-2026-10-15-studio-redesign-fidelity-18)
+
+A smooth value transition adds frames only while a ring, bar, needle or value eases (at most 20 a second, one frame
+out per screen at a time). Those frames take the same path as every other frame; no opcode was added or changed.
+What reaches each screen per step, as already implemented by the drivers:
+
+| Family | Per transition step |
+|---|---|
+| Turing rev A, XuanFang rev B, Kipye rev D, WeAct | one DISPLAY_BITMAP (or window) per dirty rectangle of the core diff: only the moving widget |
+| Turing rev C (UART 2.1"/2.8"/5"/8.8") | UPDATE_BITMAP with the run list of the changed pixels (§ 9.2), then QUERY_STATUS |
+| TUR_USB (0x1CBE) | the whole frame as PNG (JPEG above 1 MiB): the transport has no partial update |
+| WCH (0x43A8) | the whole BGR888 frame: no partial update is known for this family |
+
+On the full-frame families each step costs a whole frame; the runtime measures how long a frame takes to show and
+snaps to the new value when fewer than two frames fit in a transition, so a slow link never queues frames.

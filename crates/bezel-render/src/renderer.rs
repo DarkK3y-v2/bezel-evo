@@ -7,7 +7,7 @@ use bezel_core::domain::clock::{clock_case, format_clock};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::Size;
 use bezel_core::domain::history::SeriesId;
-use bezel_core::domain::sensor::{format_reading, fraction};
+use bezel_core::domain::sensor::{Reading, format_reading, fraction};
 use bezel_core::domain::theme::{
     AssetRef, Background, Binding, BoxF, Element, ElementId, ElementKind, Fit, TextContent, Theme,
 };
@@ -79,6 +79,7 @@ struct CachedFace {
     snapshot: bezel_core::domain::sensor::Snapshot,
     histories: bezel_core::domain::history::Histories,
     quantities: bezel_core::domain::sensor::Quantities,
+    shown: bezel_core::domain::transition::ShownValues,
     pixels: Pixmap,
     window: Option<Pixmap>,
 }
@@ -288,14 +289,18 @@ fn draw_video_frame(canvas: &mut Pixmap, frame: &Frame) -> bool {
     true
 }
 
-/// The fraction of a binding's range the current reading represents.
-fn value_fraction(binding: &Binding, context: &RenderContext<'_>) -> Option<f64> {
-    let value = context.snapshot.get(&binding.key).value()?;
+/// The fraction of a binding's range element `id` shows: the value of its
+/// transition while one moves, else the current reading.
+fn value_fraction(id: ElementId, binding: &Binding, context: &RenderContext<'_>) -> Option<f64> {
+    let value = match context.shown.get(id) {
+        Some(value) => value,
+        None => context.snapshot.get(&binding.key).value()?,
+    };
     fraction(value, binding.min, binding.max)
 }
 
 /// What a text element prints now.
-fn text_of(content: &TextContent, context: &RenderContext<'_>) -> String {
+fn text_of(id: ElementId, content: &TextContent, context: &RenderContext<'_>) -> String {
     match content {
         TextContent::Player(p) => {
             let Some(m) = bezel_core::domain::playback::session(context.snapshot, &p.source) else {
@@ -327,7 +332,11 @@ fn text_of(content: &TextContent, context: &RenderContext<'_>) -> String {
             prefix,
             suffix,
         } => {
-            let reading = context.snapshot.get(key);
+            // A value moving to a new reading counts with the same format.
+            let reading = match context.shown.get(id) {
+                Some(value) => Reading::Value(value),
+                None => context.snapshot.get(key),
+            };
             let quantity = context.quantities.quantity(key);
             let value = format_reading(&reading, quantity, *format);
             format!("{prefix}{value}{suffix}")
@@ -392,7 +401,7 @@ fn element_bounds(
                 *pivot,
                 *start_angle,
                 *sweep,
-                value_fraction(binding, context),
+                value_fraction(element.id, binding, context),
             );
             pose.bounds(area, width.max(1.0) * 1.5)?
         }
@@ -625,6 +634,7 @@ impl SkiaRenderer {
                         && face.snapshot == *context.snapshot
                         && face.histories == *context.histories
                         && face.quantities == *context.quantities
+                        && face.shown == *context.shown
                 });
                 if let Some(face) = cached {
                     group.data_mut().copy_from_slice(face.pixels.data());
@@ -681,6 +691,7 @@ impl SkiaRenderer {
                                 snapshot: context.snapshot.clone(),
                                 histories: context.histories.clone(),
                                 quantities: context.quantities.clone(),
+                                shown: context.shown.clone(),
                                 pixels: group.clone(),
                                 window: window_group.clone(),
                             },
@@ -1007,7 +1018,7 @@ impl SkiaRenderer {
                     area.x += side + gap;
                     area.width = (area.width - side - gap).max(0.0);
                 }
-                let text = text_of(content, context);
+                let text = text_of(element.id, content, context);
                 let job = TextJob {
                     text: &text,
                     style,
@@ -1052,7 +1063,12 @@ impl SkiaRenderer {
                     radius: *radius,
                     segments: *segments,
                 };
-                gauges::draw_bar(layer, area, value_fraction(binding, context), &style);
+                gauges::draw_bar(
+                    layer,
+                    area,
+                    value_fraction(element.id, binding, context),
+                    &style,
+                );
             }
             ElementKind::Ring { .. } => draw_ring(layer, element, context),
             ElementKind::Needle { .. } => self.draw_needle(layer, element, assets, context),
@@ -1109,7 +1125,7 @@ impl SkiaRenderer {
             *pivot,
             *start_angle,
             *sweep,
-            value_fraction(binding, context),
+            value_fraction(element.id, binding, context),
         );
         let image = asset.as_ref().and_then(|asset| {
             self.images
@@ -1160,7 +1176,7 @@ fn draw_ring(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'
         if *test_full {
             Some(1.0)
         } else {
-            value_fraction(binding, context)
+            value_fraction(element.id, binding, context)
         },
         &style,
     );

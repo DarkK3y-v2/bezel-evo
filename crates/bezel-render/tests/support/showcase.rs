@@ -381,6 +381,7 @@ pub fn theme() -> Option<Theme> {
         .flatten()
         .enumerate()
         .map(|(i, (frame, kind))| Element {
+            value_transition: None,
             card: None,
             is_group: false,
             group_parent: None,
@@ -476,6 +477,7 @@ impl Scene {
             animation: std::time::Duration::ZERO,
             language: Language::English,
             backdrop: Backdrop::Poster,
+            shown: &bezel_core::domain::transition::NOTHING_SHOWN,
         }
     }
 }

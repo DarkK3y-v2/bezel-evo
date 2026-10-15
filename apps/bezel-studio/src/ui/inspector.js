@@ -24,6 +24,7 @@ import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, creat
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
+import { TRANSITION_RANGE, formatMs, transitionOf, transitionPatch } from '../value-transition.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
 /** The tallest the preview is drawn, CSS pixels. */
@@ -453,6 +454,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       nodes.push(switchRow(t('inspector.fahrenheit'), c.format.fahrenheit, (v) => update(e.id, { kind: { content: { format: { fahrenheit: v } } } })));
     }
     data.push(section('content', t('inspector.content'), nodes));
+    if (c.type === 'sensor') data.push(transitionSection(e));
     const look = [
       section('appearance', t('inspector.appearance'), weatherAppearance),
       section('font', t('inspector.font'), fontFields(e)),
@@ -572,9 +574,20 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ];
   }
 
+  /** How the shown value moves to a new reading (D-2026-10-15-studio-redesign-fidelity-18): none or smooth, and how long. */
+  function transitionSection(e) {
+    const { mode, durationMs } = transitionOf(e);
+    const set = (change) => update(e.id, { valueTransition: transitionPatch(e, change) });
+    return section('transition', t('insp.transition'), [
+      segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')]], (next) => set({ mode: next }), { bare: true }),
+      mode === 'smooth' && rangeField(t('card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs }),
+      el('p', { class: 'hint', text: t('insp.transitionHint') }),
+    ]);
+  }
+
   function barForm(e) {
     const k = e.kind;
-    const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }))];
+    const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
     const look = [section('appearance', t('inspector.appearance'), [
       selectField(t('common.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
@@ -624,6 +637,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         switchRow(t('inspector.clockwise'), k.clockwise !== false, (v) => update(e.id, { kind: { clockwise: v } })),
         switchRow(t('inspector.roundCaps'), Boolean(k.roundCaps), (v) => update(e.id, { kind: { roundCaps: v } })),
       ]),
+      transitionSection(e),
     ];
     const look = [
       section('appearance', t('inspector.appearance'), [
@@ -638,7 +652,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   function needleForm(e) {
     const k = e.kind;
-    const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }))];
+    const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
     const look = [section('appearance', t('inspector.appearance'), [
       angleFields(e),
       fieldGrid([

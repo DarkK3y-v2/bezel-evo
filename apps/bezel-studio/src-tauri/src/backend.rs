@@ -1915,6 +1915,7 @@ mod tests {
         f.backend.studio().sample().unwrap();
         let fill = Rgba::opaque(0, 200, 0);
         let bar = |max: f64| Element {
+            value_transition: None,
             is_group: false,
             group_parent: None,
             card: None,
