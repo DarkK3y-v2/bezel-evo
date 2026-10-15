@@ -1034,8 +1034,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     actions.hidden = !actionsOpen;
     // Main puts geometry first and the ring's source/arc together. The
     // standalone Graph/Player boards put data first, with geometry below.
-    const dataFirst = widget === 'graph' || widget === 'player';
-    const previewFirst = widget !== 'ring';
+    const dataFirst = widget === 'graph' || widget === 'player' || widget === 'card';
+    const previewFirst = widget !== 'ring' && widget !== 'card';
     return [
       header(e, widget, theme),
       actions,
