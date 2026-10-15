@@ -12,6 +12,11 @@ test('double-click fits the frame, one Undo restores it, and keyboard action mat
   const fitted = await width.inputValue();
   await page.locator('#undo').click();
   await expect(width).toHaveValue(before);
+  const frame = await page.locator('.sel-box').boundingBox();
+  await page.mouse.dblclick(frame.x + frame.width / 4, frame.y + 1);
+  await expect(width).toHaveValue(fitted);
+  await page.locator('#undo').click();
+  await expect(width).toHaveValue(before);
   const fit = page.getByRole('button', { name: t('insp.fitContent'), exact: true });
   await fit.focus(); await page.keyboard.press('Enter');
   await expect(width).toHaveValue(fitted);

@@ -7,6 +7,17 @@ export const PREFIXES = Object.freeze(['insp.']);
 
 export default {
   en: {
+    'insp.colorByValue': 'Colour by value',
+    'insp.baseColor': 'Base colour',
+    'insp.colorFrom': 'From ≥',
+    'insp.colorThresholdValue': 'Threshold value',
+    'insp.colorThresholdRow': 'Threshold {value}',
+    'insp.colorAdd': 'Add threshold',
+    'insp.colorRemove': 'Remove threshold',
+    'insp.colorMoveUp': 'Move threshold up',
+    'insp.colorMoveDown': 'Move threshold down',
+    'insp.colorThresholdHint': 'Uses native sensor units. The highest reached threshold wins; equal values use the last row.',
+
     'insp.fitContent': 'Fit frame to content',
     'insp.layer': 'layer {level} of {total}',
     'insp.inGroup': 'in {group}',
@@ -84,6 +95,17 @@ export default {
     'insp.gapHint': '“Gap” is the space between cover and text.',
   },
   'pt-BR': {
+    'insp.colorByValue': 'Cor por valor',
+    'insp.baseColor': 'Cor base',
+    'insp.colorFrom': 'A partir de ≥',
+    'insp.colorThresholdValue': 'Valor do limite',
+    'insp.colorThresholdRow': 'Limite {value}',
+    'insp.colorAdd': 'Adicionar limite',
+    'insp.colorRemove': 'Remover limite',
+    'insp.colorMoveUp': 'Mover limite para cima',
+    'insp.colorMoveDown': 'Mover limite para baixo',
+    'insp.colorThresholdHint': 'Usa as unidades do sensor. O maior limite atingido vence; valores iguais usam a última linha.',
+
     'insp.fitContent': 'Ajustar quadro ao conteúdo',
     'insp.layer': 'camada {level} de {total}',
     'insp.inGroup': 'em {group}',
@@ -161,6 +183,17 @@ export default {
     'insp.gapHint': '“Distância” é o espaço entre a capa e o texto.',
   },
   it: {
+    'insp.colorByValue': 'Colore in base al valore',
+    'insp.baseColor': 'Colore di base',
+    'insp.colorFrom': 'Da ≥',
+    'insp.colorThresholdValue': 'Valore soglia',
+    'insp.colorThresholdRow': 'Soglia {value}',
+    'insp.colorAdd': 'Aggiungi soglia',
+    'insp.colorRemove': 'Rimuovi soglia',
+    'insp.colorMoveUp': 'Sposta soglia su',
+    'insp.colorMoveDown': 'Sposta soglia giù',
+    'insp.colorThresholdHint': 'Usa le unità del sensore. Vince la soglia più alta raggiunta; a parità di valore, l’ultima riga.',
+
     'insp.fitContent': 'Adatta cornice al contenuto',
     'insp.layer': 'livello {level} di {total}',
     'insp.inGroup': 'in {group}',

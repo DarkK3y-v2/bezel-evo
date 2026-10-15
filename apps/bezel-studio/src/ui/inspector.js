@@ -1,3 +1,5 @@
+import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
+import { moveRule } from '../card-rules.js';
 import { canFitContent } from '../editor/fit-content.js';
 // The right inspector: the theme when nothing is selected, one element's
 // properties, or align/distribute tools for several. Every edit is one
@@ -1058,12 +1060,46 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   const alignTool = (ids, edge, paths) => el('button', { type: 'button', class: 'icon-button', title: t(`align.${edge}`), 'aria-label': t(`align.${edge}`), onclick: () => store.dispatch('align', { ids, edge }) }, [icon(paths, 16)]);
 
   /** What the tabs of an element hold: its kind's sections, then its membership and look. */
+  function valueColorSection(e, assets) {
+    if (!supportsValueColor(e)) return null;
+    const rule = e.colorByValue;
+    const set = colorByValue => update(e.id, { colorByValue });
+    const rows = rule?.thresholds ?? [];
+    const change = (i, patch) => set({ ...rule, thresholds: rows.map((row, n) => n === i ? { ...row, ...patch } : row) });
+    const focusRow = (index, action) => queueMicrotask(() => {
+      const row = root.querySelector(`[data-color-row="${index}"]`);
+      const target = row?.querySelector(`[data-color-action="${action}"]:not(:disabled)`) ?? row?.querySelector('button:not(:disabled)');
+      target?.focus();
+    });
+    const reorder = (i, to, action) => { set({ ...rule, thresholds: moveRule(rows, i, to) }); focusRow(to, action); };
+    return section('value-color', t('insp.colorByValue'), [
+      switchRow(t('insp.colorByValue'), Boolean(rule), enabled => set(enabled ? defaultValueColor(e,
+        sensors.catalog()[0]?.key ?? '', readIcon(assets.find(a => a.ref === e.kind.asset)?.iconSvg)?.color) : null)),
+      ...(rule ? [
+        boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }))
+          : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } })),
+        colorField(t('insp.baseColor'), rule.base, base => set({ ...rule, base })),
+        el('p', { class: 'hint', text: t('insp.colorThresholdHint') }),
+        ...rows.map((row, i) => el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('insp.colorThresholdRow', { value: i + 1 }), dataset: { colorRow: String(i), focusScope: `color-${i}` } }, [
+          prefixedField(t('insp.colorFrom'), t('insp.colorThresholdValue'), row.value, value => change(i, { value }), { step: 'any' }),
+          colorField(t('inspector.color'), row.color, color => change(i, { color })),
+          el('div', { class: 'button-row' }, [
+            iconButton(t('insp.colorMoveUp'), ICONS.up, () => reorder(i, i - 1, 'up'), { disabled: i === 0, dataset: { colorAction: 'up' } }),
+            iconButton(t('insp.colorMoveDown'), ICONS.down, () => reorder(i, i + 1, 'down'), { disabled: i === rows.length - 1, dataset: { colorAction: 'down' } }),
+            iconButton(t('insp.colorRemove'), ICONS.trash, () => set({ ...rule, thresholds: rows.filter((_, n) => n !== i) })),
+          ]),
+        ])),
+        chipButton(t('insp.colorAdd'), false, () => set(addColorThreshold(rule)), { disabled: rows.length >= MAX_COLOR_THRESHOLDS }),
+      ] : []),
+    ]);
+  }
+
   function panelsOf(e, theme, assets) {
     const kindForms = { text: textForm, bar: barForm, ring: ringForm, needle: needleForm, graph: graphForm, shape: shapeForm };
     const specific = e.isGroup ? {} : e.kind.type === 'image' ? imageForm(e, assets) : kindForms[e.kind.type]?.(e) ?? {};
     // The opacity closes the Look tab: in its last section, or alone under "Appearance".
     const opacity = rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` });
-    const look = (specific.look ?? []).filter(Boolean);
+    const look = [...(specific.look ?? []), valueColorSection(e, assets)].filter(Boolean);
     if (look.length) look.at(-1).querySelector('.property-section-body').append(opacity);
     else look.push(section('appearance', t('inspector.appearance'), [opacity]));
     if (e.card) return { ...cardPanels(e), look };
@@ -1154,6 +1190,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     // same label, or of the same stable id (the framing's).
     const active = document.activeElement;
     const inside = root.contains(active);
+    const scope = inside ? active.closest('[data-focus-scope]')?.dataset.focusScope : null;
     const tab = inside && active.getAttribute('role') === 'tab' ? active.dataset.tab : null;
     const id = inside && !tab && active.id?.startsWith('framing-') ? active.id : null;
     const label = inside && !tab && !id ? active.getAttribute('aria-label') : null;
@@ -1161,9 +1198,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const buttonText = inside && active.tagName === 'BUTTON' ? active.textContent : null;
     const controlSelector = inside ? `${active.tagName.toLowerCase()}${active.tagName === 'INPUT' ? `[type="${active.type}"]` : ''}` : null;
     root.replaceChildren(...nodes.filter(Boolean));
+    const focusRoot = scope ? root.querySelector(`[data-focus-scope="${CSS.escape(scope)}"]`) ?? root : root;
     if (tab) root.querySelector(`[role="tab"][data-tab="${CSS.escape(tab)}"]`)?.focus();
     else if (id) document.getElementById(id)?.focus();
-    else if (label) root.querySelector(`${controlSelector}[aria-label="${CSS.escape(label)}"]`)?.focus();
+    else if (label) focusRoot.querySelector(`${controlSelector}[aria-label="${CSS.escape(label)}"]`)?.focus();
     else if (nativeLabel) Array.from(root.querySelectorAll(controlSelector)).find((node) => node.labels?.[0]?.textContent === nativeLabel)?.focus();
     else if (buttonText !== null) Array.from(root.querySelectorAll('button')).find((node) => node.textContent === buttonText)?.focus();
     requestPreview();

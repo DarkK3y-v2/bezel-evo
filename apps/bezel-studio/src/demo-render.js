@@ -1,3 +1,6 @@
+import { boundKey } from './editor/widgets.js';
+import { demoSensorValue } from './demo-sensors.js';
+import { demoColorValue, withValueColor } from './value-color.js';
 import { cardPoses, drawCardProjection } from './editor/card-motion.js';
 import { isShown, effectiveOpacity, visibleWithoutFace } from './editor/cards.js';
 import { fadeLine } from './shape-fade.js';
@@ -37,6 +40,14 @@ function fraction(t, i) {
  * (D-2026-10-15-studio-redesign-fidelity-18).
  */
 function shownFraction(e, t, refresh, motion) {
+  const key = boundKey(e);
+  if (key) {
+    const every = refresh > 0 ? refresh : 1;
+    if (!Number.isFinite(demoSensorValue(key, Math.floor(t / every) * every))) return NaN;
+    const value = easedDemoValue(e, s => demoSensorValue(key, s), t, refresh, motion);
+    const b = e.kind.binding;
+    return b ? Math.max(0, Math.min(1, (value - b.min) / (b.max - b.min))) : value / 100;
+  }
   return easedDemoValue(e, (s) => fraction(s, e.id), t, refresh, motion);
 }
 
@@ -84,7 +95,7 @@ function drawText(ctx, e, t, value, measure = false) {
   } else if (k.content.type === 'player') {
     text = `Demo track\nDemo artist${k.content.showSource ? '\nDemo media app' : ''}${k.content.showProgress ? '\n1:24 / 3:30' : ''}`;
   } else if (k.content.type === 'sensor') {
-    text = `${k.content.prefix ?? ''}${Math.round(value * 100)}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
+    text = `${k.content.prefix ?? ''}${Number.isFinite(value) ? Math.round(value * 100) : '\u2014'}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
   }
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
@@ -130,6 +141,8 @@ function drawText(ctx, e, t, value, measure = false) {
 }
 
 function drawElement(ctx, e, t, refresh = 1, motion = true) {
+  const value = shownFraction(e, t, refresh, motion);
+  e = withValueColor(e, demoColorValue(e, value, key => demoSensorValue(key, Math.floor(t / refresh) * refresh)));
   const k = e.kind;
   const f = e.frame;
   if (['shape', 'image'].includes(k.type) && k.fade && f.width > 0 && f.height > 0) {
@@ -153,7 +166,7 @@ function drawElement(ctx, e, t, refresh = 1, motion = true) {
     ctx.drawImage(layer, f.x, f.y); ctx.restore();
     return;
   }
-  const frac = shownFraction(e, t, refresh, motion);
+  const frac = value;
   ctx.save();
   ctx.globalAlpha = e.opacity ?? 1;
   switch (k.type) {
@@ -250,7 +263,7 @@ function drawElement(ctx, e, t, refresh = 1, motion = true) {
         ctx.fillStyle = GIF_COLORS[Math.floor((t * 1000) / DEMO_GIF_FRAME_MS) % GIF_COLORS.length];
         ctx.fillRect(f.x, f.y, f.width, f.height);
       }
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.strokeStyle = k.color ? color(k.color) : 'rgba(255,255,255,0.4)';
       ctx.setLineDash([6, 6]);
       ctx.strokeRect(f.x, f.y, f.width, f.height);
       break;

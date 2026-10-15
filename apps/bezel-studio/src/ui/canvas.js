@@ -464,7 +464,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
 
   /** A double click on the video background, off any element, asks for framing mode. */
   function onDoubleClick(evt) {
-    if (framing || !containsClient(evt.clientX, evt.clientY)) return;
+    if (framing) return;
     const state = store.getState();
     if (state.selection.length === 1) {
       const e = theme().elements.find(e => e.id === state.selection[0]);
@@ -479,7 +479,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
         return;
       }
     }
-    if (theme().background.type !== 'video') return;
+    if (theme().background.type !== 'video' || !containsClient(evt.clientX, evt.clientY)) return;
     const p = point(evt.clientX, evt.clientY);
     if (hitTest(theme().elements.filter(e => isShown(theme(), e)), p.x, p.y) === null) onFrameRequest();
   }
