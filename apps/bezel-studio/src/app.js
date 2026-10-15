@@ -1170,8 +1170,8 @@ for (const id of ['undo', 'redo', 'grid-toggle', 'zoom-in', 'zoom-out', 'zoom-fi
 $('undo').addEventListener('click', () => store.undo());
 $('redo').addEventListener('click', () => store.redo());
 $('save').addEventListener('click', () => save());
-$('zoom-in').addEventListener('click', () => canvasView.setZoom(canvasView.zoom() * 1.25));
-$('zoom-out').addEventListener('click', () => canvasView.setZoom(canvasView.zoom() / 1.25));
+$('zoom-in').addEventListener('click', () => canvasView.stepZoom(1));
+$('zoom-out').addEventListener('click', () => canvasView.stepZoom(-1));
 $('zoom-fit').addEventListener('click', () => canvasView.fit());
 // "Show guides and grid": a grid over the canvas, remembered.
 const GRID_KEY = 'bezel.showGrid';

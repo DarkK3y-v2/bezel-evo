@@ -13,6 +13,7 @@ import { applyFramingKey, createBurst, framingKey, framingOf, panned, pictureBox
 
 const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 8;
+const ZOOM_STEP = 1.25;
 /** Pointer travel (screen px) before a press becomes a drag. */
 const DRAG_THRESHOLD = 3;
 
@@ -30,12 +31,16 @@ const DRAG_THRESHOLD = 3;
 export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom = () => {}, describe = (n) => n, onFrameRequest = () => {} }) {
   const ctx = canvas.getContext('2d');
   const bezel = box.closest('.bezel') ?? box;
+  const stageFrame = bezel.closest('.stage-frame') ?? bezel;
   const editingSpace = el('div', { class: 'editing-space' });
   bezel.before(editingSpace);
   editingSpace.append(bezel);
   let size = { width: canvas.width, height: canvas.height };
   let zoom = 1;
   let fitting = true;
+  let wheelFrame = null;
+  let wheelDelta = 0;
+  let wheelClient = null;
   let guides = [];
   let marquee = null;
   let hoverId = null;
@@ -86,7 +91,22 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     };
   }
 
+  function resetViewPosition() {
+    if (wheelFrame !== null) cancelAnimationFrame(wheelFrame);
+    wheelFrame = null;
+    wheelDelta = 0;
+    stageFrame.style.justifySelf = '';
+    stageFrame.style.alignSelf = '';
+    stageFrame.style.marginLeft = '';
+    stageFrame.style.marginTop = '';
+    stageFrame.style.marginRight = '';
+    stageFrame.style.marginBottom = '';
+    scroll.scrollLeft = 0;
+    scroll.scrollTop = 0;
+  }
+
   function fit() {
+    resetViewPosition();
     const space = room();
     const w = Math.max(space.width, 50);
     const h = Math.max(space.height, 50);
@@ -97,6 +117,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   }
 
   function setZoom(z) {
+    resetViewPosition();
     zoom = Math.min(Math.max(z, MIN_ZOOM), MAX_ZOOM);
     fitting = false;
     layout();
@@ -345,6 +366,49 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     applyFraming(zoomedAt(fv.framing, fv.view, wheelZoom(fv.framing.zoom, wheelPixels(evt)), point(evt.clientX, evt.clientY)));
   }
 
+  /** Accumulate fractional trackpad travel and mouse notches once per paint.
+   * One 100px notch is the same step as the zoom buttons. No percent rounding:
+   * even tiny pinch deltas contribute to the next zoom.
+   */
+  function onViewWheel(evt) {
+    if (evt.defaultPrevented || !containsClient(evt.clientX, evt.clientY)) return;
+    const delta = wheelPixels(evt);
+    if (!delta) return;
+    evt.preventDefault();
+    wheelDelta += delta;
+    wheelClient = { x: evt.clientX, y: evt.clientY };
+    if (wheelFrame !== null) return;
+    wheelFrame = requestAnimationFrame(() => {
+      const client = wheelClient;
+      const anchor = point(client.x, client.y);
+      const next = zoom * ZOOM_STEP ** (-wheelDelta / 100);
+      setZoom(next);
+      // Start alignment plus a positive margin/scroll pair can place the
+      // origin on either side of the viewport, including when the canvas is
+      // smaller than it. Scroll alone would clamp and lose the cursor anchor.
+      stageFrame.style.justifySelf = 'start';
+      stageFrame.style.alignSelf = 'start';
+      const rect = box.getBoundingClientRect();
+      const dx = client.x - anchor.x * zoom - rect.left;
+      const dy = client.y - anchor.y * zoom - rect.top;
+      const left = Math.max(0, Math.ceil(-dx));
+      const top = Math.max(0, Math.ceil(-dy));
+      // Scroll offsets are integral in WebView2/Chromium. Keep the fractional
+      // remainder in the margin so rounding cannot accumulate across turns.
+      stageFrame.style.marginLeft = `${dx + left}px`;
+      stageFrame.style.marginTop = `${dy + top}px`;
+      // When shrinking near the viewport edge, retain enough trailing room
+      // for the requested scroll offset instead of letting it clamp to zero.
+      const viewport = scroll.getBoundingClientRect();
+      const frame = stageFrame.getBoundingClientRect();
+      const padding = getComputedStyle(scroll);
+      stageFrame.style.marginRight = `${Math.max(0, left + scroll.clientWidth - (frame.right - viewport.left) - parseFloat(padding.paddingRight))}px`;
+      stageFrame.style.marginBottom = `${Math.max(0, top + scroll.clientHeight - (frame.bottom - viewport.top) - parseFloat(padding.paddingBottom))}px`;
+      scroll.scrollLeft = left;
+      scroll.scrollTop = top;
+    });
+  }
+
   /** Framing mode's keys: arrows, + and -, 0, Esc and Enter; the rest (undo, save) goes on to the editor. */
   function onFramingKey(evt) {
     if (!framing) return;
@@ -375,6 +439,9 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
    * @param {{auto: () => {rotation: number, size: {width: number, height: number}|null}|null, label: string, describedBy: string, onLeave: () => void}|null} mode
    */
   function setFraming(mode) {
+    if (wheelFrame !== null) cancelAnimationFrame(wheelFrame);
+    wheelFrame = null;
+    wheelDelta = 0;
     wheelBurst.flush();
     if (press?.started && press.mode !== 'marquee') store.endGesture();
     framing = mode;
@@ -409,16 +476,13 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   overlay.addEventListener('wheel', onFramingWheel, { passive: false });
   overlay.addEventListener('keydown', onFramingKey);
   scroll.addEventListener('dblclick', onDoubleClick);
-  scroll.addEventListener('wheel', (evt) => {
-    if (!evt.ctrlKey) return;
-    evt.preventDefault();
-    setZoom(zoom * (evt.deltaY < 0 ? 1.1 : 1 / 1.1));
-  }, { passive: false });
+  scroll.addEventListener('wheel', onViewWheel, { passive: false });
   new ResizeObserver(() => { if (fitting) fit(); }).observe(scroll);
 
   return {
     fit,
     setZoom,
+    stepZoom: (steps) => setZoom(zoom * ZOOM_STEP ** steps),
     zoom: () => zoom,
     setCanvasSize,
     drawFrame,
