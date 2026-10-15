@@ -4,7 +4,7 @@ test('Debug owns logging and its screen-readings suboption independently', async
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   const debug = page.locator('#prefs-debug');
   const overlay = page.locator('#prefs-debug-overlay');
   const corner = page.locator('#prefs-debug-corner');
@@ -19,8 +19,8 @@ test('Debug owns logging and its screen-readings suboption independently', async
     await corner.selectOption(value);
     await expect(corner).toHaveValue(value);
   }
-  await page.getByRole('button', { name: t('prefs.done') }).click();
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   await expect(debug).toBeChecked();
   await expect(overlay).toBeChecked();
   await expect(corner).toHaveValue('bottom-right');

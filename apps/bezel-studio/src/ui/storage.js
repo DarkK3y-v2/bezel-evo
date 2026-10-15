@@ -568,7 +568,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     if (parts.fraction === null) jobBar.removeAttribute('value');
     else jobBar.value = parts.fraction;
     jobCancel.disabled = job.cancelling;
-    jobCancel.textContent = job.kind === 'upload' ? t('storage.cancel') : t('storage.job.cancel');
+    jobCancel.textContent = job.kind === 'upload' ? t('storage.cancel') : t('dialog.cancel');
     jobHint.textContent = { upload: t('storage.busy'), plan: t('storage.job.planHint'), delete: t('storage.job.deleteHint') }[job.kind];
   }
 
@@ -749,7 +749,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       body.replaceChildren(
         el('p', { class: 'empty-note', role: 'alert', text: t('storage.loadError', { message: errorText(t, view.error) }) }),
         ...(command ? [el('p', { class: 'hint', text: t('udev.explain') }), udevCommand(t, command, notify)] : []),
-        buttonRow(el('button', { type: 'button', class: 'text-button', text: t('storage.retry'), onclick: load })),
+        buttonRow(el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), onclick: load })),
       );
       return;
     }

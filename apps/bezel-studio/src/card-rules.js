@@ -129,7 +129,5 @@ export function dropIndex(mids, y) {
   return i === -1 ? mids.length : i;
 }
 
-/** A rotation interval's quick label: `{value, unit}` with unit `s` or `min`. */
-export function durationParts(seconds) {
-  return seconds >= 60 && seconds % 60 === 0 ? { value: seconds / 60, unit: 'min' } : { value: seconds, unit: 's' };
-}
+// Rotation presets and graph windows share the same duration formatting.
+export { durationParts } from './inspector-tabs.js';

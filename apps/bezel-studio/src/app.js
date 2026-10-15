@@ -868,7 +868,7 @@ async function settleUnsaved() {
     body: t('unsaved.body', { name: store.getState().theme.name }),
     actions: [
       { id: 'discard', label: t('unsaved.discard'), kind: 'danger' },
-      { id: 'save', label: t('unsaved.save'), kind: 'primary' },
+      { id: 'save', label: t('top.save'), kind: 'primary' },
     ],
     initial: 'save',
   });

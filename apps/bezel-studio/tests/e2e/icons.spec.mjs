@@ -18,9 +18,9 @@ test('offline icons search, insert as SVG and undo in one step', async ({ page, 
   await search.fill('ventola');
   await expect(page.locator('#icon-grid .icon-choice')).not.toHaveCount(0);
   await search.fill('cpu');
-  await page.locator('#media-icons').getByLabel(t('icons.color'), { exact: true }).fill('#38bdf8');
-  await page.getByLabel(t('icons.size'), { exact: true }).fill('96');
-  await page.getByLabel(t('icons.size'), { exact: true }).press('Tab');
+  await page.locator('#media-icons').getByLabel(t('inspector.color'), { exact: true }).fill('#38bdf8');
+  await page.getByLabel(t('inspector.size'), { exact: true }).fill('96');
+  await page.getByLabel(t('inspector.size'), { exact: true }).press('Tab');
   await page.locator('[data-icon="cpu"]').click();
   const detail = page.locator('#inspector');
   // The picture is on the Data tab, its paint on Look: the file is read on either.

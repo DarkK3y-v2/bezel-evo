@@ -29,7 +29,7 @@ button, input, select { font: inherit; color: inherit; }
 select option, select optgroup { background-color: var(--surface-2); color: var(--text); }
 :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 [hidden] { display: none !important; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.visually-hidden, .choice-card-extra .field > span, .workspace.storage-wide .orientation-tools .segmented span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .spacer { flex: 1; }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 4px 0 10px; }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
@@ -75,7 +75,7 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
    artboards); `.toggle-row` is a switch row between two rules. */
 .switch, .switch-row { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; white-space: nowrap; }
 .switch-row { position: relative; display: flex; justify-content: space-between; gap: 12px; min-height: 28px; font-weight: 400; color: var(--text-2); white-space: normal; }
-.switch input, .switch-row input, .toggle-row input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch input, .switch-row input, .toggle-row input, .live-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .track { flex: none; position: relative; width: 32px; height: 18px; border-radius: 999px; background: var(--border-2); border: 1px solid var(--border); }
 .track .thumb { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); box-shadow: var(--shadow); }
 :is(.switch, .switch-row, .toggle-row) input:checked + .track { background: var(--switch-on); border-color: var(--switch-on); }
@@ -95,14 +95,12 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 .fld input:focus-visible { outline: none; }
 .fld:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .fld-unit { flex: none; color: var(--dim); font-size: var(--fs-caps); }
-.fld-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fld-grid, .layer-selection-actions, .storage-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 /* A labelled field (label above): `numberField()`, `textField()`, `selectField()`. */
 .field { display: grid; gap: 4px; margin-bottom: 8px; }
 .field > span { font-size: 0.85rem; color: var(--muted); }
-.field input[type="text"], .field input[type="number"], .field select, .field textarea {
-  width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--well);
-}
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.field input[type="text"], .field input[type="number"], .field select, .field textarea, .prefs-section .field select, .prefs-section .field input[type="text"] { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); }
+.field-row, .icon-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .field-row.four { grid-template-columns: repeat(4, 1fr); }
 .check { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .color-field { display: grid; grid-template-columns: 40px 1fr 70px; gap: 6px; align-items: center; }
@@ -126,13 +124,13 @@ input[aria-invalid="true"] { border-color: var(--danger) !important; }
 .chip-group:empty { display: none; }
 .chip { min-height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 0.92rem; font-weight: 500; cursor: pointer; }
 .chip:hover { color: var(--text); border-color: var(--accent); }
-.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.chip[aria-pressed="true"], .card-effect[data-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
 /* A status pill (`pill()`): mono, 22px, with an optional dot; `data-tone`
    ok, accent or warn colours it. */
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-caps); white-space: nowrap; }
 .pill:empty { display: none; }
 .pill-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.pill[data-tone="ok"] { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok-ink); }
+.pill[data-tone="ok"], .live-toggle:has(input:checked) { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok-ink); }
 .pill[data-tone="ok"] .pill-dot { background: var(--signal-ok); }
 .pill[data-tone="accent"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
 .pill[data-tone="warn"] { color: var(--warn); }
@@ -182,8 +180,8 @@ button.pill:hover { border-color: var(--accent); }
 .list-card:hover { border-color: var(--accent); }
 .list-card[aria-pressed="true"], .list-card[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .list-card-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
-.list-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.list-card-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); }
+.list-card-title, .boot-name, .album-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-card-sub, .theme-card .theme-screen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); }
 .list-card-value { flex: none; font-family: var(--font-mono); font-weight: 600; font-variant-numeric: tabular-nums; }
 .list-card > .ic { color: var(--info); }
 .list-card > .list-card-chevron { width: 14px; height: 14px; color: var(--dim); }
@@ -200,14 +198,14 @@ button.pill:hover { border-color: var(--accent); }
 
 /* -------------------------------------------------------------- notice -- */
 .notice { margin-top: 10px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--border); border-left: 4px solid var(--warn); background: var(--surface-2); }
-.notice-head { display: flex; align-items: center; gap: 8px; }
+.notice-head, .card-stepper { display: flex; align-items: center; gap: 8px; }
 .notice-head > svg { color: var(--warn); }
 .notice-head h2 { flex: 1; margin: 0; font-size: 0.95rem; }
-.notice-head .icon-button { width: 28px; min-height: 28px; border-color: transparent; background: transparent; }
+.notice-head .icon-button, .trigger-rule-head .icon-button, .stored-file .icon-button { width: 28px; min-height: 28px; border-color: transparent; background: transparent; }
 .notice p { margin: 6px 0; font-size: 0.9rem; }
 .notice ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.9rem; overflow-wrap: anywhere; }
 .button-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.media-name { display: grid; gap: 2px; min-width: 0; }
+.media-name, .collection-info, .file-main, .framing-hud-text { display: grid; gap: 2px; min-width: 0; }
 .media-name small { color: var(--muted); font-size: 0.85rem; }
 .drop-ghost { position: fixed; z-index: 10; pointer-events: none; padding: 6px 10px; border-radius: 8px; background: var(--accent); color: var(--accent-text); font-weight: 600; box-shadow: var(--shadow); transform: translate(-50%, -50%); }
 .empty-note { color: var(--muted); }
@@ -255,3 +253,25 @@ button.pill:hover { border-color: var(--accent); }
 @keyframes popover-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
 @keyframes thumb-wait { from { opacity: 0.55; } to { opacity: 1; } }
+
+/* Shared property sections (object and Card inspectors). */
+.property-section { margin-top: 22px; }
+.property-section .section-head { margin: 0 0 10px; }
+.property-section .section-head .segmented { margin-left: auto; }
+.property-section-body, .trigger-list, .storage-files { display: flex; flex-direction: column; gap: 10px; }
+.property-section-body > .field, .property-section-body > .slider-field, .property-section-body > .check { margin: 0; }
+.property-section-body h4 { margin: 4px 0 0; font-size: var(--fs-caps); color: var(--muted); }
+.property-section-body .actions { margin-top: 0; }
+.property-section-body > .segmented { display: flex; }
+.property-section-body > .segmented button { flex: 1 1 0; }
+.property-section-body .hint { margin: 0; font-size: var(--fs-small); line-height: 1.45; }
+.property-section-body .chip-group { margin: 0; }
+
+/* Shared layouts and control states used across panels. */
+.connect-device-list, .layer-groups { list-style: none; margin: 0; padding: 0; }
+.libre-popover-head, .samples-row { display: flex; align-items: center; gap: 10px; }
+.source-card select, .screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.choice-cards, .screen-advanced, .boot-section, .storage-files-head, .standby { display: flex; flex-direction: column; gap: 8px; }
+.sensor-row .label, .file-main .file-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-card strong, .media-item .media-name > span, .job-title, .stored-file .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gif-key-row, .standby-head, .standby-field-head { position: relative; display: flex; align-items: center; gap: 6px; }

@@ -316,7 +316,7 @@ test('Media lists bridge imports, counts files without posters and applies their
   await expect(panel.locator('#media-head .count')).toContainText(t('media.count', { count: 2 }));
   const video = items.filter({ has: page.getByText(t('media.video'), { exact: true }) });
   await expect(video).toHaveCount(1);
-  await video.getByRole('button', { name: t('media.useBackground'), exact: true }).click();
+  await video.getByRole('button', { name: t('collection.useBackground'), exact: true }).click();
   await expect(video).toHaveClass(/is-background/);
   await expect(video.locator('.media-bg')).toBeVisible();
   await page.locator('#undo').click();

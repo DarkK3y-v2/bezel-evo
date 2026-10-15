@@ -8,6 +8,11 @@ import { ICONS } from './icons.js';
 let counter = 0;
 const fieldId = () => `f${(counter += 1)}`;
 
+/** A named icon action, with the same native button and tooltip in every panel. */
+export function iconButton(label, paths, onclick, { size = 18, class: extra = '', ...attrs } = {}) {
+  return el('button', { type: 'button', class: `icon-button ${extra}`.trim(), 'aria-label': label, title: label, onclick, ...attrs }, [icon(paths, size)]);
+}
+
 /** A labelled number input. `step` 1 rounds to integers. */
 export function numberField(label, value, onChange, { min, max, step = 1 } = {}) {
   const id = fieldId();
@@ -118,6 +123,15 @@ export const count = (text) => el('span', { class: 'count', text: String(text) }
 /** A section's 11px caps title, with its count when given. */
 export function sectionTitle(text, { count: n = null, id } = {}) {
   return el('div', { class: 'section-head' }, [el('h3', { class: 'section-title', id, text }), n === null ? null : count(n)]);
+}
+
+/** A property group shared by the object and Card inspector. */
+export function propertySection(key, label, nodes, { count: n = null, tool = null } = {}) {
+  const contents = nodes.filter(Boolean);
+  if (!contents.length) return null;
+  const head = sectionTitle(label, { count: n });
+  if (tool) head.append(tool);
+  return el('section', { class: 'property-section', dataset: { section: key } }, [head, el('div', { class: 'property-section-body' }, contents)]);
 }
 
 /**

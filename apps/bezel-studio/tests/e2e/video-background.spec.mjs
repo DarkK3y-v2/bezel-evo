@@ -32,7 +32,7 @@ test('a video added from the Media panel becomes the background, and undo takes 
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await page.getByRole('tab', { name: t('library.media') }).click();
-  await expect(page.getByText(t('media.dropHint'))).toBeVisible();
+  await expect(page.getByText(t('mediaPanel.dropBody'))).toBeVisible();
   await page.getByRole('button', { name: t('media.addVideo') }).click();
   await expect(toast(page)).toHaveText(t('toast.videoAdded', { name: 'ferias.mp4', details: feriasDetails(lang) }));
   const item = page.locator('.media-item[data-ref="assets/ferias.mp4"]');
@@ -42,7 +42,7 @@ test('a video added from the Media panel becomes the background, and undo takes 
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'), { timeout: 1000 });
   await expectAccessible(page);
 
-  await item.getByRole('button', { name: t('media.useBackground') }).click();
+  await item.getByRole('button', { name: t('collection.useBackground') }).click();
   await expect(page.locator('#status-main')).toHaveText(t('status.unsaved'));
   const shown = inspector(page).getByRole('group', { name: t('bg.video') });
   await expect(shown).toContainText('ferias.mp4');
@@ -109,7 +109,7 @@ test('files dropped on the editing area become the background; a GIF is a video'
   const sea = page.locator('.media-item[data-ref="assets/mar.gif"]');
   await expect(sea).toContainText(t('media.animatedGif'));
   await expect(inspector(page)).toContainText(t('bg.image'), { timeout: 1000 });
-  await sea.getByRole('button', { name: t('media.useBackground') }).click();
+  await sea.getByRole('button', { name: t('collection.useBackground') }).click();
   await expect(inspector(page).getByRole('group', { name: t('bg.video') })).toContainText('mar.gif');
   expect(errors).toEqual([]);
 });

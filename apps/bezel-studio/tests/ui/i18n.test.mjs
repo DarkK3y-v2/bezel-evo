@@ -25,6 +25,18 @@ test('every locale has exactly the same keys', () => {
   for (const keys of rest) assert.deepEqual(keys, base);
 });
 
+test('area texts share one key for identical prose in all three locales (D-14)', () => {
+  const owners = new Map();
+  for (const area of Object.values(AREAS)) {
+    for (const key of Object.keys(area.tables.en)) {
+      const signature = JSON.stringify(['en', 'pt-BR', 'it'].map(locale => area.tables[locale][key]));
+      if (!owners.has(signature)) owners.set(signature, []);
+      owners.get(signature).push(key);
+    }
+  }
+  assert.deepEqual([...owners.values()].filter(keys => keys.length > 1), []);
+});
+
 test('the studio speaks Portuguese (Brazil), English and Italian', () => {
   assert.deepEqual(Object.keys(LOCALES).sort(), ['en', 'it', 'pt-BR']);
 });
@@ -93,7 +105,7 @@ test('every Italian text is written: none is empty', () => {
 });
 
 test('the card keeps its name: Card in English and Italian', () => {
-  for (const key of ['widget.card', 'card.container']) {
+  for (const key of ['widget.card', 'widget.card']) {
     assert.equal(LOCALES.en[key], 'Card', key);
     assert.equal(LOCALES.it[key], 'Card', key);
   }

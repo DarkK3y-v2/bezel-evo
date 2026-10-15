@@ -229,7 +229,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
     if (view.status === 'error') {
       return [
         el('p', { class: 'field-error', role: 'status', text: t('standby.loadError', { message: errorText(t, view.error) }) }),
-        el('div', { class: 'button-row' }, [el('button', { type: 'button', class: 'text-button', text: t('standby.retry'), dataset: { focus: 'retry' }, onclick: () => void load() })]),
+        el('div', { class: 'button-row' }, [el('button', { type: 'button', class: 'text-button', text: t('collection.retry'), dataset: { focus: 'retry' }, onclick: () => void load() })]),
       ];
     }
     if (!offered(view.data)) return [el('p', { class: 'hint', text: t('standby.unsupported') })];

@@ -68,30 +68,17 @@
 .inspector-tabs [role="tab"]:focus-visible { outline-offset: 0; }
 
 /* Sections: an 11px caps title (sectionTitle()), 22px apart. */
-.property-section { margin-top: 22px; }
-.property-section .section-head { margin: 0 0 10px; }
 .inspector .section-head h3 { margin: 0; }
-.property-section .section-head .segmented { margin-left: auto; }
 .inspector-tabs + .property-section, .inspector-tabs + .inspector-panel > .property-section:first-child { margin-top: 18px; }
-.property-section-body { display: flex; flex-direction: column; gap: 10px; }
-.property-section-body > .field, .property-section-body > .slider-field, .property-section-body > .check { margin: 0; }
-.property-section-body h4 { margin: 4px 0 0; font-size: var(--fs-caps); color: var(--muted); }
-.property-section-body .actions { margin-top: 0; }
 .inspector-panel > .dashed-hint { margin-top: 22px; }
 .fld-grid.is-muted input { color: var(--text-3); }
-.property-section-body > .segmented { display: flex; }
-.property-section-body > .segmented button { flex: 1 1 0; }
 .align-row { display: flex; gap: 4px; }
 .align-row .icon-button { border-color: transparent; }
-.samples-row { display: flex; align-items: center; gap: 10px; }
 .samples-row .fld { flex: 1 1 auto; }
 .samples-row .hint { flex: none; margin: 0; }
-.property-section-body .hint { margin: 0; font-size: var(--fs-small); line-height: 1.45; }
-.property-section-body .chip-group { margin: 0; }
 
 /* The sensor a widget reads: a list card with the native select over it. */
 .source-card { position: relative; }
-.source-card select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .source-card:hover .list-card { border-color: var(--accent); }
 .source-card:has(select:focus-visible) .list-card { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
@@ -121,9 +108,6 @@
 .app-chips .pill-dot { background: var(--faint); }
 .app-chips .pill-dot[data-playing="true"] { background: var(--signal-ok); }
 .app-chips .other-chip { border-style: dashed; }
-
-/* A choice drawn as a card with its radio. */
-.choice-cards { display: flex; flex-direction: column; gap: 8px; }
 .choice-card { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); }
 .choice-card[data-checked="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .choice-card-head { display: flex; align-items: center; gap: 12px; cursor: pointer; }
@@ -132,7 +116,6 @@
 .choice-card-text span { color: var(--muted); font-size: 12px; }
 .choice-card-extra { padding-left: 28px; }
 .choice-card-extra .field { margin: 0; }
-.choice-card-extra .field > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* The cover's corners, each around a drawing of the cover. */
 .corner-grid { display: grid; grid-template-columns: 76px 1fr 76px; grid-template-rows: auto auto auto; gap: 8px; align-items: center; justify-items: center; padding: 4px 6px; }

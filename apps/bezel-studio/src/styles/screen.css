@@ -29,7 +29,6 @@
 .toggle-label { display: flex; flex-direction: column; gap: 3px; }
 .toggle-title { font-weight: 500; }
 .toggle-hint { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.4; }
-.screen-advanced { display: flex; flex-direction: column; gap: 8px; }
 .screen-tail .screen-advanced { padding-top: 12px; border-top: 1px solid var(--line); }
 .screen-block .screen-advanced { padding-top: 12px; border-top: 1px solid var(--line); }
 .screen-advanced .text-button, .screen-advanced .primary-button { justify-content: flex-start; min-height: 34px; padding: 0 12px; font-weight: 600; text-align: left; }
@@ -57,7 +56,6 @@
 .storage-job { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent-soft); }
 .job-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .job-head svg { flex: none; color: var(--accent-ink); }
-.job-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-status { display: flex; justify-content: space-between; gap: 8px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .job-phase { font-weight: 600; }
 .job-amount { color: var(--muted); }
@@ -80,7 +78,6 @@
 /* Storage (artboard Storage): each medium's card with its use by kind and
    the legend; at start-up; the files with the place chips; the assistants. */
 .storage-summary { display: grid; gap: 10px; }
-.storage-meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .storage-meter { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface-2); }
 .storage-meter-label { color: var(--text-3); font-size: 12px; }
 .storage-meter-none { margin: 0; color: var(--muted); font-size: 12px; }
@@ -95,18 +92,12 @@
 .storage-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
 .storage-legend li { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: var(--fs-caps); }
 .storage-swatch { width: 8px; height: 8px; border-radius: 2px; }
-
-.boot-section { display: flex; flex-direction: column; gap: 8px; }
 .boot-section .section-head, .storage-files .section-head { margin: 0; }
 .boot-slot { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1.5px dashed var(--faint); border-radius: 12px; background: var(--chrome); }
 .boot-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.boot-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .boot-sub { color: var(--muted); font-size: var(--fs-small); }
 .boot-section > .hint { margin: 0; color: var(--dim); font-size: var(--fs-small); }
 .boot-section.drop-target .boot-slot { border-color: var(--accent); background: var(--accent-soft); }
-
-.storage-files { display: flex; flex-direction: column; gap: 10px; }
-.storage-files-head { display: flex; flex-direction: column; gap: 8px; }
 .storage-files-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .storage-tools { display: flex; flex-wrap: wrap; gap: 4px; }
 .storage-places { margin: 0; }
@@ -126,10 +117,8 @@
 .stored-file { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-auto-flow: column; grid-auto-columns: 28px; align-items: center; gap: 4px; padding: 2px 2px 2px 6px; border-radius: 8px; font-size: 0.85rem; }
 .stored-file:hover { background: var(--surface-2); }
 .stored-file > svg { color: var(--muted); }
-.stored-file .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stored-file .file-name.draggable { cursor: grab; touch-action: none; user-select: none; }
 .stored-file .file-size { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stored-file .icon-button { width: 28px; min-height: 28px; border-color: transparent; background: transparent; }
 .stored-file .icon-button:hover:not(:disabled) { border-color: var(--accent); background: var(--surface); }
 .stored-file .icon-button svg { width: 16px; height: 16px; }
 
@@ -168,8 +157,6 @@
 .file-thumb img { display: none; width: 100%; height: 100%; object-fit: contain; }
 .file-thumb.has-picture img { display: block; }
 .file-thumb.has-picture svg { display: none; }
-.file-main { display: grid; gap: 2px; min-width: 0; }
-.file-main .file-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; color: var(--dim); font-family: var(--font-mono); font-size: var(--fs-caps); font-variant-numeric: tabular-nums; }
 .tag.warn { border-color: var(--warn); color: var(--warn); }
 .tag.protected { border-color: var(--accent); }
@@ -193,11 +180,7 @@
 .check-list small { color: var(--muted); }
 .cleanup-group + .cleanup-group { margin-top: 8px; border-top: 1px solid var(--border); }
 .cleanup-group .hint { margin: 0 0 4px; }
-
-/* --------------------------- when the computer shuts down (Settings) -- */
-.standby { display: flex; flex-direction: column; gap: 8px; }
 .standby[aria-busy="true"] .standby-options { cursor: progress; }
-.standby-head, .standby-field-head { position: relative; display: flex; align-items: center; gap: 6px; }
 .standby-head .section-title { flex: 1; }
 .standby-field-head label, .standby-field-head h3 { flex: 1; }
 .standby-field-head .dialog-subtitle { margin: 4px 0; }
@@ -239,7 +222,6 @@
 .album-thumb.has-picture img { display: block; }
 .album-thumb.has-picture svg { display: none; }
 .album-info { display: grid; gap: 1px; min-width: 0; }
-.album-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .album-info small { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .album-need { margin: 0; }

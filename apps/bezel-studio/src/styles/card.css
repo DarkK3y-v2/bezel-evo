@@ -1,10 +1,5 @@
 /* Card content; the enclosing inspector is owned by T-5. */
-.card-section .section-head { margin: 0 0 10px; }
-.inspector .card-section .section-title { margin: 0; }
-.card-section .property-section-body { display: flex; flex-direction: column; gap: 10px; }
 .card-section .hint { margin: 0; line-height: 1.5; font-size: var(--fs-small); }
-.card-section .field, .card-section .slider-field { margin: 0; }
-.card-section .chip-group { margin: 0; }
 .face-chips { display: flex; align-items: stretch; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .face-chip { flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px; padding: 8px 5px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--text); font-family: var(--font-mono); font-size: 11px; cursor: pointer; }
 .face-chip:hover { border-color: var(--accent); }
@@ -28,28 +23,22 @@
 .face-object .field { flex: 0 1 104px; min-width: 0; }
 .face-object .field > span { display: none; }
 .face-object select { width: 100%; font-size: 11px; }
-.card-stepper { display: flex; align-items: center; gap: 8px; }
 .card-stepper .fld { flex: 1 1 auto; min-width: 0; }
 .card-rotation-help { color: var(--muted); font-size: var(--fs-small); line-height: 1.5; }
 .card-rotation-help summary { cursor: pointer; }
 .card-rotation-help[open] summary { margin-bottom: 6px; }
 .card-effects { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .card-effect { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 4px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); color: var(--muted); cursor: pointer; }
-.card-effect[data-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
 .card-effect input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .card-effect:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .card-effect .effect-art { width: 100%; height: 32px; }
 .card-effect > span { max-width: 100%; overflow-wrap: anywhere; text-align: center; font-size: 11px; }
 .card-scale { display: flex; justify-content: space-between; margin-top: -8px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
-.card-section .segmented { display: flex; }
-.card-section .segmented button { flex: 1; }
 .play-button { width: 100%; min-height: 36px; font-weight: 600; }
 .play-button svg { color: var(--accent-ink); }
-.trigger-list { display: flex; flex-direction: column; gap: 10px; }
 .trigger-rule { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .trigger-rule-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
 .trigger-rule-head .danger { margin-left: auto; }
-.trigger-rule-head .icon-button { width: 28px; min-height: 28px; border-color: transparent; background: transparent; }
 .rule-handle { touch-action: none; cursor: grab; }
 .trigger-rule.dragging { border-color: var(--accent); }
 .rule-sentence { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }

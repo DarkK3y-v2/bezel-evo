@@ -80,9 +80,9 @@ test('rotation has a stepper and quick durations; effects are picture cards; one
   await inspector.getByRole('button', { name: t('cardInsp.decrease'), exact: true }).click();
   await expect(seconds).toHaveValue('9');
   const quick = inspector.getByRole('group', { name: t('cardInsp.quickDurations'), exact: true });
-  await quick.getByRole('button', { name: t('cardInsp.minutes', { value: 1 }), exact: true }).click();
+  await quick.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true }).click();
   await expect(seconds).toHaveValue('60');
-  await expect(quick.getByRole('button', { name: t('cardInsp.minutes', { value: 1 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(quick.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#undo').click();
   await expect(seconds).toHaveValue('9');
   await seconds.fill('2');
@@ -218,7 +218,7 @@ test('the shared context renders real face pixels and supplies live trigger app 
   await page.goto('/index.html?demo=turing88');
   // Exercise the pending host wiring without editing the frozen inspector.
   await page.evaluate(async locale => {
-    const [{ renderCardPanel }, { createStore }, { createDemoBackend }, { translator }, { el }, { sectionTitle }] = await Promise.all([
+    const [{ renderCardPanel }, { createStore }, { createDemoBackend }, { translator }, { el }, { propertySection }] = await Promise.all([
       import('/ui/inspector-card.js'), import('/editor/store.js'), import('/demo-backend.js'), import('/i18n/index.js'), import('/ui/dom.js'), import('/ui/fields.js'),
     ]);
     const bridge = createDemoBackend('turing88');
@@ -237,7 +237,7 @@ test('the shared context renders real face pixels and supplies live trigger app 
     const render = () => root.replaceChildren(...renderCardPanel(selectedTab, {
       element: store.getState().theme.elements.find(e => e.id === id), store, t: translate, bridge,
       host: { lastSample: () => sample }, update: (elementId, patch) => store.dispatch('update', { id: elementId, patch }),
-      section: (key, label, nodes) => el('section', { class: 'property-section', dataset: { section: key } }, [sectionTitle(label), el('div', { class: 'property-section-body' }, nodes.filter(Boolean))]),
+      section: propertySection,
     }).filter(Boolean));
     store.subscribe(render);
     render();

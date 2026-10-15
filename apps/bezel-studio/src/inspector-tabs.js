@@ -9,7 +9,7 @@ export function shownSensorKeys(keys, { theme, selection }, visible = true, insp
   if (!visible) return [];
   const element = selection.length === 1 ? theme.elements.find(e => e.id === selection[0]) : null;
   const activity = inspectorShown && element && (widgetOf(element) === 'player' || element.card?.triggers?.length > 0);
-  return [...new Set([...keys, ...(activity ? ['activity.processes', 'media.sessions'] : [])])].sort();
+  return [...new Set([...keys, ...(activity ? ['activity.processes', 'media.sessions'] : [])])];
 }
 
 /** A card's tabs: its faces, how they change, what brings one forward, and how it looks. */

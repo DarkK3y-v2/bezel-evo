@@ -114,11 +114,11 @@ test('the graph scales itself and shows its peak; quick durations set its sample
   const inspector = page.locator('#inspector');
   const samples = inspector.getByRole('spinbutton', { name: t('inspector.history'), exact: true });
   await expect(samples).toHaveValue('60');
-  const minute = inspector.getByRole('button', { name: t('insp.minutes', { value: 1 }), exact: true });
+  const minute = inspector.getByRole('button', { name: t('unit.minutes', { value: 1 }), exact: true });
   await expect(minute).toHaveAttribute('aria-pressed', 'true');
-  await inspector.getByRole('button', { name: t('insp.minutes', { value: 5 }), exact: true }).click();
+  await inspector.getByRole('button', { name: t('unit.minutes', { value: 5 }), exact: true }).click();
   await expect(samples).toHaveValue('300');
-  await expect(inspector.getByRole('button', { name: t('insp.minutes', { value: 5 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(inspector.getByRole('button', { name: t('unit.minutes', { value: 5 }), exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(inspector.locator('.inspector-preview-axis')).toContainText(t('insp.ago', { seconds: 300 }));
 
   await expect(inspector.locator('.graph-peak')).toHaveCount(0);

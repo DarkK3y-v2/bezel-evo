@@ -100,8 +100,8 @@ export function createConnect({ t, notify, errorText, deviceLabel, onImport, onO
     const hide = el('button', {
       type: 'button',
       class: 'icon-button connect-hide',
-      title: t('connect.hide'),
-      'aria-label': t('connect.hide'),
+      title: t('dialog.close'),
+      'aria-label': t('dialog.close'),
       onclick: () => {
         hiddenFor = signature();
         root.hidden = true;

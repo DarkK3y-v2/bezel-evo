@@ -10,7 +10,7 @@ const theme = { elements: [
 ] };
 test('activity sampling follows only the visible inspector selection, preserving library requests', () => {
   const keys = ['cpu.usage', 'cpu.usage'];
-  const activity = ['activity.processes', 'cpu.usage', 'media.sessions'];
+  const activity = ['cpu.usage', 'activity.processes', 'media.sessions'];
   for (const selection of [[1], [3]]) {
     assert.deepEqual(shownSensorKeys(keys, { theme, selection }), activity);
     assert.deepEqual(shownSensorKeys(keys, { theme, selection }, true, false), ['cpu.usage']);

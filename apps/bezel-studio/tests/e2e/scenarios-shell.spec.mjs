@@ -40,7 +40,7 @@ test('every panel reads in one language, with no key or placeholder showing', as
   await page.getByRole('tab', { name: t('screen.storageTab') }).click();
   await expect(page.getByRole('region', { name: t('storage.medium.internal') })).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(leftovers);
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   await expect(page.getByRole('dialog', { name: t('prefs.title') })).toBeVisible();
   expect(await page.locator('body').innerText()).not.toMatch(leftovers);
   expect(errors).toEqual([]);
@@ -132,7 +132,7 @@ test('unsaved edits are not lost to another theme', async ({ page, t }) => {
   await newHorizontal.click();
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(t('unsaved.body', { name: 'Demo' }));
-  await expect(dialog.getByRole('button', { name: t('unsaved.save') })).toBeFocused();
+  await expect(dialog.getByRole('button', { name: t('top.save') })).toBeFocused();
   await expectAccessible(page);
 
   // Cancel and Esc keep the edits.
@@ -157,7 +157,7 @@ test('unsaved edits are not lost to another theme', async ({ page, t }) => {
   await page.locator('#theme-name').press('Tab');
   await expect(page.locator('#status-main')).toHaveText(t('status.unsaved'));
   await page.locator('#theme-grid .theme-card').first().click();
-  await dialog.getByRole('button', { name: t('unsaved.save') }).click();
+  await dialog.getByRole('button', { name: t('top.save') }).click();
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await expect(page.locator('#status-main')).toHaveText(t('status.saved'));
   await expect(page.locator('#theme-grid .theme-card')).toHaveCount(2);
@@ -210,9 +210,9 @@ test('quitting from the tray over unsaved edits shows the window and asks', asyn
   // Live and hidden in the tray with unsaved edits: Quit shows the window
   // and asks; Cancel keeps the app, Discard ends it.
   await page.goto('/index.html?demo=turing88');
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   await page.getByRole('switch', { name: t('prefs.lightOnClose') }).uncheck();
-  await page.getByRole('button', { name: t('prefs.done') }).click();
+  await page.getByRole('button', { name: t('framing.done') }).click();
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await page.getByRole('button', { name: /^CPU/ }).click();
   await page.keyboard.press('Delete');
@@ -309,7 +309,7 @@ test('the language follows the system until one is chosen', async ({ page, t, la
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await expect(html).toHaveAttribute('lang', lang);
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   const dialog = page.getByRole('dialog', { name: t('prefs.title') });
   const language = dialog.getByRole('combobox', { name: t('prefs.language') });
   await expect(language).toBeFocused();
@@ -327,13 +327,13 @@ test('the language follows the system until one is chosen', async ({ page, t, la
   await expectAccessible(page);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: u('top.preferences') })).toBeFocused();
+  await expect(page.getByRole('button', { name: u('prefs.title') })).toBeFocused();
 
   // Back to the system's.
-  await page.getByRole('button', { name: u('top.preferences') }).click();
+  await page.getByRole('button', { name: u('prefs.title') }).click();
   await page.getByRole('dialog').getByRole('combobox', { name: u('prefs.language') }).selectOption('');
   await expect(html).toHaveAttribute('lang', lang);
-  await page.getByRole('dialog').getByRole('button', { name: t('prefs.done') }).click();
+  await page.getByRole('dialog').getByRole('button', { name: t('framing.done') }).click();
   await expect(page.getByRole('tab', { name: t('library.sensors') })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -342,7 +342,7 @@ test('the ping target and the MangoHud folder are set in the preferences', async
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   const dialog = page.getByRole('dialog', { name: t('prefs.title') });
   const host = dialog.getByRole('textbox', { name: t('prefs.pingHost') });
   await expect(host).toHaveValue('8.8.8.8');
@@ -376,16 +376,16 @@ test('the Light switch persists and protects unsaved live edits on close', async
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   const toggle = page.getByRole('switch', { name: t('prefs.lightOnClose') });
   await expect(toggle).toBeChecked();
   await expectAccessible(page);
   await toggle.uncheck();
-  await page.getByRole('button', { name: t('prefs.done') }).click();
-  await page.getByRole('button', { name: t('top.preferences') }).click();
+  await page.getByRole('button', { name: t('framing.done') }).click();
+  await page.getByRole('button', { name: t('prefs.title') }).click();
   await expect(toggle).not.toBeChecked();
   await toggle.check();
-  await page.getByRole('button', { name: t('prefs.done') }).click();
+  await page.getByRole('button', { name: t('framing.done') }).click();
   await page.getByRole('switch').click({ force: true });
   await expect(page.getByRole('switch')).toBeChecked();
   await page.getByRole('tab', { name: t('library.layers') }).click();

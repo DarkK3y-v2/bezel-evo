@@ -30,16 +30,13 @@
 .screen-chip-meta { flex: none; color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-small); }
 .screen-chip-meta:empty { display: none; }
 .screen-chip > .ic { color: var(--muted); }
-.screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .dot.awake { background: var(--ok); }
 .dot.live { background: var(--signal-ok); box-shadow: 0 0 0 3px var(--signal-ok-halo); }
 
 /* Live: a toggle drawn as a button, green while on. */
 .live-toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text-3); font-weight: 600; cursor: pointer; }
-.live-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .live-toggle:hover { border-color: var(--ok-line); }
-.live-toggle:has(input:checked) { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok-ink); }
 .live-toggle:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 /* Save stays in reach (Ctrl+S), quiet beside Live (D-...-fidelity-6). */
 .save-button { height: 36px; gap: 10px; }
@@ -112,7 +109,6 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 .framing-hud { position: absolute; z-index: 3; top: 68px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; width: max-content; max-width: calc(100% - 24px); padding: 8px 10px 8px 12px; border: 1px solid var(--accent); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
 .framing-hud > svg { width: 22px; height: 22px; color: var(--accent-ink); }
-.framing-hud-text { display: grid; gap: 2px; min-width: 0; }
 .framing-numbers { font-weight: 600; font-variant-numeric: tabular-nums; }
 .framing-keys { color: var(--muted); font-size: 0.85rem; }
 .framing-hud .primary-button { flex: none; }
@@ -156,7 +152,6 @@ body.resizing { cursor: col-resize; user-select: none; }
 .workspace.storage-wide .stage-tools .orientation-tools, .workspace.storage-wide .stage-tools .toolbar, .workspace.storage-wide .orientation-tools .segmented { flex-direction: column; }
 .workspace.storage-wide .orientation-tools .segmented { display: flex; }
 .workspace.storage-wide .orientation-tools .segmented button { justify-content: center; width: 32px; padding: 0; }
-.workspace.storage-wide .orientation-tools .segmented span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .workspace.storage-wide .tool-sep { width: 20px; height: 1px; margin: 4px 0; }
 .workspace.storage-wide > .sidebar { border-right: 0; }
 
@@ -165,7 +160,6 @@ body.resizing { cursor: col-resize; user-select: none; }
 .prefs-section { display: grid; gap: 4px; padding: 4px 0 8px; }
 .prefs-section + .prefs-section { border-top: 1px solid var(--border); padding-top: 12px; }
 .prefs-section h3 { margin: 4px 0; font-size: var(--fs-caps); text-transform: uppercase; letter-spacing: var(--caps-spacing); color: var(--muted); }
-.prefs-section .field select, .prefs-section .field input[type="text"] { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); }
 .prefs-section .hint { margin: 0 0 8px; }
 .prefs-section .field { margin-bottom: 4px; }
 .prefs-section .folder-path { margin: 0; padding: 6px 8px; border-radius: 8px; background: var(--surface-3); font-family: var(--font-mono); font-size: 0.85rem; overflow-wrap: anywhere; }

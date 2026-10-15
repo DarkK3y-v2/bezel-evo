@@ -68,7 +68,7 @@ test('the floating bars over the stage edit and zoom', async ({ page, t }) => {
   await page.locator('#zoom-fit').click();
   await expect(label).toHaveText(fitted);
   await expect(page.getByRole('toolbar', { name: t('top.edit'), exact: true })).toBeVisible();
-  await expect(page.getByRole('toolbar', { name: t('top.zoom'), exact: true })).toBeVisible();
+  await expect(page.getByRole('toolbar', { name: t('framing.zoom'), exact: true })).toBeVisible();
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });

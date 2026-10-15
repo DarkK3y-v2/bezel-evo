@@ -265,7 +265,7 @@ test.describe('gif search', () => {
 
     // Saving with the field empty says so on the field, in the UI's language.
     await expect(key).toHaveValue('');
-    await dialog.getByRole('button', { name: t('gifs.keySave') }).click();
+    await dialog.getByRole('button', { name: t('top.save') }).click();
     await expect(dialog.getByText(t('gifs.keyEmpty'), { exact: true })).toBeVisible();
     await expect(key).toHaveAttribute('aria-invalid', 'true');
     await expect(key).toHaveAttribute('aria-describedby', /\bgif-key-error\b/);
@@ -275,7 +275,7 @@ test.describe('gif search', () => {
 
     // A key that is not one; then a key KLIPY refuses at the first search, which opens the help.
     await key.fill('not a key!');
-    await dialog.getByRole('button', { name: t('gifs.keySave') }).click();
+    await dialog.getByRole('button', { name: t('top.save') }).click();
     await expect(dialog.getByText(t('gifs.keyInvalid'))).toBeVisible();
     await expect(key).toHaveAttribute('aria-invalid', 'true');
     await key.fill('refused-key');
@@ -686,7 +686,7 @@ test.describe('gif collection', () => {
     await expect(thumbs.getByRole('button', { name: t('collection.delete') })).toBeFocused();
     // Confirmed: it goes, and the focus moves to the next item.
     await page.keyboard.press('Enter');
-    await confirm.getByRole('button', { name: t('collection.deleteAction'), exact: true }).click();
+    await confirm.getByRole('button', { name: t('inspector.delete'), exact: true }).click();
     await expect(items).toHaveCount(2);
     await expect(status).toHaveText(t('collection.deleted', { name: 'Thumbs up' }));
     await expect(party.getByRole('button', { name: t('collection.delete') })).toBeFocused();
@@ -701,14 +701,14 @@ test.describe('gif collection', () => {
     await expect(confirm).toContainText('“Mine”');
     await expect(confirm).toContainText(t('collection.openTheme'));
     await expectAccessible(page);
-    await confirm.getByRole('button', { name: t('collection.deleteAction'), exact: true }).click();
+    await confirm.getByRole('button', { name: t('inspector.delete'), exact: true }).click();
     await expect(items).toHaveCount(1);
     await expect(items.first().getByRole('button', { name: t('collection.delete') })).toBeFocused();
     await expect(inspector.getByRole('combobox', { name: t('inspector.asset'), exact: true })).toHaveValue('assets/happy-dance.gif');
 
     // The last one: the collection is empty again, and the focus goes to the search.
     await items.first().getByRole('button', { name: t('collection.delete') }).click();
-    await page.getByRole('dialog').getByRole('button', { name: t('collection.deleteAction'), exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: t('inspector.delete'), exact: true }).click();
     await expect(panel.getByText(t('collection.empty'))).toBeVisible();
     await expect(count).toBeHidden();
     await expect(page.getByRole('button', { name: t('media.searchGifs') })).toBeFocused();

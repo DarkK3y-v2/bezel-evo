@@ -61,8 +61,8 @@ export function createIconPicker({ store, canvas, stage, t, add }) {
     sourceInput.replaceChildren(...[['all', t('icons.all')], ['tabler', t('icons.tabler')], ['mdi', t('icons.mdi')]].map(([value, text]) => el('option', { value, text })));
     sourceInput.value = source;
     host.replaceChildren(search,
-      el('div', { class: 'icon-options' }, [field('icons.source', sourceInput), field('icons.style', styleInput), field('icons.color', colorInput),
-        field('icons.size', sizeInput), field('icons.stroke', strokeInput)]), count, grid, more, notice);
+      el('div', { class: 'icon-options' }, [field('icons.source', sourceInput), field('inspector.style', styleInput), field('inspector.color', colorInput),
+        field('inspector.size', sizeInput), field('icons.stroke', strokeInput)]), count, grid, more, notice);
     render();
   }
 

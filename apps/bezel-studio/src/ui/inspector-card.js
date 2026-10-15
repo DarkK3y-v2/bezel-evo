@@ -1,22 +1,20 @@
 // Card content only: the inspector owns header, tabs, geometry and preview.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { chipButton, count, dashedHint, fieldGrid, listCard, prefixedField, rangeField, screenThumb, sectionTitle, segmented, selectField, switchRow, textField } from './fields.js';
+import { chipButton, dashedHint, fieldGrid, iconButton, listCard, prefixedField, rangeField, screenThumb, segmented, selectField, switchRow, textField } from './fields.js';
 import { widgetOf } from '../editor/widgets.js';
 import { selectionRoots } from '../editor/cards.js';
 import { MAX_RULES, ROTATION_PRESETS, ROTATION_MIN, ROTATION_MAX, TRIGGER_SOURCES, appSuggestions, clampPriority, clampReturn, clampRotation, commonReturn, durationParts, moveRule, newRule, sentenceOf, withApp, withReturn, withSource, dropIndex } from '../card-rules.js';
 
-export const CARD_TABS = Object.freeze(['faces', 'motion', 'triggers']);
+import { CARD_TABS as ALL_CARD_TABS } from '../inspector-tabs.js';
+export const CARD_TABS = Object.freeze(ALL_CARD_TABS.slice(0, -1));
 const baseViews = new WeakMap();
-const tool = (label, name, onclick, disabled = false, extra = '') => el('button', { type: 'button', class: `icon-button ${extra}`, 'aria-label': label, title: label, onclick, disabled }, [icon(ICONS[name], 16)]);
+const tool = (label, name, onclick, disabled = false, extra = '') => iconButton(label, ICONS[name], onclick, { size: 16, disabled, class: extra });
 
-// Reuse the inspector's section and the common title/count in both host versions.
+// Card content uses the same section contract as every inspector property.
 function cardSection(ctx, key, label, nodes, total = null) {
-  const node = ctx.section(key, label, nodes);
+  const node = ctx.section(key, label, nodes, { count: total });
   node.classList.add('card-section');
-  const head = node.querySelector('.section-head');
-  if (!head) node.querySelector('h3').replaceWith(sectionTitle(label, { count: total }));
-  else if (total !== null) head.append(count(total));
   return node;
 }
 const members = (ctx, face) => {
@@ -92,7 +90,7 @@ function facesForm(ctx) {
     move.querySelector('select').setAttribute('aria-label', t('cardInsp.moveObject', { name: item.name }));
     return el('div', { class: 'face-object' }, [card, move]);
   });
-  return [cardSection(ctx, 'faces', t('card.faces'), [faces, el('p', { class: 'hint', text: t('card.facesHint') }), el('p', { class: 'hint face-layout-note', text: t('cardInsp.layoutHint') })], c.faces.length), editor,
+  return [cardSection(ctx, 'faces', t('card.tab.faces'), [faces, el('p', { class: 'hint', text: t('card.facesHint') }), el('p', { class: 'hint face-layout-note', text: t('cardInsp.layoutHint') })], c.faces.length), editor,
     cardSection(ctx, 'objects', t('cardInsp.objectsIn', { face: name }), rows.length ? rows : [el('p', { class: 'hint', text: t('cardInsp.emptyFace') })], objects.length), dashedHint([t('cardInsp.dropHint')])];
 }
 
@@ -115,7 +113,7 @@ function motionForm(ctx) {
   return [cardSection(ctx, 'rotation', t('card.rotation'), [
     switchRow(t('card.autoRotate'), seconds != null, enabled => set({ rotationSeconds: enabled ? 10 : null })),
     field && el('div', { class: 'card-stepper' }, [tool(t('cardInsp.decrease'), 'minus', () => set({ rotationSeconds: clampRotation(seconds - 1) }), seconds <= ROTATION_MIN), field, tool(t('cardInsp.increase'), 'plus', () => set({ rotationSeconds: clampRotation(seconds + 1) }), seconds >= ROTATION_MAX)]),
-    seconds != null && el('div', { class: 'chip-group', role: 'group', 'aria-label': t('cardInsp.quickDurations') }, ROTATION_PRESETS.map(value => { const d = durationParts(value); return chipButton(d.unit === 'min' ? t('cardInsp.minutes', { value: d.value }) : t('unit.seconds', { value }), value === seconds, () => set({ rotationSeconds: value })); })),
+    seconds != null && el('div', { class: 'chip-group', role: 'group', 'aria-label': t('cardInsp.quickDurations') }, ROTATION_PRESETS.map(value => { const d = durationParts(value); return chipButton(d.unit === 'min' ? t('unit.minutes', { value: d.value }) : t('unit.seconds', { value }), value === seconds, () => set({ rotationSeconds: value })); })),
     el('details', { class: 'card-rotation-help' }, [el('summary', { text: t('cardInsp.paused') }), el('p', { class: 'hint', text: t('card.rotationHelp') })]),
   ]), cardSection(ctx, 'animation', t('card.animation'), [effects,
     transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ transition: { durationMs } }), { min: 150, max: 1500, step: 50, format: value => `${value} ms` }),

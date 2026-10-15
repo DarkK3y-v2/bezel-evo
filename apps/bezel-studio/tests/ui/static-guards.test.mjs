@@ -113,6 +113,32 @@ function isTokenBlock(rule) {
 const sheets = Object.fromEntries(SHEETS.map((name) => [name, flatten(parseRules(readFileSync(join(STYLES, `${name}.css`), 'utf8')))]));
 const rules = Object.values(sheets).flat();
 
+test('shared multi-declaration CSS bodies have one owner across sheets (D-14)', () => {
+  const owners = new Map();
+  for (const [sheet, entries] of Object.entries(sheets)) {
+    if (sheet === 'tokens') continue;
+    for (const rule of entries.filter(r => !r.prelude.startsWith('@'))) {
+      const body = declarations(rule.body).map(([k, v]) => `${k}:${v}`).sort();
+      if (body.length < 3) continue; // A single common spacing value is not a primitive.
+      const signature = JSON.stringify([rule.within, body]);
+      if (!owners.has(signature)) owners.set(signature, new Set());
+      owners.get(signature).add(sheet);
+    }
+  }
+  assert.deepEqual([...owners].filter(([, files]) => files.size > 1).map(([body, files]) => [body, [...files]]), []);
+});
+
+test('an inline SVG path is defined in only one UI module (D-14)', () => {
+  const owners = new Map();
+  for (const file of readdirSync(join(SRC, 'ui')).filter(f => f.endsWith('.js'))) {
+    for (const [, path] of readFileSync(join(SRC, 'ui', file), 'utf8').matchAll(/\bd="([^"]+)"/g)) {
+      if (!owners.has(path)) owners.set(path, new Set());
+      owners.get(path).add(file);
+    }
+  }
+  assert.deepEqual([...owners].filter(([, files]) => files.size > 1).map(([path, files]) => [path, [...files]]), []);
+});
+
 /** The selectors of a prelude, split at its top-level commas. */
 function selectors(prelude) {
   const out = [];

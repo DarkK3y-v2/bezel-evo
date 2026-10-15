@@ -137,7 +137,7 @@ export function createCollectionPanel({ root, t, locale, bridge, canvas, stage, 
     const answer = await askChoice(t, {
       title: t('collection.deleteTitle', { name: item.name }),
       body: deleteText(t, users, locale()),
-      actions: [{ id: 'delete', label: t('collection.deleteAction'), kind: 'danger' }],
+      actions: [{ id: 'delete', label: t('inspector.delete'), kind: 'danger' }],
       initial: 'cancel',
     });
     if (answer !== 'delete') return;

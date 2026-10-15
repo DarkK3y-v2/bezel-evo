@@ -12,7 +12,7 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import {
   checkField, chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
-  prefixedField, rangeField, sectionTitle, segmented, selectField, splitColor, switchRow, textField,
+  iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, splitColor, switchRow, textField,
 } from './fields.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
 import { ORIENTATIONS } from '../editor/geometry.js';
@@ -659,8 +659,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   /** How a duration of `seconds` is written ("30 s", "5 min", "1 h"). */
   function durationText(seconds) {
     const { value, unit } = durationParts(seconds);
-    if (unit === 'h') return t('insp.hours', { value });
-    if (unit === 'min') return t('insp.minutes', { value });
+    if (unit === 'h') return t('unit.hours', { value });
+    if (unit === 'min') return t('unit.minutes', { value });
     return t('unit.seconds', { value });
   }
 
@@ -785,7 +785,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     if (!cards.length) return [];
     const parent = cards.find(p => p.id === e.cardMember?.parent);
     return [
-      selectField(t('card.container'), parent ? String(parent.id) : '', [['', t('card.none')], ...cards.map(p => [String(p.id), p.name])], value => {
+      selectField(t('widget.card'), parent ? String(parent.id) : '', [['', t('card.none')], ...cards.map(p => [String(p.id), p.name])], value => {
         const target = cards.find(p => String(p.id) === value);
         store.dispatch('attachCard', { ids: [e.id], parent: target?.id, face: target?.card.activeFace ?? null });
       }),
@@ -796,18 +796,6 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   /** The Faces, Motion and Triggers tabs of a card (ui/inspector-card.js). */
   const cardPanels = (e) => Object.fromEntries(CARD_TABS.map((tab) => [tab, renderCardPanel(tab, { element: e, t, store, update, section, bridge, host })]));
 
-  /**
-   * A titled group of fields (11px caps title, `sectionTitle()`); nothing
-   * when it has no fields. `count` is a mono readout beside the title,
-   * `tool` a control at its right (the cover corners' mode).
-   */
-  function section(key, label, nodes, { count: readout = null, tool = null } = {}) {
-    const contents = nodes.filter(Boolean);
-    if (!contents.length) return null;
-    const head = sectionTitle(label, { count: readout });
-    if (tool) head.append(tool);
-    return el('section', { class: 'property-section', dataset: { section: key } }, [head, el('div', { class: 'property-section-body' }, contents)]);
-  }
 
   // The tab open for each kind of object: UI-only, it survives edits,
   // re-renders and Undo.
@@ -987,7 +975,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       else name.value = e.name;
     });
     const hidden = e.visible === false;
-    const tool = (label, paths, onclick, attrs = {}) => el('button', { type: 'button', class: 'icon-button quiet', 'aria-label': label, title: label, onclick, ...attrs }, [icon(paths, 18)]);
+    const tool = (label, paths, onclick, attrs = {}) => iconButton(label, paths, onclick, { class: 'quiet', ...attrs });
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
       el('div', { class: 'inspector-title' }, [name, el('div', { class: 'inspector-sub' }, [el('h2', { text: t(`widget.${widget}`) }), ` · ${where}`])]),

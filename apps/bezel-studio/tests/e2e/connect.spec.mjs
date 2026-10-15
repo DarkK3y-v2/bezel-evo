@@ -23,7 +23,7 @@ test('without a screen the stage says how to connect one', async ({ page, t }) =
   await connect.getByRole('button', { name: t('connect.import') }).click();
   await expect(page.locator('#theme-name')).toHaveValue('Imported');
 
-  await connect.getByRole('button', { name: t('connect.hide') }).click();
+  await connect.getByRole('button', { name: t('dialog.close') }).click();
   await expect(connect).toBeHidden();
   await expect(page.locator('#zoom-fit')).toBeFocused();
   await expect(page.locator('#canvas-box')).toBeVisible();
