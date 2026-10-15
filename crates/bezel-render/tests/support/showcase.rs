@@ -381,6 +381,7 @@ pub fn theme() -> Option<Theme> {
         .flatten()
         .enumerate()
         .map(|(i, (frame, kind))| Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,

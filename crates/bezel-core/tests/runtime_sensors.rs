@@ -56,6 +56,7 @@ fn a_late_power_sensor_recovers_its_value_and_watt_unit() {
 
 fn element(id: u32, kind: ElementKind) -> Element {
     Element {
+        color_by_value: None,
         value_transition: None,
         card: None,
         is_group: false,

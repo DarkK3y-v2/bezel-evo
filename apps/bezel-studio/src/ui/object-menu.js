@@ -1,8 +1,9 @@
+import {canFitContent} from '../editor/fit-content.js';
 import {el} from './dom.js';
 import {canGroup,groupTarget,isShown,owners} from '../editor/cards.js';
 import {hitTest} from '../editor/geometry.js';
 
-export function wireObjectMenu({store,canvasView,stage,layers,t}) {
+export function wireObjectMenu({store,canvasView,stage,layers,t,fitContent=()=>{}}) {
  let menu=null;
  const focusStage=()=>{stage.tabIndex=0;stage.focus({preventScroll:true});};
  function close(focus=false){menu?.remove();menu=null;if(focus)focusStage();}
@@ -20,6 +21,7 @@ export function wireObjectMenu({store,canvasView,stage,layers,t}) {
   const action=(label,run,disabled=false)=>el('button',{type:'button',role:'menuitem',disabled,text:label,onclick:()=>{close();run();focusStage();}});
   const dispatch=(command,args={})=>()=>store.dispatch(command,{ids:selection,...args});
   menu=el('div',{class:'object-menu',role:'menu','aria-label':t('menu.title')},[
+   action(t('insp.fitContent'),()=>fitContent(selection[0]),selection.length!==1||!canFitContent(theme,selection[0])),
    action(t('menu.cut'),()=>store.cutSelection(),!editable),action(t('menu.copy'),()=>store.copySelection(),!selected.length),
    action(t('menu.paste'),()=>store.paste(),!store.canPaste()),action(t('common.duplicate'),dispatch('duplicate'),!selected.length),
    el('hr',{role:'separator'}),action(t('group.create'),dispatch('groupSelection'),!canGroup(theme,selection)),

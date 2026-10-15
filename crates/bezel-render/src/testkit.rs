@@ -53,6 +53,7 @@ pub(crate) fn key(k: &str) -> SensorKey {
 /// A visible, opaque element.
 pub(crate) fn element(frame: BoxF, kind: ElementKind) -> Element {
     Element {
+        color_by_value: None,
         value_transition: None,
         card: None,
         is_group: false,

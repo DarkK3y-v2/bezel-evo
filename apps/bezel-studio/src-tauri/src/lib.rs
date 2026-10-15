@@ -333,6 +333,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::editor_session,
             commands::render_preview,
             commands::render_element_preview,
+            commands::measure_element,
             commands::video_auto,
             commands::open_guide,
             commands::push_theme,

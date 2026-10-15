@@ -395,6 +395,7 @@ function tauriBridge(invoke, tauri = {}) {
      * @param {{max?: number, motion?: boolean}} [options]
      * @returns {Promise<PreviewFrameDto & {pixels: Uint8ClampedArray}>}
      */
+    measureElement: (theme, elementId) => invoke('measure_element', { theme, element: elementId }),
     renderElement: async (theme, elementId, { max = 512, motion = true } = {}) => {
       const started = performance.now();
       const frame = parseFrame(await invoke('render_element_preview', { theme, element: elementId, max, motion }));

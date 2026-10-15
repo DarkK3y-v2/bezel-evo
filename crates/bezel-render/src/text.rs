@@ -226,6 +226,27 @@ impl TextEngine {
         }
     }
 
+    /// Natural unwrapped dimensions, using the drawing shaper and font resolver.
+    pub fn measure(
+        &mut self,
+        job: &TextJob<'_>,
+        assets: &BTreeMap<AssetRef, Vec<u8>>,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<(f32, f32)> {
+        let size = job.style.size.min(MAX_FONT_SIZE);
+        if job.text.is_empty() || !size.is_finite() || size < 1.0 {
+            return None;
+        }
+        let family = self.family_for(&job.style.font, assets, diagnostics)?;
+        let buffer = self.shape(job, &family, size);
+        let width = buffer
+            .layout_runs()
+            .map(|r| r.line_w)
+            .fold(0.0_f32, f32::max);
+        let height: f32 = buffer.layout_runs().map(|r| r.line_height).sum();
+        Some((width.ceil().max(1.0), height.ceil().max(1.0)))
+    }
+
     fn shape(&mut self, job: &TextJob<'_>, family: &str, size: f32) -> Buffer {
         let style = job.style;
         let metrics = Metrics::new(size, (size * LINE_HEIGHT).ceil());

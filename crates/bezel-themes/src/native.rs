@@ -242,6 +242,7 @@ mod tests {
 
     fn el(id: u32, kind: ElementKind) -> Element {
         Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,
@@ -514,6 +515,49 @@ mod tests {
             .find(|e| matches!(e.kind, ElementKind::Ring { .. }))
             .unwrap()
             .value_transition)
+    }
+
+    #[test]
+    fn value_colours_round_trip_and_legacy_themes_keep_fixed_paint() {
+        use bezel_core::domain::value_color::{ColorByValue, ColorThreshold};
+        let (mut theme, _) = every_kind();
+        let legacy = manifest(&theme).unwrap();
+        assert!(!String::from_utf8_lossy(&legacy).contains("colorByValue"));
+        assert!(
+            parse_manifest(&legacy)
+                .unwrap()
+                .elements
+                .iter()
+                .all(|e| e.color_by_value.is_none())
+        );
+        for e in &mut theme.elements {
+            e.color_by_value = Some(ColorByValue {
+                sensor: Some(key("cpu.temperature")),
+                base: Rgba::opaque(0, 200, 0),
+                thresholds: vec![
+                    ColorThreshold {
+                        value: 60.,
+                        color: Rgba::opaque(255, 150, 0),
+                    },
+                    ColorThreshold {
+                        value: 80.,
+                        color: Rgba::opaque(255, 0, 0),
+                    },
+                ],
+            });
+        }
+        let bytes = manifest(&theme).unwrap();
+        assert_eq!(parse_manifest(&bytes).unwrap(), theme);
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        for invalid in [
+            serde_json::json!({"base":"bad", "thresholds":[]}),
+            serde_json::json!({"base":"#00ff00", "sensor":"", "thresholds":[]}),
+            serde_json::json!({"base":"#00ff00", "thresholds":[{"value":null,"color":"#ff0000"}]}),
+            serde_json::json!({"base":"#00ff00", "thresholds":vec![serde_json::json!({"value":0,"color":"#ff0000"});33]}),
+        ] {
+            json["elements"][0]["colorByValue"] = invalid;
+            assert!(parse_manifest(&serde_json::to_vec(&json).unwrap()).is_err());
+        }
     }
 
     #[test]

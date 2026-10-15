@@ -28,7 +28,7 @@ const DRAG_THRESHOLD = 3;
  * @param {(label:string) => string} [opts.describe] accessible label of an element box
  * @param {() => void} [opts.onFrameRequest] a double click on the video background, off any element
  */
-export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom = () => {}, describe = (n) => n, onFrameRequest = () => {} }) {
+export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom = () => {}, describe = (n) => n, onFrameRequest = () => {}, onFitContent = () => {} }) {
   const ctx = canvas.getContext('2d');
   const bezel = box.closest('.bezel') ?? box;
   const stageFrame = bezel.closest('.stage-frame') ?? bezel;
@@ -351,12 +351,15 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   }
 
   function onPointerUp() {
+    // Keep the handle DOM alive across two stationary clicks so the browser
+    // can deliver dblclick to the same frame (capture also ends here).
+    const redraw = press?.started || guides.length > 0 || marquee !== null;
     if (press?.started && press.mode !== 'marquee') store.endGesture();
     press = null;
     guides = [];
     marquee = null;
     overlay.classList.remove('grabbing');
-    drawOverlay();
+    if (redraw) drawOverlay();
   }
 
   /** The wheel in framing mode zooms the video around the pointer (Ctrl+wheel still zooms the view). */
@@ -461,7 +464,22 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
 
   /** A double click on the video background, off any element, asks for framing mode. */
   function onDoubleClick(evt) {
-    if (framing || theme().background.type !== 'video' || !containsClient(evt.clientX, evt.clientY)) return;
+    if (framing) return;
+    const state = store.getState();
+    if (state.selection.length === 1) {
+      const e = theme().elements.find(e => e.id === state.selection[0]);
+      const p = point(evt.clientX, evt.clientY), f = e?.frame;
+      const tolerance = 6 / zoom;
+      if (f && (evt.target.closest('.handle') ||
+        p.x >= f.x - tolerance && p.x <= f.x + f.width + tolerance &&
+        p.y >= f.y - tolerance && p.y <= f.y + f.height + tolerance &&
+        Math.min(Math.abs(p.x - f.x), Math.abs(p.x - f.x - f.width),
+          Math.abs(p.y - f.y), Math.abs(p.y - f.y - f.height)) <= tolerance)) {
+        onFitContent(e.id);
+        return;
+      }
+    }
+    if (theme().background.type !== 'video' || !containsClient(evt.clientX, evt.clientY)) return;
     const p = point(evt.clientX, evt.clientY);
     if (hitTest(theme().elements.filter(e => isShown(theme(), e)), p.x, p.y) === null) onFrameRequest();
   }

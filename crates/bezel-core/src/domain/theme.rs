@@ -453,6 +453,8 @@ pub struct Element {
     /// (D-2026-10-15-studio-redesign-fidelity-18); `None`: it jumps, as in
     /// themes written before it. Other elements ignore it.
     pub value_transition: Option<super::transition::ValueTransition>,
+    /// Optional sensor-driven step colour; absent preserves the fixed paint.
+    pub color_by_value: Option<super::value_color::ColorByValue>,
     /// What it is.
     pub kind: ElementKind,
 }
@@ -645,6 +647,13 @@ impl Theme {
             .map_or(0.0, |owners| owners.iter().map(|e| e.opacity).product())
     }
 
+    /// Whether an object or any of its owning containers is locked.
+    /// Broken ownership references are not editable.
+    pub fn is_locked(&self, element: &Element) -> bool {
+        self.owners(element)
+            .is_none_or(|owners| owners.iter().any(|e| e.locked))
+    }
+
     fn owners<'a>(&'a self, element: &'a Element) -> Option<Vec<&'a Element>> {
         let mut owners = vec![element];
         let mut index = 0;
@@ -713,19 +722,10 @@ impl Theme {
             .elements
             .iter()
             .filter(|e| self.is_sampled(e))
-            .filter_map(|e| match &e.kind {
-                ElementKind::Text {
-                    content: TextContent::Sensor { key, .. },
-                    ..
-                } => Some(key.clone()),
-                ElementKind::Bar { binding, .. }
-                | ElementKind::Ring { binding, .. }
-                | ElementKind::Needle { binding, .. }
-                | ElementKind::Graph { binding, .. } => Some(binding.key.clone()),
-                _ => None,
-            })
+            .filter_map(|e| e.bound_sensor().cloned())
             .collect();
         for e in self.elements.iter().filter(|e| self.is_sampled(e)) {
+            keys.extend(e.color_sensor().cloned());
             if let ElementKind::Text {
                 content: TextContent::Weather(weather),
                 ..
@@ -819,6 +819,7 @@ mod tests {
 
     fn element(id: u32, kind: ElementKind) -> Element {
         Element {
+            color_by_value: None,
             value_transition: None,
             card: None,
             is_group: false,

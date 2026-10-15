@@ -147,6 +147,7 @@ mod tests {
     fn theme() -> Theme {
         let mut t = Theme::blank("rules", Size::new(480, 1920), Orientation::Portrait);
         t.elements.push(Element {
+            color_by_value: None,
             value_transition: None,
             id: ElementId(1),
             name: "card".into(),

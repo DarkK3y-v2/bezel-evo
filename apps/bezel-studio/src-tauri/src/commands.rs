@@ -241,6 +241,19 @@ pub async fn render_element_preview(
     .await
 }
 
+/// Natural frame of content, measured with the native preview renderer.
+#[tauri::command]
+pub async fn measure_element(
+    state: State<'_, Shared>,
+    theme: ThemeDto,
+    element: u32,
+) -> UiResult<Option<bezel_themes::dto::BoxDto>> {
+    blocking(&state, move |b| {
+        b.measure_element(&theme, element, now(), std::time::Instant::now())
+    })
+    .await
+}
+
 /// What Auto turns the UI's theme's video background, and the video's size.
 #[tauri::command]
 pub async fn video_auto(state: State<'_, Shared>, theme: ThemeDto) -> UiResult<VideoAutoDto> {

@@ -1,3 +1,4 @@
+import { createFitContent } from './editor/fit-content.js';
 import { iconSvg, loadIconCatalog } from './icon-catalog.js';
 // Bezel Studio: wires the store, the bridge and the views together.
 import { applyTranslations, guideLocale, pickLocale, translator } from './i18n/index.js';
@@ -134,7 +135,9 @@ let liveWork = Promise.resolve();
 // core's); without a backend nothing refreshes faster than once a second.
 const minRefresh = () => session?.minRefreshSeconds ?? 1;
 
+const fitContent = createFitContent({ store, bridge, onError: error => fail(error) });
 const canvasView = createCanvasView({
+  onFitContent: fitContent,
   store,
   scroll: $('stage-scroll'),
   box: $('canvas-box'),
@@ -145,7 +148,7 @@ const canvasView = createCanvasView({
   onFrameRequest: () => setFramingMode(true),
 });
 
-wireObjectMenu({store,canvasView,stage:$('stage-scroll'),layers:$('layer-list'),t});
+wireObjectMenu({store,canvasView,fitContent,stage:$('stage-scroll'),layers:$('layer-list'),t});
 
 // The Media tab's Collection (D-2026-10-01-gif-sticker-search-5), and
 // "Search GIFs and stickers", opened from it (-4): what the search adds
@@ -313,6 +316,7 @@ const inspector = createInspector({
   bridge,
   // The last sample read, and an element of the edited theme rendered alone (D-8).
   host: {
+    fitContent,
     lastSample: () => lastSample,
     renderElement: (id, opts) => bridge.renderElement(store.getState().theme, id, opts),
   },

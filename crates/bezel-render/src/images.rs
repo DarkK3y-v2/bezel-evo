@@ -254,6 +254,16 @@ pub(crate) struct ImageCache {
 }
 
 impl ImageCache {
+    pub(crate) fn natural_size(
+        &mut self,
+        asset: &AssetRef,
+        assets: &BTreeMap<AssetRef, Vec<u8>>,
+        diagnostics: &mut Diagnostics,
+    ) -> Option<(f32, f32)> {
+        let image = self.source(asset, assets, diagnostics)?;
+        Some((image.width as f32, image.height as f32))
+    }
+
     fn source(
         &mut self,
         asset: &AssetRef,
