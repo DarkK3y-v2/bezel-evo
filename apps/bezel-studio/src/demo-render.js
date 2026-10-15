@@ -29,6 +29,20 @@ function fraction(t, i) {
   return 0.5 + 0.4 * Math.sin(t / 3 + i);
 }
 
+/**
+ * The demo's points of a graph at `t` seconds, oldest first, as fractions
+ * of its height: like the backend (D-2026-10-15-studio-redesign-fidelity-16),
+ * `history` points one `intervalSeconds` apart (one per `refreshSeconds`
+ * without one), the newest taken at the last whole interval, so a graph
+ * moves at its own pace.
+ */
+export function demoGraphPoints(kind, refreshSeconds, t, seed) {
+  const every = kind.intervalSeconds > 0 ? kind.intervalSeconds : refreshSeconds > 0 ? refreshSeconds : 1;
+  const count = Math.max(2, Math.min(3600, Math.round(kind.history) || 2));
+  const newest = Math.floor(t / every) * every;
+  return Array.from({ length: count }, (_, i) => fraction(newest - (count - 1 - i) * every, seed));
+}
+
 function drawText(ctx, e, t) {
   const k = e.kind;
   const s = k.style;
@@ -81,14 +95,14 @@ function drawText(ctx, e, t) {
   } else ctx.fillText(text, x, y, f.width);
 }
 
-function drawElement(ctx, e, t) {
+function drawElement(ctx, e, t, refresh = 1) {
   const k = e.kind;
   const f = e.frame;
   if (['shape', 'image'].includes(k.type) && k.fade && f.width > 0 && f.height > 0) {
     const layer = new OffscreenCanvas(Math.ceil(f.width), Math.ceil(f.height));
     const lc = layer.getContext('2d');
     lc.translate(-f.x, -f.y);
-    drawElement(lc, { ...e, opacity: 1, kind: { ...k, fade: null } }, t);
+    drawElement(lc, { ...e, opacity: 1, kind: { ...k, fade: null } }, t, refresh);
     lc.globalCompositeOperation = 'destination-in';
     lc.save();
     if (k.fade.radial) { lc.translate(f.x, f.y); lc.scale(f.width, f.height); }
@@ -186,10 +200,11 @@ function drawElement(ctx, e, t) {
       ctx.strokeStyle = color(k.color);
       ctx.lineWidth = k.lineWidth;
       ctx.beginPath();
-      const n = 30;
+      const points = demoGraphPoints(k, refresh, t, e.id);
+      const n = points.length;
       for (let i = 0; i < n; i += 1) {
         const x = f.x + (f.width * i) / (n - 1);
-        const y = f.y + f.height * (1 - fraction(t - (n - i), e.id));
+        const y = f.y + f.height * (1 - points[i]);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
@@ -301,7 +316,7 @@ function drawBackdrop(ctx, background, canvas, video) {
 function drawCardTransition(ctx, theme, parent, transition, t) {
   const { width, height } = theme.canvas, include = transition.settings.includeBase;
   const members = theme.elements.filter(e => e.id === parent.id || e.cardMember?.parent === parent.id);
-  const draw = (target, e) => drawElement(target, { ...e, opacity: effectiveOpacity(theme, e) }, t);
+  const draw = (target, e) => drawElement(target, { ...e, opacity: effectiveOpacity(theme, e) }, t, theme.refreshSeconds);
   if (!include) for (const e of members) if (visibleWithoutFace(theme, e) && (e.id === parent.id || e.cardMember.face == null)) draw(ctx, e);
   const combined = new OffscreenCanvas(width, height), cc = combined.getContext('2d');
   const group = new OffscreenCanvas(width, height), gc = group.getContext('2d');
@@ -350,7 +365,7 @@ export function renderApprox(theme, t, video = null, transitions = new Map(), sc
     if (e.isGroup) continue;
     if (transitions.has(e.id)) { drawCardTransition(ctx, theme, e, transitions.get(e.id), t); continue; }
     if (transitions.has(e.cardMember?.parent) || !isShown(theme, e)) continue;
-    drawElement(ctx, { ...e, opacity: effectiveOpacity(theme, e) }, t);
+    drawElement(ctx, { ...e, opacity: effectiveOpacity(theme, e) }, t, theme.refreshSeconds);
   }
   return { width, height, rgba: ctx.getImageData(0, 0, width, height).data };
 }

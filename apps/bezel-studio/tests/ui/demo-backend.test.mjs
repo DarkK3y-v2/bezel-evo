@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEMO_AWAY_SAMPLES, DEMO_DAY_S, DEMO_THEME_AGE_S, DEMO_IMPORT_WARNINGS, DEMO_SENSORS, createDemoBackend, demoElementSide, demoFits, demoIsolate, demoFormat, demoNextChange, demoOrientation, demoThumbnail, demoValue } from '../../src/demo-backend.js';
+import { demoGraphPoints } from '../../src/demo-render.js';
 import { DEMO_ACTIVITY, DEMO_DRAGON_THEME, DEMO_GIF_THEME, DEMO_KLIPY_KEY, DEMO_LIBRARY, DEMO_LIVE_FPS } from '../../src/demo-data.js';
 import { DEMO_GIF_OVERLAP, DEMO_GIF_PAGES, DEMO_GIF_PAGE_SIZE, DEMO_REFUSED_KEY, demoContentId, demoGifPage, demoGifSlug } from '../../src/demo-gifs.js';
 
@@ -821,6 +822,18 @@ function recordingCanvas(painted) {
     }
   };
 }
+
+test('a demo graph draws its points at its own interval, one per refresh without one', () => {
+  const timed = { history: 4, intervalSeconds: 30 };
+  const points = demoGraphPoints(timed, 1, 100, 7);
+  assert.equal(points.length, 4);
+  assert.deepEqual(demoGraphPoints(timed, 1, 119, 7), points, 'the same points until the next interval');
+  assert.notDeepEqual(demoGraphPoints(timed, 1, 120, 7), points, 'a new point every 30 s');
+  assert.deepEqual(demoGraphPoints({ history: 4 }, 30, 100, 7), points, 'the refresh when it has no interval');
+  assert.equal(demoGraphPoints({ history: 9999 }, 1, 0, 1).length, 3600, 'at most 3600 points');
+  assert.equal(demoGraphPoints({ history: 0 }, 0, 0, 1).length, 2, 'at least two');
+  for (const p of points) assert.ok(p >= 0.1 && p <= 0.9);
+});
 
 test('the demo draws the element alone, reduced to the size asked for', async (t) => {
   const painted = [];
