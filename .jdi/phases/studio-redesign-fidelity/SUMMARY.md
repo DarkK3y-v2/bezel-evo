@@ -294,3 +294,15 @@ O diff visual tem ruído pré-existente: duas baselines do mesmo commit `da86d86
 
 ## Hardware validation
 - não aplicável
+
+### Transições suaves de valor (D-2026-10-15-studio-redesign-fidelity-18)
+- **Modelo:** campo opcional `valueTransition: {mode: none|smooth, durationMs}` por elemento (Anel, Barra, Ponteiro, Valor). Ausente = salta, como antes; nunca gravado quando ausente. Duração lida em 50..5000 ms; 0 salta.
+- **Core:** `domain::transition` (ease-out cubic, tween por elemento, teto de 20 fps, ritmo da tela). O `ThemeRuntime` reinicia o tween a cada amostra a partir do valor mostrado; canvas, preview e tela usam o mesmo runtime; o renderer desenha os valores em movimento com a mesma faixa e o mesmo formatador.
+- **Desempenho:** frames só enquanto algo se move; um frame por conexão; tela lenta recebe menos frames e, se não cabem dois frames na transição, vê o valor novo na hora. Medido: 20 fps (tela de 5 ms), 7,5 fps (150 ms), snap (250 ms); demo ~16,2 fps, 0 com movimento reduzido.
+- **Atualização parcial:** já usada pelos drivers (retângulos sujos rev A/B/D e WeAct; runs na rev C); TUR_USB e WCH só frame inteiro, protegidos pelo snap. Nenhum opcode novo (`docs/reverse-engineering/rendering.md` § 4.1).
+- **UI:** objetos novos nascem suaves a 400 ms; seção "Transição" (Nenhuma | Suave + 100–2000 ms) em Anel, Barra, Ponteiro e Valor com primitivos existentes.
+- **Commits:** bfc60f1, d71e650, 2229198, b0c29f6, 6f6d9b6, fecd3e7, 6529103 (branch fid/transitions, merge na windows-improvements).
+- **Gates após o merge:** cargo test 1093 ok; clippy limpo; unit 450/450. Validação em hardware pendente.
+
+### Zoom do canvas com a roda (D-2026-10-15-studio-redesign-fidelity-19, item 3)
+- Roda e pinça do touchpad fazem zoom centrado no cursor, deltas acumulados, passos e limites dos botões (5%–800%); modo de enquadramento de vídeo inalterado. Commits 0954e5a, 8d61cfe (feitos com ChatGPT/Codex, branch fid/wheel-zoom, merge 6210c4e).
