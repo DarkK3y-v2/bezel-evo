@@ -36,12 +36,8 @@
 #status-libre:not([hidden]) { display: inline-flex; align-items: center; gap: 4px; }
 
 /* The sensors chip (artboard SensorStatus): the pill primitive in four
-   tones, its dot (a spinner while the reader restarts), the restart beside
-   it when Libre stopped, and its dialog. The warn, danger and info tones
-   extend `.pill[data-tone]` (pending promotion to base.css, T-8). */
-.pill[data-tone="warn"] { border-color: color-mix(in srgb, var(--signal-warn) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); }
-.pill[data-tone="danger"] { border-color: color-mix(in srgb, var(--signal-error) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-error) 8%, var(--surface-2)); color: var(--danger); }
-.pill[data-tone="info"] { border-color: color-mix(in srgb, var(--info) 35%, var(--border-2)); background: color-mix(in srgb, var(--info) 8%, var(--surface-2)); color: var(--info); }
+   tones (`.pill[data-tone]`, base.css), its dot (a spinner while the reader
+   restarts), the restart beside it when Libre stopped, and its dialog. */
 .sensor-chip { gap: 8px; padding: 0 10px 0 8px; font-size: var(--fs-small); }
 .sensor-chip .status-dot { width: 8px; height: 8px; }
 .sensor-chip[data-state="ok"] .status-dot { box-shadow: 0 0 0 3px var(--signal-ok-halo); }

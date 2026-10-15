@@ -155,7 +155,7 @@ export function chipButton(text, pressed, onClick, attrs = {}) {
 
 /**
  * A status pill: mono, with a dot when `dot`; `tone` is `ok`, `accent`,
- * `warn` or none. `as: 'button'` makes it open something.
+ * `warn`, `danger`, `info` or none. `as: 'button'` makes it open something.
  */
 export function pill(text, { tone = null, dot = false, as = 'span', attrs = {} } = {}) {
   const node = el(as, { class: 'pill', ...(as === 'button' ? { type: 'button' } : {}), dataset: tone ? { tone } : {}, ...attrs });

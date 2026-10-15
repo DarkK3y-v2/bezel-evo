@@ -228,3 +228,14 @@ test('the parser keeps at-rules apart and sees through comments', () => {
   const parsed = flatten(parseRules(':root { --a: #fff; }\n/* #000 { } */\n@media (prefers-color-scheme: dark) { :root { --a: #000; } }\n.x { color: var(--a); }'));
   assert.deepEqual(parsed.map((rule) => [rule.prelude, rule.within.length, isTokenBlock(rule)]), [[':root', 0, true], [':root', 1, true], ['.x', 0, false]]);
 });
+
+test('each pill tone is a base.css primitive, defined by one rule (D-14)', () => {
+  const tones = rules.filter((rule) => !rule.prelude.startsWith('@'))
+    .flatMap((rule) => selectors(rule.prelude).map((selector) => [selector, rule]))
+    .filter(([selector]) => /^\.pill\[data-tone="[a-z]+"\]$/.test(selector));
+  const owners = tones.map(([selector, rule]) => [selector, Object.keys(sheets).find((name) => sheets[name].includes(rule))]);
+  assert.deepEqual(owners.filter(([, sheet]) => sheet !== 'base'), [], 'no area sheet adds a tone');
+  const seen = owners.map(([selector]) => selector);
+  assert.deepEqual(seen, [...new Set(seen)], 'one rule per tone');
+  assert.deepEqual(seen.map((selector) => selector.match(/"([a-z]+)"/)[1]).sort(), ['accent', 'danger', 'info', 'ok', 'warn']);
+});

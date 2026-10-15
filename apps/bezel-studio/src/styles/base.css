@@ -126,14 +126,16 @@ input[aria-invalid="true"] { border-color: var(--danger) !important; }
 .chip:hover { color: var(--text); border-color: var(--accent); }
 .chip[aria-pressed="true"], .card-effect[data-checked="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
 /* A status pill (`pill()`): mono, 22px, with an optional dot; `data-tone`
-   ok, accent or warn colours it. */
+   ok, accent, warn, danger or info colours it. */
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text-3); font-family: var(--font-mono); font-size: var(--fs-caps); white-space: nowrap; }
 .pill:empty { display: none; }
 .pill-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill[data-tone="ok"], .live-toggle:has(input:checked) { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok-ink); }
 .pill[data-tone="ok"] .pill-dot { background: var(--signal-ok); }
 .pill[data-tone="accent"] { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
-.pill[data-tone="warn"] { color: var(--warn); }
+.pill[data-tone="warn"] { border-color: color-mix(in srgb, var(--signal-warn) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); color: var(--warn); }
+.pill[data-tone="danger"] { border-color: color-mix(in srgb, var(--signal-error) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-error) 8%, var(--surface-2)); color: var(--danger); }
+.pill[data-tone="info"] { border-color: color-mix(in srgb, var(--info) 35%, var(--border-2)); background: color-mix(in srgb, var(--info) 8%, var(--surface-2)); color: var(--info); }
 button.pill { cursor: pointer; }
 button.pill:hover { border-color: var(--accent); }
 .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 5px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 0.8rem; font-weight: 600; }
