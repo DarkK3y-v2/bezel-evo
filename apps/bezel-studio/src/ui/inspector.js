@@ -1060,17 +1060,17 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
-    // Main puts geometry first and the ring's source/arc together. The
-    // standalone Graph/Player boards put data first, with geometry below.
+    // The isolated preview always sits right under the head, before the tabs
+    // (D-2026-10-15-studio-redesign-fidelity-17). Main puts geometry first and
+    // the ring's source/arc together; the standalone Graph/Player boards put
+    // data first, with geometry below.
     const dataFirst = widget === 'graph' || widget === 'player' || widget === 'card';
-    const previewFirst = widget !== 'ring' && widget !== 'card';
     return [
       header(e, widget, theme),
       actions,
-      previewFirst ? preview(e) : null,
+      preview(e),
       ...tabbed(kind, panelsOf(e, theme, assets), dataFirst ? null : position),
       dataFirst ? position : null,
-      previewFirst ? null : preview(e),
     ];
   }
 
