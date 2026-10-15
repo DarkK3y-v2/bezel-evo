@@ -48,7 +48,7 @@ export const commands = {
     const id = nextId(theme);
     const frame = roundBox({ x: x - made.width / 2, y: y - made.height / 2, width: made.width, height: made.height });
     if (made.card) made.card.faces = [names.face?.(1) ?? 'Face 1'];
-    const element = { ...(groupParent != null ? { groupParent } : {}), ...(cardMember && !made.card ? { cardMember } : {}), id, name: uniqueName(theme, name ?? sensor?.label ?? names.widget(widget)), frame, opacity: 1, visible: true, locked: false, kind: made.kind, ...(made.card ? { card: made.card } : {}) };
+    const element = { ...(groupParent != null ? { groupParent } : {}), ...(cardMember && !made.card ? { cardMember } : {}), id, name: uniqueName(theme, name ?? sensor?.label ?? names.widget(widget)), frame, opacity: 1, visible: true, locked: false, ...(made.valueTransition ? { valueTransition: made.valueTransition } : {}), kind: made.kind, ...(made.card ? { card: made.card } : {}) };
     return { theme: { ...theme, elements: [...theme.elements, element] }, selection: [id] };
   },
 
