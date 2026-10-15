@@ -7,7 +7,7 @@
 // nothing) and the bridge (each call to its command, with its arguments).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOCALES, translator } from '../../src/i18n/index.js';
+import { canonicalLabelKey, LOCALES, translator } from '../../src/i18n/index.js';
 import { createBridge } from '../../src/bridge.js';
 import { createDemoBackend } from '../../src/demo-backend.js';
 import { DEMO_PICKED_PHOTO } from '../../src/demo-data.js';
@@ -43,7 +43,7 @@ function overviewOf(choice = 'keep', refused = {}, extra = {}) {
 
 /** Every key a message (and the messages in its params) names. */
 const keysOf = (message) => [message.key, ...Object.values(message.params ?? {}).filter((v) => v?.key).flatMap(keysOf)];
-const isKey = (key) => Object.values(LOCALES).every((table) => Object.hasOwn(table, key));
+const isKey = (key) => Object.values(LOCALES).every((table) => Object.hasOwn(table, canonicalLabelKey(key)));
 
 // --------------------------------------------------------------- logic --
 

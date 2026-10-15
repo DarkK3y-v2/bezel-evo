@@ -12,7 +12,7 @@ async function field(page, t, key, value) {
 }
 async function shape(page, t, x, y) {
   await page.locator('#tab-widgets').click();
-  await page.getByRole('button', { name: t('library.addWidget', { name: t('widget.shape') }), exact: true }).click();
+  await page.getByRole('button', { name: t('library.addWidget', { name: t('inspector.shape') }), exact: true }).click();
   for (const [key, value] of [['width', 80], ['height', 80], ['x', x], ['y', y]]) await field(page, t, key, value);
 }
 async function point(page, x, y) {
@@ -81,7 +81,7 @@ test('ordinary groups select by canvas, transform together and expose individual
   await field(page, t, 'width', 420);
   // Members are independently editable via the tree.
   await page.locator('[data-group-id] > .layer-children .layer-name').last().click();
-  await expect(page.locator('#inspector h2')).toHaveText(t('widget.shape'));
+  await expect(page.locator('#inspector h2')).toHaveText(t('inspector.shape'));
   await expect(page.locator('#inspector').getByRole('spinbutton', { name: t('inspector.width'), exact: true })).toHaveValue('160');
   await page.locator('[data-group-id] > .layer-list:not(.layer-children) > .layer-row .layer-name').click();
   await page.locator('#grid-toggle').focus(); await page.keyboard.press('Control+Shift+g');

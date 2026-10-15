@@ -577,7 +577,7 @@ export function createManagerView({ t, locale, bridge, host }) {
     const m = modal(t('storage.restore.title', { to: t(`storage.to.${medium}`) }), { wide: true });
     const total = el('p', { class: 'plan-total', 'aria-live': 'polite' });
     m.button('cancel', t('dialog.cancel'));
-    const ok = m.button('ok', t('storage.restore.next'), 'primary');
+    const ok = m.button('ok', t('storage.rename.next'), 'primary');
     const update = () => {
       const sum = restoreTotals(entries, [...chosen], free);
       total.textContent = sum.fits ? t('storage.restore.total', { count: sum.count, size: bytes(sum.bytes), free: bytes(free) }) : t('storage.restore.noRoom', { size: bytes(sum.bytes), free: bytes(free) });
@@ -623,7 +623,7 @@ export function createManagerView({ t, locale, bridge, host }) {
   async function deleteMany(chosen) {
     const total = chosen.reduce((sum, f) => sum + (f.size ?? 0), 0);
     const ok = await host.confirm({
-      title: t('storage.deleteMany.title', { count: chosen.length }),
+      title: t('storage.cleanup.confirmTitle', { count: chosen.length }),
       body: [
         el('ul', { class: 'plan-list' }, chosen.map((f) => el('li', { text: t('storage.deleteMany.item', { place: placeText(t, f.path), size: bytes(f.size) }) }))),
         el('p', { text: t('storage.deleteMany.body', { size: bytes(total) }) }),
@@ -765,7 +765,7 @@ export function createManagerView({ t, locale, bridge, host }) {
       fail(e);
       return;
     }
-    const m = modal(t('storage.cache.title'), { wide: true });
+    const m = modal(t('storage.cache.copies'), { wide: true });
     const facts = el('dl', { class: 'summary' });
     const all = el('input', { type: 'checkbox', id: `${m.dialog.getAttribute('aria-labelledby')}-all` });
     m.button('cancel', t('dialog.close'));

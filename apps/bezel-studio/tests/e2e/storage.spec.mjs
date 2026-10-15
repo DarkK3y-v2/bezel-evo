@@ -256,7 +256,7 @@ test('a file stored with the wrong size is explained and deleted on request', as
 
   // Nothing is deleted on its own: the button asks first.
   await expect(option(internal, 'torto.png')).toHaveCount(1);
-  await failed.getByRole('button', { name: t('storage.delete', { name: 'torto.png' }) }).click();
+  await failed.getByRole('button', { name: t('standby.album.remove', { name: 'torto.png' }) }).click();
   await page.getByRole('dialog', { name: t('storage.confirmDeleteTitle', { name: 'torto.png' }) })
     .getByRole('button', { name: t('storage.deleteAction'), exact: true }).click();
   await expect(toast(page)).toHaveText(t('storage.deleted', { name: 'torto.png' }));

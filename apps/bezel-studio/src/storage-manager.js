@@ -136,7 +136,7 @@ export function refusalText(t, locale, r) {
   const details = (r.mismatches ?? []).map((m) => mismatchText(t, m)).join('; ');
   switch (r.code) {
     case 'invalidName':
-      return r.name ? t('storage.refused.invalidChar', { char: r.name }) : t('storage.refused.invalidName');
+      return r.name ? t('storage.plan.refused.invalidChar', { char: r.name }) : t('storage.refused.invalidName');
     case 'wrongExtension':
       return t('storage.refused.wrongExtension', { accepted: (r.accepted ?? []).map((e) => `.${e}`).join(', ') });
     case 'wrongProfile':

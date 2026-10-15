@@ -54,7 +54,7 @@ test('the floating bars over the stage edit and zoom', async ({ page, t }) => {
     expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
   }
 
-  await page.getByRole('button', { name: t('library.addWidget', { name: t('widget.text') }), exact: true }).click();
+  await page.getByRole('button', { name: t('library.addWidget', { name: t('inspector.text') }), exact: true }).click();
   await expect(page.locator('#undo')).toBeEnabled();
   await page.locator('#undo').click();
   await expect(page.locator('#redo')).toBeEnabled();

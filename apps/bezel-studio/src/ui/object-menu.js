@@ -29,7 +29,7 @@ export function wireObjectMenu({store,canvasView,stage,layers,t}) {
    action(t('inspector.back'),dispatch('orderSelection',{front:false}),!selected.length),
    action(t('menu.detach'),dispatch('placeLayer',{root:true}),!selected.some(e=>e.groupParent!=null||e.cardMember)),
    action(t(selected.every(e=>e.locked)?'layers.unlock':'layers.lock'),dispatch('updateSelection',{patch:{locked:!selected.every(e=>e.locked)}}),!selected.length),
-   action(t(selected.every(e=>e.visible===false)?'layers.show':'layers.hide'),dispatch('updateSelection',{patch:{visible:selected.every(e=>e.visible===false)}}),!selected.length),
+   action(t(selected.every(e=>e.visible===false)?'collection.filter':'layers.hide'),dispatch('updateSelection',{patch:{visible:selected.every(e=>e.visible===false)}}),!selected.length),
    el('hr',{role:'separator'}),action(t('inspector.delete'),dispatch('remove',{ids:selected.filter(e=>!owners(theme,e).some(p=>p.locked)).map(e=>e.id)}),!editable),
   ]);
   document.body.append(menu);

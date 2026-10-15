@@ -406,7 +406,7 @@ test.describe('gif search', () => {
     await dialog.getByText(t('gifs.explicit')).click();
     await expect(explicit).toBeChecked();
     await expect.poll(() => lastQuery(page)).toEqual({ kind: 'gif', text: 'ca', page: 1, explicit: true });
-    const stickers = dialog.getByRole('button', { name: t('gifs.kind.sticker') });
+    const stickers = dialog.getByRole('button', { name: t('collection.filter.sticker') });
     await stickers.click();
     await expect(stickers).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastQuery(page)).toEqual({ kind: 'sticker', text: 'ca', page: 1, explicit: true });

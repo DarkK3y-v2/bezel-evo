@@ -391,8 +391,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         selectField(t('inspector.weight'), String(s.font.weight), [300, 400, 500, 600, 700, 800, 900].map((w) => [String(w), t(`weight.${w}`)]), (v) => update(e.id, { kind: { style: { font: { weight: Number(v) } } } })),
       ]),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
-      segmented(t('inspector.align'), s.align, [['left', t('inspector.alignLeft')], ['center', t('inspector.alignCenter')], ['right', t('inspector.alignRight')]], (v) => update(e.id, { kind: { style: { align: v } } })),
-      segmented(t('inspector.valign'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
+      segmented(t('inspector.align'), s.align, [['left', t('card.direction.left')], ['center', t('inspector.alignCenter')], ['right', t('card.direction.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
+      segmented(t('axis.vertical'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
       numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any' }),
     ];
   }
@@ -581,7 +581,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } }))];
     const look = [section('appearance', t('inspector.appearance'), [
-      selectField(t('inspector.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
+      selectField(t('card.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
       ...trackFields(e),
       numberField(t('inspector.radius'), k.radius ?? 0, (v) => update(e.id, { kind: { radius: Math.max(0, v) } }), { min: 0 }),
@@ -979,7 +979,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
       el('div', { class: 'inspector-title' }, [name, el('div', { class: 'inspector-sub' }, [el('h2', { text: t(`widget.${widget}`) }), ` · ${where}`])]),
-      tool(t(hidden ? 'layers.show' : 'layers.hide'), hidden ? ICONS.eyeOff : ICONS.eye, () => update(e.id, { visible: hidden })),
+      tool(t(hidden ? 'collection.filter' : 'layers.hide'), hidden ? ICONS.eyeOff : ICONS.eye, () => update(e.id, { visible: hidden })),
       tool(t(e.locked ? 'layers.unlock' : 'layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => update(e.id, { locked: !e.locked }), { 'aria-pressed': String(Boolean(e.locked)) }),
       tool(t('insp.more'), ICONS.more, (evt) => {
         actionsOpen = !actionsOpen;

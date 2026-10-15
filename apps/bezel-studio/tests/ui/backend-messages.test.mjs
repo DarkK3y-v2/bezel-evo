@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { LOCALES, placeholders, translator } from '../../src/i18n/index.js';
+import { canonicalLabelKey, LOCALES, placeholders, translator } from '../../src/i18n/index.js';
 import { errorText, sensorLabel, warningText } from '../../src/messages.js';
 import { refusalText } from '../../src/ui/storage.js';
 import {
@@ -130,7 +130,7 @@ test('every storage manager code has its sentence in each language and the UI kn
     warnings: (c) => [`storage.warning.${c}`],
   };
   for (const [kind, keys] of Object.entries(keysOf)) {
-    for (const key of manager[kind].flatMap(keys)) {
+    for (const key of manager[kind].flatMap(keys).map(canonicalLabelKey)) {
       for (const [locale, strings] of Object.entries(LOCALES)) assert.ok(key in strings, `${locale}: ${key} is missing`);
       assert.deepEqual(placeholders(LOCALES.en[key]), placeholders(LOCALES['pt-BR'][key]), `${key}: en and pt-BR use other {params}`);
     }

@@ -31,8 +31,8 @@ async function openSettings(page, t, scenario) {
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await page.getByRole('tab', { name: t('library.screen') }).click();
   await expect(page.getByRole('tab', { name: t('screen.settingsTab') })).toHaveAttribute('aria-selected', 'true');
-  const section = page.getByRole('region', { name: t('standby.title') });
-  await expect(section.getByRole('radiogroup', { name: t('standby.title') })).toBeVisible();
+  const section = page.getByRole('region', { name: t('standby.summary.atShutdown') });
+  await expect(section.getByRole('radiogroup', { name: t('standby.summary.atShutdown') })).toBeVisible();
   return section;
 }
 
@@ -65,7 +65,7 @@ test.describe('standby', () => {
     const errors = watchErrors(page);
     const section = await openSettings(page, t, 'turing88');
     await expect(section).toContainText('Turing Smart Screen 8.8"');
-    const radios = section.getByRole('radiogroup', { name: t('standby.title') }).getByRole('radio');
+    const radios = section.getByRole('radiogroup', { name: t('standby.summary.atShutdown') }).getByRole('radio');
     await expect(radios).toHaveCount(4);
     for (const [i, choice] of CHOICES.entries()) {
       await expect(radios.nth(i)).toHaveAccessibleName(t(`standby.choice.${choice}`));
@@ -99,7 +99,7 @@ test.describe('standby', () => {
     await about.click();
     await expect(section.getByRole('group', { name: aboutOf(t, 'album') })).toBeHidden();
     await expect(section.getByRole('group', { name: t('standby.help') })).toContainText(t('standby.helpText'));
-    await section.getByRole('heading', { name: t('standby.title') }).click();
+    await section.getByRole('heading', { name: t('standby.summary.atShutdown') }).click();
     await expect(section.getByRole('group', { name: t('standby.help') })).toBeHidden();
     await expect(about).toBeFocused();
     await expect(page.getByRole('dialog')).toHaveCount(0);

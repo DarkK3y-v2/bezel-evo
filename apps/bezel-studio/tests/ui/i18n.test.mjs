@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { AREAS, LOCALES, applyTranslations, guideLocale, mergeTables, pickLocale, placeholders, translator } from '../../src/i18n/index.js';
+import { AREAS, SHARED_LABELS, canonicalLabelKey, LOCALES, applyTranslations, guideLocale, mergeTables, pickLocale, placeholders, translator } from '../../src/i18n/index.js';
 import baseEn from '../../src/i18n/en.js';
 import { WIDGETS } from '../../src/editor/widgets.js';
 import { LANGUAGES, languageOptions } from '../../src/ui/preferences.js';
@@ -25,16 +25,28 @@ test('every locale has exactly the same keys', () => {
   for (const keys of rest) assert.deepEqual(keys, base);
 });
 
-test('area texts share one key for identical prose in all three locales (D-14)', () => {
+test('identical prose in all three locales has one canonical key (D-14)', () => {
   const owners = new Map();
-  for (const area of Object.values(AREAS)) {
-    for (const key of Object.keys(area.tables.en)) {
-      const signature = JSON.stringify(['en', 'pt-BR', 'it'].map(locale => area.tables[locale][key]));
-      if (!owners.has(signature)) owners.set(signature, []);
-      owners.get(signature).push(key);
-    }
+  for (const key of Object.keys(LOCALES.en)) {
+    const signature = JSON.stringify(['en', 'pt-BR', 'it'].map(locale => LOCALES[locale][key]));
+    if (!owners.has(signature)) owners.set(signature, []);
+    owners.get(signature).push(key);
   }
   assert.deepEqual([...owners.values()].filter(keys => keys.length > 1), []);
+});
+
+test('enum-derived labels resolve to existing canonical prose in every locale', () => {
+  for (const [derived, canonical] of Object.entries(SHARED_LABELS)) {
+    assert.equal(canonicalLabelKey(derived), canonical);
+    for (const [locale, table] of Object.entries(LOCALES)) {
+      assert.equal(Object.hasOwn(table, derived), false, derived);
+      assert.equal(typeof table[canonical], 'string', `${locale}: ${canonical}`);
+      const t = translator(locale);
+      assert.equal(t(derived, { value: 3 }), t(canonical, { value: 3 }), derived);
+      assert.equal(t.has(derived), true);
+    }
+  }
+  assert.equal(canonicalLabelKey('unknown.key'), 'unknown.key');
 });
 
 test('the studio speaks Portuguese (Brazil), English and Italian', () => {
@@ -76,7 +88,7 @@ test('the prefixes of the areas are disjoint, and no base key uses one', () => {
 function keyDrift(tables) {
   const base = Object.keys(tables.en);
   return Object.fromEntries(Object.entries(tables).map(([locale, table]) => [locale, {
-    missing: base.filter((key) => !Object.hasOwn(table, key)),
+    missing: base.filter((key) => !Object.hasOwn(table, canonicalLabelKey(key))),
     extra: Object.keys(table).filter((key) => !Object.hasOwn(tables.en, key)),
   }]));
 }
@@ -84,7 +96,7 @@ function keyDrift(tables) {
 /** The keys whose text has other `{name}` placeholders than `en`'s, as "<locale>: <key>". */
 function placeholderDrift(tables) {
   return Object.entries(tables).flatMap(([locale, table]) => Object.keys(tables.en)
-    .filter((key) => Object.hasOwn(table, key) && placeholders(table[key]).join() !== placeholders(tables.en[key]).join())
+    .filter((key) => Object.hasOwn(table, canonicalLabelKey(key)) && placeholders(table[key]).join() !== placeholders(tables.en[key]).join())
     .map((key) => `${locale}: ${key}`));
 }
 
@@ -338,7 +350,7 @@ test('no sentence is written in the UI code, whatever function receives it', () 
 // and the scan below fails on it; one key in place of another is the e2e's.
 
 /** Whether `key` is a key of both dictionaries. */
-const isKey = (key) => typeof key === 'string' && Object.values(LOCALES).every((table) => Object.hasOwn(table, key));
+const isKey = (key) => typeof key === 'string' && Object.values(LOCALES).every((table) => Object.hasOwn(table, canonicalLabelKey(key)));
 
 /** The modules of the GIF search and the collection: every first argument of a helper there is a key. */
 const KEYED_FILES = ['gif-search.js', 'collection.js', 'ui/gif-search.js', 'ui/collection.js'];
@@ -498,7 +510,7 @@ function helperDefinitions(masked) {
 }
 
 /** Whether a key starts as the template `text` (`\0` for each `${…}`) does before its first `${…}`. */
-const startsAKey = (text) => Object.keys(LOCALES.en).some((key) => key.startsWith(text.slice(0, text.indexOf('\0'))));
+const startsAKey = (text) => [...Object.keys(LOCALES.en), ...Object.keys(SHARED_LABELS)].some((key) => key.startsWith(text.slice(0, text.indexOf('\0'))));
 
 /**
  * Whether `text` is `<name>.key` of a message: every `<name>` of the module
@@ -645,7 +657,7 @@ test('index.html has no text of its own but the brand', () => {
 });
 
 test('every widget has a name', () => {
-  for (const w of WIDGETS) assert.ok(`widget.${w}` in LOCALES.en, w);
+  for (const w of WIDGETS) assert.ok(canonicalLabelKey(`widget.${w}`) in LOCALES.en, w);
 });
 
 test('every data-i18n key used in index.html exists', () => {

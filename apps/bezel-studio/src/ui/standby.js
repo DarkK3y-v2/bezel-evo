@@ -195,7 +195,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
   function head(current) {
     const model = current.models.length === 1 ? current.models[0].name : current.models.map((m) => m.name).join(' / ');
     const [help, panel] = popovers.help('standby-help', t('standby.help'), [el('p', { text: t('standby.helpText') })]);
-    const title = sectionTitle(t('standby.title'), { id: 'standby-title' });
+    const title = sectionTitle(t('standby.summary.atShutdown'), { id: 'standby-title' });
     title.classList.add('standby-head');
     title.append(help, panel);
     return [title, el('p', { class: 'standby-screen visually-hidden', text: model })];
@@ -352,7 +352,7 @@ export function createStandbyPanel({ root, t, locale, bridge, notify, context, s
         return el('label', { class: 'check video-choice' }, [input, el('span', { text: v.name }), el('small', { text: bytes(v.size) })]);
       }),
     ]));
-    return el('fieldset', { class: 'check-list standby-videos' }, [el('legend', { text: t('standby.video.list') }), ...groups]);
+    return el('fieldset', { class: 'check-list standby-videos' }, [el('legend', { text: t('media.video') }), ...groups]);
   }
 
   /** Asks the confirmation of `keep`, `off` or `video`: the request, or `null`. */

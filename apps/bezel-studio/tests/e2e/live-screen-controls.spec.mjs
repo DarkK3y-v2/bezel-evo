@@ -85,7 +85,7 @@ test('live screen controls: with the listed 8.8" kept chosen, "For this screen" 
   await page.getByRole('tab', { name: t('library.themes') }).click();
   const scope = page.getByRole('group', { name: t('themes.scopeLabel') });
   const forScreen = scope.getByRole('button', { name: t('themes.forScreen') });
-  const all = scope.getByRole('button', { name: t('themes.all') });
+  const all = scope.getByRole('button', { name: t('collection.filter.all') });
   await all.click();
   await expect(all).toHaveAttribute('aria-pressed', 'true');
   await pastRefresh(page, t);

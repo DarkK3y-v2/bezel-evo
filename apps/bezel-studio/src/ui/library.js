@@ -268,7 +268,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     const chip = (category, label) => chipButton(label, category === chosen, () => { sensorCategory = category; renderSensors(); }, { dataset: { category } });
     const categories = sensorCategories(catalog);
     $('sensor-filter').replaceChildren(...(categories.length > 1
-      ? [chip(ALL_CATEGORIES, t('library.allSensors')), ...categories.map((c) => chip(c, t(`category.${c}`)))]
+      ? [chip(ALL_CATEGORIES, t('collection.filter.all')), ...categories.map((c) => chip(c, t(`category.${c}`)))]
       : []));
   }
 
@@ -398,7 +398,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       el('span', { class: 'layer-tools' }, [
         btn(t('layers.up'), ICONS.up, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.up : index + 1 }), neighbors ? neighbors.up == null : index === total - 1),
         btn(t('layers.down'), ICONS.down, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.down : index - 1 }), neighbors ? neighbors.down == null : index === 0),
-        btn(e.visible === false ? t('layers.show') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
+        btn(e.visible === false ? t('collection.filter') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
         btn(e.locked ? t('layers.unlock') : t('layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => store.dispatch('update', { id: e.id, patch: { locked: !e.locked } }), false, Boolean(e.locked), e.locked ? ' layer-flag' : ''),
       ]),
     ]);
@@ -713,7 +713,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     if (a.kind === 'video') return t('media.video');
     const name = fileNameOf(a.ref);
     const ext = name.includes('.') ? name.split('.').pop().toUpperCase() : '';
-    return ext || (moves(a) ? t('media.kindGif') : t('media.kindImage'));
+    return ext || (moves(a) ? t('collection.kind.gif') : t('media.kindImage'));
   }
 
   /**
@@ -732,7 +732,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       el('span', { class: 'thumb', style: preview ? { backgroundImage: `url(${preview})` } : {} }, [
         preview ? null : icon(a.kind === 'video' ? ICONS.video : ICONS.image, 22),
         el('span', { class: 'tag media-kind', text: kindOf(a) }),
-        el('span', { class: 'tag media-bg', hidden: true, text: t('media.backgroundBadge') }),
+        el('span', { class: 'tag media-bg', hidden: true, text: t('inspector.background') }),
       ]),
       el('span', { class: 'media-name' }, [
         el('span', { text: fileNameOf(a.ref) }),

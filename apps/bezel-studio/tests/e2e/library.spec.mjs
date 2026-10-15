@@ -30,7 +30,7 @@ test('widgets come in three groups with a count, a search and the hint at the fo
   await expect(panel.locator('.widget-tile')).toHaveCount(13);
 
   // Enter on a focused tile adds it at the centre, as the hint says.
-  await panel.getByRole('button', { name: t('library.addWidget', { name: t('widget.text') }), exact: true }).focus();
+  await panel.getByRole('button', { name: t('library.addWidget', { name: t('inspector.text') }), exact: true }).focus();
   await page.keyboard.press('Enter');
   await tab(page, t, 'layers');
   await expect(layers(page)).toHaveCount(4);

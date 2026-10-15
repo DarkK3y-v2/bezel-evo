@@ -10,6 +10,41 @@ import card, { PREFIXES as CARD } from './areas/card.js';
 import screen, { PREFIXES as SCREEN } from './areas/screen.js';
 import connect, { PREFIXES as CONNECT } from './areas/connect.js';
 
+// Labels derived from enum values (widget kinds, storage stages, etc.)
+// resolve to the same canonical text as static callers. Only the canonical
+// keys below have translations; this map contains no copies of prose.
+export const SHARED_LABELS = Object.freeze({
+  "storage.kindOne.image": "inspector.asset",
+  "storage.kindOne.video": "media.video",
+  "inspector.direction": "card.direction",
+  "inspector.alignLeft": "card.direction.left",
+  "inspector.alignRight": "card.direction.right",
+  "orientation.landscape": "axis.horizontal",
+  "inspector.valign": "axis.vertical",
+  "orientation.portrait": "axis.vertical",
+  "gifs.kind.gif": "collection.filter.gif",
+  "gifs.kind.sticker": "collection.filter.sticker",
+  "storage.plan.action.rename": "collection.rename",
+  "widget.image": "inspector.asset",
+  "storage.filter.sort.name": "inspector.name",
+  "widget.shape": "inspector.shape",
+  "widget.text": "inspector.text",
+  "standby.video.list": "media.video",
+  "standby.choice.album": "standby.album.title",
+  "standby.title": "standby.summary.atShutdown",
+  "storage.protected.boot": "storage.bootTitle",
+  "storage.filter.sort.kind": "storage.filter.kind",
+  "storage.kind.image": "storage.filter.kind.image",
+  "storage.kind.video": "storage.filter.kind.video",
+  "storage.reason.live": "storage.liveReason",
+  "storage.refused.invalidChar": "storage.plan.refused.invalidChar",
+  "storage.reason.noCard": "storage.plan.refused.noCard",
+  "storage.refused.noCard": "storage.plan.refused.noCard",
+  "storage.report.stage.upload": "storage.report.stage.preflight",
+  "storage.report.stage.verify": "storage.report.stage.preflight"
+});
+export const canonicalLabelKey = key => SHARED_LABELS[key] ?? key;
+
 /** The texts of each area (`{en, 'pt-BR', it}`) and the key prefixes it owns. */
 export const AREAS = Object.freeze({
   shell: { prefixes: SHELL, tables: shell },
@@ -67,10 +102,11 @@ export function pickLocale(languages) {
 export function translator(locale) {
   const table = LOCALES[locale] ?? en;
   const t = (key, params = {}) => {
-    const text = table[key] ?? en[key] ?? key;
+    const canonical = canonicalLabelKey(key);
+    const text = table[canonical] ?? en[canonical] ?? key;
     return text.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`));
   };
-  t.has = (key) => key in table || key in en;
+  t.has = (key) => canonicalLabelKey(key) in table || canonicalLabelKey(key) in en;
   return t;
 }
 

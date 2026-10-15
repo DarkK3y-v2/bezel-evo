@@ -25,7 +25,7 @@ test('the gallery lists the themes for this screen, with thumbnails', async ({ p
   const errors = watchErrors(page);
   const { scope, axis } = await openThemes(page, t);
   const forScreen = scope.getByRole('button', { name: t('themes.forScreen') });
-  const all = scope.getByRole('button', { name: t('themes.all') });
+  const all = scope.getByRole('button', { name: t('collection.filter.all') });
   await expect(forScreen).toHaveAttribute('aria-pressed', 'true');
   await expect(all).toHaveAttribute('aria-pressed', 'false');
   await expect(axis.getByRole('button', { name: t('themes.bothAxes') })).toHaveAttribute('aria-pressed', 'true');
@@ -91,7 +91,7 @@ test('an empty result says why and offers new themes and "show all"', async ({ p
   await expectAccessible(page);
 
   await grid.getByRole('button', { name: t('themes.showAll') }).click();
-  const all = scope.getByRole('button', { name: t('themes.all') });
+  const all = scope.getByRole('button', { name: t('collection.filter.all') });
   await expect(all).toHaveAttribute('aria-pressed', 'true');
   await expect(all).toBeFocused();
   await expect(axis.getByRole('button', { name: t('themes.bothAxes') })).toHaveAttribute('aria-pressed', 'true');
@@ -136,7 +136,7 @@ test('without a screen every theme is listed', async ({ page, t }) => {
   const forScreen = scope.getByRole('button', { name: t('themes.forScreen') });
   await expect(forScreen).toBeDisabled();
   await expect(forScreen).toHaveAttribute('title', t('themes.forScreenNone'));
-  await expect(scope.getByRole('button', { name: t('themes.all') })).toHaveAttribute('aria-pressed', 'true');
+  await expect(scope.getByRole('button', { name: t('collection.filter.all') })).toHaveAttribute('aria-pressed', 'true');
   await expect(cards(page)).toHaveCount(total);
   await expectAccessible(page);
   expect(errors).toEqual([]);
@@ -157,7 +157,7 @@ test('the square screen lists the round theme', async ({ page, t }) => {
 test('screen thumbnail primitives preserve portrait, landscape and square geometry', async ({ page, t }) => {
   const errors = watchErrors(page);
   const { scope } = await openThemes(page, t);
-  await scope.getByRole('button', { name: t('themes.all'), exact: true }).click();
+  await scope.getByRole('button', { name: t('collection.filter.all'), exact: true }).click();
   const expected = [{ name: 'Demo', canvas: { width: 480, height: 1920 } }, ...DEMO_LIBRARY.map((entry) => entry.theme)];
   for (const entry of expected) {
     const card = cards(page).filter({ has: page.getByText(entry.name, { exact: true }) });

@@ -66,7 +66,7 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   await expect(page.locator('.layer-name').filter({ hasText: 'Gauge 42' })).toHaveCount(1);
 
   await inspector.getByRole('button', { name: t('layers.hide'), exact: true }).click();
-  const show = inspector.getByRole('button', { name: t('layers.show'), exact: true });
+  const show = inspector.getByRole('button', { name: t('collection.filter'), exact: true });
   await expect(show).toBeVisible();
   await show.click();
   await expect(inspector.getByRole('button', { name: t('layers.hide'), exact: true })).toBeVisible();

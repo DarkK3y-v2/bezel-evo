@@ -4,7 +4,7 @@
 // user's real 8.8" listing, like the core's tests.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOCALES, placeholders, translator } from '../../src/i18n/index.js';
+import { canonicalLabelKey, LOCALES, placeholders, translator } from '../../src/i18n/index.js';
 import { errorText } from '../../src/messages.js';
 import {
   CACHE_LIMITS, FINDING_CODES, KIND_FILTERS, ORIGIN_FILTERS, PLAN_REFUSALS, SKIP_CODES, SORTS, TRANSFERS, WARNING_CODES, actionsFor,
@@ -40,7 +40,7 @@ test('every code of the core has a sentence in each language, with the same para
     ...['pending', 'stored', 'missing', 'deleted'].map((s) => `storage.state.${s}`),
     'storage.restore.deletedTitle', 'storage.restore.deletedHelp',
   ];
-  for (const key of keys) {
+  for (const key of keys.map(canonicalLabelKey)) {
     for (const [locale, table] of Object.entries(LOCALES)) assert.ok(key in table, `${locale}: ${key}`);
     assert.deepEqual(placeholders(LOCALES.en[key]), placeholders(LOCALES['pt-BR'][key]), key);
   }
