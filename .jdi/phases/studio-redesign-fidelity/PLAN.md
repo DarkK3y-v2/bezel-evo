@@ -93,7 +93,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Regressão read-only: `cards`, `shell`, `panels`, `scenarios-shell`.
 - **Dependencies:** T-2
 - **Test:** G1, G2 (specs listadas), G3
-- **Status:** pending
+- **Status:** completed (48892b6; merge c6f726b)
 
 #### T-5 (C1): Inspector — cabeçalho, abas, posição, Ring/Main, Graph, Player, preview isolado
 - **Specialist:** jdi-doer-bezel
@@ -104,7 +104,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Regressão read-only: `cards`, `card-animation`, `features-016-card`.
 - **Dependencies:** T-2
 - **Test:** G1, G2, G3
-- **Status:** pending
+- **Status:** completed (add6b9a; merge f5ff9b0)
 
 #### T-6 (B+D): Screen, Storage, SensorStatus (Connect fora do escopo)
 - **Specialist:** jdi-doer-bezel
@@ -115,7 +115,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Regressão read-only: `shell`, `scenarios-shell`, `live-screen-controls`, `device-label-020`, `multi-screen`.
 - **Dependencies:** T-2
 - **Test:** G1, G2, G3
-- **Status:** pending
+- **Status:** completed (32226db; merge 24ff0d6)
 
 #### T-7 (C2): Inspector do Card — Facce, Movimento, Trigger
 - **Specialist:** jdi-doer-bezel
@@ -126,7 +126,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - Comandos novos do store com teste e Undo de um passo; regressão read-only: `inspector-sections`, `layer-drag`, `workspace-selection`.
 - **Dependencies:** T-2
 - **Test:** G1, G2, G3
-- **Status:** pending
+- **Status:** completed (1823f0d; merge 70f61af)
 
 ### Wave 3 — Integração (1 agente)
 
@@ -140,7 +140,7 @@ Paridade visual e funcional do Bezel Studio com o canvas "Bezel Evo — proposta
   - `node scripts/fidelity/gallery.mjs` gera `gap/gallery/index.html` (gitignored) com par mockup × app (dark e light, it) por artboard/estado, valores do DCLogic via `dc-shim` e nota nos artboards estáticos; desvios restantes de cada agente listados na página. Aprovação do usuário = DoD manual.
 - **Dependencies:** T-4, T-5, T-6, T-7
 - **Test:** gates completos acima
-- **Status:** pending
+- **Status:** completed (7c9c6b8, 4a0f4e1, deea4ee, 1a3e327, a45084d, 6e846b1, 8572094, 763eb1a, 25ff273, e1068b0; gate automatici completati, approvazione manuale della galleria pendente)
 
 ## Execution
 - Total de tasks: 8 · Etapas sequenciais: 4 (1a: T-1 ∥ T-3 → 1b: T-2 → 2: T-4 ∥ T-5 ∥ T-6 ∥ T-7 → 3: T-8) · Speedup ≈ 8/4 = 2x (até 4 agentes simultâneos).

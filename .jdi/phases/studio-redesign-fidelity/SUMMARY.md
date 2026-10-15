@@ -109,6 +109,97 @@ O CSS fica em `styles/base.css`, os builders em `ui/fields.js`, os ícones em `u
   - `i18n.test`: a marca agora é dividida em "Bezel" + "Evo".
 - `cargo test --workspace`: 1058 ok (pós-merge; T-2 não toca Rust).
 
+### T-4 - Library: Widget, Sensori, Livelli, Media, Temi
+
+- Head `fid/t4`: `48892b6`; integrato con `--no-ff` in `c6f726b`.
+- Commit di completamento: `3949d92`, `6699d83`, `27d6b35`, `c621527`, `c8987ab`, `48892b6` (WIP iniziale `f9d47ea`).
+- Ricerca e tre gruppi Widget; sparklines dal vero storico `updateReadings`; filtro Livelli per nome/sensore, selezione multipla con Raggruppa/Crea card, nomi completi e discendenti visibili con filtro. Media con totali reali. Temi: Nuovo tema, ricerca, Duplica/Apri; il dialogo riutilizza gli stessi nodi della griglia del pannello.
+- Report dell'agente in conversazione: unit 390/390 (99,45%), e2e 212/212; un precedente `ERR_NO_BUFFER_SPACE` è stato ricontrollato in serie e con l'intera selezione di spec. Nessun REPORT.md persistente trovato nella galleria della worktree. I risultati dell'integrazione sotto sono stati nuovamente verificati.
+- Primitivi: searchField, sectionTitle/count, chipButton, kindIcon, dashedHint, screenThumb; ownership/geometria già condivise per il drop dei sensori. Nessun file fuori dal piano nel branch T-4.
+- Residui: nomi Livelli su due righe a 272 px (per mantenerli completi), tavola autonoma a 360 px; Temi conserva metadati e controlli reali aggiuntivi; catalogo sensori e stato importazione provengono dal bridge.
+
+### T-5 - Inspector: core e preview isolato
+
+- Head `fid/t5`: `add6b9a`; merge `f5ff9b0`. Commit di completamento: `9f6d2e4`, `15e4a25`, `5981600`, `672a8d7`, `add6b9a` (WIP `07400e4`).
+- Header, azioni, tabs native, posizione 2 x 2, sorgente/arco Ring, controlli Graph e Player. Focus mantenuto dopo il render. Il preview usa `host.renderElement(id, opts)` e il bridge, con coalescing, scarto delle risposte obsolete, fit proporzionale e animazione `nextMs`; non ritaglia il canvas generale.
+- Report in conversazione: unit 389/389 (99,46%), e2e 124/124, screenshot dark/light. REPORT.md persistente assente. Nessun file fuori dal piano nel branch T-5.
+- Primitivi: prefixedField/fieldGrid, segmented, switchRow, rangeField, chipButton, listCard e icone; scheduler e animazione condivisi. La proposta di richiedere activity permanentemente NON è stata applicata: T-8 la sostituisce con la richiesta condizionale.
+- Residui: Ring mantiene il preview dopo le proprietà; Graph/Player hanno geometria dopo i controlli dati. Dimensioni del preview, valori e app seguono l'oggetto effettivo, non i dati del mockup.
+
+### T-6 - Screen, Storage, SensorStatus
+
+- Head `fid/t6`: `32226db`; merge `24ff0d6`. Completamento dopo WIP `e604796`: `0ace380`, `af7747d`, `9f52bdc`, `cedf96a`, `a665e4b`, `d50767c`, `700ad64`, `edd7343`, `0ed11d1`, `32226db`; lavoro precedente `a7a03b1`, `2b47b18`, `ef88455`.
+- Screen con dati reali del dispositivo e controlli standby. Storage: capacità interna/SD, barra per tipo, file di avvio reale, filtri per supporto e highlight del drop su avvio, azioni da tastiera con nomi accessibili. SensorStatus: quattro stati, riavvio Libre, popover con hardware fisico distinto anche quando i nomi coincidono, valore/fonte e tempo di lettura.
+- Nessun REPORT.md persistente trovato nella worktree T-6; riepilogo ricostruito dal diff, dai commit e dall'handoff. Verifica autonoma T-8: unit 399/399 dopo questo merge; tutte le spec T-6 sono incluse nei gate completi finali.
+- Primitivi: campi nativi, switch, segmented/chip, pill, sezioni e icone condivise; modello puro storage-breakdown e raggruppamento hardware testati. Nessun file fuori dal piano nel branch T-6. Il riquadro Connect è rimasto fuori dal redesign.
+- Residui: Storage conserva la modalità a tutta larghezza; inventario, capacità e avvio sono quelli del bridge. Screen conserva i controlli avanzati reali; SensorStatus mostra i provider/hardware effettivi.
+
+### T-7 - Card: Facce, Movimento, Trigger
+
+- Head `fid/t7`: `1823f0d`; merge `70f61af`. WIP `6f69571`, completamento `7c7d1b0`, test `1823f0d`.
+- Fonte: `F:/dev/bezel-fid-t7/.jdi/phases/studio-redesign-fidelity/gap/gallery/card/REPORT.md` e relativa `T7-integration.patch` (unico report persistente presente nelle gallerie delle quattro worktree).
+- Base come stato UI senza Undo, miniature proporzionali e raster per faccia, oggetti/spostamento e comandi esistenti del documento. Movimento con stepper, intervalli rapidi, radio illustrati, durata e direzione, base comune e `card.animateNext`. Trigger in frasi native, priorità/ritorno, riordino pointer/tastiera, ritorno comune e suggerimenti dal sample; escluso il badge "attiva ora". "Card" resta "Card".
+- Report dell'agente: unit 385/385 (99,45%), e2e 68/68 nei quattro progetti; card-animation seriale 12/12 dopo un primo risultato sensibile al timing. Nessuna assertion indebolita. Otto file nel diff rispetto alla base, tutti nel piano.
+- Primitivi: prefixedField/fieldGrid, switchRow, segmented, rangeField, chipButton, listCard, screenThumb, dashedHint e icone; modello puro card-rules. La T-8 passa bridge+host, ripristina il parametro bridge del core T-5 e fotografa Card realmente popolate.
+- Residui: due facce e contenuti effettivi anziché i tre esempi del mockup; tile e testi completi occupano più spazio e il badge della faccia segue il nome. Il quarto tab Aspetto conserva le opzioni esistenti. Effetti illustrati a tratto; aiuto completo nel details. In T-8 geometria e preview sono stati spostati DOPO il contenuto Card per avvicinare il layout al riferimento.
+
+### T-8 - Integrazione, consolidamento e gate finali (2026-10-15)
+
+Merge eseguiti nell'ordine richiesto, senza conflitti e senza violazioni di ownership nei merge:
+
+| Ordine | Branch / head | Commit merge | Unit subito dopo il merge |
+| --- | --- | --- | --- |
+| 1 | fid/t4 - 48892b6 | c6f726b | 390/390 - 99,45% |
+| 2 | fid/t6 - 32226db | 24ff0d6 | 399/399 - 99,46% |
+| 3 | fid/t5 - add6b9a | f5ff9b0 | 412/412 - 99,48% |
+| 4 | fid/t7 - 1823f0d | 70f61af | 421/421 - 99,49% |
+
+Commit propri dell'integrazione:
+
+- `7c9c6b8` - host/bridge Card, richieste activity condizionali e larghezze D-15 con unit/e2e.
+- `4a0f4e1` - rustls 0.23.45 - 0.23.46 nel lockfile, correggendo quattro advisory del 14 ottobre (una media, tre basse).
+- `deea4ee` - contatore atomico nei nomi delle directory temporanee del test handoff, per evitare collisioni durante llvm-cov parallelo. Nessuna logica runtime cambiata.
+- `1a3e327` - sezioni, icon button, durate, CSS e prime famiglie di testi condivisi; rimozione delle etichette obsolete.
+- `a45084d` - contenuto Card prima di geometria/preview.
+- `6e846b1` - tutte le ulteriori etichette identiche consolidate in chiavi canoniche; mapping unico dei nomi derivati dagli enum.
+- `8572094` - galleria completa, Logo, Card popolate, ritagli dei pannelli e acquisizioni incrementali.
+- `763eb1a` - dimensioni esplicite delle immagini per evitare salti di layout durante il lazy loading della galleria.
+- `e1068b0` - dettagli Screen comprendenti standby e acquisizione incrementale per stato.
+- `25ff273` - filtro di luminosità applicato una sola volta per frame prima della proiezione flip del demo, con regression test sui draw filtrati e sulle facce renderizzate.
+
+**Activity e performance.** `shownSensorKeys` mantiene ordine e richieste della Library, aggiunge `activity.processes` e `media.sessions` solo con un singolo Player selezionato o una Card con trigger, e solo quando l'inspector è mostrato. Multi-selezione, selezione diversa, Card senza trigger, Storage wide e finestra nascosta rilasciano la richiesta aggiuntiva. La firma della richiesta evita invoke duplicati. Unit coprono selezioni/visibilità; l'e2e verifica Player - Ring - Card - aggiunta/rimozione trigger con Undo/Redo - Storage - editor e le miniature raster reali.
+
+**D-15.** `.wide-dialog`: 720 px, `.udev-dialog`: 560 px, `.video-preview-dialog`: 850 px; limite comune `calc(100vw - 32px)`. E2e sui veri dialoghi nei quattro progetti, a 1280, 640 e 480 px, inclusi chiusura nativa e axe.
+
+**D-14/G9.** Controllati tutte le foglie CSS, ui/*.js, i18n, path SVG e helper puri. `propertySection` e `iconButton` sono ora in fields.js; Card usa il contratto unico delle sezioni senza fallback del vecchio inspector. `durationParts` è una sola implementazione, riutilizzata dalle regole Card; i nomi dei tab derivano dal modello comune. Venti gruppi di blocchi CSS identici fra aree sono definiti una sola volta in base.css (campi, layout, stati, testo troncato, selettori nativi sovrapposti e bottoni). Rimossi 27 testi obsoleti e consolidati i testi comuni; minuti/ore hanno chiavi `unit.*`. Le etichette dinamiche derivate dagli enum vengono risolte con `canonicalLabelKey`, senza copie delle traduzioni. Guardie automatiche: nessun corpo CSS con almeno tre dichiarazioni ripetuto fra fogli nello stesso contesto; nessun path SVG uguale in più moduli UI; nessun testo identico in tutti e tre i locali sotto due chiavi del catalogo intero. Test separato verifica che ogni label derivata punti a una chiave canonica esistente in ogni locale, preservando parametri e risultato. Plurali e traduzioni che differiscono in almeno un locale restano distinti. Nessuna duplicazione individuata rimasta; i controlli automatici sono euristici, non una prova generale su ogni algoritmo.
+
+**Gate finali.**
+
+| Gate | Risultato |
+| --- | --- |
+| npm run test:unit (anche nelle due esecuzioni npm test) | 426/426; righe 99,48% |
+| npm test, quattro progetti, worker predefiniti (10), axe | 536/536; seconda passata di stabilità: 536/536, verde |
+| Card / inspector-sections / card-animation, workers=1, repeat-each=3 | 120/120 prima del completamento del renderer; card-animation originale 12/12 in serie dopo 25ff273 |
+| cargo test --workspace | 1058 passati, 15 ignorati preesistenti |
+| cargo clippy --workspace --all-targets -- -D warnings | verde |
+| cargo fmt --check | verde |
+| cargo llvm-cov --workspace --fail-under-lines 80 | verde, righe 91,79% (regioni 91,30%) |
+| npm audit --audit-level=high | 0 vulnerabilità |
+| cargo audit | verde, nessuna vulnerabilità |
+
+La prima suite completa aveva 11 fallimenti dovuti all'ordine dei sensori e alla vecchia chiave del suggerimento Media: ordine ripristinato e spec aggiornata al testo attuale, senza rimuovere o rendere meno precisa l'assertion. Una passata intermedia ha avuto 10 errori ENOENT degli artefatti Playwright perché un secondo run nello stesso worktree ne aveva ripulito la directory; invalidata e ripetuta senza sovrapporre run. Passate intermedie hanno riprodotto flip con 3 hash invece di 4; la ripetizione seriale era verde 12/12. Nel demo la luminosità veniva filtrata di nuovo per ogni striscia della proiezione: ora il filtro viene eseguito una sola volta per frame. La nuova spec verifica un solo draw filtrato e facce con pixel diversi; il corpo della spec animazione originale resta identico byte per byte, inclusi 10 campioni, intervallo di 140 ms, durata e soglia >= 4 hash. Il primo llvm-cov ha rilevato la collisione delle directory temporanee corretta in deea4ee. Nessun timeout aumentato, nessuna soglia abbassata.
+
+**Galleria.** Comando riproducibile `node scripts/fidelity/gallery.mjs`; pagina `.jdi/phases/studio-redesign-fidelity/gap/gallery/index.html`, 16 artboard - dark/light, italiano, Connect e LogoAlternatives esclusi. 132 acquisizioni canoniche nel manifest, più i ritagli per il confronto; Card riacquisite dopo l'ultimo spostamento del layout tramite `shoot.mjs --area card --merge`. Riferimenti espansi con dc-shim; eventuale fallback STATICO viene mostrato con il motivo. Verificati nel browser 32 sezioni e tutti i percorsi delle immagini. Screenshot di controllo `gallery-card-review.png`. Ogni sezione elenca i residui specifici; il tema chiaro usa i token chiari mentre i riferimenti sono prevalentemente scuri. Approvazione visiva manuale dell'utente ancora pendente.
+
+**File fuori dagli elenchi puntuali del piano.**
+
+- `Cargo.lock`: patch di sicurezza necessaria per rendere verde cargo audit.
+- `crates/bezel-power/src/handoff.rs`: sola correzione dell'isolamento del test temporaneo emersa dal gate llvm-cov.
+- `apps/bezel-studio/src/ui/preferences.js`: sostituzione delle chiavi di etichette comuni con le chiavi condivise, testo e comportamento invariati.
+- `apps/bezel-studio/tests/e2e/connect.spec.mjs`: stessa assertion sul bottone Close, con chiave canonica `dialog.close`; nessun redesign del Connect. Nel suo modulo UI sono cambiate solo le chiavi di testo già identico.
+
+Le nuove spec `fidelity-integration.spec.mjs` e `inspector-activity.test.mjs` attuano la richiesta esplicita di regression test T-8 e rientrano nei glob aggregati del piano. Nessun eseguibile consegnato o sostituito; VERSION e dist/bezel invariati. Il file utente non tracciato `.claude/launch.json` è rimasto intatto. Documentazione in un commit separato dal codice. Log finali: `gap/gallery/logs/`; report consultabile anche in `gap/gallery/REPORT.md`.
+
 ## Blocked tasks
 - nenhuma
 
@@ -117,7 +208,7 @@ O CSS fica em `styles/base.css`, os builders em `ui/fields.js`, os ícones em `u
 - `apps/bezel-studio/tests/ui/{static-guards,i18n,relative-time}.test.mjs`, `tests/e2e/{scenarios-*,features-016-*}.spec.mjs`, `tests/e2e/helpers.mjs`, `playwright.config.mjs`, `scripts/e2e-slot.mjs`, `scripts/fidelity/**`
 - `.jdi/phases/studio-redesign-fidelity/.gitignore`
 
-## Tests
+## Tests (T-1, storico; risultati correnti nella sezione T-8)
 - Unit: 362/362, linhas 99.42% (`npm run test:unit`).
 - E2E: 396/396 nos 4 projetos (`node scripts/e2e-slot.mjs`, 2 workers).
 - Screenshots (shoot.mjs, it, dark+light, 26 estados × 2): todos idênticos ao baseline pré-refactor. Única variação: `library/media-icons` alterna entre duas versões (~17 px) já entre duas execuções do baseline (não determinismo pré-existente do catálogo de ícones); cada execução pós-refactor bate com uma execução do baseline.
