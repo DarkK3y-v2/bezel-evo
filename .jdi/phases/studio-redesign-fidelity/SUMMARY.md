@@ -223,6 +223,39 @@ O aviso 6 (itens manuais: fontes no WebView2, tray em barra real, build de relea
 
 O diff visual tem ruído pré-existente: duas baselines do mesmo commit `da86d86` já diferem em 34 de 168 capturas (sparklines do demo, que dependem do número de amostras, e anti-aliasing de ±1 em poucas linhas). Por isso a comparação usou duas baselines e três execuções depois das correções. Uma execução completa depois das correções caiu no meio, num clique no rail interceptado pelo seletor da topbar; as duas execuções seguintes passaram nesse ponto sem erro. Rust não foi tocado.
 
+### Correções do teste no app real (2026-10-15, D-16)
+
+**Problema 1 — preview isolado com resíduos do estado anterior (causa raiz).** Nenhum cache de canvas, de renderer ou de resposta atrasada: reproduzido no app real (release via CDP do WebView2), mudanças de cor e de estilo eram limpas. O resíduo vinha do histórico do gráfico. `Histories` era dimensionado pelo gráfico mais longo de cada sensor e cortado de novo a cada troca de tema (cada preview de uma edição faz `set_theme`), enquanto o renderer desenhava a série inteira. Efeitos: um gráfico que divide o sensor com outro mais longo desenhava os pontos antigos do outro; uma janela encurtada e depois alargada perdia os pontos e mostrava os restos espremidos na borda direita. Correção (`96261a5`): o histórico guarda até `GRAPH_POINTS_MAX` (3600) valores, qualquer que seja a janela atual, e cada gráfico desenha só os seus `history` pontos mais recentes (`Histories::points`). Com D-16, uma mudança de intervalo abre outra série: nunca se misturam pontos de dois ritmos. Os testes de regressão falhavam antes da correção: golden `graph_own_window` e `a_window_cut_short_then_widened_again_keeps_its_points`. O demo não tem o problema, porque desenha cada frame num canvas novo e sem estado.
+
+**Problema 2 — tempo do gráfico (D-16).**
+- Core (`214737c`): `ElementKind::Graph` ganhou `interval_seconds: Option<u32>`. No JSON é `intervalSeconds`, opcional e omitido quando ausente. Ausente significa um ponto por refresh, como antes. O valor 0 é lido como ausente, e acima de 3600 s vale 3600.
+  - `Histories` funciona por `SeriesId {key, cadence}`. Os ritmos possíveis são `EveryRefresh` ou `Every(d)`. Os registros usam `Tick::{Untimed, At{now, refresh}}`.
+  - `ThemeRuntime::sample_on_time` amostra quando o refresh ou o próximo ponto de um gráfico vence; um intervalo menor que o refresh amostra antes. Um gráfico sem intervalo só recebe pontos no refresh.
+  - Uma amostra que falha adia os pontos devidos (`skip`) em vez de repetir em loop.
+  - Tela ao vivo e canvas dividem o runtime: ritmo idêntico, verificado no teste `the_live_screen_and_the_canvas_draw_a_graph_at_its_own_interval`.
+- UI (`8bee9e6`):
+  - O inspector do gráfico tem "Durata" (valor + s/min/h) e "Un punto ogni" (valor + s/min), feitos com `prefixedField` + `segmented` + `chipButton`.
+  - As durações rápidas mantêm o intervalo.
+  - A dica mono diz "N punti · a questo ritmo, da X a Y". A duração é limitada a 2..3600 pontos (`graphTimingPatch`).
+  - Um gráfico antigo mostra o refresh como intervalo e avisa isso.
+  - Gráficos novos: `intervalSeconds: 1`.
+  - O eixo do preview e o pico usam a janela real (`−1 h`).
+  - i18n en/pt-BR/it: textos de amostras removidos, nenhum hex novo.
+- Demo (`2fd73bb`): desenha `history` pontos espaçados pelo intervalo (`demoGraphPoints`).
+- Decisão: `bf08654`.
+
+**Verificação.**
+
+| Gate | Resultado |
+| --- | --- |
+| `cargo test --workspace` (via llvm-cov) | 1069 aprovados, 15 ignorados pré-existentes |
+| `cargo clippy --workspace --all-targets -- -D warnings` / `cargo fmt --check` | verde |
+| `cargo llvm-cov --workspace --fail-under-lines 80` | verde, linhas 91,94% |
+| `npm run test:unit` | 435/435; linhas 99,48% |
+| `inspector-preview.spec` (`e2e-slot`) | 20/20 |
+| `npm test` completo, quatro projetos, axe | 536/536 |
+| `shoot.mjs --area inspector --only app`, dark e light | inspector do gráfico conferido visualmente |
+
 ## Blocked tasks
 - nenhuma
 
