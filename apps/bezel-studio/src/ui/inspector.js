@@ -111,7 +111,7 @@ function arcPreview(kind) {
  *   the last sample read (sensor values, apps, media) and an element of the
  *   edited theme rendered alone
  */
-export function createInspector({ root, store, t, sensors, minRefresh, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, host = NO_HOST }) {
+export function createInspector({ root, store, t, sensors, minRefresh, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, bridge = null, host = NO_HOST }) {
   const update = (id, patch) => store.dispatch('update', { id, patch });
   // A framing slider being dragged: its moves are one gesture (one undo
   // step), and the form is not drawn again under the pointer meanwhile.
@@ -794,7 +794,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
   }
 
   /** The Faces, Motion and Triggers tabs of a card (ui/inspector-card.js). */
-  const cardPanels = (e) => Object.fromEntries(CARD_TABS.map((tab) => [tab, renderCardPanel(tab, { element: e, t, store, update, section })]));
+  const cardPanels = (e) => Object.fromEntries(CARD_TABS.map((tab) => [tab, renderCardPanel(tab, { element: e, t, store, update, section, bridge, host })]));
 
   /**
    * A titled group of fields (11px caps title, `sectionTitle()`); nothing

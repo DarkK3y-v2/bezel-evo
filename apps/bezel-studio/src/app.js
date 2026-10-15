@@ -9,6 +9,7 @@ import { createLibrary } from './ui/library.js';
 import { createScreenPanel } from './ui/screen-panel.js';
 import { openVideoPreview } from './ui/video-preview.js';
 import { createInspector } from './ui/inspector.js';
+import { shownSensorKeys } from './inspector-tabs.js';
 import { createConfirm, createStoragePanel, formatBytes, wireSubtabs } from './ui/storage.js';
 import { applyIcons, el, icon } from './ui/dom.js';
 import { ICONS } from './ui/icons.js';
@@ -160,6 +161,21 @@ const collection = createCollectionPanel({
 });
 const gifSearch = createGifSearch({ t, bridge, locale: () => locale, onCollected: () => void collection.refresh() });
 
+let librarySensorKeys = [];
+let requestedSensorKeys = null;
+function reportShownSensors(keys = librarySensorKeys) {
+  librarySensorKeys = keys;
+  const wanted = shownSensorKeys(keys, store.getState(), !document.hidden,
+    !document.querySelector('.workspace.storage-wide'));
+  const signature = JSON.stringify(wanted);
+  if (signature === requestedSensorKeys) return;
+  requestedSensorKeys = signature;
+  bridge.showSensors(wanted).catch(e => {
+    if (requestedSensorKeys === signature) requestedSensorKeys = null;
+    fail(e);
+  });
+}
+
 const library = createLibrary({
   store,
   canvas: canvasView,
@@ -181,7 +197,7 @@ const library = createLibrary({
     mediaSubtab: (name) => {
       if (name === 'collection') void collection.show();
     },
-    showSensors: (keys) => bridge.showSensors(keys).catch((e) => fail(e)),
+    showSensors: reportShownSensors,
     themeThumbnail: (location) => bridge.themeThumbnail(location),
     rememberThemeFilter: ({ scope, axis }) => bridge.setThemeFilter(scope, axis).catch(() => {}),
     duplicateTheme: (location, name) => bridge.duplicateTheme(location, name).then(() => refreshThemes()).catch((e) => fail(e)),
@@ -260,6 +276,7 @@ function syncStorageWide() {
   const wide = !$('panel-screen').hidden && !$('screen-storage').hidden;
   if (wide === storageWide()) return;
   workspace.classList.toggle('storage-wide', wide);
+  reportShownSensors();
   if (wide) {
     setFramingMode(false, { restoreFocus: false });
     storage.show();
@@ -426,6 +443,7 @@ async function drawPreview() {
 const previews = createRenderScheduler({ render: drawPreview, gesturing: () => store.isGesturing() });
 const renderNow = () => previews.request();
 document.addEventListener('visibilitychange', () => {
+  reportShownSensors();
   if (!document.hidden) renderNow();
 });
 reducedMotion?.addEventListener?.('change', () => {
@@ -470,6 +488,7 @@ function reportUnsaved() {
 
 function refreshChrome(reason) {
   const { theme } = store.getState();
+  reportShownSensors();
   reportUnsaved();
   $('undo').disabled = !store.canUndo();
   $('redo').disabled = !store.canRedo();
