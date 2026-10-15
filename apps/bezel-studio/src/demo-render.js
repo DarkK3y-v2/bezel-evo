@@ -310,7 +310,18 @@ function drawCardTransition(ctx, theme, parent, transition, t) {
     for (const e of members) if (visibleWithoutFace(theme, e) && (e.cardMember?.face === pose.face || include && (e.id === parent.id || e.cardMember.face == null))) draw(gc, e);
     cc.save(); if (!pose.projection) cc.setTransform(...pose.matrix); cc.globalAlpha = pose.alpha;
     cc.globalCompositeOperation = transition.settings.effect === 'fade' ? 'lighter' : 'source-over';
-    cc.filter = `brightness(${pose.shade})`; if (pose.projection) drawCardProjection(cc, group, pose.projection); else cc.drawImage(group, 0, 0); cc.restore();
+    if (pose.projection) {
+      // Shade once, before projecting the image's two-pixel strips. A
+      // filter on cc would re-filter the whole source for every strip.
+      const shaded = new OffscreenCanvas(width, height), sc = shaded.getContext('2d');
+      sc.filter = `brightness(${pose.shade})`;
+      sc.drawImage(group, 0, 0);
+      drawCardProjection(cc, shaded, pose.projection);
+    } else {
+      cc.filter = `brightness(${pose.shade})`;
+      cc.drawImage(group, 0, 0);
+    }
+    cc.restore();
   }
   ctx.save();
   if (transition.settings.effect === 'slide') { const b = parent.frame; ctx.beginPath(); ctx.rect(b.x, b.y, b.width, b.height); ctx.clip(); }

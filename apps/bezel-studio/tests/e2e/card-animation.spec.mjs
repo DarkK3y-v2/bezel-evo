@@ -1,5 +1,41 @@
 import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 
+test('flip shades its source once per frame and projects distinct face pictures', async ({ page }) => {
+  await page.goto('/index.html?demo=turing88');
+  const frames = await page.evaluate(async () => {
+    const [{ createStore }, { DEMO_THEME }, { renderApprox }] = await Promise.all([
+      import('/editor/store.js'), import('/demo-theme.js'), import('/demo-render.js'),
+    ]);
+    const store = createStore({ ...DEMO_THEME, elements: [] });
+    store.dispatch('cardDemo', { x: 240, y: 480 });
+    const id = store.getState().theme.elements.find(e => e.card).id;
+    store.dispatch('update', { id, patch: { card: { transition: { effect: 'flip', direction: 'right' } } } });
+    const theme = store.getState().theme;
+    const settings = theme.elements.find(e => e.id === id).card.transition;
+    const prototype = Object.getPrototypeOf(new OffscreenCanvas(1, 1).getContext('2d'));
+    const draw = prototype.drawImage;
+    let filtered = 0, strips = 0;
+    prototype.drawImage = function (...args) {
+      if (this.filter !== 'none') filtered++;
+      if (args.length === 9) strips++;
+      return draw.apply(this, args);
+    };
+    try {
+      return [0.25, 0.75].map(progress => {
+        filtered = strips = 0;
+        const frame = renderApprox(theme, 0, null, new Map([[id, { from: 0, to: 1, progress, settings }]]));
+        let hash = 2166136261;
+        for (const byte of frame.rgba) hash = Math.imul(hash ^ byte, 16777619);
+        return { filtered, strips, hash };
+      });
+    } finally { prototype.drawImage = draw; }
+  });
+  expect(frames.map(frame => frame.filtered)).toEqual([1, 1]);
+  for (const frame of frames) expect(frame.strips).toBeGreaterThan(20);
+  expect(frames[0].hash).not.toBe(frames[1].hash);
+  await expectAccessible(page);
+});
+
 test('card built in the editor previews fade, slide and flip with changing frames and reduced motion', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
