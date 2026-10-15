@@ -429,8 +429,6 @@ export default {
   "inspector.thickness": "Spessore (px)",
   "inspector.title": "Proprietà",
   "inspector.track": "Traccia",
-  "inspector.useColor": "Usa un colore pieno",
-  "inspector.removeBackground": "Rimuovi lo sfondo",
   "inspector.useImage": "Usa un'immagine…",
   "inspector.useVideo": "Usa un video…",
   "inspector.valignBottom": "In basso",

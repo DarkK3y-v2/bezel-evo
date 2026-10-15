@@ -2,9 +2,13 @@
    video background and its framing, an object's head, preview, tabs and
    sections. */
 
-.background-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 16px 0 6px; flex-wrap: wrap; }
-.inspector .background-heading h3 { margin: 0; }
-.background-heading .text-button { font-size: 0.75rem; padding: 4px 8px; }
+/* The background: its kind, then that kind's own controls (D-23). */
+.inspector .property-section[data-section="background"] .segmented { display: flex; }
+.inspector .property-section[data-section="background"] .segmented button { flex: 1 1 auto; min-width: 0; padding-inline: 6px; white-space: nowrap; }
+.background-body { display: grid; gap: 8px; margin-top: 8px; }
+.background-body > .text-button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.background-body .hint, .background-body .field { margin: 0; }
+.bg-file { overflow-wrap: anywhere; }
 .bg-video { display: grid; grid-template-columns: 96px 1fr; gap: 10px; align-items: center; margin: 4px 0 8px; }
 .bg-video .thumb { width: 96px; height: 54px; border-radius: 6px; background: var(--screen) center / contain no-repeat; border: 1px solid var(--border); }
 .video-status { margin: 0 0 8px; }

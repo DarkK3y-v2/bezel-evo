@@ -54,6 +54,7 @@ const NO_VIDEO_ACTIONS = Object.freeze({
   useVideo: () => {},
   useImage: () => {},
   openStorage: () => {},
+  openMedia: () => {},
   setFraming: () => {},
   openGuide: () => {},
 });
@@ -101,12 +102,12 @@ function arcPreview(kind) {
  * @param {object} deps
  * @param {HTMLElement} deps.root
  * @param {() => number} deps.minRefresh the fastest refresh a theme may ask for, seconds (from the backend)
- * @param {{context: () => {screen: object|null, live: boolean, liveVideo: object|null, tools: object|null, locale: string, auto: {rotation: number, size: object|null}|null, framing: boolean, motion: boolean}, useVideo: () => void, useImage: () => void, openStorage: () => void, setFraming: (on: boolean) => void, openGuide: () => void}} [deps.video]
+ * @param {{context: () => {screen: object|null, live: boolean, liveVideo: object|null, tools: object|null, locale: string, auto: {rotation: number, size: object|null}|null, framing: boolean, motion: boolean}, useVideo: () => void, useImage: () => void, openStorage: () => void, openMedia: () => void, setFraming: (on: boolean) => void, openGuide: () => void}} [deps.video]
  *   the screen and ffmpeg the video background is told against, what Auto
  *   turns it (`video_auto`), whether the canvas frames it now and whether
  *   the preview may move, and its actions: pick a video (or GIF) for the
  *   background, pick a picture, show the storage tab (where the missing
- *   video is sent), frame it on the canvas, and open the ffmpeg guide
+ *   video is sent), show the Media panel, frame it on the canvas, and open the ffmpeg guide
  * @param {object|null} [deps.bridge] the backend, for what the inspector reads itself
  * @param {{lastSample: () => object|null, renderElement: (id: string, opts?: {max?: number, motion?: boolean}) => Promise<object|null>}} [deps.host]
  *   the last sample read (sensor values, apps, media) and an element of the
@@ -170,7 +171,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
 
   // --------------------------------------------------------------- theme --
   const button = (text, onclick) => el('button', { type: 'button', class: 'text-button', text, onclick });
-  const useColor = () => button(t('inspector.useColor'), () => store.dispatch('setTheme', { patch: { background: { type: 'color', color: '#0c0e16ff' } } }));
+  /** A button that opens another panel, with its icon (the Media panel, Screen › Storage). */
+  const linkButton = (text, iconName, onclick, attrs = {}) => el('button', { type: 'button', class: 'text-button', onclick, ...attrs }, [icon(ICONS[iconName], 16), text]);
 
   // ------------------------------------------------------------ framing --
   /** Applies a framing patch to the video background: one store command, none when it changes nothing. */
@@ -316,40 +318,96 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     }
     nodes.push(el('div', { class: 'button-row' }, [
       button(t('inspector.replaceVideo'), () => video.useVideo()),
-      button(t('deviceVideo.choose'), () => video.openStorage()),
       button(t('inspector.useImage'), () => video.useImage()),
-      useColor(),
     ]));
     return nodes;
   }
 
-  function backgroundFields(bg, assets) {
-    if (bg.type === 'deviceVideo') {
-      const context = video.context();
-      const windows = store.getState().theme.elements.some((e) => isShown(store.getState().theme, e) && e.kind.type === 'shape' && e.kind.videoWindow);
-      const status = context.live ? context.liveVideo?.state : null;
-      return [
-        el('strong', { text: fileNameOf(bg.path) }),
-        el('p', { class: 'hint', text: t('deviceVideo.fromScreen') }),
-        checkField(t('deviceVideo.loop'), bg.looping !== false, (looping) => store.dispatch('setTheme', { patch: { background: { ...bg, looping } } })),
-        windows && colorField(t('deviceVideo.outsideColor'), bg.color ?? '#000000ff', (color) => store.dispatch('setTheme', { patch: { background: { ...bg, color } } })),
-        el('p', { class: 'hint', text: t('deviceVideo.preview') }),
-        status === 'storedMissing' && el('p', { class: 'hint', text: t('deviceVideo.missing') }),
-        status === 'noPlayback' && el('p', { class: 'hint', text: t('deviceVideo.unsupported') }),
-        el('div', { class: 'button-row' }, [button(t('deviceVideo.choose'), () => video.openStorage()), useColor()]),
-      ].filter(Boolean);
+  // ---------------------------------------------------------- background --
+  // The background's kind is a choice in plain sight
+  // (D-2026-10-15-studio-redesign-fidelity-23): a colour, a picture or
+  // video from this PC, or a video stored on the screen. Each switch is one
+  // store command (one undo step) and brings back the last background of
+  // that kind; a kind with nothing to show yet is only chosen here, the
+  // theme unchanged, until a file is picked.
+  const BG_KINDS = Object.freeze([['color', 'inspector.color'], ['pc', 'insp.bgPc'], ['screen', 'insp.bgScreen']]);
+  const bgKindOf = (bg) => (bg.type === 'deviceVideo' ? 'screen' : bg.type === 'color' ? 'color' : 'pc');
+  /** The last background of each kind seen, to come back to. */
+  const lastBackground = { color: null, pc: null, screen: null };
+  /** A kind chosen with nothing to show yet (null: the theme's own). */
+  let pendingKind = null;
+
+  function chooseBackground(kind, bg, assets) {
+    const current = bgKindOf(bg);
+    if (kind === current) {
+      if (pendingKind !== null) {
+        pendingKind = null;
+        render(shown.assets);
+      }
+      return;
     }
-    if (bg.type === 'video') return videoBackground(bg, assets);
-    return [
-      bg.type === 'color'
-        ? colorField(t('inspector.color'), bg.color, (c) => store.dispatch('setTheme', { patch: { background: { type: 'color', color: c } } }))
-        : el('p', { class: 'hint', text: t(`bg.${bg.type}`) }),
-      el('div', { class: 'button-row' }, [
-        bg.type !== 'color' && useColor(),
-        button(t('inspector.useVideo'), () => video.useVideo()),
-        button(t('deviceVideo.choose'), () => video.openStorage()),
-      ]),
+    const last = lastBackground[kind];
+    const usable = last !== null && (kind !== 'pc' || assets.some((a) => a.ref === last.asset));
+    if (kind === 'color' || usable) {
+      pendingKind = null;
+      store.dispatch('setTheme', { patch: { background: usable ? last : { type: 'color', color: bg.color ?? '#0c0e16ff' } } });
+      return;
+    }
+    pendingKind = kind;
+    render(shown.assets);
+  }
+
+  /** Picks a picture or a video in the native dialog. */
+  const pickButtons = () => el('div', { class: 'button-row' }, [button(t('inspector.useImage'), () => video.useImage()), button(t('inspector.useVideo'), () => video.useVideo())]);
+
+  /** A picture or video from this PC: the one shown, or how to pick one. */
+  function pcBackground(bg, assets) {
+    const nodes = [
+      el('p', { class: 'hint', text: t('insp.bgPcHint') }),
+      linkButton(t('insp.bgOpenMedia'), 'media', () => video.openMedia(), { id: 'bg-open-media' }),
     ];
+    if (bg.type === 'video') return [...nodes, ...videoBackground(bg, assets)];
+    if (bg.type === 'image') return [...nodes, el('p', { class: 'hint', text: t('bg.image') }), el('strong', { class: 'bg-file', text: fileNameOf(bg.asset) }), pickButtons()];
+    return [...nodes, el('p', { class: 'hint', text: t('insp.bgPending') }), pickButtons()];
+  }
+
+  /** A video stored on the screen: the one shown with its loop and colours, or where to pick one. */
+  function screenBackground(bg) {
+    const nodes = [
+      el('p', { class: 'hint', text: t('insp.bgScreenHint') }),
+      linkButton(t('insp.bgOpenStorage'), 'sdCard', () => video.openStorage(), { id: 'bg-open-storage' }),
+    ];
+    if (bg.type !== 'deviceVideo') return [...nodes, el('p', { class: 'hint', text: t('insp.bgPending') })];
+    const context = video.context();
+    const theme = store.getState().theme;
+    const windows = theme.elements.some((e) => isShown(theme, e) && e.kind.type === 'shape' && e.kind.videoWindow);
+    const status = context.live ? context.liveVideo?.state : null;
+    return [
+      ...nodes,
+      el('strong', { class: 'bg-file', text: fileNameOf(bg.path) }),
+      el('p', { class: 'hint', text: t('deviceVideo.fromScreen') }),
+      checkField(t('deviceVideo.loop'), bg.looping !== false, (looping) => store.dispatch('setTheme', { patch: { background: { ...bg, looping } } })),
+      windows && colorField(t('deviceVideo.outsideColor'), bg.color ?? '#000000ff', (color) => store.dispatch('setTheme', { patch: { background: { ...bg, color } } })),
+      el('p', { class: 'hint', text: t('deviceVideo.preview') }),
+      status === 'storedMissing' && el('p', { class: 'hint', text: t('deviceVideo.missing') }),
+      status === 'noPlayback' && el('p', { class: 'hint', text: t('deviceVideo.unsupported') }),
+    ].filter(Boolean);
+  }
+
+  /** The Background section: the kind, then that kind's own controls. */
+  function backgroundSection(bg, assets) {
+    const current = bgKindOf(bg);
+    lastBackground[current] = bg;
+    if (pendingKind === current) pendingKind = null;
+    const kind = pendingKind ?? current;
+    let body;
+    if (kind === 'color') body = [colorField(t('inspector.color'), bg.color, (c) => store.dispatch('setTheme', { patch: { background: { type: 'color', color: c } } }))];
+    else if (kind === 'pc') body = pcBackground(current === 'pc' ? bg : { type: 'none' }, assets);
+    else body = screenBackground(bg);
+    return section('background', t('common.background'), [
+      segmented(t('insp.bgType'), kind, BG_KINDS.map(([v, key]) => [v, t(key)]), (v) => chooseBackground(v, bg, assets), { bare: true }),
+      el('div', { class: 'background-body', dataset: { kind } }, body),
+    ]);
   }
 
   function themeForm(theme, assets) {
@@ -358,13 +416,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       textField(t('common.name'), theme.name, (v) => store.dispatch('setTheme', { patch: { name: v } })),
       el('p', { class: 'hint', text: t('inspector.canvas', { width: theme.canvas.width, height: theme.canvas.height }) }),
       selectField(t('inspector.orientation'), theme.orientation, ORIENTATIONS.map((o) => [o, t(`orientation.${o}`)]), (o) => store.dispatch('setOrientation', { orientation: o })),
-      el('div', { class: 'background-heading' }, [
-        el('h3', { text: t('common.background') }),
-        theme.background.type !== 'color' && button(t('inspector.removeBackground'), () => store.dispatch('setTheme', {
-          patch: { background: { type: 'color', color: theme.background.color ?? '#0c0e16ff' } },
-        })),
-      ]),
-      ...backgroundFields(theme.background, assets),
+      backgroundSection(theme.background, assets),
       el('h3', { text: t('inspector.refresh') }),
       rangeField(t('inspector.refreshSeconds'), theme.refreshSeconds, (v) => store.dispatch('setTheme', { patch: { refreshSeconds: v } }), { min: minRefresh(), max: 5, step: minRefresh(), format: (v) => t('unit.seconds', { value: v }) }),
     ];

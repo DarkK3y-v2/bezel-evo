@@ -429,8 +429,6 @@ export default {
   'inspector.thickness': 'Espessura (px)',
   'inspector.title': 'Propriedades',
   'inspector.track': 'Trilho',
-  'inspector.useColor': 'Usar cor sólida',
-  'inspector.removeBackground': 'Remover fundo',
   'inspector.useImage': 'Usar imagem…',
   'inspector.useVideo': 'Usar vídeo…',
   'inspector.valignBottom': 'Base',

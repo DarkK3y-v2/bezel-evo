@@ -335,6 +335,7 @@ const inspector = createInspector({
     useVideo: () => addMedia(null, { asBackground: true }),
     useImage: () => useImage(),
     openStorage: () => openStorage(),
+    openMedia: () => library.selectTab('media'),
     setFraming: (on) => setFramingMode(on),
     openGuide: () => bridge.openGuide('ffmpeg', guideLocale(locale)).catch((e) => fail(e)),
   },

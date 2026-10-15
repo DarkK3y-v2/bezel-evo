@@ -15,6 +15,8 @@ export default {
   artboards: ['Main', 'GraphData', 'GraphLook', 'PlayerData', 'PlayerLook'],
   states: [
     { name: 'theme', run: async () => {} },
+    { name: 'theme-pc', run: (app) => app.page.locator('#inspector').getByRole('button', { name: t('insp.bgPc'), exact: true }).click() },
+    { name: 'theme-screen', run: (app) => app.page.locator('#inspector').getByRole('button', { name: t('insp.bgScreen'), exact: true }).click() },
     { name: 'ring', run: (app) => app.add('ring') },
     { name: 'ring-look', run: async (app) => { await app.add('ring'); await app.inspectorTab(1); } },
     { name: 'graph', run: (app) => standalone(app, 'graph') },
