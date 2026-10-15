@@ -48,19 +48,19 @@
 .libre-popover { position: fixed; z-index: 20; width: 340px; max-width: calc(100vw - 16px); display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); color: var(--text); box-shadow: var(--shadow); }
 .libre-popover[hidden] { display: none; }
 .libre-popover-head .status-dot { width: 10px; height: 10px; }
-.libre-popover-head h2 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; }
+.libre-popover-head h2 { flex: 1; margin: 0; font-size: var(--fs-heading); font-weight: 600; }
 .libre-hardware { list-style: none; margin: 0 -6px; padding: 0; display: grid; gap: 2px; }
 .libre-row { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 8px; border-radius: 8px; }
 .libre-row:hover { background: var(--surface-3); }
 .libre-row-name { flex: 1; min-width: 0; display: grid; line-height: 1.2; }
 .libre-row-name > :first-child { font-weight: 500; overflow-wrap: anywhere; }
-.libre-row-via { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim); overflow-wrap: anywhere; }
-.libre-row-value { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
+.libre-row-via { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dim); overflow-wrap: anywhere; }
+.libre-row-value { font-family: var(--font-mono); font-size: var(--fs-compact); white-space: nowrap; }
 .libre-row[data-state="missing"] .libre-row-value { color: var(--warn); }
-.libre-popover-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--signal-warn) 25%, var(--border-2)); font-size: 12px; line-height: 1.45; }
+.libre-popover-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--signal-warn) 25%, var(--border-2)); font-size: var(--fs-compact); line-height: 1.45; }
 .libre-popover-note[hidden] { display: none; }
 .libre-popover-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.libre-popover-age { flex: 1; min-width: 0; font-size: 10.5px; color: var(--dim); overflow-wrap: anywhere; }
+.libre-popover-age { flex: 1; min-width: 0; font-size: var(--fs-meta); color: var(--dim); overflow-wrap: anywhere; }
 .libre-popover-actions .primary-button svg { width: 16px; height: 16px; }
 .libre-popover-actions .primary-button:disabled { cursor: wait; }
 

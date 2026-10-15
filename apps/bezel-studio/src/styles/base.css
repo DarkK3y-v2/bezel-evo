@@ -88,7 +88,7 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 /* -------------------------------------------------------------- fields -- */
 /* The artboards' field: a well with a mono prefix inside (`X 90`, `min 0`),
    `prefixedField()`; two per row in a `.fld-grid`. */
-.fld { display: flex; align-items: center; gap: 8px; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); font-family: var(--font-mono); font-size: 12.5px; color: var(--text); }
+.fld { display: flex; align-items: center; gap: 8px; min-width: 0; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); font-family: var(--font-mono); font-size: var(--fs-field); color: var(--text); }
 .fld:focus-within { border-color: var(--accent); }
 .fld-prefix { flex: none; color: var(--dim); font-size: var(--fs-caps); }
 .fld input { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; }
@@ -166,14 +166,14 @@ button.pill:hover { border-color: var(--accent); }
 
 /* --------------------------------------------------------- dashed hint -- */
 /* How to use a panel, at its foot (`dashedHint()`): icon, text, keys. */
-.dashed-hint { display: flex; gap: 10px; padding: 12px; border-radius: 10px; border: 1px dashed var(--border); background: var(--surface-2); color: var(--text-3); font-size: 12px; line-height: 1.45; }
+.dashed-hint { display: flex; gap: 10px; padding: 12px; border-radius: 10px; border: 1px dashed var(--border); background: var(--surface-2); color: var(--text-3); font-size: var(--fs-compact); line-height: 1.45; }
 .dashed-hint .ic { width: 18px; height: 18px; color: var(--accent-ink); }
 .dashed-hint p { margin: 0; }
 
 /* ---------------------------------------------------- slider and value -- */
 /* A slider under its label and mono value (`rangeField()`). */
 .slider-field { display: grid; gap: 6px; margin-bottom: 8px; }
-.slider-head { display: flex; justify-content: space-between; gap: 8px; color: var(--text-2); font-size: 12.5px; }
+.slider-head { display: flex; justify-content: space-between; gap: 8px; color: var(--text-2); font-size: var(--fs-field); }
 .slider-head output { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
 
 /* ----------------------------------------------------------- list card -- */

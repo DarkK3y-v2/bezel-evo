@@ -86,9 +86,10 @@ export function updateSeconds(times) {
 
 /**
  * The path of a sparkline `width`×`height` (a flat series draws in the
- * middle); `null` with fewer than two values.
+ * middle); `null` with fewer than two values. The width is the caller's: the
+ * Library reads it from the `--spark-width` token.
  */
-export function sparkPath(values, width = 60, height = 20, pad = 2) {
+export function sparkPath(values, width, height = 20, pad = 2) {
   const v = values.filter(Number.isFinite);
   if (v.length < 2) return null;
   const min = Math.min(...v);

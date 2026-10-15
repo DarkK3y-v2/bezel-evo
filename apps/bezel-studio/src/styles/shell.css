@@ -9,9 +9,9 @@
 .topbar > .spacer { flex: 1 1 0; }
 .brand { display: flex; align-items: center; gap: 10px; height: 32px; padding-right: 12px; border-right: 1px solid var(--line); }
 .brand-label { display: grid; line-height: 1.15; font-family: var(--font-mono); }
-.brand-name { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.brand-name { font-size: var(--fs-base); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .brand-accent { font-weight: 400; color: var(--accent-ink); }
-.brand-version { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.brand-version { font-size: var(--fs-meta); color: var(--dim); font-variant-numeric: tabular-nums; }
 
 /* Breadcrumb: Themes › the theme's name (editable) and "Unsaved". */
 .topbar > .crumbs { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; }
@@ -62,8 +62,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .rail { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; background: var(--chrome); border-right: 1px solid var(--line); overflow-y: auto; overflow-x: hidden; }
 .rail .tab-design, .rail .tab-device { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .rail .tab-device::before { content: ""; width: 28px; height: 1px; margin: 8px 0; background: var(--border-2); }
-.rail .tab-domain { max-width: 62px; margin: 2px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0; text-transform: uppercase; }
-.rail [role="tab"] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 52px; height: 52px; padding: 4px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 500; cursor: pointer; }
+.rail .tab-domain { max-width: 62px; margin: 2px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 600; letter-spacing: 0; text-transform: uppercase; }
+.rail [role="tab"] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 52px; height: 52px; padding: 4px 2px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font-size: var(--fs-tiny); font-weight: 500; cursor: pointer; }
 .rail [role="tab"] svg { width: 18px; height: 18px; }
 .rail [role="tab"]:hover { color: var(--text); background: var(--surface-2); }
 .rail [role="tab"][aria-selected="true"] { color: var(--accent-ink); background: var(--accent-soft); }
@@ -120,8 +120,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 .stage-tools .icon-button, .stage-zoom .icon-button { width: 34px; min-height: 34px; }
 .stage-zoom .icon-button { width: 30px; min-height: 30px; }
 .stage-tools .icon-button[aria-pressed="true"] { background: var(--surface-3); color: var(--text); }
-.zoom-label { min-width: 48px; padding: 0 4px; text-align: center; font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
-.stage-zoom #zoom-fit { min-height: 30px; padding: 0 10px; font-size: 12px; }
+.zoom-label { min-width: 48px; padding: 0 4px; text-align: center; font-family: var(--font-mono); font-size: var(--fs-compact); font-variant-numeric: tabular-nums; }
+.stage-zoom #zoom-fit { min-height: 30px; padding: 0 10px; font-size: var(--fs-compact); }
 .tool-sep { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
 .stage.drop-target .bezel { outline: 3px dashed var(--accent); outline-offset: 6px; }
 
@@ -130,7 +130,7 @@ body.resizing { cursor: col-resize; user-select: none; }
 .orientation-tools .segmented button { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 10px; }
 
 /* ------------------------------------------------------------ statusbar -- */
-.statusbar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; background: var(--chrome); border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.statusbar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; background: var(--chrome); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-compact); font-variant-numeric: tabular-nums; }
 .status-clock { color: var(--accent-ink); }
 .status-saved-at:not(:empty)::before { content: "· "; }
 .status-saved-at { margin-left: -4px; }

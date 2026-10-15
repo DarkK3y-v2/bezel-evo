@@ -195,12 +195,23 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   mountSearch('widget-search', 'widgets.search', (q) => { widgetQuery = q; renderWidgets(); }, { id: 'widget-search-input' });
 
   // ------------------------------------------------------------- sensors --
+  /**
+   * The sparkline's width in px: the `--spark-width` token (tokens.css), which
+   * also sizes its column of the sensor row, so the drawing is never scaled.
+   */
+  let sparkWidth = null;
+  function sparkWidthPx() {
+    sparkWidth ??= parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--spark-width'));
+    return sparkWidth;
+  }
+
   /** A sensor's recent values as a line, coloured by its hardware (library.css). */
   function sparkline(key, category) {
+    const width = sparkWidthPx();
     const svg = document.createElementNS(SVG, 'svg');
     svg.setAttribute('class', 'sparkline');
-    svg.setAttribute('viewBox', '0 0 60 20');
-    svg.setAttribute('width', '60');
+    svg.setAttribute('viewBox', `0 0 ${width} 20`);
+    svg.setAttribute('width', String(width));
     svg.setAttribute('height', '20');
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
@@ -212,7 +223,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   }
 
   function drawSpark(svg) {
-    const d = sparkPath(history.values(svg.dataset.sparkFor));
+    const d = sparkPath(history.values(svg.dataset.sparkFor), sparkWidthPx());
     if (d) svg.firstChild.setAttribute('d', d);
     else svg.firstChild.removeAttribute('d');
   }

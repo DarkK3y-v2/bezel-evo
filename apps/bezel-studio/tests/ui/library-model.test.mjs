@@ -54,11 +54,11 @@ test('the update rate is the median gap between samples, in whole seconds', () =
 });
 
 test('a sparkline spans its box; a flat one runs through the middle', () => {
-  assert.equal(sparkPath([]), null);
-  assert.equal(sparkPath([5, Number.NaN]), null);
-  assert.equal(sparkPath([0, 10]), 'M0 18 L60 2');
+  assert.equal(sparkPath([], 60), null);
+  assert.equal(sparkPath([5, Number.NaN], 60), null);
+  assert.equal(sparkPath([0, 10], 60), 'M0 18 L60 2');
   assert.equal(sparkPath([0, 5, 10], 40, 10, 0), 'M0 10 L20 5 L40 0');
-  assert.equal(sparkPath([7, 7, 7]), 'M0 10 L30 10 L60 10');
+  assert.equal(sparkPath([7, 7, 7], 60), 'M0 10 L30 10 L60 10');
 });
 
 test('a sensor group names its source only when all of it shares one', () => {

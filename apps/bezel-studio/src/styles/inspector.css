@@ -43,7 +43,7 @@
    and size, then the sections of the open tab. */
 .inspector-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
 .inspector-title { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
-.inspector-name { width: 100%; min-width: 0; padding: 1px 4px; margin-left: -5px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 14px; font-weight: 600; text-overflow: ellipsis; }
+.inspector-name { width: 100%; min-width: 0; padding: 1px 4px; margin-left: -5px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: var(--fs-heading); font-weight: 600; text-overflow: ellipsis; }
 .inspector-name:hover { border-color: var(--border); }
 .inspector-name:focus { border-color: var(--accent); background: var(--well); }
 .inspector-sub { margin: 0; color: var(--muted); font-size: var(--fs-small); overflow-wrap: anywhere; line-height: 1.35; }
@@ -55,12 +55,12 @@
 /* The preview: the object rendered alone (D-8), on the screen's black. */
 .inspector-preview { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--screen-thumb); color: var(--screen-thumb-ink); }
 .inspector-preview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.inspector-preview-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: var(--caps-spacing); text-transform: uppercase; }
-.inspector-preview-value { color: var(--screen-chip-ink); font-family: var(--font-mono); font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.inspector-preview-label { font-family: var(--font-mono); font-size: var(--fs-meta); letter-spacing: var(--caps-spacing); text-transform: uppercase; }
+.inspector-preview-value { color: var(--screen-chip-ink); font-family: var(--font-mono); font-size: var(--fs-heading); font-weight: 500; font-variant-numeric: tabular-nums; }
 .inspector-preview-stage { display: grid; place-items: center; min-height: 40px; }
 .inspector-preview-stage canvas { display: block; max-width: 100%; }
 .inspector-preview-stage .inspector-preview-off { margin: 0; color: var(--screen-thumb-ink); font-size: var(--fs-small); }
-.inspector-preview-axis { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; }
+.inspector-preview-axis { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--fs-tiny); }
 
 /* The tabs, right under the head and preview. */
 .inspector-tabs.subtabs { display: flex; margin-bottom: 0; }
@@ -86,7 +86,7 @@
 .arc-row { display: flex; align-items: center; gap: 14px; }
 .arc-row .fld-grid { flex: 1 1 auto; min-width: 0; }
 .arc-row .fld { padding-inline: 6px; gap: 3px; }
-.arc-row .fld-prefix { font-size: 10px; }
+.arc-row .fld-prefix { font-size: var(--fs-tiny); }
 .arc-row .fld-unit { margin-left: -3px; }
 .arc-row input::-webkit-inner-spin-button { appearance: none; }
 .arc-preview { width: 64px; height: 64px; }
@@ -97,7 +97,7 @@
 
 /* Tiles with a drawing over their name (the graph's style, what the player shows). */
 .option-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.option-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 10px 4px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-3); font-size: 12px; cursor: pointer; }
+.option-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 10px 4px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-3); font-size: var(--fs-compact); cursor: pointer; }
 .option-tile .ic { width: 40px; height: 28px; stroke-width: 2; }
 .option-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .option-tile:hover { border-color: var(--accent); }
@@ -113,7 +113,7 @@
 .choice-card-head { display: flex; align-items: center; gap: 12px; cursor: pointer; }
 .choice-card-head input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .choice-card-text { display: flex; flex-direction: column; gap: 2px; }
-.choice-card-text span { color: var(--muted); font-size: 12px; }
+.choice-card-text span { color: var(--muted); font-size: var(--fs-compact); }
 .choice-card-extra { padding-left: 28px; }
 .choice-card-extra .field { margin: 0; }
 

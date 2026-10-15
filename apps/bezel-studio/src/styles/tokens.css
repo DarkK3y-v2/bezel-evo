@@ -68,10 +68,19 @@
   --framing-line: #FFFFFF;
   --menu-shadow: rgb(0 0 0 / 40%);
   --radius: 10px;
-  /* Typography (D-2026-10-09-studio-redesign-fidelity-9): 13px Sans, 11px caps titles, Mono readouts. */
-  --fs-base: 13px;
-  --fs-small: 11.5px;
+  /* The Sensors panel's sparkline: its grid column and its drawing (ui/library.js reads it). */
+  --spark-width: 60px;
+  /* Typography (D-2026-10-09-studio-redesign-fidelity-9): 13px Sans, 11px caps titles, Mono readouts.
+     The steps below and above them are the artboards' other sizes, by role. */
+  --fs-micro: 9px;
+  --fs-tiny: 10px;
+  --fs-meta: 10.5px;
   --fs-caps: 11px;
+  --fs-small: 11.5px;
+  --fs-compact: 12px;
+  --fs-field: 12.5px;
+  --fs-base: 13px;
+  --fs-heading: 14px;
   --fs-title: 15px;
   --caps-spacing: 0.06em;
   --ic-stroke: 1.75;

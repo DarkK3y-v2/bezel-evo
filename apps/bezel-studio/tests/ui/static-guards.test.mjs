@@ -4,8 +4,9 @@
 // is a token (`:root` and hex values live only in tokens.css: the light
 // `:root` block and the dark one inside `@media (prefers-color-scheme:
 // dark)`), no sheet imports another, every selector of an area sheet names
-// a class or an id, and the IBM Plex faces are the bundled files, in the
-// weights that ship (400, 500, 600).
+// a class or an id, the IBM Plex faces are the bundled files, in the
+// weights that ship (400, 500, 600), every px font size is a `--fs-*` token,
+// each pill tone is one base.css rule, and the sparkline width has one source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -238,4 +239,23 @@ test('each pill tone is a base.css primitive, defined by one rule (D-14)', () =>
   const seen = owners.map(([selector]) => selector);
   assert.deepEqual(seen, [...new Set(seen)], 'one rule per tone');
   assert.deepEqual(seen.map((selector) => selector.match(/"([a-z]+)"/)[1]).sort(), ['accent', 'danger', 'info', 'ok', 'warn']);
+});
+
+test('every font size in px is a --fs-* token: no sheet but tokens.css writes one', () => {
+  const offenders = rules.filter((rule) => !isTokenBlock(rule))
+    .flatMap((rule) => declarations(rule.body).filter(([property, value]) => property === 'font-size' && /\d(?:\.\d+)?px\b/.test(value)).map(([, value]) => `${rule.prelude} { font-size: ${value} }`));
+  assert.deepEqual(offenders, []);
+  const scale = sheets.tokens.filter(isTokenBlock).flatMap((rule) => declarations(rule.body)).filter(([property]) => property.startsWith('--fs-'));
+  assert.deepEqual(scale.filter(([, value]) => !/^\d+(?:\.\d+)?px$/.test(value)), [], 'the scale itself is in px');
+});
+
+test('the sparkline width has one source, --spark-width, read by its sheet and by ui/library.js', () => {
+  const token = sheets.tokens.filter(isTokenBlock).flatMap((rule) => declarations(rule.body)).filter(([property]) => property === '--spark-width');
+  assert.deepEqual(token, [['--spark-width', '60px']]);
+  const valueOf = (prelude, property) => sheets.library.filter((rule) => rule.prelude === prelude).flatMap((rule) => declarations(rule.body)).find(([p]) => p === property)?.[1];
+  assert.equal(valueOf('.sparkline', 'width'), 'var(--spark-width)');
+  assert.equal(valueOf('.sensor-row', 'grid-template-columns'), 'minmax(0, 1fr) var(--spark-width) 80px', 'the fixed columns of c28b861');
+  const library = readFileSync(join(SRC, 'ui', 'library.js'), 'utf8');
+  assert.match(library, /getPropertyValue\('--spark-width'\)/);
+  assert.doesNotMatch(library, /viewBox', '0 0 \d/, 'the drawing takes its width from the token');
 });
