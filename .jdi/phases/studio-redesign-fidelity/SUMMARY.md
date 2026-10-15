@@ -256,6 +256,27 @@ O diff visual tem ruído pré-existente: duas baselines do mesmo commit `da86d86
 | `npm test` completo, quatro projetos, axe | 536/536 |
 | `shoot.mjs --area inspector --only app`, dark e light | inspector do gráfico conferido visualmente |
 
+### Janela do gráfico como frase e preview no topo (2026-10-15, D-17)
+
+- `cdc9be0` - **Preview sempre no topo (D-17b).** O preview isolado fica logo após o cabeçalho e antes das abas em todos os objetos (antes, Anel e Card o deixavam embaixo). O `inspector-sections.spec` verifica a ordem para Anel, Barra, Gráfico e Card.
+- `74dae94` - **Frase compartilhada.** A frase de palavras e tokens dos gatilhos do Card virou a primitiva `sentence()` em `ui/fields.js`. O estilo dela está em `base.css` (`.sentence`, `.sentence-word`, `.sentence-token`), sem markup copiado. O módulo puro `src/sentence.js` divide um template traduzido em palavras e `{slots}`, e cada locale mantém a sua ordem de palavras. O Card renderiza igual (capturas da área card dentro do ruído).
+- `ab88c24` - **Janela do gráfico como frase (D-17a).**
+  - "Mostra l'ultima [1] [ora], con un punto ogni [30] [secondi]" usa inputs numéricos e selects nativos, com um template por locale (en/pt-BR/it).
+  - A palavra antes da duração e os nomes das unidades concordam com a unidade e o número (`graphSentence`).
+  - Embaixo fica uma régua do tempo de −janela a "ora": uma marca por ponto, ou uma a cada N quando há mais de 60 (`graphRuler`), e a contagem "120 punti".
+  - As durações rápidas continuam. A dica "A questo ritmo, una finestra da X a Y" fica embaixo.
+  - A semântica de D-16 (`graphTiming`/`graphTimingPatch`, 2–3600 pontos) não mudou.
+  - Os dois seletores de unidade (3 contra 2 opções) agora são selects da mesma largura, e o e2e verifica isso.
+  - `sentence()` junta palavras consecutivas e tira a margem do `.field` dentro da frase. Com isso, as palavras dos gatilhos do Card ficam alinhadas aos tokens (4 px a menos por linha).
+  - `svgEl` foi para `ui/dom.js` (arco e régua).
+
+| Gate | Resultado |
+| --- | --- |
+| `npm run test:unit` | 441/441; linhas 99,49% (`sentence.js` e `inspector-tabs.js` 100%) |
+| e2e afetados (`e2e-slot`: inspector-sections, inspector-preview, card-inspector) | 56/56 e depois 44/44 |
+| `npm test` completo, quatro projetos, axe | 536/536 |
+| `shoot.mjs --area inspector` e `--area card`, dark e light | conferidos visualmente: preview no topo, frase e régua legíveis, gatilhos do Card iguais |
+
 ## Blocked tasks
 - nenhuma
 

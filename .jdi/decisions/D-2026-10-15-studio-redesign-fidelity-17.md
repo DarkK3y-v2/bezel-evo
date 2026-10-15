@@ -1,0 +1,1 @@
+D-2026-10-15-studio-redesign-fidelity-17 (2026-10-15): Decisão do usuário: (a) a janela do Grafico é editada como frase "Mostra l'ultima [N] [unità], con un punto ogni [N] [unità]" com uma régua do tempo (−janela → ora, marcas dos pontos, "N punti"); (b) a preview isolada fica SEMPRE no topo do inspector (logo após o cabeçalho, antes das abas), igual para todos os objetos.
