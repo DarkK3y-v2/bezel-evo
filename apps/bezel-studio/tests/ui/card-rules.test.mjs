@@ -15,7 +15,7 @@ const activity = {
 test('a rule reads as a sentence; music adds "in" before the app', () => {
   assert.deepEqual(sentenceOf({ source: 'foreground' }), [{ word: 'when' }, { token: 'source' }, { token: 'app' }, { word: 'show' }, { token: 'face' }]);
   assert.deepEqual(sentenceOf({ source: 'mediaPlaying' }).map((p) => p.word ?? p.token), ['when', 'source', 'in', 'app', 'show', 'face']);
-  assert.deepEqual(TRIGGER_SOURCES, ['foreground', 'process', 'processClosed', 'mediaPlaying']);
+  assert.deepEqual(TRIGGER_SOURCES, ['foreground', 'process', 'processClosed', 'mediaPlaying', 'timer']);
   assert.equal(isMedia('mediaPlaying'), true);
   assert.equal(isMedia('process'), false);
 });

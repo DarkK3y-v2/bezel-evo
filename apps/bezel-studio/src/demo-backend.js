@@ -1,3 +1,4 @@
+import { normalizeCardTheme } from './card-config.js';
 import { DEMO_SENSORS, demoValue } from './demo-sensors.js';
 export { DEMO_SENSORS, demoValue } from './demo-sensors.js';
 import { canFitContent } from './editor/fit-content.js';
@@ -150,6 +151,7 @@ export function demoIsolate(theme, id) {
       delete e.card.triggers;
       delete e.card.rotationSeconds;
       delete e.card.transition;
+      delete e.card.pairTransitions;
     }
     if (e.id === id) {
       delete e.groupParent;
@@ -1428,7 +1430,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     render: (next, { motion = true, cardRotation = true } = {}) => {
       const started = performance.now();
       const t = now();
-      const playback = cardTimers.update(next, t * 1000, cardRotation);
+      const playback = cardTimers.update(next, t * 1000, cardRotation, DEMO_ACTIVITY);
       const video = videoPicture(playback.theme, motion, t * 1000);
       const transitions = cards.update(playback.theme, t * 1000, motion);
       const frame = renderApprox(playback.theme, t, video, transitions, 1, motion);
@@ -1511,6 +1513,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       return { key, live: wasLive };
     },
     saveTheme: (next, saveAs) => {
+      next = normalizeCardTheme(next);
       theme = structuredClone(next);
       const location = `demo://${next.name}`;
       const at = saved.findIndex((s) => s.location === location);

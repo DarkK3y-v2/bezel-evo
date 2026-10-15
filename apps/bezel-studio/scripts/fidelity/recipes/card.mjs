@@ -27,14 +27,14 @@ export default {
     { name: 'faces', run: populated },
     { name: 'motion', run: async app => {
       await populated(app); await app.inspectorTab(1);
-      await app.page.getByRole('switch', { name: t('card.autoRotate'), exact: true }).check();
       await app.page.getByRole('radio', { name: t('card.effect.slide'), exact: true }).check();
     } },
     { name: 'triggers', run: async app => {
       await populated(app); await app.inspectorTab(2);
       await app.page.getByRole('button', { name: t('trigger.add'), exact: true }).click();
-      await app.page.getByRole('button', { name: t('trigger.add'), exact: true }).click();
+      await app.page.getByRole('button', { name: t('cardInsp.addTimed'), exact: true }).click();
     } },
+    { name: 'pair', run: async app => { await populated(app); await app.page.locator('.face-transition[data-pair="0:1"]').click(); await app.page.getByRole('radio', { name: t('card.effect.fade'), exact: true }).check(); } },
     { name: 'look', run: async app => { await populated(app); await app.inspectorTab(3); } },
   ].map(state => ({ ...state, capture: '#inspector', viewport: { width: 1440, height: 1440 } })),
 };

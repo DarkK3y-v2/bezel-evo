@@ -84,7 +84,7 @@ test('card built in the editor previews fade, slide and flip with changing frame
     expect(new Set(hashes).size, effect).toBeGreaterThanOrEqual(4);
     await expect(detail.getByRole('slider', { name: new RegExp(t('card.duration')) })).toHaveValue('1000');
   }
-  await detail.getByRole('switch', { name: t('card.includeBase'), exact: true }).uncheck();
+  await detail.getByRole('switch', { name: t('cardInsp.animateShared'), exact: true }).uncheck();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await detail.getByRole('button', { name: t('card.animateNext'), exact: true }).click();
   await expectAccessible(page);

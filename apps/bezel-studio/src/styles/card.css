@@ -11,7 +11,14 @@
 .face-render { position: absolute; }
 .screen-thumb.rendered .face-mark { visibility: hidden; }
 .face-add { justify-content: center; min-height: 96px; border-style: dashed; color: var(--accent-ink); }
-.base-chip { border-style: dashed; }
+/* The shared layer is a separate row, outside the face sequence. */
+.shared-background { width: 100%; }
+.shared-background .screen-thumb { position: relative; flex: none; width: 12px; height: 48px; overflow: hidden; }
+.shared-background .list-card-sub { white-space: normal; font-family: var(--font-sans); }
+.face-transition { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; max-width: 126px; white-space: normal; }
+.face-transition svg { flex: none; }
+.face-transition[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.card-section[data-section="pair-transition"] { border-left: 2px solid var(--accent); padding-left: 10px; }
 .face-editor { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .face-editor .field { margin: 0; }
 .face-editor input { font-family: var(--font-mono); }
@@ -32,7 +39,7 @@
 .card-effect input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .card-effect:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .card-effect .effect-art { width: 100%; height: 32px; }
-.card-effect > span { max-width: 100%; overflow-wrap: anywhere; text-align: center; font-size: var(--fs-caps); }
+.card-effect > span { max-width: 100%; overflow-wrap: anywhere; text-align: center; font-size: var(--fs-tiny); }
 .card-scale { display: flex; justify-content: space-between; margin-top: -8px; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--muted); }
 .play-button { width: 100%; min-height: 36px; font-weight: 600; }
 .play-button svg { color: var(--accent-ink); }

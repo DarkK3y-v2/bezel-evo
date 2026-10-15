@@ -1,3 +1,4 @@
+import { transitionFor } from '../card-config.js';
 // Transient animation state: never part of a saved theme or Undo snapshot.
 export function createCardMotion() {
   const states = new Map();
@@ -9,15 +10,17 @@ export function createCardMotion() {
       const result = new Map();
       for (const id of states.keys()) if (!theme.elements.some(e => e.id === id && e.card)) states.delete(id);
       for (const e of theme.elements.filter(e => e.card)) {
-        const c = e.card, settings = c.transition;
-        const signature = JSON.stringify(c.faces), configuration = JSON.stringify(settings);
+        const c = e.card;
+        const signature = JSON.stringify(c.faces), configuration = JSON.stringify([c.transition, c.pairTransitions]);
         let state = states.get(e.id);
-        if (!state || state.signature !== signature || e.visible === false || !motion) state = { signature, configuration, active: c.activeFace, from: c.activeFace, started: now };
+        if (!state || state.signature !== signature || e.visible === false || !motion) state = { signature, configuration, active: c.activeFace, from: c.activeFace, started: now, settings: null };
         if (state.configuration !== configuration) { state.from = state.active; state.configuration = configuration; }
         if (state.active !== c.activeFace) {
-          state.from = settings?.effect === 'flip' && now - state.started < settings.durationMs / 2 ? state.from : state.active;
+          state.from = state.settings?.effect === 'flip' && now - state.started < state.settings.durationMs / 2 ? state.from : state.active;
           state.active = c.activeFace; state.started = now;
+          state.settings = transitionFor(c, state.from, state.active);
         }
+        const settings = state.settings;
         states.set(e.id, state);
         if (settings && settings.effect !== 'none' && state.from !== state.active && now - state.started < settings.durationMs) {
           result.set(e.id, { from: state.from, to: state.active, progress: Math.max(0, (now - state.started) / settings.durationMs), settings });
