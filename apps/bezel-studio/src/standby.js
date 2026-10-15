@@ -10,7 +10,7 @@ import { isHorizontal } from './editor/geometry.js';
 import { MEDIA, baseName, renamePreview } from './storage-manager.js';
 
 /** The four choices, in the order the radio group lists them; `keep` is the default. */
-export const CHOICES = Object.freeze(['keep', 'off', 'video', 'album']);
+export const CHOICES = Object.freeze(['keep', 'off', 'album', 'video']);
 /** Why a choice is not offered (`StandbyDto.options[].reason`). */
 export const REASONS = Object.freeze(['notConnected', 'unsupported', 'noCard', 'noVideo']);
 /** The sleep timer of `off`, minutes: what the screen takes and what is suggested. */

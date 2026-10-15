@@ -34,29 +34,46 @@
 .connect-step-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-ink); font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600; }
 .connect-import { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .connect-import .hint { margin: 0; }
-#status-libre:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; }
+#status-libre:not([hidden]) { display: inline-flex; align-items: center; gap: 4px; }
 
-/* The Libre dot (artboard SensorStatus): a chip that opens its dialog. */
-.status-chip { display: inline-flex; align-items: center; gap: 6px; height: 18px; padding: 0 7px; font: inherit; font-size: 0.75rem; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; cursor: pointer; white-space: nowrap; }
-.status-chip:hover, .status-chip[aria-expanded="true"] { border-color: var(--accent); }
-.libre-popover { position: fixed; z-index: 20; width: 340px; max-width: calc(100vw - 16px); display: grid; gap: 10px; padding: 12px 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+/* The sensors chip (artboard SensorStatus): the pill primitive in four
+   tones, its dot (a spinner while the reader restarts), the restart beside
+   it when Libre stopped, and its dialog. The warn, danger and info tones
+   extend `.pill[data-tone]` (pending promotion to base.css, T-8). */
+.pill[data-tone="warn"] { border-color: color-mix(in srgb, var(--signal-warn) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); }
+.pill[data-tone="danger"] { border-color: color-mix(in srgb, var(--signal-error) 35%, var(--border-2)); background: color-mix(in srgb, var(--signal-error) 8%, var(--surface-2)); color: var(--danger); }
+.pill[data-tone="info"] { border-color: color-mix(in srgb, var(--info) 35%, var(--border-2)); background: color-mix(in srgb, var(--info) 8%, var(--surface-2)); color: var(--info); }
+.sensor-chip { gap: 8px; padding: 0 10px 0 8px; font-size: var(--fs-small); }
+.sensor-chip .status-dot { width: 8px; height: 8px; }
+.sensor-chip[data-state="ok"] .status-dot { box-shadow: 0 0 0 3px var(--signal-ok-halo); }
+.sensor-chip .sensor-spinner, .sensor-chip[data-state="restarting"] .status-dot { display: none; }
+.sensor-chip[data-state="restarting"] .sensor-spinner { display: block; }
+.sensor-chip[aria-expanded="true"] { border-color: currentColor; }
+.sensor-chip-restart { justify-content: center; width: 22px; padding: 0; }
+.libre-popover { position: fixed; z-index: 20; width: 340px; max-width: calc(100vw - 16px); display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); color: var(--text); box-shadow: var(--shadow); }
 .libre-popover[hidden] { display: none; }
 .libre-popover-head { display: flex; align-items: center; gap: 10px; }
 .libre-popover-head .status-dot { width: 10px; height: 10px; }
-.libre-popover-head h2 { flex: 1; margin: 0; font-size: 0.95rem; font-weight: 600; }
-.libre-hardware { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.libre-popover-head h2 { flex: 1; margin: 0; font-size: 14px; font-weight: 600; }
+.libre-hardware { list-style: none; margin: 0 -6px; padding: 0; display: grid; gap: 2px; }
 .libre-row { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 8px; border-radius: 8px; }
-.libre-row:hover { background: var(--surface-2); }
-.libre-row-name { flex: 1; min-width: 0; display: grid; line-height: 1.25; }
+.libre-row:hover { background: var(--surface-3); }
+.libre-row-name { flex: 1; min-width: 0; display: grid; line-height: 1.2; }
 .libre-row-name > :first-child { font-weight: 500; overflow-wrap: anywhere; }
-.libre-row-via { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
-.libre-row-value { font-family: var(--font-mono); font-size: 0.75rem; }
+.libre-row-via { font-family: var(--font-mono); font-size: 10.5px; color: var(--dim); overflow-wrap: anywhere; }
+.libre-row-value { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
 .libre-row[data-state="missing"] .libre-row-value { color: var(--warn); }
-.libre-popover-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--border); font-size: 0.8rem; line-height: 1.45; }
+.libre-popover-note { margin: 0; padding: 10px 12px; border-radius: 8px; background: color-mix(in srgb, var(--signal-warn) 8%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--signal-warn) 25%, var(--border-2)); font-size: 12px; line-height: 1.45; }
 .libre-popover-note[hidden] { display: none; }
-.libre-popover-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.libre-popover-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.libre-popover-age { flex: 1; min-width: 0; font-size: 10.5px; color: var(--dim); overflow-wrap: anywhere; }
 .libre-popover-actions .primary-button svg { width: 16px; height: 16px; }
-.libre-popover-actions .primary-button { display: inline-flex; align-items: center; gap: 8px; }
 .libre-popover-actions .primary-button:disabled { cursor: wait; }
+
 .udev-command { display: grid; gap: 6px; justify-items: start; margin: 8px 0; }
 .udev-command-text { display: block; width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--surface-3); font-family: var(--font-mono); font-size: 0.8rem; overflow-wrap: anywhere; user-select: all; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sensor-chip .sensor-spinner { animation: sensor-spin 900ms linear infinite; }
+}
+@keyframes sensor-spin { to { transform: rotate(360deg); } }

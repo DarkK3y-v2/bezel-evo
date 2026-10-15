@@ -32,7 +32,7 @@ test('live mode and start at login', async ({ page, t }) => {
   await expect(page.getByRole('switch')).toBeChecked();
   await expect(page.locator('#status-device')).toHaveText(t('status.live'));
   await page.getByRole('tab', { name: t('library.screen') }).click();
-  const autostart = page.getByRole('checkbox', { name: t('screen.autostart') });
+  const autostart = page.getByRole('checkbox', { name: t('screenPanel.autostart'), exact: true });
   await autostart.check();
   await expect(autostart).toBeChecked();
   await page.getByRole('switch').click({ force: true });
@@ -121,7 +121,8 @@ test('a hung screen offers the restart, which asks first and brings it back', as
   await expect(page.locator('#toast')).toHaveText(t('toast.liveStopped', { message: t('error.hung') }));
   await expect(page.getByRole('switch')).not.toBeChecked();
   await page.getByRole('tab', { name: t('library.screen') }).click();
-  const card = page.getByRole('region', { name });
+  // The warning and the restart sit in the screen's advanced actions.
+  const card = page.getByRole('group', { name: t('screen.advanced'), exact: true });
   await expect(card).toContainText(t('restart.hung'));
   await expect(card.getByRole('button', { name: t('screen.restart') })).toBeVisible();
   await expectAccessible(page);

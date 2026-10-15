@@ -15,7 +15,7 @@ import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 import { DEMO_LET_GO_EVENT } from '../../src/bridge.js';
 
 const SCREEN = '/dev/ttyACM1';
-const CHOICES = ['keep', 'off', 'video', 'album'];
+const CHOICES = ['keep', 'off', 'album', 'video'];
 const PHOTO = 'Praia do Forte.jpg';
 
 const toast = (page) => page.locator('#toast');
@@ -109,13 +109,13 @@ test.describe('standby', () => {
     await page.keyboard.press('ArrowDown');
     await expect(radio(section, t, 'off')).toBeFocused();
     await page.keyboard.press('ArrowRight');
-    await expect(radio(section, t, 'video')).toBeFocused();
-    await page.keyboard.press('End');
     await expect(radio(section, t, 'album')).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(radio(section, t, 'video')).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(radio(section, t, 'keep')).toBeFocused();
     await page.keyboard.press('ArrowUp');
-    await expect(radio(section, t, 'album')).toBeFocused();
+    await expect(radio(section, t, 'video')).toBeFocused();
     await page.keyboard.press('Home');
     await expect(radio(section, t, 'keep')).toBeFocused();
     await expect(radio(section, t, 'keep')).toBeChecked();
@@ -136,7 +136,7 @@ test.describe('standby', () => {
     await expect(radio(noCard, t, 'video')).toBeEnabled();
     await album.click({ force: true });
     await radio(noCard, t, 'video').focus();
-    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowUp');
     await expect(album).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -246,7 +246,8 @@ test.describe('standby', () => {
     await expect(toast(page)).toHaveText(t('standby.saved', { choice: t('standby.choice.keep') }));
     await expect(keep).toBeChecked();
     await expect(off).not.toBeChecked();
-    await expect(off).not.toHaveAttribute('aria-describedby', /.+/);
+    // No longer the choice: it says what it does, not its timer.
+    await expect(off).toHaveAccessibleDescription(t('screenPanel.standby.off'));
     expect(await written(page)).toEqual([{ screen: SCREEN, choice: 'keep', sleepMinutes: 0, file: null, startMode: 0 }]);
 
     // Keep again sends nothing and asks nothing.
@@ -429,4 +430,27 @@ test.describe('standby', () => {
     expect(await written(page)).toEqual([]);
     expect(errors).toEqual([]);
   });
+});
+
+
+test('writing the current standby setting asks first and keeps it on cancel', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  const section = await openSettings(page, t, 'turing88');
+  const write = section.getByRole('button', { name: t('standby.write'), exact: true });
+  await write.click();
+  const confirmation = page.getByRole('dialog', { name: t('standby.keep.title') });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(t('standby.summary.atShutdown'));
+  await expect(confirmation).toContainText(t('standby.summary.written'));
+  await expectAccessible(page);
+  await confirmation.getByRole('button', { name: t('dialog.cancel'), exact: true }).click();
+  await expect(confirmation).toHaveCount(0);
+  await expect(radio(section, t, 'keep')).toBeChecked();
+  await expect(write).toBeFocused();
+  await write.click();
+  await page.getByRole('dialog', { name: t('standby.keep.title') }).getByRole('button', { name: t('standby.write'), exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(radio(section, t, 'keep')).toBeChecked();
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
 });

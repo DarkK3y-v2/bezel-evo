@@ -8,7 +8,7 @@
 // restoring, associating an original and clearing the local copies. Every job
 // waits in the middle until the test lets it go: nothing depends on timing.
 // No console errors, no serious or critical accessibility violations.
-import { test, expect, watchErrors, expectAccessible, dragTo } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, dragTo, prefixOf } from './helpers.mjs';
 import { DEMO_LET_GO_EVENT } from '../../src/bridge.js';
 import { formatBytes } from '../../src/storage-manager.js';
 
@@ -310,7 +310,8 @@ test('storage manager associates an original, clears local copies and keeps TUR_
 
   // The local copies: nothing deleted through Bezel, so only "all" clears;
   // the files keep their thumbnails, without a local copy.
-  await page.getByRole('button', { name: t('storage.cache.open') }).click();
+  // The foot's button names the local copies' size.
+  await page.getByRole('button', { name: prefixOf(t, 'storagePanel.cacheButton', ['size']) }).click();
   const cache = page.getByRole('dialog', { name: t('storage.cache.title') });
   const clear = cache.getByRole('button', { name: t('storage.cache.clear') });
   await expect(clear).toBeDisabled();

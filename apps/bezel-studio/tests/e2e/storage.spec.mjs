@@ -6,24 +6,15 @@
 // files are options of each medium's list, and the actions act on the one
 // selected (the storage manager's toolbar). No console errors, no serious or
 // critical accessibility violations.
-import { test, expect, watchErrors, expectAccessible, prefixOf, suffixOf } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, prefixOf, suffixOf, dragTo } from './helpers.mjs';
 import { formatBytes, formatMiB } from '../../src/ui/storage.js';
+import { VENDOR_STORAGE } from '../../src/demo-data.js';
 import { DEMO_LET_GO_EVENT } from '../../src/bridge.js';
 
 async function openStorage(page, t) {
   await page.getByRole('tab', { name: t('library.screen') }).click();
   await page.getByRole('tab', { name: t('screen.storageTab') }).click();
   await expect(page.getByRole('region', { name: t('storage.medium.internal') })).toBeVisible();
-}
-
-async function dragTo(page, source, target) {
-  const from = await source.boundingBox();
-  const to = await target.boundingBox();
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 - 20, { steps: 4 });
-  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
-  await page.mouse.up();
 }
 
 /** Drops a file called `name` on `zone`, like one dragged from the desktop. */
@@ -69,7 +60,9 @@ test('storage tab upload progress and confirmed delete', async ({ page, t, lang 
   const internal = page.getByRole('region', { name: t('storage.medium.internal') });
   const card = page.getByRole('region', { name: t('storage.medium.sd') });
   await expect(internal).toContainText('logo.png');
-  await expect(internal).toContainText(formatBytes(7_516_192_768, lang));
+  // Each medium's card: used of total, the bar by kind and its legend.
+  await expect(page.getByRole('group', { name: t('storage.medium.internal'), exact: true })).toContainText(formatBytes(7_516_192_768, lang));
+  await expect(page.getByRole('group', { name: t('storage.medium.sd'), exact: true })).toBeVisible();
   await expect(card).toContainText('chuva.mp4');
   await expect(card).toContainText(t('storage.cardHelp'));
   await expectAccessible(page);
@@ -292,6 +285,84 @@ test('files over the screen\'s limit are refused in MiB, before and after conver
   const converted = page.getByRole('region', { name: t('storage.refusedTitle', { name: 'show.mp4' }) });
   await expect(converted).toContainText(t('storage.refused.convertedTooLarge', { size: formatMiB(27_262_976, lang, 'up'), limit }), UPLOAD);
   await expect(option(internal, 'show.mp4')).toHaveCount(0);
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+
+test('storage shows real boot media, kind bars and keyboard place filters', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=vendorCard');
+  await openStorage(page, t);
+  const slot = page.getByRole('region', { name: t('storage.bootTitle') });
+  await expect(slot.locator('.boot-name')).toHaveText('earth.mp4');
+  const meters = page.locator('.storage-meter');
+  await expect(meters).toHaveCount(2);
+  for (const meter of await meters.all()) {
+    await expect(meter.locator('.storage-bar > span')).toHaveCount(3);
+    const parts = await meter.locator('.storage-bar > span').evaluateAll((nodes) => nodes.map((node) => ({ kind: node.dataset.kind, share: parseFloat(node.style.width) })));
+    expect(parts.map((part) => part.kind)).toEqual(['video', 'image', 'other']);
+    expect(parts[0].share).toBeGreaterThan(0);
+    expect(parts.reduce((sum, part) => sum + part.share, 0)).toBeLessThanOrEqual(100);
+  }
+  const places = page.getByRole('group', { name: t('storagePanel.placeLabel') });
+  const cardOnly = places.getByRole('button', { name: t('storage.medium.sd'), exact: true });
+  await cardOnly.focus();
+  await page.keyboard.press('Space');
+  await expect(cardOnly).toBeFocused();
+  await expect(cardOnly).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('region', { name: t('storage.medium.internal') })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: t('storage.medium.sd') }).getByRole('option')).toHaveCount(VENDOR_STORAGE.files.filter(([path]) => path.startsWith('sd/')).length);
+  await expect(slot.locator('.boot-name')).toHaveText('earth.mp4');
+  const search = page.getByRole('searchbox', { name: t('storage.filter.text') });
+  await search.fill('earth');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(0);
+  await places.getByRole('button', { name: t('storagePanel.placeInternal'), exact: true }).click();
+  await expect(search).toHaveValue('earth');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('listbox').getByRole('option')).toContainText('earth.mp4');
+  await search.fill('');
+  await places.getByRole('button', { name: t('storagePanel.placeAll', { count: VENDOR_STORAGE.files.length }), exact: true }).click();
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveCount(VENDOR_STORAGE.files.length);
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+
+test('the boot drop target highlights during a drag and clears before confirmation', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await openStorage(page, t);
+  const internal = page.getByRole('region', { name: t('storage.medium.internal') });
+  const file = option(internal, 'logo.png');
+  await file.click();
+  const play = internal.getByRole('button', { name: t('storage.action.play'), exact: true });
+  await expect(play).toBeEnabled();
+  await expect(play).toHaveAttribute('title', t('storage.action.play'));
+  const slot = page.getByRole('region', { name: t('storage.bootTitle') });
+  const from = await file.boundingBox();
+  const to = await slot.boundingBox();
+  // Inspect the intermediate pointer state, before the shared dragTo helper
+  // would release the file. No HTML drag events: this is a stored-file drag.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await expect(slot).toHaveClass(/drop-target/);
+  const accent = await page.locator('html').evaluate((node) => getComputedStyle(node).getPropertyValue('--accent').trim());
+  await expect(slot.locator('.boot-slot')).toHaveCSS('border-top-color', await page.evaluate((color) => {
+    const probe = document.createElement('span');
+    probe.style.color = color;
+    document.body.append(probe);
+    const result = getComputedStyle(probe).color;
+    probe.remove();
+    return result;
+  }, accent));
+  await page.mouse.up();
+  const confirmation = page.getByRole('dialog', { name: t('storage.confirmBootTitle', { name: 'logo.png' }) });
+  await expect(confirmation).toBeVisible();
+  await expect(page.locator('.drop-target')).toHaveCount(0);
+  await confirmation.getByRole('button', { name: t('dialog.cancel'), exact: true }).click();
+  await expect(slot.locator('.boot-name')).toHaveText(t('storagePanel.bootDefault'));
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });

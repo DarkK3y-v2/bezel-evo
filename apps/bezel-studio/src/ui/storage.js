@@ -12,6 +12,8 @@ import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
 import { udevCommand } from './udev.js';
 import { GLYPHS, createManagerView } from './manager.js';
+import { chipButton, kindIcon, sectionTitle } from './fields.js';
+import { BAR_KINDS, PLACES, bootFile, breakdown, mediaShown, placeCounts } from '../storage-breakdown.js';
 import {
   KINDS, MEDIA, baseName, formatBytes, formatMiB, haltText, mismatchText, planRefusalText, refusalText, reportLines, storageFeatures,
 } from '../storage-manager.js';
@@ -152,6 +154,8 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     signature: '',
     // The control that had the focus last, to give it back when the tab is drawn again.
     focusKey: null,
+    // Which media the file lists show: all, the SD card or the internal memory.
+    place: 'all',
   };
   // New notices are read out; each one is a region named by its heading.
   const notices = el('div', { class: 'storage-notices', 'aria-live': 'polite' });
@@ -573,7 +577,7 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     const zone = el('div', { class: 'drop-zone', dataset: { medium } }, [
       el('span', { class: 'drop-icon', 'aria-hidden': 'true' }, [icon(ICONS.upload, 18)]),
       el('span', { text: t('storage.dropHere') }),
-      el('button', { type: 'button', class: 'text-button send-button', disabled: busy(), dataset: { focus: `send-${medium}` }, onclick: () => choose(medium) }, [
+      el('button', { type: 'button', class: 'primary-button send-button', disabled: busy(), dataset: { focus: `send-${medium}` }, onclick: () => choose(medium) }, [
         icon(ICONS.upload, 16), el('span', { text: t('storage.choose') }),
       ]),
     ]);
@@ -592,19 +596,35 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
   }
 
   /**
-   * A medium's use: used of total in mono, the bar (`usedFraction`) and what
-   * is free, all in the screen's own numbers.
+   * A medium's card (artboard Storage): its name, used of total in mono and
+   * a bar split by kind (`breakdown`); the whole sentence for screen readers.
    */
-  function usage(capacity) {
-    const fraction = usedFraction(capacity);
-    return el('div', { class: 'usage-card' }, [
-      el('p', { class: 'usage-figure', 'aria-hidden': 'true' }, [bytes(capacity.used), el('span', { class: 'usage-total', text: ` / ${bytes(capacity.total)}` })]),
-      // A sliver stays visible for a little use.
-      el('div', { class: `usage${fraction > 0.9 ? ' full' : ''}`, 'aria-hidden': 'true' }, [el('span', { style: { width: capacity.used ? `max(4px, ${(fraction * 100).toFixed(1)}%)` : '0' } })]),
-      el('p', { class: 'usage-free', 'aria-hidden': 'true', text: t('storage.usageFree', { free: bytes(capacity.free) }) }),
-      // The whole sentence, for screen readers.
-      el('p', { class: 'usage-text visually-hidden', text: t('storage.usage', { used: bytes(capacity.used), total: bytes(capacity.total), free: bytes(capacity.free) }) }),
-    ]);
+  function meter(medium) {
+    const data = view.data;
+    const capacity = medium === 'internal' ? data.internal : data.card;
+    const id = `storage-meter-${medium}`;
+    const children = [el('span', { id, class: 'storage-meter-label', text: t(`storage.medium.${medium}`) })];
+    if (!capacity) {
+      children.push(el('p', { class: 'storage-meter-none', text: t('storage.noCard') }));
+    } else {
+      const full = usedFraction(capacity) > 0.9;
+      children.push(
+        el('p', { class: 'usage-figure', 'aria-hidden': 'true' }, [bytes(capacity.used), el('span', { class: 'usage-total', text: ` / ${bytes(capacity.total)}` })]),
+        el('div', { class: `storage-bar${full ? ' full' : ''}`, 'aria-hidden': 'true' }, breakdown(data.files ?? [], capacity, medium)
+          .map((part) => el('span', { dataset: { kind: part.kind }, style: { width: `${(part.fraction * 100).toFixed(2)}%` } }))),
+        el('p', { class: 'visually-hidden', text: t('storage.usage', { used: bytes(capacity.used), total: bytes(capacity.total), free: bytes(capacity.free) }) }),
+      );
+    }
+    return el('div', { class: 'storage-meter', role: 'group', 'aria-labelledby': id }, children);
+  }
+
+  /** Both media's cards and the bar's legend. */
+  function summary() {
+    const legend = el('ul', { class: 'storage-legend', 'aria-hidden': 'true' }, BAR_KINDS.map((kind) => el('li', { dataset: { kind } }, [
+      el('i', { class: 'storage-swatch' }),
+      kind === 'other' ? t('storagePanel.other') : t(`storage.kind.${kind}`),
+    ])));
+    return el('div', { class: 'storage-summary' }, [el('div', { class: 'storage-meters' }, MEDIA.map(meter)), legend]);
   }
 
   const manager = createManagerView({
@@ -630,38 +650,80 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       play,
       useBackground,
       dropZone,
-      usage,
       confirm,
       refocus,
     },
   });
 
   // ---------------------------------------------------------------- body --
+  /**
+   * At start-up (artboard Storage): the file Bezel set for the screen to show
+   * on its own, or its default clock; a file is dragged onto the dashed slot,
+   * and the cross gives the clock back.
+   */
   function bootSlot(features) {
     if (!features.boot) return null;
-    return el('section', { class: 'boot-slot', 'aria-labelledby': 'storage-boot-title' }, [
-      el('span', { class: 'boot-icon', 'aria-hidden': 'true' }, [icon(ICONS.power, 18)]),
-      el('div', { class: 'boot-text' }, [
-        el('h3', { id: 'storage-boot-title', text: t('storage.bootTitle') }),
-        el('p', { class: 'hint', text: t('storage.bootHelp') }),
+    const file = bootFile(view.data?.files ?? []);
+    const tile = file ? manager.thumbnail(file) : kindIcon('clock');
+    const reset = el('button', {
+      type: 'button', class: 'icon-button quiet', title: t('storage.defaultAction'), 'aria-label': t('storage.defaultAction'),
+      disabled: busy(), dataset: { focus: 'boot-default' }, onclick: askBootDefault,
+    }, [icon(ICONS.close, 16)]);
+    return el('section', { class: 'boot-section', 'aria-labelledby': 'storage-boot-title' }, [
+      sectionTitle(t('storage.bootTitle'), { id: 'storage-boot-title' }),
+      el('div', { class: 'boot-slot' }, [
+        tile,
+        el('span', { class: 'boot-text' }, [
+          el('span', { class: 'boot-name', text: file ? file.name : t('storagePanel.bootDefault') }),
+          el('span', { class: 'boot-sub', text: t('storagePanel.bootRuns') }),
+        ]),
+        reset,
       ]),
-      buttonRow(el('button', { type: 'button', class: 'text-button', text: t('storage.defaultAction'), disabled: busy(), dataset: { focus: 'boot-default' }, onclick: askBootDefault })),
+      el('p', { class: 'hint', text: t('storagePanel.bootHint') }),
     ]);
   }
 
-  function toolbar(features) {
+  /** A quiet tool: an icon and its label, disabled with the reason. */
+  const tool = (focus, paths, label, onclick, disabled, reason = null) => el('button', {
+    type: 'button', class: 'text-button quiet', disabled, title: disabled && reason ? reason : null, dataset: { focus }, onclick,
+  }, [icon(paths, 16), el('span', { text: label })]);
+
+  /** "Files on the screen": the title, the tools, and the place chips with their counts. */
+  function filesHead() {
     const { live } = context();
-    const tool = (focus, paths, label, onclick, disabled, reason = null) => el('button', {
-      type: 'button', class: 'text-button', disabled, title: disabled && reason ? reason : null, dataset: { focus }, onclick,
-    }, [icon(paths, 16), el('span', { text: label })]);
+    const counts = placeCounts(view.data?.files ?? []);
+    const label = (place) => {
+      if (place === 'all') return t('storagePanel.placeAll', { count: counts.all });
+      return place === 'sd' ? t('storage.medium.sd') : t('storagePanel.placeInternal');
+    };
+    const chips = el('div', { class: 'chip-group storage-places', role: 'group', 'aria-label': t('storagePanel.placeLabel') }, PLACES.map((place) => chipButton(label(place), view.place === place, () => {
+      view.place = place;
+      renderBody();
+    }, { dataset: { focus: `place-${place}` } })));
+    return el('div', { class: 'storage-files-head' }, [
+      el('div', { class: 'storage-files-title' }, [
+        sectionTitle(t('storagePanel.files'), { id: 'storage-files-title' }),
+        el('span', { class: 'storage-tools' }, [
+          tool('tool-refresh', ICONS.refresh, t('storage.refresh'), load, busy()),
+          tool('tool-stop', ICONS.stop, t('storage.stop'), stop, busy() || live, live ? t('storage.liveReason') : null),
+        ]),
+      ]),
+      chips,
+      manager.filterBar(),
+    ]);
+  }
+
+  /** The assistants that look after the whole screen, at the foot: cleanup and the local copies. */
+  function foot(features) {
     const cleanupReason = features.remove ? null : t('storage.reason.deleteUnsupported');
-    return el('div', { class: 'button-row storage-toolbar' }, [
-      tool('tool-refresh', ICONS.refresh, t('storage.refresh'), load, busy()),
-      tool('tool-stop', ICONS.stop, t('storage.stop'), stop, busy() || live, live ? t('storage.liveReason') : null),
-      // The assistants that look after the whole screen, apart at the end.
-      el('span', { class: 'storage-assistants' }, [
-        tool('tool-cleanup', GLYPHS.sweep, t('storage.cleanup.open'), () => manager.cleanup(), busy() || !features.remove, cleanupReason),
-        tool('tool-cache', GLYPHS.box, t('storage.cache.open'), () => manager.cache(), busy()),
+    const cached = view.data?.cache?.bytes;
+    const cacheLabel = Number.isFinite(cached) ? t('storagePanel.cacheButton', { size: bytes(cached) }) : t('storage.cache.open');
+    return el('div', { class: 'storage-foot' }, [
+      el('button', { type: 'button', class: 'text-button', disabled: busy() || !features.remove, title: cleanupReason, dataset: { focus: 'tool-cleanup' }, onclick: () => manager.cleanup() }, [
+        icon(GLYPHS.sweep, 16), el('span', { text: t('storage.cleanup.open') }),
+      ]),
+      el('button', { type: 'button', class: 'text-button', disabled: busy(), dataset: { focus: 'tool-cache' }, onclick: () => manager.cache() }, [
+        icon(GLYPHS.box, 16), el('span', { text: cacheLabel }),
       ]),
     ]);
   }
@@ -701,11 +763,16 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     if (!features.remove) hints.push(el('p', { class: 'hint', text: t('storage.limitedHint') }), el('p', { class: 'hint', text: t('storage.managerLimitedHint') }));
     if (view.tools?.ready) hints.push(el('p', { class: 'hint' }, [t('storage.ffmpegReady', { version: view.tools.version ?? '' })]));
     const slot = bootSlot(features);
+    const media = mediaShown(view.place, MEDIA);
     body.replaceChildren(
-      el('div', { class: 'manager-top' }, [toolbar(features), manager.filterBar()]),
+      summary(),
       ...hints,
       ...(slot ? [slot] : []),
-      el('div', { class: 'manager-columns' }, MEDIA.map((m) => manager.column(m))),
+      el('section', { class: 'storage-files', 'aria-labelledby': 'storage-files-title' }, [
+        filesHead(),
+        el('div', { class: `manager-columns${media.length === 1 ? ' single' : ''}` }, media.map((m) => manager.column(m))),
+      ]),
+      foot(features),
     );
     refocus();
   }

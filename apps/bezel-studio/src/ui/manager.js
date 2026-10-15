@@ -9,6 +9,7 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
 import { openVideoPreview } from './video-preview.js';
+import { searchField } from './fields.js';
 import {
   CACHE_LIMITS, KIND_FILTERS, ORIGIN_FILTERS, SORTS, actionsFor, baseName, cleanupGroups, emptySelection, findingText, formatBytes,
   formatExactBytes, formatLimit, formatSent, hasCopy, isBezel, keyAction, otherMedium, placeText, planRefusalText, precheckedPaths,
@@ -17,6 +18,8 @@ import {
 
 /** How far a press travels before it is a drag, px. */
 const DRAG_THRESHOLD = 4;
+/** Regions that accept a stored file during a pointer drag. */
+const DROP_TARGETS = '.manager-column, .boot-section';
 /** The order of the side toolbar. */
 const ACTIONS = Object.freeze(['move', 'copy', 'rename', 'preview', 'play', 'background', 'boot', 'associate', 'delete']);
 /** Icons of the manager's own actions (24x24, stroked). */
@@ -35,8 +38,7 @@ let dialogs = 0;
  * @param {object} deps.host what the storage panel lends: `key()`, `data()`,
  *   `features()`, `busy()`, `live()`, `notify(text)`, `notice(n)`,
  *   `reload()`, `runPlan(plan)`, `runDeletes(files)`, `askBoot(file)`,
- *   `askDelete(file)`, `play(file)`, `dropZone(medium)`, `usage(capacity)`, `confirm(opts)`,
- *   `bootSlot()`
+ *   `askDelete(file)`, `play(file)`, `dropZone(medium)`, `confirm(opts)`
  */
 export function createManagerView({ t, locale, bridge, host }) {
   const filter = { text: '', kind: 'all', origin: 'all' };
@@ -107,28 +109,33 @@ export function createManagerView({ t, locale, bridge, host }) {
     if (file.entry?.state === 'pending') tags.push([t('storage.state.pending'), 'warn']);
     if (file.finding) tags.push([t(`storage.findingGroup.${file.finding.code}`), file.finding.prechecked ? 'warn' : 'finding']);
     if (!hasCopy(file)) tags.push([t('storage.noCopy'), 'muted']);
-    return el('span', { class: 'file-tags' }, tags.map(([text, kind]) => el('span', { class: `tag ${kind}`, text })));
+    return tags.map(([text, kind]) => el('span', { class: `tag ${kind}`, text }));
   }
 
-  function meta(file) {
-    const parts = [file.size === null ? t('storage.sizeUnknown') : bytes(file.size), t(`storage.kindOne.${file.kind}`)];
-    parts.push(isBezel(file) ? t('storage.origin.sent', { date: formatSent(file.entry.sentAt, locale()) }) : t('storage.origin.other'));
-    return parts.join(' · ');
+  /** The kind and where the file came from: the row's tooltip (the sort and the filters use them too). */
+  function details(file) {
+    const origin = isBezel(file) ? t('storage.origin.sent', { date: formatSent(file.entry.sentAt, locale()) }) : t('storage.origin.other');
+    return `${t(`storage.kindOne.${file.kind}`)} · ${origin}`;
   }
 
+  /** A file (artboard Storage): its tile, its name, and its place, size and notes in mono. */
   function option(medium, file, index) {
     return el('li', {
       role: 'option',
       id: `mgr-${medium}-${index}`,
       class: 'file-option',
       'aria-selected': 'false',
+      title: details(file),
       dataset: { path: file.path },
     }, [
       thumbnail(file),
       el('span', { class: 'file-main' }, [
         el('span', { class: 'file-name', text: file.name }),
-        el('span', { class: 'file-meta', text: meta(file) }),
-        badges(file),
+        el('span', { class: 'file-meta' }, [
+          el('span', { class: 'tag place', text: t(`storagePanel.placeTag.${medium}`) }),
+          el('span', { class: 'file-size', text: file.size === null ? t('storage.sizeUnknown') : bytes(file.size) }),
+          ...badges(file),
+        ]),
       ]),
     ]);
   }
@@ -188,7 +195,7 @@ export function createManagerView({ t, locale, bridge, host }) {
         ? { enabled: selectedFiles(medium).length === 1 && selectedFiles(medium)[0].kind === 'video', reason: 'videoOnly' }
         : can[name];
       button.disabled = !enabled;
-      button.title = enabled ? '' : t(`storage.reason.${reason}`);
+      button.title = enabled ? actionLabel(name, medium) : t(`storage.reason.${reason}`);
     }
     const info = selectionInfo(files(), selection[medium].selected);
     const shown = shownIn(medium).length;
@@ -223,10 +230,11 @@ export function createManagerView({ t, locale, bridge, host }) {
       if (name === 'boot' && !features.boot) continue;
       buttons[name] = el('button', {
         type: 'button',
-        class: 'text-button',
+        class: 'icon-button quiet',
+        'aria-label': actionLabel(name, medium),
         dataset: { focus: `act-${name}-${medium}` },
         onclick: () => run(name, medium),
-      }, [icon(ACTION_ICONS[name], 16), el('span', { text: actionLabel(name, medium) })]);
+      }, [icon(ACTION_ICONS[name], 16)]);
     }
     columns[medium].buttons = buttons;
     return el('div', { class: 'button-row manager-actions', role: 'group', 'aria-label': t('storage.list.actions', { medium: t(`storage.medium.${medium}`) }) }, Object.values(buttons));
@@ -251,14 +259,14 @@ export function createManagerView({ t, locale, bridge, host }) {
     const hit = document.elementFromPoint(x, y);
     const column = hit?.closest('.manager-column');
     if (column && column.dataset.medium !== medium) return { kind: 'column', node: column, medium: column.dataset.medium };
-    const slot = hit?.closest('.boot-slot');
+    const slot = hit?.closest('.boot-section');
     if (slot && selectedFiles(medium).length === 1) return { kind: 'boot', node: slot };
     return null;
   }
 
   function endDrag() {
     press?.ghost?.remove();
-    for (const node of document.querySelectorAll('.manager-column.drop-target, .boot-slot.drop-target')) node.classList.remove('drop-target');
+    for (const node of document.querySelectorAll(DROP_TARGETS)) node.classList.remove('drop-target');
     press = null;
   }
 
@@ -281,7 +289,7 @@ export function createManagerView({ t, locale, bridge, host }) {
       press.ghost.style.left = `${evt.clientX}px`;
       press.ghost.style.top = `${evt.clientY}px`;
       const target = dropAt(medium, evt.clientX, evt.clientY);
-      for (const node of document.querySelectorAll('.manager-column, .boot-slot')) node.classList.toggle('drop-target', node === target?.node);
+      for (const node of document.querySelectorAll(DROP_TARGETS)) node.classList.toggle('drop-target', node === target?.node);
     });
     listbox.addEventListener('pointerup', (evt) => {
       if (!press || press.medium !== medium) return;
@@ -362,7 +370,7 @@ export function createManagerView({ t, locale, bridge, host }) {
       Object.assign(columns[medium], { count, slot });
       const errors = (data.folderErrors ?? []).filter((f) => f.medium === medium)
         .map((f) => el('p', { class: 'empty-note', text: t('storage.folderError', { reason: errorText(t, f.error) }) }));
-      children.push(host.usage(capacity), host.dropZone(medium), toolbar(medium), count, ...errors, slot);
+      children.push(host.dropZone(medium), toolbar(medium), count, ...errors, slot);
       slot.append(listOf(medium));
     }
     if (medium === 'sd') children.push(el('p', { class: 'hint', text: t('storage.cardHelp') }));
@@ -385,17 +393,13 @@ export function createManagerView({ t, locale, bridge, host }) {
       refreshList('internal');
       refreshList('sd');
     };
+    const search = searchField(t('storage.filter.text'), (text) => {
+      filter.text = text;
+      refresh();
+    }, { value: filter.text });
+    search.querySelector('input').dataset.focus = 'filter-text';
     return el('div', { class: 'manager-filters', role: 'group', 'aria-label': t('storage.filter.label') }, [
-      el('label', { class: 'field search' }, [
-        el('span', { text: t('storage.filter.text') }),
-        el('input', {
-          type: 'search', value: filter.text, spellcheck: 'false', dataset: { focus: 'filter-text' },
-          oninput: (evt) => {
-            filter.text = evt.target.value;
-            refresh();
-          },
-        }),
-      ]),
+      search,
       select('kind', KIND_FILTERS, filter.kind, (v) => { filter.kind = v; refresh(); }),
       select('origin', ORIGIN_FILTERS, filter.origin, (v) => { filter.origin = v; refresh(); }),
       select('sort', SORTS, sort, (v) => { sort = v; refresh(); }),
@@ -817,6 +821,7 @@ export function createManagerView({ t, locale, bridge, host }) {
   }
 
   return {
+    thumbnail,
     column,
     filterBar,
     cleanup,
