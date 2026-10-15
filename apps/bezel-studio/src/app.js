@@ -21,6 +21,7 @@ import { createStandbyPanel } from './ui/standby.js';
 import { showAccessHelp } from './ui/udev.js';
 import { createConnect } from './ui/connect.js';
 import { createSensorStatus } from './ui/sensor-status.js';
+import { createMemoryStatus } from './ui/memory-status.js';
 import { wireObjectMenu } from './ui/object-menu.js';
 import { shortcutFor } from './shortcuts.js';
 import { createRenderScheduler } from './render-scheduler.js';
@@ -587,6 +588,17 @@ async function sampleLoop() {
 
 // The sensors chip, the Libre dot, its popover and the restart (artboard SensorStatus).
 const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: () => library.selectTab('sensors') });
+
+// Memory is independent of hardware polling/errors and never sampled while
+// the document is hidden. The backend also caches reads from other callers.
+const memoryStatus = createMemoryStatus({ t, root: $('status-memory') });
+async function memoryLoop() {
+  if (!document.hidden) {
+    try { memoryStatus.update(await bridge.memoryUsage()); }
+    catch { memoryStatus.update(null); }
+  }
+  setTimeout(memoryLoop, 5000);
+}
 
 // ---------------------------------------------------------- screens ----
 const currentScreen = () => state.screens.find((s) => s.key === state.screen) ?? null;
@@ -1202,8 +1214,8 @@ $('theme-name').addEventListener('change', (evt) => {
 });
 
 document.addEventListener('keydown', (evt) => {
-  // Nothing acts behind a modal dialog, and Esc keeps closing it.
-  if (document.querySelector('dialog[open]')) return;
+  // Dialogs and native popovers keep keyboard input out of the editor.
+  if (document.querySelector('dialog[open], [popover]:popover-open')) return;
   const action = shortcutFor(evt, document.activeElement);
   if (!action) return;
   // The storage manager hides the editor: only saving acts on the theme.
@@ -1245,6 +1257,7 @@ function setLocale(next) {
   collection.retranslate();
   if (canvasView.framing()) $('overlay').setAttribute('aria-label', t('framing.surface'));
   sensorStatus.close();
+  memoryStatus.retranslate();
   applyIcons(document, ICONS);
   refreshChrome('select');
   renderScreenSelect();
@@ -1270,5 +1283,6 @@ bridge.getAutostart().then((on) => { state.autostart = on; renderScreenSelect();
 bridge.fonts().then((f) => { if (f?.length) state.fonts = f; }).catch(() => {});
 inspector.render(state.assets);
 sampleLoop();
+memoryLoop();
 scheduleTick();
 setInterval(refreshScreens, 5000);

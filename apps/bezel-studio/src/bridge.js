@@ -3,6 +3,13 @@
 // without hardware). Both expose the same async API.
 import { createDemoBackend } from './demo-backend.js';
 
+/**
+ * @typedef {{pid: number, role: 'studio'|'webview'|'light'|'sensors', bytes: number|null}} ProcessMemoryDto
+ * @typedef {{totalBytes: number|null, processes: ProcessMemoryDto[], demo?: boolean}} MemoryReportDto
+ * Private working set bytes of this installation/user. `null` is unavailable;
+ * `demo` is only set by the browser demo. The backend caches scans for 5 s.
+ */
+
 /** The renderer's "nothing animates" in a frame header. */
 export const STILL = 0xffffffff;
 
@@ -344,6 +351,7 @@ function tauriBridge(invoke, tauri = {}) {
      * @returns {Promise<SampleDto>}
      */
     sample: () => invoke('sample_sensors'),
+    memoryUsage: () => invoke('memory_usage'),
     restartLibre: () => invoke('restart_libre_reader'),
     searchWeatherCities: (query) => invoke('search_weather_cities', { query }),
     session: () => invoke('editor_session'),

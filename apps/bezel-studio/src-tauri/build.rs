@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "sensor_catalog",
     "select_screen",
     "sample_sensors",
+    "memory_usage",
     "restart_libre_reader",
     "search_weather_cities",
     "editor_session",

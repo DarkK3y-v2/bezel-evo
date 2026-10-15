@@ -1394,6 +1394,14 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       libreOffline = false;
     },
     searchWeatherCities: async (query) => [{ name: query.trim(), region: 'Lazio', country: 'Italia', latitude: 41.9, longitude: 12.5 }],
+    // Explicitly demo-only memory diagnostics; never derived from browser RAM.
+    memoryUsage: () => Promise.resolve({ demo: true, totalBytes: 312_000_000, processes: [
+      { pid: 100, role: 'studio', bytes: 90_000_000 },
+      { pid: 101, role: 'webview', bytes: 110_000_000 },
+      { pid: 102, role: 'webview', bytes: 48_000_000 },
+      { pid: 103, role: 'light', bytes: 40_000_000 },
+      { pid: 104, role: 'sensors', bytes: 24_000_000 },
+    ] }),
     sample: () => {
       const t = now();
       const readings = {};

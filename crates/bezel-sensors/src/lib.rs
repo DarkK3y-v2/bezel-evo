@@ -23,9 +23,9 @@
 //! - a sample only reads local files (kernel, logs) and memory, never waits on
 //!   the network (the ping thread stores its last result; a sample reads it).
 //!
-//! `unsafe` is denied (the workspace lint); the one exception is the Win32
-//! code that maps RTSS's shared memory read-only (`fps::rtss`, Windows only),
-//! each call allowed in the smallest scope with its `// SAFETY:` reasoning.
+//! `unsafe` is denied (the workspace lint); the exceptions are the read-only
+//! Win32 adapters for RTSS shared memory (`fps::rtss`) and installation-scoped
+//! process memory (`memory`), each call with its `// SAFETY:` reasoning.
 #![deny(unsafe_code)]
 
 #[cfg(target_os = "linux")]
@@ -38,6 +38,7 @@ mod lhm;
 mod libre_control;
 #[cfg(target_os = "linux")]
 mod linux;
+pub mod memory;
 mod nvidia;
 mod ping;
 mod provider;

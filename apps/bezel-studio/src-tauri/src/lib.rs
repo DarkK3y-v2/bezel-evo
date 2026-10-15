@@ -327,6 +327,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::sensor_catalog,
             commands::select_screen,
             commands::sample_sensors,
+            commands::memory_usage,
             commands::restart_libre_reader,
             commands::search_weather_cities,
             commands::editor_session,
