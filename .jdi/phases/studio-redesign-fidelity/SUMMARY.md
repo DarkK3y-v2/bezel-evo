@@ -306,3 +306,8 @@ O diff visual tem ruído pré-existente: duas baselines do mesmo commit `da86d86
 
 ### Zoom do canvas com a roda (D-2026-10-15-studio-redesign-fidelity-19, item 3)
 - Roda e pinça do touchpad fazem zoom centrado no cursor, deltas acumulados, passos e limites dos botões (5%–800%); modo de enquadramento de vídeo inalterado. Commits 0954e5a, 8d61cfe (feitos com ChatGPT/Codex, branch fid/wheel-zoom, merge 6210c4e).
+
+### Memória do Bezel (D-2026-10-15-studio-redesign-fidelity-20)
+- Amostragem única em `bezel-sensors` (`memory.rs`, `memory/windows.rs`): Toolhelp para enumerar processos, caminhos canônicos dos executáveis e SID do usuário (só esta instalação/usuário); `GetProcessMemoryInfo` → `PrivateWorkingSetSize`; resultado (inclusive falhas) em cache de 5 s; outros SOs → indisponível. `unsafe` só em chamadas Win32 de leitura, com justificativa, como em `windows/activity.rs`.
+- Studio: pill "memoria N MB" na statusbar com detalhe por processo (Studio, WebView2, Light, leitor de sensores); consulta enquanto visível; demo com valores marcados. Light: item informativo desabilitado no menu do tray, atualizado ao abrir o menu.
+- Commits b029a6d, b668e09, 735385e, e9eace4 (feitos com ChatGPT/Codex, branch fid/memory). Após o merge: cargo test 1098 ok, clippy/fmt limpos, unit 455/455, e2e memória/shell/transições/zoom 48/48.
