@@ -1,3 +1,4 @@
+import { canFitContent } from './editor/fit-content.js';
 import { createCardTimers } from './editor/card-timer.js';
 import { createCardMotion } from './editor/card-motion.js';
 import { isShown } from './editor/cards.js';
@@ -8,7 +9,7 @@ import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank
 import { DEMO_THEME } from './demo-theme.js';
 import { createDemoGifs } from './demo-gifs.js';
 import { createDemoStandby } from './demo-standby.js';
-import { DEMO_GIF_FRAME_MS, DEMO_VIDEO_LOOP_MS, renderApprox } from './demo-render.js';
+import { DEMO_GIF_FRAME_MS, DEMO_VIDEO_LOOP_MS, measureApprox, renderApprox } from './demo-render.js';
 import { isHorizontal } from './editor/geometry.js';
 import { IMAGE_EXTENSIONS as PICTURES, droppable, extensionOf, fileNameOf } from './editor/background.js';
 import { framingOf, isPlainFraming, pictureBox, resolvedRotation } from './editor/video-framing.js';
@@ -1461,6 +1462,17 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
      * moves card transitions and videos, which an element alone never
      * plays; a GIF still says when it changes.
      */
+    measureElement: async (next, elementId) => {
+      const e = next.elements.find(e => e.id === elementId);
+      if (!canFitContent(next, elementId)) return null;
+      if (e.kind.type !== 'image') return measureApprox(next, elementId, now());
+      const url = posters.get(e.kind.asset);
+      if (!url) return null;
+      const image = new Image(); image.src = url;
+      await image.decode();
+      const scale = Math.max(e.frame.width, e.frame.height) / Math.max(image.naturalWidth, image.naturalHeight);
+      return { ...e.frame, width: image.naturalWidth * scale, height: image.naturalHeight * scale };
+    },
     renderElement: (next, elementId, { max = DEMO_ELEMENT_SIDE, motion = true } = {}) => {
       const started = performance.now();
       const alone = demoIsolate(next, elementId);

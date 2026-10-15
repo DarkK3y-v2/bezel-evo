@@ -645,6 +645,13 @@ impl Theme {
             .map_or(0.0, |owners| owners.iter().map(|e| e.opacity).product())
     }
 
+    /// Whether an object or any of its owning containers is locked.
+    /// Broken ownership references are not editable.
+    pub fn is_locked(&self, element: &Element) -> bool {
+        self.owners(element)
+            .is_none_or(|owners| owners.iter().any(|e| e.locked))
+    }
+
     fn owners<'a>(&'a self, element: &'a Element) -> Option<Vec<&'a Element>> {
         let mut owners = vec![element];
         let mut index = 0;

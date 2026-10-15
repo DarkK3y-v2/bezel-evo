@@ -27,6 +27,74 @@ use crate::paint;
 use crate::shape;
 use crate::text::{SystemFonts, TextEngine, TextJob};
 
+/// Decorations around a text run, shared by drawing and natural sizing.
+#[derive(Default)]
+struct TextFurniture {
+    side: Option<f32>,
+    fraction: f32,
+    gap: f32,
+    progress: f32,
+}
+impl TextFurniture {
+    fn new(
+        content: &TextContent,
+        style: &bezel_core::domain::theme::TextStyle,
+        context: &RenderContext<'_>,
+    ) -> Self {
+        match content {
+            TextContent::Weather(w) if w.show_icon => Self {
+                side: Some(w.icon_size.unwrap_or(style.size * 2.)),
+                fraction: if w.icon_size.is_none() { 0.3 } else { 1. },
+                gap: w.icon_gap.unwrap_or(style.size * 0.3).max(0.),
+                progress: 0.,
+            },
+            TextContent::Player(p)
+                if bezel_core::domain::playback::session(context.snapshot, &p.source).is_some() =>
+            {
+                let media = bezel_core::domain::playback::session(context.snapshot, &p.source)
+                    .expect("session present");
+                Self {
+                    side: if p.show_cover {
+                        Some(f32::INFINITY)
+                    } else {
+                        None
+                    },
+                    fraction: 0.4,
+                    gap: p.cover_gap.unwrap_or(style.size * 0.3).max(0.),
+                    progress: if p.show_progress && media.duration > 0. {
+                        8.
+                    } else {
+                        0.
+                    },
+                }
+            }
+            _ => Self::default(),
+        }
+    }
+    fn layout(&self, area: BoxF) -> (f32, f32) {
+        let gap = self.gap.min(area.width.max(0.));
+        let side = self
+            .side
+            .unwrap_or(0.)
+            .min(area.height)
+            .min(area.width * self.fraction)
+            .min((area.width - gap).max(0.));
+        (side, gap)
+    }
+    fn fit(&self, width: f32, height: f32) -> (f32, f32) {
+        let height = height + self.progress;
+        if let Some(side) = self.side {
+            let side = if side.is_finite() { side } else { height };
+            (
+                (width + side + self.gap).max(side / self.fraction).ceil(),
+                height.max(side).ceil(),
+            )
+        } else {
+            (width.ceil(), height.ceil())
+        }
+    }
+}
+
 /// Largest canvas side rendered, pixels.
 const MAX_CANVAS_SIDE: u32 = 8192;
 /// Shown under a video background that has no poster.
@@ -156,6 +224,66 @@ impl SkiaRenderer {
 }
 
 impl FrameRenderer for SkiaRenderer {
+    fn measure_element(
+        &mut self,
+        theme: &Theme,
+        id: ElementId,
+        assets: &BTreeMap<AssetRef, Vec<u8>>,
+        context: RenderContext<'_>,
+    ) -> Result<Option<BoxF>> {
+        let Some(element) = theme.elements.iter().find(|e| e.id == id) else {
+            return Ok(None);
+        };
+        if theme.is_locked(element) || element.card.is_some() || element.is_group {
+            return Ok(None);
+        }
+        let old = element.frame;
+        let (width, height, ax, ay) = match &element.kind {
+            ElementKind::Text { content, style } => {
+                let text = text_of(id, content, &context);
+                let job = TextJob {
+                    text: &text,
+                    style,
+                    area: old,
+                };
+                let Some((w, h)) = self.text.measure(&job, assets, &mut self.diagnostics) else {
+                    return Ok(None);
+                };
+                let furniture = TextFurniture::new(content, style, &context);
+                let (w, h) = furniture.fit(w, h);
+                use bezel_core::domain::theme::{HAlign, VAlign};
+                let ax = match style.align {
+                    HAlign::Left => 0.,
+                    HAlign::Center => 0.5,
+                    HAlign::Right => 1.,
+                };
+                let ay = match style.valign {
+                    VAlign::Top => 0.,
+                    VAlign::Middle => 0.5,
+                    VAlign::Bottom => 1.,
+                };
+                (w, h, ax, ay)
+            }
+            ElementKind::Image { asset, .. } => {
+                let Some((w, h)) = self
+                    .images
+                    .natural_size(asset, assets, &mut self.diagnostics)
+                else {
+                    return Ok(None);
+                };
+                let scale = old.width.max(old.height) / w.max(h);
+                (w * scale, h * scale, 0., 0.)
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(BoxF::new(
+            old.x + (old.width - width) * ax,
+            old.y + (old.height - height) * ay,
+            width,
+            height,
+        )))
+    }
+
     /// The frame times of a GIF, from its decoded frames (cached for
     /// drawing); delays of 10 ms or less play at 100 ms, as browsers do.
     fn animation(
@@ -895,6 +1023,7 @@ impl SkiaRenderer {
         let area = element.frame;
         match &element.kind {
             ElementKind::Text { content, style } => {
+                let furniture = TextFurniture::new(content, style, context);
                 let mut area = area;
                 if let TextContent::Player(p) = content {
                     let media = bezel_core::domain::playback::session(context.snapshot, &p.source);
@@ -903,14 +1032,7 @@ impl SkiaRenderer {
                     }
                     if let Some(m) = media {
                         if p.show_cover {
-                            let gap = p
-                                .cover_gap
-                                .unwrap_or(style.size * 0.3)
-                                .clamp(0., area.width.max(0.));
-                            let side = area
-                                .height
-                                .min(area.width * 0.4)
-                                .min((area.width - gap).max(0.));
+                            let (side, gap) = furniture.layout(area);
                             if !m.cover.is_empty() {
                                 use std::hash::{Hash, Hasher};
                                 let mut hash = std::collections::hash_map::DefaultHasher::new();
@@ -983,27 +1105,14 @@ impl SkiaRenderer {
                                 Some(&style.paint),
                                 None,
                             );
-                            area.height = (area.height - 8.).max(0.);
+                            area.height = (area.height - furniture.progress).max(0.);
                         }
                     }
                 }
                 if let TextContent::Weather(w) = content
                     && w.show_icon
                 {
-                    let gap = w
-                        .icon_gap
-                        .unwrap_or(style.size * 0.3)
-                        .clamp(0.0, area.width.max(0.0));
-                    let side = w
-                        .icon_size
-                        .unwrap_or(style.size * 2.0)
-                        .min(area.height)
-                        .min((area.width - gap).max(0.0))
-                        .min(if w.icon_size.is_none() {
-                            area.width * 0.3
-                        } else {
-                            area.width
-                        });
+                    let (side, gap) = furniture.layout(area);
                     let code = match context.snapshot.get(&w.keys()[1]) {
                         bezel_core::domain::sensor::Reading::Value(v) => v as u16,
                         _ => 999,
@@ -1237,6 +1346,126 @@ mod tests {
         );
         e.opacity = opacity;
         e
+    }
+
+    fn measure(r: &mut SkiaRenderer, theme: &Theme, scene: &Scene) -> Option<BoxF> {
+        let context = RenderContext {
+            snapshot: &scene.snapshot,
+            histories: &scene.histories,
+            quantities: &bezel_core::domain::sensor::Quantities::new(),
+            time: scene.time,
+            animation: scene.animation,
+            language: bezel_core::domain::clock::Language::English,
+            backdrop: Backdrop::Poster,
+            shown: &scene.shown,
+        };
+        r.measure_element(theme, ElementId(1), &scene.assets, context)
+            .unwrap()
+    }
+
+    #[test]
+    fn natural_text_frames_use_current_font_format_value_and_alignment() {
+        use bezel_core::domain::theme::{HAlign, TextStyle, VAlign};
+        let style = TextStyle {
+            size: 20.,
+            align: HAlign::Right,
+            valign: VAlign::Bottom,
+            ..TextStyle::default()
+        };
+        let kinds = [
+            TextContent::Static("Hello".into()),
+            TextContent::Clock {
+                pattern: "%H:%M".into(),
+                language: None,
+                casing: bezel_core::domain::clock::ClockCase::Normal,
+            },
+            TextContent::Sensor {
+                key: testkit::key("cpu.usage"),
+                format: Default::default(),
+                prefix: "CPU ".into(),
+                suffix: "!".into(),
+            },
+            TextContent::Weather(bezel_core::domain::weather::Weather {
+                city: "Rome".into(),
+                latitude: 42.,
+                longitude: 12.,
+                language: None,
+                fahrenheit: false,
+                show_icon: true,
+                icon_style: Default::default(),
+                icon_gap: Some(12.),
+                icon_size: Some(50.),
+            }),
+            TextContent::Player(bezel_core::domain::playback::Player {
+                source: String::new(),
+                show_cover: true,
+                cover_radius: 0.,
+                cover_corners: None,
+                cover_gap: None,
+                show_progress: true,
+                show_source: true,
+                hide_when_stopped: false,
+                empty_text: "No media".into(),
+            }),
+        ];
+        let mut scene = Scene::empty().with("cpu.usage", 35.);
+        scene
+            .snapshot
+            .media
+            .push(bezel_core::domain::playback::MediaSession {
+                title: "Track".into(),
+                artist: "Artist".into(),
+                source: "Player".into(),
+                duration: 240.,
+                playing: true,
+                ..Default::default()
+            });
+        let mut renderer = testkit::renderer();
+        for content in kinds {
+            let e = element(
+                BoxF::new(10., 20., 400., 300.),
+                ElementKind::Text {
+                    content,
+                    style: style.clone(),
+                },
+            );
+            let mut theme = testkit::theme(600, 600, Background::Color(Rgba::BLACK), vec![e]);
+            let b = measure(&mut renderer, &theme, &scene).expect("text measurement");
+            assert!(b.width > 0. && b.height > 0. && b.height < 300.);
+            assert_eq!(b.x + b.width, 410.);
+            assert_eq!(b.y + b.height, 320.);
+            theme.elements[0].frame = b;
+            assert_eq!(
+                measure(&mut renderer, &theme, &scene),
+                Some(b),
+                "fit is stable"
+            );
+            theme.elements[0].locked = true;
+            assert_eq!(measure(&mut renderer, &theme, &scene), None);
+        }
+    }
+
+    #[test]
+    fn natural_images_and_svg_icons_keep_the_long_side() {
+        let scene = Scene::empty().asset("wide.png", png(80, 20, |_, _| Rgba::WHITE))
+            .asset("tall.svg", br#"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="80"><rect width="20" height="80"/></svg>"#.to_vec());
+        let mut renderer = testkit::renderer();
+        for (asset, expected) in [("wide.png", (100., 25.)), ("tall.svg", (25., 100.))] {
+            let e = element(
+                BoxF::new(10., 20., 100., 100.),
+                ElementKind::Image {
+                    asset: AssetRef(asset.into()),
+                    fit: Fit::Contain,
+                    fade: None,
+                },
+            );
+            let theme = testkit::theme(200, 200, Background::Color(Rgba::BLACK), vec![e]);
+            let b = measure(&mut renderer, &theme, &scene).unwrap();
+            assert_eq!(
+                (b.x, b.y, b.width, b.height),
+                (10., 20., expected.0, expected.1)
+            );
+        }
     }
 
     #[test]

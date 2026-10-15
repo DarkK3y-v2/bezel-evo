@@ -70,7 +70,7 @@ use crate::domain::media::{
 };
 use crate::domain::sensor::{Quantities, SensorInfo, Snapshot, Wanted};
 use crate::domain::storage::{FileName, Medium, RemotePath, Repeat, StorageLocation};
-use crate::domain::theme::{AssetRef, Background, Theme, refresh_interval};
+use crate::domain::theme::{AssetRef, Background, BoxF, ElementId, Theme, refresh_interval};
 use crate::domain::transition::{MIN_TRANSITION_STEP, ShownValues, Transitions, View};
 use crate::ports::{
     Backdrop, FrameRenderer, MediaLocation, MediaTranscoder, RenderContext, ScreenLink,
@@ -1289,6 +1289,28 @@ impl ThemeRuntime {
             .chain(self.sample_wake(theme, now))
             .min();
         Ok((frame, change))
+    }
+
+    /// Measures content with the same sample, units and shown values as previews.
+    pub fn measure_element(
+        &mut self,
+        renderer: &mut dyn FrameRenderer,
+        id: ElementId,
+        time: LocalTime,
+        now: Duration,
+    ) -> Result<Option<BoxF>> {
+        let theme = &self.scene.theme;
+        let shown = self.transitions.shown(theme, now, View::Preview);
+        let context = self.scene.context(
+            Moment {
+                time,
+                animation: now,
+            },
+            Backdrop::Poster,
+            &shown,
+        );
+        renderer.set_content_revision(0);
+        renderer.measure_element(theme, id, &self.scene.assets, context)
     }
 
     /// Asks the renderer for the frame times of shown images it has not

@@ -851,6 +851,27 @@ impl Backend {
         Ok(bytes)
     }
 
+    /// Measures the edited element through the native preview renderer.
+    pub fn measure_element(
+        &self,
+        theme: &ThemeDto,
+        element: u32,
+        time: LocalTime,
+        now: Instant,
+    ) -> UiResult<Option<bezel_themes::dto::BoxDto>> {
+        let theme = theme_of(theme)?;
+        let mut studio = self.studio();
+        studio.set_theme(theme);
+        Ok(studio
+            .measure_element(ElementId(element), time, now)?
+            .map(|b| bezel_themes::dto::BoxDto {
+                x: b.x,
+                y: b.y,
+                width: b.width,
+                height: b.height,
+            }))
+    }
+
     /// Takes the UI's theme and draws its element `element` on its own, as
     /// the inspector previews it (D-2026-10-09-studio-redesign-fidelity-8):
     /// [`frame_bytes`] of the element alone on a transparent canvas, its

@@ -7,6 +7,7 @@ export const PREFIXES = Object.freeze(['insp.']);
 
 export default {
   en: {
+    'insp.fitContent': 'Fit frame to content',
     'insp.layer': 'layer {level} of {total}',
     'insp.inGroup': 'in {group}',
     'insp.more': 'More actions',
@@ -83,6 +84,7 @@ export default {
     'insp.gapHint': '“Gap” is the space between cover and text.',
   },
   'pt-BR': {
+    'insp.fitContent': 'Ajustar quadro ao conteúdo',
     'insp.layer': 'camada {level} de {total}',
     'insp.inGroup': 'em {group}',
     'insp.more': 'Mais ações',
@@ -159,6 +161,7 @@ export default {
     'insp.gapHint': '“Distância” é o espaço entre a capa e o texto.',
   },
   it: {
+    'insp.fitContent': 'Adatta cornice al contenuto',
     'insp.layer': 'livello {level} di {total}',
     'insp.inGroup': 'in {group}',
     'insp.more': 'Altre azioni',

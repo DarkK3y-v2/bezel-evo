@@ -1,0 +1,24 @@
+import { test, expect, watchErrors, expectAccessible, clickAddWidget } from './helpers.mjs';
+
+test('double-click fits the frame, one Undo restores it, and keyboard action matches', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await clickAddWidget(page, t, 'text');
+  const width = page.locator('#inspector').getByRole('spinbutton', { name: t('inspector.width'), exact: true });
+  const before = await width.inputValue();
+  await page.locator('.handle[data-h="e"]').dblclick();
+  await expect(width).not.toHaveValue(before);
+  const fitted = await width.inputValue();
+  await page.locator('#undo').click();
+  await expect(width).toHaveValue(before);
+  const fit = page.getByRole('button', { name: t('insp.fitContent'), exact: true });
+  await fit.focus(); await page.keyboard.press('Enter');
+  await expect(width).toHaveValue(fitted);
+  await page.locator('#undo').click();
+  await expect(width).toHaveValue(before);
+  await page.locator('#stage-scroll').focus(); await page.keyboard.press('Shift+F10');
+  await page.getByRole('menuitem', { name: t('insp.fitContent'), exact: true }).click();
+  await expect(width).toHaveValue(fitted);
+  await expectAccessible(page); expect(errors).toEqual([]);
+});

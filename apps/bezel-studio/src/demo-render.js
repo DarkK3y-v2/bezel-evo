@@ -54,7 +54,25 @@ export function demoGraphPoints(kind, refreshSeconds, t, seed) {
   return Array.from({ length: count }, (_, i) => fraction(newest - (count - 1 - i) * every, seed));
 }
 
-function drawText(ctx, e, t, value) {
+// One decoration model for drawing and fitting in the browser demo.
+function textFurniture({ content: c, style: s }) {
+  const cover = c.type === 'player' && c.showCover;
+  const icon = c.type === 'weather' && c.showIcon !== false;
+  const fraction = cover ? 0.4 : icon ? (c.iconSize == null ? 0.3 : 1) : 0;
+  const desired = cover ? Infinity : icon ? c.iconSize ?? s.size * 2 : 0;
+  const gap = Math.max(0, cover ? c.coverGap ?? s.size * 0.3 : icon ? c.iconGap ?? s.size * 0.3 : 0);
+  const progress = c.type === 'player' && c.showProgress ? 8 : 0;
+  return {
+    layout: f => ({ gap: Math.min(gap, f.width), side: Math.min(desired, f.height, f.width * fraction, Math.max(0, f.width - gap)) }),
+    fit: (width, height) => {
+      height += progress;
+      const side = Number.isFinite(desired) ? desired : height;
+      return { width: Math.ceil(fraction ? Math.max(width + side + gap, side / fraction) : width), height: Math.ceil(Math.max(height, side)) };
+    },
+  };
+}
+
+function drawText(ctx, e, t, value, measure = false) {
   const k = e.kind;
   const s = k.style;
   let text = k.content.text ?? '';
@@ -70,12 +88,17 @@ function drawText(ctx, e, t, value) {
   }
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
+  if (measure) {
+    const lines = text.split('\n');
+    const width = Math.max(...lines.map(line => ctx.measureText(line).width));
+    const height = lines.length * Math.ceil(s.size * 1.2);
+    return textFurniture(k).fit(width, height);
+  }
   ctx.textAlign = s.align === 'center' ? 'center' : s.align === 'right' ? 'right' : 'left';
   ctx.textBaseline = s.valign === 'top' ? 'top' : s.valign === 'bottom' ? 'bottom' : 'middle';
   let f = e.frame;
   if (k.content.type === 'weather' && k.content.showIcon !== false) {
-    const gap = Math.min(k.content.iconGap ?? s.size * 0.3, f.width);
-    const side = Math.min(k.content.iconSize ?? s.size * 2, f.height, Math.max(0, f.width - gap), k.content.iconSize == null ? f.width * 0.3 : f.width);
+    const { side, gap } = textFurniture(k).layout(f);
     ctx.save();
     ctx.translate(f.x, f.y + (f.height - side) / 2);
     ctx.scale(side / 24, side / 24);
@@ -92,7 +115,7 @@ function drawText(ctx, e, t, value) {
   }
   if (k.content.type==='player') {
     ctx.textBaseline='top';
-    if(k.content.showCover){const gap=Math.min(f.width,k.content.coverGap ?? s.size*.3),side=Math.min(f.height,f.width*.4,Math.max(0,f.width-gap));ctx.save();ctx.beginPath();ctx.roundRect(f.x,f.y,side,side,k.content.coverCorners ?? k.content.coverRadius ?? 0);ctx.clip();ctx.fillStyle='#334155';ctx.fillRect(f.x,f.y,side,side);ctx.fillStyle=paint(s.paint);ctx.fillText('\u266b',f.x+side*.3,f.y+side*.3);ctx.restore();f={...f,x:f.x+side+gap,width:f.width-side-gap};}
+    if(k.content.showCover){const {side,gap}=textFurniture(k).layout(f);ctx.save();ctx.beginPath();ctx.roundRect(f.x,f.y,side,side,k.content.coverCorners ?? k.content.coverRadius ?? 0);ctx.clip();ctx.fillStyle='#334155';ctx.fillRect(f.x,f.y,side,side);ctx.fillStyle=paint(s.paint);ctx.fillText('\u266b',f.x+side*.3,f.y+side*.3);ctx.restore();f={...f,x:f.x+side+gap,width:f.width-side-gap};}
     if(k.content.showProgress){ctx.fillStyle='#64748b';ctx.fillRect(f.x,f.y+f.height-4,f.width,4);ctx.fillStyle=paint(s.paint);ctx.fillRect(f.x,f.y+f.height-4,f.width*.4,4);}
   }
   ctx.fillStyle=paint(s.paint);
@@ -380,4 +403,17 @@ export function renderApprox(theme, t, video = null, transitions = new Map(), sc
     drawElement(ctx, { ...e, opacity: effectiveOpacity(theme, e) }, t, theme.refreshSeconds, motion);
   }
   return { width, height, rgba: ctx.getImageData(0, 0, width, height).data };
+}
+
+/** Natural dimensions from the same formatter and canvas font used to draw. */
+export function measureApprox(theme, id, t) {
+  const e = theme.elements.find(e => e.id === id);
+  if (!e || e.kind.type !== 'text') return null;
+  const ctx = new OffscreenCanvas(1, 1).getContext('2d');
+  const size = drawText(ctx, e, t, shownFraction(e, t, theme.refreshSeconds, true), true);
+  if (!size || size.width <= 0 || size.height <= 0) return null;
+  const style = e.kind.style, f = e.frame;
+  const ax = style.align === 'right' ? 1 : style.align === 'center' ? 0.5 : 0;
+  const ay = style.valign === 'bottom' ? 1 : style.valign === 'middle' ? 0.5 : 0;
+  return { x: f.x + (f.width - size.width) * ax, y: f.y + (f.height - size.height) * ay, ...size };
 }

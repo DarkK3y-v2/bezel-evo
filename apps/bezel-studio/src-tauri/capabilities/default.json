@@ -19,6 +19,7 @@
     "allow-editor-session",
     "allow-render-preview",
     "allow-render-element-preview",
+    "allow-measure-element",
     "allow-video-auto",
     "allow-open-guide",
     "allow-push-theme",

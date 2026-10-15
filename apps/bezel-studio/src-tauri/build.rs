@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "editor_session",
     "render_preview",
     "render_element_preview",
+    "measure_element",
     "video_auto",
     "open_guide",
     "push_theme",

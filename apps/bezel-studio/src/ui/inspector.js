@@ -1,3 +1,4 @@
+import { canFitContent } from '../editor/fit-content.js';
 // The right inspector: the theme when nothing is selected, one element's
 // properties, or align/distribute tools for several. Every edit is one
 // store command (one undo step). An element's head (kind, name, layer,
@@ -56,6 +57,7 @@ const NO_VIDEO_ACTIONS = Object.freeze({
 
 /** What the inspector asks the app, when nothing is given. */
 const NO_HOST = Object.freeze({
+  fitContent: () => {},
   lastSample: () => null,
   renderElement: async () => null,
 });
@@ -1084,6 +1086,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4 }),
         prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4 }),
       ]),
+      chipButton(t('insp.fitContent'), false, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id) }),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
     ]);
     const actions = section('actions', t('inspector.actions'), [showAs(e, theme), el('div', { class: 'actions' }, [

@@ -18,7 +18,7 @@ use crate::domain::standby::PlanB;
 use crate::domain::storage::{
     Confirmed, FileName, RemotePath, Repeat, StorageInfo, StorageLocation,
 };
-use crate::domain::theme::{AssetRef, Theme};
+use crate::domain::theme::{AssetRef, BoxF, ElementId, Theme};
 use crate::domain::transition::ShownValues;
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -464,6 +464,18 @@ pub trait FrameRenderer: Send {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: RenderContext<'_>,
     ) -> Result<Frame>;
+
+    /// Natural content frame for the current reading and fonts. Unsupported or
+    /// unavailable content has no measurement; this never changes the theme.
+    fn measure_element(
+        &mut self,
+        _theme: &Theme,
+        _element: ElementId,
+        _assets: &BTreeMap<AssetRef, Vec<u8>>,
+        _context: RenderContext<'_>,
+    ) -> Result<Option<BoxF>> {
+        Ok(None)
+    }
 
     /// Select transient state for a document when a renderer is shared.
     /// Font/image caches may be shared, but transition clocks must be isolated.

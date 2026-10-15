@@ -625,6 +625,19 @@ impl SharedRenderer {
     }
 }
 impl FrameRenderer for SharedRenderer {
+    fn measure_element(
+        &mut self,
+        theme: &Theme,
+        id: ElementId,
+        assets: &BTreeMap<AssetRef, Vec<u8>>,
+        context: bezel_core::ports::RenderContext<'_>,
+    ) -> Result<Option<bezel_core::domain::theme::BoxF>> {
+        let mut renderer = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        renderer.set_scene(self.scene);
+        renderer.set_content_revision(0);
+        renderer.measure_element(theme, id, assets, context)
+    }
+
     fn render(
         &mut self,
         theme: &Theme,
@@ -1371,6 +1384,18 @@ impl Studio {
             Playing::Video | Playing::Poster => None,
         };
         Ok((frame, sooner(gifs, again)))
+    }
+
+    /// Fits content using the preview renderer and its current sample.
+    pub fn measure_element(
+        &mut self,
+        id: ElementId,
+        time: LocalTime,
+        now: Instant,
+    ) -> Result<Option<bezel_core::domain::theme::BoxF>> {
+        let clock = self.clock(now);
+        self.runtime
+            .measure_element(&mut self.element_renderer, id, time, clock)
     }
 
     /// The inspector's preview of the element `id` of the edited theme on
