@@ -79,6 +79,11 @@ try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme, locale: 'en-US', timezoneId: 'UTC' });
     await context.addInitScript(() => localStorage.setItem('bezel.panelWidths', JSON.stringify({ library: 280, inspector: 360 })));
     // Load a custom example document into the existing demo, not a UI mockup.
+    // Windows ports in the README pictures (the demo's own data uses Linux device paths).
+    await context.route('**/demo-data.js', async route => {
+      const body = (await (await route.fetch()).text()).replaceAll('/dev/ttyACM1', 'COM5').replaceAll('/dev/ttyACM0', 'COM4');
+      await route.fulfill({ contentType: 'text/javascript', body });
+    });
     await context.route('**/demo-theme.js', route => route.fulfill({ contentType: 'text/javascript', body: `export const DEMO_THEME = ${JSON.stringify(theme)};` }));
     const page = await context.newPage();
     const errors = [];

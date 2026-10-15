@@ -18,7 +18,7 @@ is approximate and sensor values are simulated; they are not measurements.
 
 Capture at 1440 x 900 (Studio) and 1200 x 900 (device illustration), English UI,
 UTC, dark/light system theme, with a fixed demo clock. The only device shown is
-the demo's Turing Smart Screen 8.8"; addresses in the UI are the demo fixtures.
+the demo's Turing Smart Screen 8.8"; addresses in the UI are the demo fixtures, shown as Windows ports (COM5, COM4) by the capture script.
 The device illustration uses the brand palette and bundled IBM Plex Sans.
 
 From the repository root:
