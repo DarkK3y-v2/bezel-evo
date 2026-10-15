@@ -3,7 +3,6 @@ export default {
   'collection.cannotUndo': 'Excluir não pode ser desfeito.',
   "app.version": "{version}",
   "app.title": "Bezel Evo {version}",
-  "inspector.individualCorners": "Cantos individuais",
   "inspector.topLeft": "Superior esquerdo (px)",
   "inspector.topRight": "Superior direito (px)",
   "inspector.bottomRight": "Inferior direito (px)",

@@ -3,7 +3,6 @@ export default {
   "collection.cannotUndo": "L'eliminazione non si può annullare.",
   "app.version": "{version}",
   "app.title": "Bezel Evo {version}",
-  "inspector.individualCorners": "Angoli singoli",
   "inspector.topLeft": "In alto a sinistra (px)",
   "inspector.topRight": "In alto a destra (px)",
   "inspector.bottomRight": "In basso a destra (px)",

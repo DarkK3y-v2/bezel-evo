@@ -125,14 +125,6 @@
 .choice-card-extra { padding-left: 28px; }
 .choice-card-extra .field { margin: 0; }
 
-/* The cover's corners, each around a drawing of the cover. */
-.corner-grid { display: grid; grid-template-columns: 76px 1fr 76px; grid-template-rows: auto auto auto; gap: 8px; align-items: center; justify-items: center; padding: 4px 6px; }
-.corner-grid .fld { width: 76px; }
-.corner-grid .fld:nth-child(2) { grid-column: 3; }
-.corner-grid .corner-cover { grid-column: 2; grid-row: 2; width: 96px; height: 96px; border: 2px solid var(--accent); background: var(--accent-soft); }
-.corner-grid .fld:nth-child(4) { grid-column: 1; grid-row: 3; }
-.corner-grid .fld:nth-child(5) { grid-column: 3; grid-row: 3; }
-
 @container inspector (max-width: 285px) {
   .arc-row .fld-grid { grid-template-columns: minmax(0, 1fr); }
 }

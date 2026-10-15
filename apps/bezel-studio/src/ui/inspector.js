@@ -15,9 +15,10 @@ import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
   checkField, chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
-  adoptControl, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
+  adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
 } from './fields.js';
 import { sentenceParts } from '../sentence.js';
+import { CORNERS, cornerValue } from '../corner-radii.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
 import { ORIENTATIONS } from '../editor/geometry.js';
 import { fileNameOf, videoFacts, videoStatus } from '../editor/background.js';
@@ -541,24 +542,26 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return { data, look };
   }
 
-  /** The cover's corners: equal (one radius) or each its own around a drawing of the cover. */
+  /**
+   * The corners of an object (cornerRadii, D-2026-10-15-studio-redesign-fidelity-22):
+   * `value` and `onChange` in src/corner-radii.js's shape, `label` names
+   * the shared radius, `box` gives the drawing the object's proportions.
+   */
+  function cornersSection(title, label, value, onChange, { individual = true, box = null } = {}) {
+    const texts = {
+      label, prefix: t('insp.radius'), mode: t('insp.cornersMode'), same: t('insp.cornersSame'), each: t('insp.cornersEach'),
+      corners: Object.fromEntries(CORNERS.map((name) => [name, t(`inspector.${name}`)])),
+    };
+    const { tool, control } = cornerRadii(texts, value, onChange, { individual, box });
+    return section('corners', title, [control], { tool });
+  }
+
+  /** The cover's corners: a square as tall as the player. */
   function coverCorners(e) {
     const c = e.kind.content;
-    const set = (patch) => update(e.id, { kind: { content: patch } });
-    const each = Array.isArray(c.coverCorners);
-    const mode = segmented(t('insp.cornersMode'), each ? 'each' : 'same', [['same', t('insp.cornersSame')], ['each', t('insp.cornersEach')]], (v) => {
-      if (v === 'each' && !each) set({ coverCorners: Array(4).fill(c.coverRadius ?? 0), coverRadius: c.coverRadius ?? 0 });
-      if (v === 'same' && each) set({ coverCorners: null, coverRadius: c.coverCorners[0] ?? 0 });
-    }, { bare: true });
-    if (!each) {
-      return section('corners', t('insp.corners'), [fieldGrid([prefixedField(t('insp.radius'), t('player.coverRadius'), c.coverRadius ?? 0, (v) => set({ coverRadius: Math.max(0, v) }), { min: 0, unit: 'px' })])], { tool: mode });
-    }
-    const corner = (name, i) => prefixedField('', t(`inspector.${name}`), c.coverCorners[i], (v) => set({ coverCorners: c.coverCorners.map((r, n) => (n === i ? Math.max(0, v) : r)) }), { min: 0 });
-    const [tl, tr, br, bl] = c.coverCorners.map((r) => Math.min(48, r));
-    const cover = el('span', { class: 'corner-cover', 'aria-hidden': 'true', style: { borderRadius: `${tl}px ${tr}px ${br}px ${bl}px` } });
-    return section('corners', t('insp.corners'), [el('div', { class: 'corner-grid' }, [
-      corner('topLeft', 0), corner('topRight', 1), cover, corner('bottomLeft', 3), corner('bottomRight', 2),
-    ])], { tool: mode });
+    return cornersSection(t('insp.corners'), t('player.coverRadius'), cornerValue(c.coverRadius ?? 0, c.coverCorners),
+      ({ radius, corners }) => update(e.id, { kind: { content: { coverRadius: radius, coverCorners: corners } } }),
+      { box: { width: e.frame.height, height: e.frame.height } });
   }
 
   /** The track of a bar or ring: on or off, and its color. */
@@ -596,9 +599,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       selectField(t('common.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
       ...trackFields(e),
-      numberField(t('inspector.radius'), k.radius ?? 0, (v) => update(e.id, { kind: { radius: Math.max(0, v) } }), { min: 0 }),
       ...segmentsFields(e),
-    ])];
+    ]), cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0), ({ radius }) => update(e.id, { kind: { radius } }),
+      { individual: false, box: e.frame })];
     return { data, look };
   }
 
@@ -820,10 +823,6 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const k = e.kind;
     return { look: [section('appearance', t('inspector.appearance'), [
       segmented(t('common.shape'), k.shape, [['rect', t('shape.rect')], ['ellipse', t('shape.ellipse')]], (v) => update(e.id, { kind: { shape: v } })),
-      ...(k.shape === 'rect' ? [
-        switchRow(t('inspector.individualCorners'), Boolean(k.corners), enabled => update(e.id, { kind: { corners: enabled ? Array(4).fill(k.radius ?? 0) : null, radius: k.corners?.[0] ?? k.radius ?? 0 } })),
-        ...(k.corners ? ['topLeft','topRight','bottomRight','bottomLeft'].map((name,i)=>numberField(t(`inspector.${name}`),k.corners[i],v=>update(e.id,{kind:{corners:k.corners.map((r,n)=>n===i?Math.max(0,v):r)}}),{min:0})) : [numberField(t('inspector.radius'),k.radius ?? 0,v=>update(e.id,{kind:{radius:Math.max(0,v)}}),{min:0})]),
-      ] : []),
       switchRow(t('shape.videoWindow'), Boolean(k.videoWindow), (videoWindow) => update(e.id, { kind: { videoWindow } })),
       k.videoWindow ? el('div', {}, [el('p', { class: 'hint', text: t('shape.videoWindowHint') }), button(t('deviceVideo.choose'), () => video.openStorage())]) : colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#1e293bff', (v) => update(e.id, { kind: { fill: v } })),
       ...fadeFields(e),
@@ -831,7 +830,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         numberField(t('inspector.strokeWidth'), k.strokeWidth ?? 0, (v) => update(e.id, { kind: { strokeWidth: Math.max(0, v), stroke: v > 0 ? (k.stroke ?? '#ffffffff') : null } }), { min: 0 }),
       ]),
       (k.strokeWidth ?? 0) > 0 && colorField(t('inspector.stroke'), k.stroke ?? '#ffffffff', (v) => update(e.id, { kind: { stroke: v } })),
-    ])] };
+    ]), k.shape === 'rect' ? cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0, k.corners),
+      ({ radius, corners }) => update(e.id, { kind: { radius, corners } }), { box: e.frame }) : null] };
   }
 
   function showAs(e, theme) {

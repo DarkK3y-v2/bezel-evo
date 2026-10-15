@@ -30,6 +30,12 @@ export default {
       await app.inspectorTab(1);
       await app.page.locator('#inspector').getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
     } },
+    { name: 'shape-corners', run: async (app) => {
+      await standalone(app, 'shape');
+      await app.page.locator('#inspector').getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
+      await app.page.locator('#inspector .corner-radii').scrollIntoViewIfNeeded();
+    } },
+    { name: 'bar-look', run: async (app) => { await standalone(app, 'bar'); await app.inspectorTab(1); } },
     { name: 'player-custom', run: async (app) => {
       await standalone(app, 'player');
       await app.page.locator('#inspector').getByRole('button', { name: t('insp.otherApp'), exact: true }).click();

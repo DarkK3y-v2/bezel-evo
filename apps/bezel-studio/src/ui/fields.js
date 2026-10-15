@@ -5,6 +5,7 @@
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { joinWords, joinsPrevious } from '../sentence.js';
+import { CORNERS, cornerDrawing, cornerMode, radiiOf, withCorner, withCornerMode, withRadius } from '../corner-radii.js';
 
 let counter = 0;
 const fieldId = () => `f${(counter += 1)}`;
@@ -141,6 +142,51 @@ export function prefixedField(prefix, label, value, onChange, { min, max, step =
     input,
     unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null,
   ]);
+}
+
+/** The drawing's frame for each mode, CSS px: four fields around it, or one beside it. */
+const CORNER_FRAMES = Object.freeze({ each: { width: 88, height: 72 }, same: { width: 56, height: 40 } });
+
+/**
+ * Corner radii (D-2026-10-15-studio-redesign-fidelity-22): a drawing of the
+ * object with its corners as they are, and the radius beside it, or, set
+ * one by one, a field at each corner around it. The field being edited
+ * lights its corner. `value` is `{radius, corners}` (src/corner-radii.js:
+ * corners null, or [top-left, top-right, bottom-right, bottom-left]) and
+ * `onChange(value)` gets the next one, never below 0. Texts come
+ * translated: `label` names the group and the shared radius, `prefix` is
+ * the shared field's mono prefix, `mode`/`same`/`each` the choice between
+ * one radius and individual corners (left out when `individual` is false),
+ * `corners` the four fields' names in CORNERS order.
+ * @param {{label: string, prefix: string, mode?: string, same?: string, each?: string, corners?: Record<string, string>}} texts
+ * @param {{radius: number, corners: number[]|null}} value
+ * @param {(value: {radius: number, corners: number[]|null}) => void} onChange
+ * @param {{individual?: boolean, box?: {width: number, height: number}|null, unit?: string}} [opts]
+ *   `box`: the object's size, for its proportions in the drawing
+ * @returns {{tool: HTMLElement|null, control: HTMLElement}} the mode choice (a section head's tool) and the control
+ */
+export function cornerRadii(texts, value, onChange, { individual = true, box = null, unit = 'px' } = {}) {
+  const mode = individual ? cornerMode(value) : 'same';
+  const tool = individual
+    ? segmented(texts.mode, mode, [['same', texts.same], ['each', texts.each]], (next) => next !== mode && onChange(withCornerMode(value, next)), { bare: true })
+    : null;
+  const drawing = cornerDrawing(mode === 'same' ? { radius: value.radius, corners: null } : value, box, CORNER_FRAMES[mode]);
+  const shape = el('span', { class: 'corner-shape', style: { width: `${drawing.width}px`, height: `${drawing.height}px`, borderRadius: drawing.radii.map((r) => `${r}px`).join(' ') } },
+    CORNERS.map((name) => el('span', { class: 'corner-mark', dataset: { corner: name } })));
+  const art = el('span', { class: 'corner-drawing', 'aria-hidden': 'true' }, [shape]);
+  const field = (prefix, label, r, apply, corner) => {
+    const node = prefixedField(prefix, label, r, apply, { min: 0, unit });
+    if (corner) node.dataset.corner = corner;
+    return node;
+  };
+  if (mode === 'same') {
+    const shared = field(texts.prefix, texts.label, value.radius, (r) => onChange(withRadius(value, r)), null);
+    return { tool, control: el('div', { class: 'corner-radii', role: 'group', 'aria-label': texts.label, dataset: { mode } }, [art, shared]) };
+  }
+  const radii = radiiOf(value);
+  const corner = (i) => field('', texts.corners[CORNERS[i]], radii[i], (r) => onChange(withCorner(value, i, r)), CORNERS[i]);
+  // Reading order: the top corners, the drawing, the bottom ones.
+  return { tool, control: el('div', { class: 'corner-radii', role: 'group', 'aria-label': texts.label, dataset: { mode } }, [corner(0), corner(1), art, corner(3), corner(2)]) };
 }
 
 /**
