@@ -2824,8 +2824,10 @@ mod tests {
                 Backdrop::OnDevice => "on-device",
                 Backdrop::Frame(_) => "picture",
             };
-            let usage = SensorKey::new("cpu.usage").unwrap();
-            let samples = context.histories.get(&usage).len();
+            // The points the theme's graph draws, at its own cadence.
+            let samples = theme.graph_series().first().map_or(0, |series| {
+                context.histories.points(series, usize::MAX).len()
+            });
             self.0.lock().unwrap().push((backdrop, samples));
             Ok(Frame::filled(theme.canvas, Rgba::BLACK))
         }
@@ -2856,6 +2858,7 @@ mod tests {
                     max: 100.0,
                 },
                 history: 8,
+                interval_seconds: None,
                 style: GraphStyle::Line,
                 color: Rgba::WHITE,
                 fill: None,
@@ -2911,6 +2914,36 @@ mod tests {
             FakeSensors::demo().catalog().unwrap().len()
         );
         assert_eq!(s.period(), Duration::from_secs(1));
+    }
+
+    #[test]
+    fn the_live_screen_and_the_canvas_draw_a_graph_at_its_own_interval() {
+        // D-2026-10-15-studio-redesign-fidelity-16: refreshed every second,
+        // a point every 2 s, on the screen and on the canvas alike.
+        let link = open_screen(&FakeBus::turing_88(), &FakeConnector::default(), None).unwrap();
+        let probe = Probe::default();
+        let mut theme = graphing(theme_88());
+        if let ElementKind::Graph {
+            interval_seconds, ..
+        } = &mut theme.elements[0].kind
+        {
+            *interval_seconds = Some(2);
+        }
+        let mut s = Studio::new(
+            Box::new(FakeSensors::demo()),
+            Box::new(probe.clone()),
+            Language::English,
+            theme,
+        );
+        go_live(&mut s, link).unwrap();
+        for ms in [0, 1_000, 2_000, 3_000, 4_000] {
+            tick(&mut s, ms).unwrap();
+        }
+        s.render(TIME).unwrap();
+        let points: Vec<usize> = probe.0.lock().unwrap().iter().map(|(_, n)| *n).collect();
+        // Shown on going live, then a frame per second on the screen (points
+        // at 0, 2 and 4 s), then the canvas: the same three points.
+        assert_eq!(points, [0, 1, 1, 2, 2, 3, 3]);
     }
 
     #[test]

@@ -402,6 +402,7 @@ mod tests {
                     ElementKind::Graph {
                         binding: binding("memory.percent"),
                         history: 60,
+                        interval_seconds: None,
                         style: GraphStyle::Area,
                         color: Rgba::opaque(255, 128, 0),
                         fill: Some(gradient),
@@ -423,6 +424,70 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("bezel-themes-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         dir
+    }
+
+    /// The interval of the theme's graph after a trip through JSON where
+    /// `edit` changed the graph's `kind`.
+    fn graph_interval_after(edit: impl Fn(&mut serde_json::Value)) -> Option<u32> {
+        let (theme, _) = every_kind();
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        let kind = &mut json["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["kind"]["type"] == "graph")
+            .unwrap()["kind"];
+        edit(kind);
+        let read = parse_manifest(&serde_json::to_vec(&json).unwrap()).unwrap();
+        read.elements
+            .iter()
+            .find_map(|e| match e.kind {
+                ElementKind::Graph {
+                    interval_seconds, ..
+                } => Some(interval_seconds),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn a_graph_interval_round_trips_and_old_themes_keep_one_point_per_refresh() {
+        // D-2026-10-15-studio-redesign-fidelity-16.
+        let (theme, _) = every_kind();
+        let json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        let graph = json["elements"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["kind"]["type"] == "graph")
+            .unwrap();
+        assert!(
+            graph["kind"].get("intervalSeconds").is_none(),
+            "not written when absent: {graph}"
+        );
+        assert_eq!(graph_interval_after(|_| {}), None, "an old theme");
+        let set = |v: serde_json::Value| {
+            move |k: &mut serde_json::Value| k["intervalSeconds"] = v.clone()
+        };
+        assert_eq!(graph_interval_after(set(serde_json::json!(30))), Some(30));
+        assert_eq!(graph_interval_after(set(serde_json::json!(0))), None);
+        assert_eq!(
+            graph_interval_after(set(serde_json::json!(90_000))),
+            Some(3600),
+            "at most an hour"
+        );
+        let mut timed = theme.clone();
+        for e in &mut timed.elements {
+            if let ElementKind::Graph {
+                interval_seconds, ..
+            } = &mut e.kind
+            {
+                *interval_seconds = Some(30);
+            }
+        }
+        let bytes = manifest(&timed).unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains("\"intervalSeconds\": 30"));
+        assert_eq!(parse_manifest(&bytes).unwrap(), timed);
     }
 
     #[test]

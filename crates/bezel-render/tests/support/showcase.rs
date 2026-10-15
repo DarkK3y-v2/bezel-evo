@@ -9,7 +9,7 @@ use std::io::Cursor;
 use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::frame::Rgba;
 use bezel_core::domain::geometry::{Orientation, Size};
-use bezel_core::domain::history::Histories;
+use bezel_core::domain::history::{Histories, Tick};
 use bezel_core::domain::sensor::{DisplayFormat, Quantities, Reading, SensorKey, Snapshot, keys};
 
 /// Tests format sensor text by the keys' well-known units.
@@ -293,6 +293,7 @@ fn ram(top: f32) -> Option<Vec<(BoxF, ElementKind)>> {
     let graph = ElementKind::Graph {
         binding: binding(keys::MEMORY_PERCENT, 100.0)?,
         history: 60,
+        interval_seconds: None,
         style: GraphStyle::Area,
         color: blue,
         fill: Some(linear(90.0, Rgba { a: 150, ..blue }, Rgba { a: 0, ..blue })),
@@ -449,13 +450,13 @@ impl Scene {
         ] {
             snapshot.insert(key(k)?, Reading::Value(v));
         }
-        let mut histories = Histories::new(&theme.history_lengths());
+        let mut histories = Histories::new(&theme.graph_series());
         for i in 0..60 {
             let t = f64::from(i);
             let v = 34.0 + 9.0 * (t / 7.0).sin() + 4.0 * (t / 2.3).cos() + t * 0.08;
             let mut s = Snapshot::default();
             s.insert(key(keys::MEMORY_PERCENT)?, Reading::Value(v));
-            histories.push(&s);
+            histories.push(&s, Tick::Untimed);
         }
         let assets = BTreeMap::from([(AssetRef(ICON.into()), icon())]);
         Some(Self {

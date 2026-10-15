@@ -54,7 +54,7 @@ use crate::domain::framing::{
     FramingGeometry, PanelLayout, ResolvedFraming, VideoFraming, frame_picture,
 };
 use crate::domain::geometry::Orientation;
-use crate::domain::history::Histories;
+use crate::domain::history::{Histories, Tick};
 use crate::domain::media::{
     ConvertOptions, MediaInfo, MediaKind, MediaTools, StreamSpec, UploadProfile, device_video_name,
     framed_options,
@@ -418,7 +418,7 @@ impl ThemeRuntime {
     /// Starts running `theme` with its asset bytes. A video background shows
     /// its poster until [`Self::start_video`].
     pub fn new(theme: Theme, assets: BTreeMap<AssetRef, Vec<u8>>, language: Language) -> Self {
-        let histories = Histories::new(&theme.history_lengths());
+        let histories = Histories::new(&theme.graph_series());
         let video = unstarted(&theme);
         let wanted = Wanted::Keys(theme.sensor_keys());
         Self {
@@ -638,7 +638,7 @@ impl ThemeRuntime {
     fn swap_theme(&mut self, theme: Theme) {
         self.scene.revision = content_revision();
         self.recent_frame = None;
-        let mut histories = Histories::new(&theme.history_lengths());
+        let mut histories = Histories::new(&theme.graph_series());
         histories.adopt(&self.scene.histories);
         if video_of(&theme) != video_of(&self.scene.theme)
             || stored_video(&theme) != stored_video(&self.scene.theme)
@@ -873,8 +873,14 @@ impl ThemeRuntime {
     }
 
     /// Tells the sensors what is shown ([`Self::wanted`]), samples them and
-    /// records the graph histories (once per `refresh_seconds`).
+    /// records a point in every graph history (a sample with no clock: a
+    /// one-off frame; a loop samples with [`Self::sample_on_time`]).
     pub fn sample(&mut self, sensors: &mut dyn SensorSource) -> Result<()> {
+        self.sample_at(sensors, Tick::Untimed)
+    }
+
+    /// [`Self::sample`] at `tick`: the graph histories it is for take a point.
+    fn sample_at(&mut self, sensors: &mut dyn SensorSource, tick: Tick) -> Result<()> {
         self.scene.revision = content_revision();
         self.recent_frame = None;
         sensors.want(&self.wanted);
@@ -884,7 +890,14 @@ impl ThemeRuntime {
                 self.use_catalog(&catalog);
             }
         }
-        let snapshot = sensors.sample()?;
+        let snapshot = match sensors.sample() {
+            Ok(snapshot) => snapshot,
+            Err(e) => {
+                // A failed sample waits for the next point of each graph too.
+                self.scene.histories.skip(tick);
+                return Err(e);
+            }
+        };
         // A hardware reader may become ready after the first sample. Refresh
         // units for those new keys as well, including raw Libre power sensors.
         if snapshot
@@ -894,7 +907,7 @@ impl ThemeRuntime {
         {
             self.use_catalog(&catalog);
         }
-        self.scene.histories.push(&snapshot);
+        self.scene.histories.push(&snapshot, tick);
         self.scene.snapshot = snapshot;
         Ok(())
     }
@@ -978,21 +991,40 @@ impl ThemeRuntime {
         refresh_interval(self.scene.theme.refresh_seconds, self.slowest)
     }
 
-    /// Whether a sample is due at `now`.
-    pub fn sample_due(&self, now: Duration) -> bool {
+    /// Whether the theme's refresh is due at `now`.
+    fn refresh_due(&self, now: Duration) -> bool {
         self.cadence.sample.is_none_or(|due| now >= due)
     }
 
-    /// When the next sample is due (at once before the first).
-    pub fn next_sample(&self) -> Duration {
-        self.cadence.sample.unwrap_or_default()
+    /// Whether a sample is due at `now`: the theme's refresh, or the next
+    /// point of a graph with its own interval
+    /// (D-2026-10-15-studio-redesign-fidelity-16).
+    pub fn sample_due(&self, now: Duration) -> bool {
+        self.refresh_due(now)
+            || self
+                .scene
+                .histories
+                .next_due()
+                .is_some_and(|due| now >= due)
     }
 
-    /// Samples the sensors ([`Self::sample`]) when a sample is due at `now`:
-    /// once per refresh, never per animation frame. Whether it sampled. The
-    /// next one is due a refresh after this one was due; a loop that fell
-    /// further behind starts the count again from `now`. A failed sample
-    /// waits for the next refresh too.
+    /// When the next sample is due (at once before the first): the next
+    /// refresh, or sooner the next point of a graph with its own interval.
+    pub fn next_sample(&self) -> Duration {
+        let refresh = self.cadence.sample.unwrap_or_default();
+        self.scene
+            .histories
+            .next_due()
+            .map_or(refresh, |graph| graph.min(refresh))
+    }
+
+    /// Samples the sensors ([`Self::sample`]) when a sample is due at `now`
+    /// ([`Self::sample_due`]): once per refresh and when a graph's interval
+    /// asks for a point, never per animation frame. Whether it sampled. The
+    /// next refresh is due a refresh after this one was due; a loop that
+    /// fell further behind starts the count again from `now`. A failed
+    /// sample waits for the next refresh too. A graph without its own
+    /// interval takes a point only at a refresh.
     pub fn sample_on_time(
         &mut self,
         sensors: &mut dyn SensorSource,
@@ -1001,10 +1033,13 @@ impl ThemeRuntime {
         if !self.sample_due(now) {
             return Ok(false);
         }
-        let refresh = self.refresh();
-        let next = self.cadence.sample.unwrap_or(now) + refresh;
-        self.cadence.sample = Some(if next > now { next } else { now + refresh });
-        self.sample(sensors)?;
+        let refresh = self.refresh_due(now);
+        if refresh {
+            let every = self.refresh();
+            let next = self.cadence.sample.unwrap_or(now) + every;
+            self.cadence.sample = Some(if next > now { next } else { now + every });
+        }
+        self.sample_at(sensors, Tick::At { now, refresh })?;
         Ok(true)
     }
 

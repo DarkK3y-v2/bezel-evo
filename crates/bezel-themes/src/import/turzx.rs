@@ -1150,6 +1150,7 @@ impl Importer {
             ElementKind::Graph {
                 binding,
                 history,
+                interval_seconds: None,
                 style: if fill.is_some_and(|c| c.a > 0) {
                     GraphStyle::Area
                 } else {

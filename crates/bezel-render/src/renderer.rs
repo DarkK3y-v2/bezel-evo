@@ -6,6 +6,7 @@ use bezel_core::domain::animation::Timeline;
 use bezel_core::domain::clock::{clock_case, format_clock};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::Size;
+use bezel_core::domain::history::SeriesId;
 use bezel_core::domain::sensor::{format_reading, fraction};
 use bezel_core::domain::theme::{
     AssetRef, Background, Binding, BoxF, Element, ElementId, ElementKind, Fit, TextContent, Theme,
@@ -1169,6 +1170,7 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
     let ElementKind::Graph {
         binding,
         history,
+        interval_seconds,
         style,
         color,
         fill,
@@ -1188,9 +1190,8 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         min: binding.min,
         max: binding.max,
     };
-    let values = context
-        .histories
-        .points(&binding.key, usize::from(*history));
+    let series = SeriesId::graph(&binding.key, *interval_seconds);
+    let values = context.histories.points(&series, usize::from(*history));
     graph::draw(layer, element.frame, &values, &spec);
 }
 

@@ -13,6 +13,7 @@ use super::clock::{ClockCase, Language};
 use super::frame::Rgba;
 use super::framing::VideoFraming;
 use super::geometry::{Orientation, Size};
+use super::history::SeriesId;
 use super::sensor::{DisplayFormat, SensorKey};
 
 /// Identifies an element inside its theme (stable across edits).
@@ -404,8 +405,14 @@ pub enum ElementKind {
     Graph {
         /// Value and range.
         binding: Binding,
-        /// Samples kept (one per refresh).
+        /// Points drawn across the width: one per refresh of the theme, or
+        /// one per `interval_seconds` when the graph has its own interval
+        /// (the window is then `history` x `interval_seconds`).
         history: u16,
+        /// Seconds between two points, whatever the theme's refresh
+        /// (D-2026-10-15-studio-redesign-fidelity-16); `None`: one point
+        /// per refresh, as themes without it always had.
+        interval_seconds: Option<u32>,
         /// Drawing style.
         style: GraphStyle,
         /// Line and bar color.
@@ -767,6 +774,22 @@ impl Theme {
         })
     }
 
+    /// The history series the theme's graphs draw: their sensor at their
+    /// cadence ([`SeriesId::graph`]).
+    pub fn graph_series(&self) -> Vec<SeriesId> {
+        self.elements
+            .iter()
+            .filter_map(|e| match &e.kind {
+                ElementKind::Graph {
+                    binding,
+                    interval_seconds,
+                    ..
+                } => Some(SeriesId::graph(&binding.key, *interval_seconds)),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// The graph history length wanted for each bound sensor.
     pub fn history_lengths(&self) -> Vec<(SensorKey, usize)> {
         self.elements
@@ -848,6 +871,7 @@ mod tests {
                 ElementKind::Graph {
                     binding: binding(keys::CPU_USAGE),
                     history: 60,
+                    interval_seconds: None,
                     style: GraphStyle::Area,
                     color: Rgba::WHITE,
                     fill: None,
@@ -902,6 +926,10 @@ mod tests {
             ]
         );
         assert_eq!(t.history_lengths(), vec![(key(keys::CPU_USAGE), 60)]);
+        assert_eq!(
+            t.graph_series(),
+            vec![SeriesId::graph(&key(keys::CPU_USAGE), None)]
+        );
         assert_eq!(
             t.sensor_keys(),
             BTreeSet::from([key(keys::CPU_TEMPERATURE), key(keys::CPU_USAGE)]),

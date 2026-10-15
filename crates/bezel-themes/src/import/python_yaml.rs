@@ -1105,6 +1105,7 @@ impl Importer {
             ElementKind::Graph {
                 binding,
                 history: Self::num(block, "HISTORY_SIZE", 10.0).clamp(2.0, 4096.0) as u16,
+                interval_seconds: None,
                 style: GraphStyle::Line,
                 color,
                 fill: None,

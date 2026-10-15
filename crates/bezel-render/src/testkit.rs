@@ -8,7 +8,7 @@ use std::time::Duration;
 use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::{Orientation, Size};
-use bezel_core::domain::history::Histories;
+use bezel_core::domain::history::{Histories, SeriesId, Tick};
 use bezel_core::domain::sensor::{Quantities, Reading, SensorKey, Snapshot};
 
 /// Tests format sensor text by the keys' well-known units.
@@ -111,13 +111,13 @@ impl Scene {
 
     /// With the history of `k` (oldest first, `None` = gap).
     pub fn history(mut self, k: &str, values: &[Option<f64>]) -> Self {
-        let mut histories = Histories::new(&[(key(k), values.len())]);
+        let mut histories = Histories::new(&[SeriesId::graph(&key(k), None)]);
         for v in values {
             let mut s = Snapshot::default();
             if let Some(v) = v {
                 s.insert(key(k), Reading::Value(*v));
             }
-            histories.push(&s);
+            histories.push(&s, Tick::Untimed);
         }
         self.histories = histories;
         self

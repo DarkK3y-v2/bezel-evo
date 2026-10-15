@@ -4,6 +4,7 @@ use bezel_core::domain::clock::{ClockCase, Language};
 use bezel_core::domain::frame::Rgba;
 use bezel_core::domain::framing::{FramingPosition, Permille, VideoFit, VideoFraming, Zoom};
 use bezel_core::domain::geometry::{Orientation, Size};
+use bezel_core::domain::history::GRAPH_INTERVAL_MAX_SECONDS;
 use bezel_core::domain::sensor::{ByteUnits, DisplayFormat, SensorKey, TemperatureUnit};
 use bezel_core::domain::theme::{
     AssetRef, Background, Binding, BoxF, Cap, Direction, Element, ElementId, ElementKind, Fit,
@@ -615,8 +616,12 @@ pub enum KindDto {
     Graph {
         /// Binding.
         binding: BindingDto,
-        /// Samples.
+        /// Points across the width.
         history: u16,
+        /// Seconds between two points (D-2026-10-15-studio-redesign-fidelity-16);
+        /// absent: one point per refresh, as in themes written before it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interval_seconds: Option<u32>,
         /// `line`, `area`, `bars`.
         style: String,
         /// Line color.
@@ -1086,6 +1091,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
         ElementKind::Graph {
             binding,
             history,
+            interval_seconds,
             style,
             color,
             fill,
@@ -1094,6 +1100,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
         } => KindDto::Graph {
             binding: binding_dto(binding),
             history: *history,
+            interval_seconds: *interval_seconds,
             style: graph_style_name(*style).to_string(),
             color: to_hex(*color),
             fill: fill.as_ref().map(paint_dto),
@@ -1101,6 +1108,14 @@ fn kind_dto(k: &ElementKind) -> KindDto {
             autoscale: *autoscale,
         },
     }
+}
+
+/// A graph's interval as read: 0 means none (one point per refresh), more
+/// than [`GRAPH_INTERVAL_MAX_SECONDS`] is that.
+fn graph_interval(seconds: Option<u32>) -> Option<u32> {
+    seconds
+        .filter(|s| *s > 0)
+        .map(|s| s.min(GRAPH_INTERVAL_MAX_SECONDS))
 }
 
 fn kind(k: &KindDto) -> R<ElementKind> {
@@ -1318,6 +1333,7 @@ fn kind(k: &KindDto) -> R<ElementKind> {
         KindDto::Graph {
             binding: b,
             history,
+            interval_seconds,
             style: s,
             color: c,
             fill,
@@ -1326,6 +1342,7 @@ fn kind(k: &KindDto) -> R<ElementKind> {
         } => ElementKind::Graph {
             binding: binding(b)?,
             history: *history,
+            interval_seconds: graph_interval(*interval_seconds),
             style: graph_style(s)?,
             color: color(c)?,
             fill: opt_paint(fill)?,

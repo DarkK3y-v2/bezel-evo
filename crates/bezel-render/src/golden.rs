@@ -894,6 +894,7 @@ fn graph(style: GraphStyle, history: u16, autoscale: bool) -> ElementKind {
     ElementKind::Graph {
         binding: binding(keys::CPU_USAGE),
         history,
+        interval_seconds: None,
         style,
         color: WHITE,
         fill: None,

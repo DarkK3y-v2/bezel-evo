@@ -6,12 +6,14 @@
 #![allow(clippy::expect_used)] // helpers of a failing test panic
 
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use bezel_core::Result;
 use bezel_core::app::ThemeRuntime;
 use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::{Orientation, Size};
+use bezel_core::domain::history::SeriesId;
 use bezel_core::domain::sensor::{Category, Quantity, Reading, SensorInfo, SensorKey, Snapshot};
 use bezel_core::domain::theme::{
     AssetRef, Binding, BoxF, Element, ElementId, ElementKind, GraphStyle, Theme,
@@ -61,7 +63,7 @@ impl FrameRenderer for Recorder {
         self.seen.push(Drawn {
             theme: theme.name.clone(),
             assets: assets.keys().cloned().collect(),
-            history: context.histories.points(&usage, window(theme)),
+            history: context.histories.points(&series(theme), window(theme)),
             usage: context.snapshot.get(&usage),
             unit: context.quantities.get(&usage),
         });
@@ -79,6 +81,27 @@ fn window(theme: &Theme) -> usize {
             _ => None,
         })
         .unwrap_or(0)
+}
+
+/// The history series the theme's graph draws.
+fn series(theme: &Theme) -> SeriesId {
+    theme.graph_series().first().cloned().expect("a graph")
+}
+
+/// A theme graphing `cpu.usage` over `history` points, one every
+/// `interval_seconds` (`None`: one per refresh), refreshed every
+/// `refresh_seconds`.
+fn graphing_every(history: u16, interval_seconds: Option<u32>, refresh_seconds: f32) -> Theme {
+    let mut theme = graphing("timed", history);
+    theme.refresh_seconds = refresh_seconds;
+    if let ElementKind::Graph {
+        interval_seconds: interval,
+        ..
+    } = &mut theme.elements[0].kind
+    {
+        *interval = interval_seconds;
+    }
+    theme
 }
 
 /// A theme graphing `cpu.usage` over `history` samples.
@@ -107,6 +130,7 @@ fn graphing(name: &str, history: u16) -> Theme {
                 max: 100.0,
             },
             history,
+            interval_seconds: None,
             style: GraphStyle::Line,
             color: Rgba::WHITE,
             fill: None,
@@ -191,6 +215,96 @@ fn a_window_cut_short_then_widened_again_keeps_its_points() {
     assert_eq!(
         r.seen[0].history,
         [Some(10.0), Some(20.0), Some(30.0), Some(40.0)]
+    );
+}
+
+/// Runs `rt`'s refresh loop from 0 to `seconds` in steps of a second,
+/// sampling when due; the seconds it sampled at.
+fn run(rt: &mut ThemeRuntime, sensors: &mut FakeSensors, seconds: u64) -> Vec<u64> {
+    (0..=seconds)
+        .filter(|s| {
+            rt.sample_on_time(sensors, Duration::from_secs(*s))
+                .expect("sample")
+        })
+        .collect()
+}
+
+/// What the theme's graph draws now.
+fn drawn(rt: &mut ThemeRuntime) -> Vec<Option<f64>> {
+    let mut r = Recorder::default();
+    rt.render(&mut r, TIME, Default::default()).expect("frame");
+    r.seen.remove(0).history
+}
+
+#[test]
+fn a_graph_with_its_own_interval_takes_a_point_at_its_pace() {
+    // Refreshed every second; a point every 3 s.
+    let mut rt = ThemeRuntime::new(
+        graphing_every(3, Some(3), 1.0),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let values: Vec<f64> = (0..=9).map(f64::from).collect();
+    let mut sensors = usage(&values);
+    assert_eq!(run(&mut rt, &mut sensors, 9).len(), 10, "every refresh");
+    assert_eq!(drawn(&mut rt), [Some(3.0), Some(6.0), Some(9.0)]);
+}
+
+#[test]
+fn an_interval_shorter_than_the_refresh_samples_sooner() {
+    // Refreshed every 5 s; a point every second.
+    let mut rt = ThemeRuntime::new(
+        graphing_every(6, Some(1), 5.0),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let values: Vec<f64> = (0..=5).map(f64::from).collect();
+    let mut sensors = usage(&values);
+    assert_eq!(run(&mut rt, &mut sensors, 5), [0, 1, 2, 3, 4, 5]);
+    assert_eq!(
+        rt.next_sample(),
+        Duration::from_secs(6),
+        "the graph's next point"
+    );
+    assert_eq!(drawn(&mut rt).len(), 6, "one point a second");
+}
+
+#[test]
+fn a_graph_without_an_interval_takes_a_point_per_refresh_as_before() {
+    let mut rt = ThemeRuntime::new(
+        graphing_every(10, None, 2.0),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let values: Vec<f64> = (0..=6).map(f64::from).collect();
+    let mut sensors = usage(&values);
+    assert_eq!(run(&mut rt, &mut sensors, 6), [0, 2, 4, 6]);
+    assert_eq!(drawn(&mut rt), [Some(0.0), Some(1.0), Some(2.0), Some(3.0)]);
+    assert_eq!(rt.next_sample(), Duration::from_secs(8));
+}
+
+#[test]
+fn a_new_interval_starts_its_graph_again() {
+    let mut rt = ThemeRuntime::new(
+        graphing_every(4, Some(1), 1.0),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let mut sensors = usage(&[1.0, 2.0, 3.0]);
+    run(&mut rt, &mut sensors, 2);
+    assert_eq!(drawn(&mut rt).len(), 3);
+    rt.replace_theme(graphing_every(8, Some(1), 1.0));
+    assert_eq!(
+        drawn(&mut rt).len(),
+        3,
+        "a longer window of the same cadence"
+    );
+    rt.replace_theme(graphing_every(4, Some(2), 1.0));
+    assert!(drawn(&mut rt).is_empty(), "no point of the old cadence");
+    rt.replace_theme(graphing_every(4, Some(1), 1.0));
+    assert!(
+        drawn(&mut rt).is_empty(),
+        "points not recorded meanwhile never come back next to new ones"
     );
 }
 

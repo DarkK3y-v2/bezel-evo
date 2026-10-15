@@ -97,6 +97,7 @@ fn graph(id: u32, sensor: &str) -> Element {
                 max: 100.0,
             },
             history: 30,
+            interval_seconds: None,
             style: GraphStyle::Line,
             color: Rgba::WHITE,
             fill: None,

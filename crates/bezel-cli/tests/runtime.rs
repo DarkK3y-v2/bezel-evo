@@ -12,6 +12,7 @@ use bezel_core::app::{ThemeRuntime, open_screen};
 use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::{Orientation, Size};
+use bezel_core::domain::history::SeriesId;
 use bezel_core::domain::sensor::{Quantity, Reading, SensorInfo, SensorKey, Snapshot, keys};
 use bezel_core::domain::theme::{
     AssetRef, Binding, BoxF, Element, ElementId, ElementKind, GraphStyle, Theme,
@@ -57,7 +58,9 @@ impl FrameRenderer for RecordingRenderer {
             time: context.time,
             language: context.language,
             cpu: context.snapshot.get(&cpu),
-            cpu_history: context.histories.points(&cpu, window(theme)),
+            cpu_history: context
+                .histories
+                .points(&SeriesId::graph(&cpu, None), window(theme)),
             cpu_quantity: context.quantities.get(&cpu),
             assets: assets.len(),
         });
@@ -113,6 +116,7 @@ fn graphing(name: &str, history: u16) -> Theme {
                 max: 100.0,
             },
             history,
+            interval_seconds: None,
             style: GraphStyle::Line,
             color: Rgba::WHITE,
             fill: None,
