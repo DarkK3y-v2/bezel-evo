@@ -90,26 +90,23 @@
           </div>
         </div>
         <div class="library" id="library-panels">
-        <section class="panel" role="tabpanel" id="panel-widgets" aria-labelledby="tab-widgets">
-          <div class="panel-head"><h2 data-i18n="library.widgets"></h2></div>
-          <p class="hint" data-i18n="library.widgetsHint"></p>
-          <ul class="widget-grid" id="widget-grid"></ul>
+        <section class="panel library-panel" role="tabpanel" id="panel-widgets" aria-labelledby="tab-widgets">
+          <div class="panel-head"><h2 data-i18n="library.widgets"></h2><span class="count" id="widget-count"></span></div>
+          <div class="panel-search" id="widget-search"></div>
+          <div class="widget-groups" id="widget-groups"></div>
+          <div class="panel-end" id="widget-hint"></div>
         </section>
-        <section class="panel" role="tabpanel" id="panel-sensors" aria-labelledby="tab-sensors" hidden>
-          <div class="panel-head"><h2 data-i18n="library.sensors"></h2></div>
-          <label class="search-box">
-            <svg data-icon="search"></svg>
-            <span class="visually-hidden" data-i18n="library.searchSensors"></span>
-            <input type="search" id="sensor-search" data-i18n-placeholder="library.searchSensors" data-i18n-aria-label="library.searchSensors" />
-          </label>
+        <section class="panel library-panel" role="tabpanel" id="panel-sensors" aria-labelledby="tab-sensors" hidden>
+          <div class="panel-head"><h2 data-i18n="library.sensors"></h2><span class="panel-rate" id="sensor-rate"></span></div>
+          <div class="panel-search" id="sensor-search-box"></div>
           <div class="chip-group" role="group" id="sensor-filter" data-i18n-aria-label="library.filterHardware"></div>
           <div id="sensor-list" class="sensor-list"></div>
-          <p class="hint panel-foot" data-i18n="library.sensorsHint"></p>
+          <div id="sensor-libre"></div>
+          <p class="hint panel-foot panel-end" data-i18n="sensorsPanel.hint"></p>
         </section>
-        <section class="panel" role="tabpanel" id="panel-layers" aria-labelledby="tab-layers" hidden>
+        <section class="panel library-panel" role="tabpanel" id="panel-layers" aria-labelledby="tab-layers" hidden>
           <div class="panel-head">
             <h2 data-i18n="library.layers"></h2>
-            <span class="panel-meta" id="layer-count"></span>
             <span class="panel-tools">
               <button type="button" class="icon-button" id="layers-expand" data-i18n-title="layers.expandAll" data-i18n-aria-label="layers.expandAll">
                 <svg data-icon="expandAll"></svg>
@@ -119,37 +116,31 @@
               </button>
             </span>
           </div>
+          <div class="panel-search" id="layer-search"></div>
+          <div id="layer-front"></div>
           <ul class="layer-list" id="layer-list"></ul>
+          <div class="layer-selection panel-end" id="layer-selection" role="group" data-i18n-aria-label="layersPanel.selection" hidden></div>
         </section>
-        <section class="panel" role="tabpanel" id="panel-themes" aria-labelledby="tab-themes" hidden>
+        <section class="panel library-panel" role="tabpanel" id="panel-themes" aria-labelledby="tab-themes" hidden>
           <div class="panel-head">
             <h2 data-i18n="library.themes"></h2>
-            <p class="panel-meta theme-count" id="theme-count" role="status"></p>
+            <span class="count theme-totals"><span id="theme-count" role="status"></span><span id="theme-screen-count"></span></span>
           </div>
-          <div class="button-row pairs">
-            <button type="button" class="text-button" id="theme-new-vertical">
-              <svg data-icon="newVertical" width="9"></svg>
-              <span data-i18n="themes.newVertical"></span>
-            </button>
-            <button type="button" class="text-button" id="theme-new-horizontal">
-              <svg data-icon="newHorizontal" width="18"></svg>
-              <span data-i18n="themes.newHorizontal"></span>
-            </button>
-            <button type="button" class="text-button import-button" id="theme-import">
+          <button type="button" class="text-button" id="theme-gallery" aria-haspopup="dialog" data-i18n="themesPanel.gallery"></button>
+          <div class="theme-actions">
+            <button type="button" class="text-button import-button" id="theme-import" data-i18n-title="themes.importHint">
               <svg data-icon="upload"></svg>
               <span data-i18n="themes.import"></span>
             </button>
-            <button type="button" class="text-button" id="theme-open">
+            <button type="button" class="icon-button" id="theme-open" data-i18n-title="themes.open" data-i18n-aria-label="themes.open">
               <svg data-icon="refresh"></svg>
-              <span data-i18n="themes.open"></span>
             </button>
-            <button type="button" class="text-button" id="theme-save-as">
+            <button type="button" class="icon-button" id="theme-save-as" data-i18n-title="themes.saveAsHint" data-i18n-aria-label="themes.saveAs">
               <svg data-icon="download"></svg>
-              <span data-i18n="themes.saveAs"></span>
             </button>
           </div>
-          <p class="hint" data-i18n="themes.importHint"></p>
           <div id="import-report"></div>
+          <div class="panel-search" id="theme-search"></div>
           <div class="theme-filter">
             <div class="segmented" role="group" id="theme-scope" data-i18n-aria-label="themes.scopeLabel">
               <button type="button" data-scope="screen" aria-pressed="false" data-i18n="themes.forScreen"></button>
@@ -162,9 +153,8 @@
             </div>
           </div>
           <ul class="theme-grid" id="theme-grid"></ul>
-          <p class="hint panel-foot" data-i18n="themes.saveAsHint"></p>
         </section>
-        <section class="panel" role="tabpanel" id="panel-media" aria-labelledby="tab-media" hidden>
+        <section class="panel library-panel" role="tabpanel" id="panel-media" aria-labelledby="tab-media" hidden>
           <div class="panel-head"><h2 data-i18n="library.media"></h2></div>
           <div class="subtabs" role="tablist" data-i18n-aria-label="library.media">
             <button type="button" role="tab" id="subtab-media-theme" aria-controls="media-theme" aria-selected="true" data-subtab="theme" data-i18n="media.thisTheme"></button>
@@ -174,29 +164,31 @@
           <div role="tabpanel" id="media-icons" aria-labelledby="subtab-media-icons" hidden></div>
           <div role="tabpanel" id="media-theme" aria-labelledby="subtab-media-theme">
             <div class="media-drop">
-              <span class="media-drop-icon" aria-hidden="true"><svg data-icon="upload"></svg></span>
-              <p class="hint" data-i18n="media.dropHint"></p>
+              <span class="kind-icon" aria-hidden="true"><svg data-icon="upload"></svg></span>
+              <strong class="media-drop-title" data-i18n="mediaPanel.dropTitle"></strong>
+              <p class="hint" data-i18n="mediaPanel.dropBody"></p>
               <p class="media-formats" data-i18n="media.formats"></p>
               <div class="button-row">
                 <button type="button" class="text-button" id="media-add" data-i18n="media.add"></button>
                 <button type="button" class="text-button" id="media-add-video" data-i18n="media.addVideo"></button>
               </div>
             </div>
-            <p class="hint media-status" id="media-status" role="status" hidden data-i18n="media.adding"></p>
-            <div class="section-head">
-              <h3 data-i18n="media.inTheme"></h3>
-              <span class="panel-meta" id="media-count"></span>
-            </div>
+            <p class="media-status" id="media-status" role="status" hidden>
+              <span class="kind-icon" aria-hidden="true"><svg data-icon="video"></svg></span>
+              <span data-i18n="media.adding"></span>
+            </p>
+            <div id="media-head"></div>
             <ul class="media-list" id="media-list"></ul>
           </div>
           <div role="tabpanel" id="media-collection" aria-labelledby="subtab-media-collection" hidden>
-            <button type="button" class="text-button gif-search-open" id="gif-search-open" aria-haspopup="dialog">
-              <svg data-icon="search"></svg>
-              <span data-i18n="media.searchGifs"></span>
-            </button>
             <p class="hint" data-i18n="media.collectionHint"></p>
             <div id="collection-panel" class="collection"></div>
           </div>
+          <button type="button" class="search-box gif-search-open panel-end" id="gif-search-open" aria-haspopup="dialog">
+            <svg data-icon="search"></svg>
+            <span class="gif-search-label" data-i18n="media.searchGifs"></span>
+            <span class="count" data-i18n="mediaPanel.provider"></span>
+          </button>
         </section>
         <section class="panel" role="tabpanel" id="panel-screen" aria-labelledby="tab-screen" hidden>
           <div class="panel-head"><h2 data-i18n="library.screen"></h2></div>

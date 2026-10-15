@@ -3,6 +3,7 @@
 // what it says when none is left, how a card names the screen a theme was
 // made for, and under which key a theme's thumbnail is kept.
 import { isHorizontal } from './editor/geometry.js';
+import { matchesQuery } from './library-model.js';
 
 /** What the gallery lists: the themes for the screen in use, or all of them. */
 export const SCOPES = Object.freeze(['screen', 'all']);
@@ -56,6 +57,16 @@ export function fitsScreen(entry, screen) {
 export function filterThemes(list, filter, screen) {
   const scope = scopeIn(filter, screen);
   return list.filter((entry) => (scope === 'all' || fitsScreen(entry, screen)) && (filter.axis === 'all' || axisOf(entry) === filter.axis));
+}
+
+/** The entries whose name has every word of `query` (accents and case ignored). */
+export function searchThemes(list, query) {
+  return list.filter((entry) => matchesQuery(query, entry.name));
+}
+
+/** How many themes fit `screen` whatever the filter (`null` without a screen): the head's second count. */
+export function screenCount(list, screen) {
+  return screen ? list.filter((entry) => fitsScreen(entry, screen)).length : null;
 }
 
 /**

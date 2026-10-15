@@ -1,20 +1,27 @@
 // The left library: widgets, sensors, layers, themes, media (the theme's and
-// the GIF collection) and screen, each a tab panel. Widgets and sensors drag
-// onto the canvas.
+// the GIF collection) and screen, each a tab panel (artboards Main, Sensors,
+// Layers, Media, Themes). Widgets and sensors drag onto the canvas. Every
+// visual object comes from the primitives (ui/fields.js, ui/icons.js,
+// base.css); what the panels compute lives in library-model.js.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
+import { chipButton, dashedHint, kindIcon, pill, searchField, screenThumb, sectionTitle } from './fields.js';
 import { makeDraggable } from './dragdrop.js';
-import { WIDGETS, widgetOf } from '../editor/widgets.js';
+import { defaultRange, widgetOf } from '../editor/widgets.js';
+import { canGroup } from '../editor/cards.js';
 import { backgroundOf, fileNameOf, mediaItems, moves, videoFacts } from '../editor/background.js';
 import { warningText } from '../messages.js';
 import { formatBytes, wireSubtabs } from './storage.js';
-import { SHOW_ALL, axisOf, countText, emptyState, filterThemes, rememberedFilter, scopeIn, screenLabel, thumbnailKey } from '../theme-filter.js';
+import { SHOW_ALL, axisOf, countText, emptyState, filterThemes, rememberedFilter, screenCount, scopeIn, screenLabel, searchThemes, thumbnailKey } from '../theme-filter.js';
 import { createIconPicker } from './icon-picker.js';
+import { createThemesDialog } from './themes-dialog.js';
 import { layerGroups } from '../editor/layers.js';
 import { wireLayerDrag } from './layer-drag.js';
+import { countLayers, createHistory, filterLayers, layerMeta, mediaTotals, sensorDropTarget, sharedSource, sparkPath, updateSeconds, widgetGroups } from '../library-model.js';
+import { libreStatus } from '../libre-status.js';
+import { timeAgo } from '../relative-time.js';
 
 export { axisOf };
-
 
 const CATEGORY_ORDER = ['cpu', 'gpu', 'memory', 'disk', 'network', 'board', 'system'];
 
@@ -55,39 +62,51 @@ export function shownSensorKeys(catalog, filter, open, category = ALL_CATEGORIES
   return groupSensors(catalog, filter, category).flatMap(([, items]) => items.map((s) => s.key));
 }
 
-/**
- * The miniature screen drawn in a theme card's 4:3 thumbnail: the canvas
- * shape scaled into 80% of the box, as percentages of its width and height.
- * @param {{width:number, height:number}} canvas
- */
-export function thumbScreen(canvas) {
-  const scale = Math.min(3.2 / canvas.width, 2.4 / canvas.height);
-  const pct = (v) => Math.round(v * 1000) / 10;
-  return { width: pct((canvas.width * scale) / 4), height: pct((canvas.height * scale) / 3) };
-}
+const SVG = 'http://www.w3.org/2000/svg';
+/** A cut mark no translation contains, to put a key cap inside a sentence. */
+const CUT = '\u0001';
 
 /**
  * @param {object} deps
  * @param {{scope?: string|null, axis?: string}|null} [deps.themeFilter] the Themes tab's filter as remembered
  * @param {object|null} [deps.bridge] the backend, for what the panels read themselves
  */
-export function createLibrary({ store, canvas, stage, t, locale = () => 'en', themeFilter = null, actions, bridge = null }) {
+export function createLibrary({ store, canvas, stage, t, locale = () => 'en', themeFilter = null, actions }) {
   const $ = (id) => document.getElementById(id);
   let catalog = [];
   let readings = {};
   let editing = null;
   // The hardware the Sensors panel shows (one category or all of them).
   let sensorCategory = ALL_CATEGORIES;
-  const collapsedLayers=new Set();
+  const collapsedLayers = new Set();
+  const history = createHistory();
   // What each panel shows, to draw it again in another language.
   let themes = [];
   let media = [];
   let importReport = null;
   let screenArgs = [[], null];
+  let widgetQuery = '';
+  let layerQuery = '';
+  let themeQuery = '';
+
+  /** A search box (the primitive) in `slot`, relabelled when the language changes. */
+  const searches = [];
+  function mountSearch(slot, labelKey, onInput, { id, placeholderKey = labelKey } = {}) {
+    const box = searchField(t(labelKey), onInput, { id, placeholder: t(placeholderKey) });
+    const input = box.querySelector('input');
+    searches.push({ input, labelKey, placeholderKey });
+    $(slot).replaceChildren(box);
+    return input;
+  }
+
+  const duplicateTheme = (entry) => actions.duplicateTheme?.(entry.location, t('layers.copyOf', { name: entry.name }));
+  const gallery = createThemesDialog({ root: $('panel-themes'), t, openTheme: (entry) => actions.openTheme(entry.location), duplicateTheme });
+  $('theme-gallery').addEventListener('click', () => gallery.show());
 
   // ---------------------------------------------------------------- tabs --
   const tabs = [...document.querySelectorAll('.tabs [role="tab"]')];
   function selectTab(tab) {
+    if (tab?.dataset.tab !== 'themes') gallery.close();
     for (const t2 of tabs) {
       const on = t2 === tab;
       t2.setAttribute('aria-selected', String(on));
@@ -119,26 +138,85 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     return { x: c.width / 2, y: c.height / 2 };
   };
 
-  // ------------------------------------------------------------- widgets --
-  function renderWidgets() {
-    const grid = $('widget-grid');
-    grid.replaceChildren(
-      ...WIDGETS.map((w) => {
-        const label = t(`widget.${w}`);
-        const tile = el('button', { type: 'button', class: 'widget-tile', dataset: { widget: w }, 'aria-label': t('library.addWidget', { name: label }) }, [icon(ICONS[w], 26), el('span', { text: label })]);
-        makeDraggable(tile, {
-          label,
-          canvas,
-          stage,
-          onDrop: (p) => store.dispatch('add', { widget: w, x: p.x, y: p.y }),
-          onClick: () => store.dispatch('add', { widget: w, ...center() }),
-        });
-        return el('li', {}, [tile]);
-      }),
-    );
+  /** `t(key)` with a key cap where its `{key}` is. */
+  function withKeyCap(key, cap) {
+    const [before, after = ''] = t(key, { key: CUT }).split(CUT);
+    return [before, el('kbd', { text: cap }), after];
   }
 
+  // ------------------------------------------------------------- widgets --
+  function widgetTile(w) {
+    const label = t(`widget.${w}`);
+    const tile = el('button', { type: 'button', class: 'widget-tile', dataset: { widget: w }, 'aria-label': t('library.addWidget', { name: label }) }, [icon(ICONS[w], 22), el('span', { text: label })]);
+    makeDraggable(tile, {
+      label,
+      canvas,
+      stage,
+      onDrop: (p) => store.dispatch('add', { widget: w, x: p.x, y: p.y }),
+      onClick: () => store.dispatch('add', { widget: w, ...center() }),
+    });
+    return tile;
+  }
+
+  /** The Group tile groups the selection (Ctrl G); it says why when it cannot. */
+  function syncGroupTile(tile = document.querySelector('.widget-tile[data-widget="group"]')) {
+    if (!tile) return;
+    const { theme, selection } = store.getState();
+    const able = canGroup(theme, selection);
+    tile.setAttribute('aria-disabled', String(!able));
+    tile.title = able ? '' : t('group.scope');
+  }
+  store.subscribe?.(() => syncGroupTile());
+
+  function groupTile() {
+    const tile = el('button', {
+      type: 'button', class: 'widget-tile', dataset: { widget: 'group' }, 'aria-label': t('widgets.groupTile'),
+      onclick: () => {
+        const { theme, selection } = store.getState();
+        if (canGroup(theme, selection)) store.dispatch('groupSelection', { ids: selection });
+      },
+    }, [icon(ICONS.group, 22), el('span', { text: t('widget.group') })]);
+    syncGroupTile(tile);
+    return tile;
+  }
+
+  function renderWidgets() {
+    const groups = widgetGroups((w) => t(`widget.${w}`), widgetQuery);
+    $('widget-count').textContent = t('widgets.count', { count: groups.reduce((n, g) => n + g.widgets.length, 0) });
+    $('widget-groups').replaceChildren(...(groups.length
+      ? groups.map((g) => el('section', { class: 'widget-group', 'aria-labelledby': `widget-group-${g.id}` }, [
+        sectionTitle(t(`widgets.group.${g.id}`), { id: `widget-group-${g.id}` }),
+        el('ul', { class: 'widget-grid' }, g.widgets.map((w) => el('li', {}, [w === 'group' ? groupTile() : widgetTile(w)]))),
+      ]))
+      : [el('p', { class: 'empty-note', text: t('widgets.none') })]));
+    $('widget-hint').replaceChildren(dashedHint(withKeyCap('widgets.hint', t('widgets.enterKey'))));
+  }
+
+  mountSearch('widget-search', 'widgets.search', (q) => { widgetQuery = q; renderWidgets(); }, { id: 'widget-search-input' });
+
   // ------------------------------------------------------------- sensors --
+  /** A sensor's recent values as a line, coloured by its hardware (library.css). */
+  function sparkline(key, category) {
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('class', 'sparkline');
+    svg.setAttribute('viewBox', '0 0 60 20');
+    svg.setAttribute('width', '60');
+    svg.setAttribute('height', '20');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.dataset.sparkFor = key;
+    svg.dataset.category = category;
+    svg.append(document.createElementNS(SVG, 'path'));
+    drawSpark(svg);
+    return svg;
+  }
+
+  function drawSpark(svg) {
+    const d = sparkPath(history.values(svg.dataset.sparkFor));
+    if (d) svg.firstChild.setAttribute('d', d);
+    else svg.firstChild.removeAttribute('d');
+  }
+
   function sensorRow(s) {
     const r = readings[s.key];
     const value = el('span', { class: `value${r?.unavailable ? ' unavailable' : ''}`, dataset: { valueFor: s.key }, text: r?.display ?? '…' });
@@ -147,6 +225,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
         el('span', { class: 'label', text: s.label }),
         el('span', { class: 'key', text: s.key }),
       ]),
+      sparkline(s.key, s.category),
       value,
     ]);
     const sensor = { key: s.key, quantity: s.quantity, label: s.label };
@@ -154,7 +233,16 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       label: s.label,
       canvas,
       stage,
-      onDrop: (p) => store.dispatch('add', { widget: 'value', x: p.x, y: p.y, sensor }),
+      onDrop: (p) => {
+        // Over an object that reads a sensor the drop binds it; elsewhere it adds a value.
+        const target = sensorDropTarget(store.getState().theme.elements, p, sensor, defaultRange);
+        if (!target) {
+          store.dispatch('add', { widget: 'value', x: p.x, y: p.y, sensor });
+          return;
+        }
+        store.dispatch('update', target);
+        store.select([target.id]);
+      },
       onClick: () => store.dispatch('add', { widget: 'value', ...center(), sensor }),
     });
     return row;
@@ -164,12 +252,12 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   let reported = null;
   function reportShown() {
     const open = !$('panel-sensors').hidden && document.visibilityState !== 'hidden';
-    const keys = shownSensorKeys(catalog, $('sensor-search').value, open, shownCategory());
+    const keys = shownSensorKeys(catalog, sensorSearch.value, open, shownCategory());
     if (keys.join(' ') === reported) return;
     reported = keys.join(' ');
     actions.showSensors(keys);
   }
-  document.addEventListener('visibilitychange', reportShown);
+  document.addEventListener('visibilitychange', () => reportShown());
 
   /** The category chosen, or all of them once the catalog no longer has it. */
   const shownCategory = () => (catalog.some((s) => s.category === sensorCategory) ? sensorCategory : ALL_CATEGORIES);
@@ -177,10 +265,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   /** The hardware filter: "All", then one chip per category of the catalog. */
   function renderSensorFilter() {
     const chosen = shownCategory();
-    const chip = (category, label) => el('button', {
-      type: 'button', class: 'chip', dataset: { category }, 'aria-pressed': String(category === chosen), text: label,
-      onclick: () => { sensorCategory = category; renderSensors(); },
-    });
+    const chip = (category, label) => chipButton(label, category === chosen, () => { sensorCategory = category; renderSensors(); }, { dataset: { category } });
     const categories = sensorCategories(catalog);
     $('sensor-filter').replaceChildren(...(categories.length > 1
       ? [chip(ALL_CATEGORIES, t('library.allSensors')), ...categories.map((c) => chip(c, t(`category.${c}`)))]
@@ -191,40 +276,79 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     reportShown();
     renderSensorFilter();
     const list = $('sensor-list');
-    const groups = groupSensors(catalog, $('sensor-search').value, shownCategory());
+    const groups = groupSensors(catalog, sensorSearch.value, shownCategory());
     if (groups.length === 0) {
       list.replaceChildren(el('p', { class: 'empty-note', text: t('library.noSensors') }));
       return;
     }
     list.replaceChildren(...groups.map(([cat, items]) => el('section', { class: 'sensor-group', 'aria-labelledby': `sensor-group-${cat}` }, [
-      el('h3', { id: `sensor-group-${cat}`, text: t(`category.${cat}`) }),
+      sectionTitle(t(`category.${cat}`), { id: `sensor-group-${cat}`, count: sharedSource(items) }),
       ...items.map(sensorRow),
     ])));
   }
 
+  /** How often samples arrive, beside the title, once two have. */
+  function renderRate() {
+    const seconds = updateSeconds(history.times());
+    $('sensor-rate').replaceChildren(...(seconds ? [pill(t('sensorsPanel.every', { seconds }), { tone: 'ok', dot: true })] : []));
+  }
+
+  // The LibreHardwareMonitor notice, drawn again only when what it says changes.
+  let libreShown = null;
+  function renderLibre() {
+    const health = libreStatus(catalog, readings);
+    const missing = health && health.state !== 'ok' ? health.failed.join(', ') : '';
+    if (missing === libreShown) return;
+    libreShown = missing;
+    $('sensor-libre').replaceChildren(...(missing ? [el('section', { class: 'notice sensor-libre', 'aria-labelledby': 'sensor-libre-title' }, [
+      el('div', { class: 'notice-head' }, [icon(ICONS.warning, 18), el('h2', { id: 'sensor-libre-title', text: t('status.libreMissing', { hardware: missing }) })]),
+      el('p', { text: t('sensorsPanel.libreBody') }),
+      el('button', { type: 'button', class: 'text-button', text: t('sensorsPanel.startLibre'), onclick: restartLibre }),
+    ])] : []));
+  }
+
+  /** The statusbar's restart (ui/sensor-status.js) is the only one: the notice uses it. */
+  function restartLibre() {
+    if (actions.restartLibre) actions.restartLibre();
+    else $('restart-libre')?.click();
+  }
+
   /**
    * The readings of a sample. `at` (ms since the epoch) is when it was
-   * taken: the contract's slot for the Sensors panel's history.
+   * taken: the sparklines' history and the update rate come from it.
    */
   function updateReadings(next, at = null) {
     readings = next;
+    history.push(next, at);
     for (const span of document.querySelectorAll('[data-value-for]')) {
       const r = readings[span.dataset.valueFor];
       span.textContent = r?.display ?? '…';
       span.classList.toggle('unavailable', Boolean(r?.unavailable));
     }
+    for (const svg of document.querySelectorAll('svg[data-spark-for]')) drawSpark(svg);
+    renderRate();
+    renderLibre();
   }
 
-  $('sensor-search').addEventListener('input', renderSensors);
+  const sensorSearch = mountSearch('sensor-search-box', 'library.searchSensors', () => renderSensors(), { id: 'sensor-search', placeholderKey: 'sensorsPanel.search' });
 
   // -------------------------------------------------------------- layers --
   const layerDrag = wireLayerDrag($('layer-list'), store);
-  function layerRow(e, index, total, neighbors = null) {
-    const selected = store.getState().selection.includes(e.id);
-    const widget = widgetOf(e);
-    const kind = e.isGroup ? ICONS.group : ICONS[widget] ?? ICONS.shape;
-    const name = editing === e.id
-      ? el('input', {
+  const objectsText = (n) => (n === 1 ? t('layers.countOne') : t('layers.count', { count: n }));
+
+  /** What a row says beside the name: the sensor it reads, or its kind (a card with its faces). */
+  function metaOf(e, widget) {
+    const meta = layerMeta(e);
+    if (meta.sensor) return el('small', { class: 'layer-meta mono', text: meta.sensor });
+    const kind = t(`widget.${widget}`);
+    if (meta.faces === undefined) return el('small', { class: 'layer-meta', text: kind });
+    const faces = meta.faces === 1 ? t('layersPanel.facesOne') : t('layersPanel.faces', { count: meta.faces });
+    return el('small', { class: 'layer-meta', text: `${kind} · ${faces}` });
+  }
+
+  function layerName(e, widget, selected) {
+    if (editing === e.id) {
+      return el('input', {
         type: 'text', value: e.name, 'aria-label': t('inspector.name'), class: 'layer-name',
         onkeydown: (evt) => {
           if (evt.key === 'Enter') evt.target.blur();
@@ -235,41 +359,80 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
           if (evt.target.value.trim()) store.dispatch('update', { id: e.id, patch: { name: evt.target.value.trim() } });
           else renderLayers();
         },
-      })
-      : el('button', {
-        type: 'button', class: 'layer-name', 'aria-pressed': String(selected),
-        onclick: (evt) => {
-          const previous=store.getState().selection;
-          if (e.cardMember?.face != null) store.dispatch('cardFace', { id: e.cardMember.parent, face: e.cardMember.face });
-          store.select(evt.ctrlKey || evt.metaKey ? previous.includes(e.id)?previous.filter(id=>id!==e.id):[...previous,e.id] : evt.shiftKey ? [...new Set([...previous,e.id])] : [e.id]);
-        },
-        ondblclick: () => { editing = e.id; renderLayers(); document.querySelector('.layer-list input')?.focus(); },
-      }, [e.name, el('small', { text: t(`widget.${widget}`) })]);
-    const btn = (label, paths, onclick, disabled = false, pressed = null, extra = '') => el('button', { type: 'button', class: `icon-button layer-tool${extra}`, title: label, 'aria-label': label, disabled, 'aria-pressed': pressed === null ? null : String(pressed), onclick }, [icon(paths, 16)]);
-    return el('li', { dataset: { elementId: e.id }, class: `layer-row${e.card || e.isGroup ? ' layer-container' : ''}${selected ? ' selected' : ''}${e.visible === false ? ' hidden-el' : ''}` }, [
-      ...(e.card || e.isGroup ? [el('button',{type:'button',class:'icon-button layer-fold','aria-label':t(collapsedLayers.has(e.id)?'layers.expand':'layers.collapse'),'aria-expanded':String(!collapsedLayers.has(e.id)),onclick:()=>{if(collapsedLayers.has(e.id))collapsedLayers.delete(e.id);else collapsedLayers.add(e.id);renderLayers();}},[icon(collapsedLayers.has(e.id)?ICONS.chevronRight:ICONS.chevronDown,14)])] : []),
-      el('span', { class: 'layer-kind', 'aria-hidden': 'true' }, [icon(kind, 16)]),
-      name,
-      btn(e.visible === false ? t('layers.show') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
-      btn(e.locked ? t('layers.unlock') : t('layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => store.dispatch('update', { id: e.id, patch: { locked: !e.locked } }), false, Boolean(e.locked), e.locked ? ' layer-flag' : ''),
-      btn(t('layers.up'), ICONS.up, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.up : index + 1 }), neighbors ? neighbors.up == null : index === total - 1),
-      btn(t('layers.down'), ICONS.down, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.down : index - 1 }), neighbors ? neighbors.down == null : index === 0),
+      });
+    }
+    return el('button', {
+      type: 'button', class: 'layer-name', 'aria-pressed': String(selected),
+      onclick: (evt) => {
+        const previous = store.getState().selection;
+        if (e.cardMember?.face != null) store.dispatch('cardFace', { id: e.cardMember.parent, face: e.cardMember.face });
+        store.select(evt.ctrlKey || evt.metaKey ? previous.includes(e.id) ? previous.filter(id => id !== e.id) : [...previous, e.id] : evt.shiftKey ? [...new Set([...previous, e.id])] : [e.id]);
+      },
+      ondblclick: () => { editing = e.id; renderLayers(); document.querySelector('.layer-list input')?.focus(); },
+    }, [el('span', { class: 'layer-label', text: e.name }), metaOf(e, widget)]);
+  }
+
+  function foldButton(e) {
+    const folded = collapsedLayers.has(e.id);
+    return el('button', {
+      type: 'button', class: 'icon-button quiet layer-fold', 'aria-label': t(folded ? 'layers.expand' : 'layers.collapse'), 'aria-expanded': String(!folded),
+      onclick: () => {
+        if (folded) collapsedLayers.delete(e.id);
+        else collapsedLayers.add(e.id);
+        renderLayers();
+      },
+    }, [icon(folded ? ICONS.chevronRight : ICONS.chevronDown, 14)]);
+  }
+
+  function layerRow(e, index, total, neighbors = null) {
+    const selected = store.getState().selection.includes(e.id);
+    const widget = widgetOf(e);
+    const container = e.card || e.isGroup;
+    const btn = (label, paths, onclick, disabled = false, pressed = null, extra = '') => el('button', { type: 'button', class: `icon-button quiet layer-tool${extra}`, title: label, 'aria-label': label, disabled, 'aria-pressed': pressed === null ? null : String(pressed), onclick }, [icon(paths, 16)]);
+    // The row keeps room at its end for the flags it shows (a hidden object's eye sits third of four).
+    const room = e.visible === false ? 2 : e.locked ? 1 : 0;
+    return el('li', { dataset: { elementId: e.id, flags: String(room) }, class: `layer-row${container ? ' layer-container' : ''}${selected ? ' selected' : ''}${e.visible === false ? ' hidden-el' : ''}` }, [
+      container ? foldButton(e) : el('span', { class: 'layer-fold', 'aria-hidden': 'true' }),
+      el('span', { class: 'layer-kind', 'aria-hidden': 'true' }, [icon(e.isGroup ? ICONS.group : ICONS[widget] ?? ICONS.shape, 16)]),
+      layerName(e, widget, selected),
+      el('span', { class: 'layer-tools' }, [
+        btn(t('layers.up'), ICONS.up, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.up : index + 1 }), neighbors ? neighbors.up == null : index === total - 1),
+        btn(t('layers.down'), ICONS.down, () => store.dispatch('reorder', { id: e.id, index: neighbors ? neighbors.down : index - 1 }), neighbors ? neighbors.down == null : index === 0),
+        btn(e.visible === false ? t('layers.show') : t('layers.hide'), e.visible === false ? ICONS.eyeOff : ICONS.eye, () => store.dispatch('update', { id: e.id, patch: { visible: e.visible === false } }), false, e.visible !== false, e.visible === false ? ' layer-flag' : ''),
+        btn(e.locked ? t('layers.unlock') : t('layers.lock'), e.locked ? ICONS.lock : ICONS.unlock, () => store.dispatch('update', { id: e.id, patch: { locked: !e.locked } }), false, Boolean(e.locked), e.locked ? ' layer-flag' : ''),
+      ]),
     ]);
   }
 
   /** Cards and groups: what "Expand all" and "Collapse all" open and close. */
   const containers = () => store.getState().theme.elements.filter((e) => e.card || e.isGroup).map((e) => e.id);
 
-  function renderLayers() {
-    const els = store.getState().theme.elements;
-    const list = $('layer-list');
-    $('layer-count').textContent = els.length === 1 ? t('layers.countOne') : els.length ? t('layers.count', { count: els.length }) : '';
-    if (els.length === 0) {
-      list.replaceChildren(el('li', { class: 'empty-note', text: t('layers.empty') }));
-      return;
-    }
+  function faceHeading(card, face, elements) {
+    const active = face !== null && card.card.activeFace === face;
+    const label = face === null ? t('card.base') : card.card.faces[face];
+    const heading = face === null
+      ? el('span', { class: 'layer-group-title', text: label })
+      : el('button', {
+        type: 'button', class: 'layer-group-title', text: label,
+        'aria-pressed': String(active),
+        'aria-current': active ? 'true' : null,
+        onclick: () => {
+          if (!active) store.dispatch('cardFace', { id: card.id, face });
+          else store.select([card.id]);
+        },
+      });
+    const count = objectsText(elements.length);
+    return el('div', { class: 'layer-group-heading', dataset: { dropCard: card.id, dropFace: face === null ? 'base' : face } }, [
+      icon(face === null ? ICONS.base : ICONS.face, 14),
+      heading,
+      el('small', { class: 'layer-meta', text: face === null ? count : `${t('layersPanel.faceNumber', { number: face + 1 })} · ${count}` }),
+      active && el('span', { class: 'face-badge', title: t('layers.inViewHint'), text: t('layers.inView') }),
+    ]);
+  }
+
+  function renderNodes(nodes, els) {
     const indexOf = e => els.findIndex(item => item.id === e.id);
-    const renderNodes = nodes => nodes.map((node, i) => {
+    return nodes.map((node, i) => {
       const { element: card, groups, children } = node;
       const row = layerRow(card, indexOf(card), els.length, {
         up: i > 0 ? indexOf(nodes[i - 1].element) : null,
@@ -277,41 +440,71 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
       });
       if (card.isGroup) return el('li', { class: 'layer-card', dataset: { groupId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-list layer-children',hidden:collapsedLayers.has(card.id) }, renderNodes(children)),
+        el('ul', { class: 'layer-list layer-children', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, renderNodes(children, els)),
       ]);
       if (!groups.length) return row;
       return el('li', { class: 'layer-card', dataset: { cardId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-groups',hidden:collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
+        el('ul', { class: 'layer-groups', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
           const active = face !== null && card.card.activeFace === face;
-          const label = face === null ? t('card.base') : card.card.faces[face];
-          const heading = face === null
-            ? el('span', { class: 'layer-group-title', text: label })
-            : el('button', {
-              type: 'button', class: 'layer-group-title', text: label,
-              'aria-pressed': String(active),
-              'aria-current': active ? 'true' : null,
-              onclick: () => {
-                if (!active) store.dispatch('cardFace', { id: card.id, face });
-                else store.select([card.id]);
-              },
-            });
+          const drop = { dropCard: card.id, dropFace: face === null ? 'base' : face };
           return el('li', { class: `layer-group${active ? ' active-face' : ''}`, dataset: { face: face === null ? 'base' : face } }, [
-            el('div', { class: 'layer-group-heading',dataset:{dropCard:card.id,dropFace:face===null?'base':face} }, [
-              icon(face === null ? ICONS.base : ICONS.face, 14),
-              heading,
-              active && el('span', { class: 'face-badge', title: t('layers.inViewHint'), text: t('layers.inView') }),
-              el('small', { text: String(elements.length) }),
-            ]),
-            el('ul', { class: 'layer-list layer-children' }, members.length?renderNodes(members):[el('li',{class:'layer-empty',dataset:{dropCard:card.id,dropFace:face===null?'base':face},text:t('layers.dropHere')})]),
+            faceHeading(card, face, elements),
+            el('ul', { class: 'layer-list layer-children' }, members.length ? renderNodes(members, els) : [el('li', { class: 'layer-empty', dataset: drop, text: t('layers.dropHere') })]),
           ]);
         })),
       ]);
     });
-    list.replaceChildren(el('li',{class:'layer-root-drop',dataset:{rootDrop:'true'},text:t('layers.rootDrop')}),...renderNodes(layerGroups(els)));
+  }
+
+  /** Two or more layers selected: how many, Deselect, Group (Ctrl G) and Make card. */
+  function renderSelectionBar() {
+    const { theme, selection } = store.getState();
+    const bar = $('layer-selection');
+    bar.hidden = selection.length < 2;
+    if (bar.hidden) {
+      bar.replaceChildren();
+      return;
+    }
+    const chosen = theme.elements.filter((e) => selection.includes(e.id));
+    const groupable = canGroup(theme, selection);
+    const cardable = chosen.some((e) => !e.locked && !e.card);
+    bar.replaceChildren(
+      el('div', { class: 'layer-selection-head' }, [
+        el('strong', { text: t('layersPanel.selected', { count: selection.length }) }),
+        el('button', { type: 'button', class: 'text-button quiet', text: t('layersPanel.clear'), onclick: () => store.select([]) }),
+      ]),
+      el('div', { class: 'layer-selection-actions' }, [
+        el('button', { type: 'button', class: 'text-button', 'aria-label': t('layersPanel.groupLabel'), title: groupable ? null : t('group.scope'), disabled: !groupable, onclick: () => store.dispatch('groupSelection', { ids: selection }) }, [
+          el('span', { text: t('layersPanel.group') }),
+          el('kbd', { 'aria-hidden': 'true', text: t('layersPanel.groupKeys') }),
+        ]),
+        el('button', { type: 'button', class: 'text-button', 'aria-label': t('layersPanel.cardLabel'), disabled: !cardable, onclick: () => store.dispatch('cardFromSelection', { ids: selection }) }, [
+          el('span', { text: t('layersPanel.card') }),
+        ]),
+      ]),
+    );
+  }
+
+  function renderLayers() {
+    const els = store.getState().theme.elements;
+    const list = $('layer-list');
+    renderSelectionBar();
+    const nodes = filterLayers(layerGroups(els), layerQuery, (e) => t(`widget.${widgetOf(e)}`));
+    $('layer-front').replaceChildren(sectionTitle(t('layersPanel.front'), { count: els.length ? objectsText(countLayers(nodes)) : null }));
+    if (els.length === 0) {
+      list.replaceChildren(el('li', { class: 'empty-note', text: t('layers.empty') }));
+      return;
+    }
+    if (!nodes.length) {
+      list.replaceChildren(el('li', { class: 'empty-note', text: t('layersPanel.noMatch') }));
+      return;
+    }
+    list.replaceChildren(el('li', { class: 'layer-root-drop', dataset: { rootDrop: 'true' }, text: t('layers.rootDrop') }), ...renderNodes(nodes, els));
     layerDrag.refresh();
   }
 
+  mountSearch('layer-search', 'layersPanel.filter', (q) => { layerQuery = q; renderLayers(); }, { id: 'layer-filter' });
   $('layers-expand').addEventListener('click', () => { collapsedLayers.clear(); renderLayers(); });
   $('layers-collapse').addEventListener('click', () => {
     for (const id of containers()) collapsedLayers.add(id);
@@ -345,7 +538,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     screen.style.backgroundImage = url ? `url("${url}")` : '';
     const thumb = screen.parentElement;
     thumb?.querySelector('.no-preview')?.remove();
-    if (url === null) thumb?.append(el('span', { class: 'no-preview' }, [icon(ICONS.eyeOff, 14), el('span', { text: t('themes.noPreview') })]));
+    if (url === null) thumb?.append(el('span', { class: 'badge no-preview' }, [icon(ICONS.eyeOff, 14), el('span', { text: t('themes.noPreview') })]));
   }
 
   /** Asks for the missing thumbnails of the cards shown, one at a time, while the tab is open. */
@@ -364,43 +557,63 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     fetching = false;
   }
 
+  /** A card's second line: its screen, and when its files last changed. */
+  function themeFacts(th) {
+    const label = screenLabel(th, locale());
+    return Number.isFinite(th.modifiedMs) ? `${label} · ${timeAgo(th.modifiedMs, Date.now(), locale())}` : label;
+  }
+
   function themeCard(th) {
     const axis = axisOf(th);
-    const mini = thumbScreen(th.canvas);
     const key = thumbnailKey(th);
-    const screen = el('span', { class: 'thumb-screen', style: { width: `${mini.width}%`, height: `${mini.height}%` } });
+    const screen = screenThumb({ width: th.canvas.width, height: th.canvas.height });
+    screen.classList.add('thumb-screen');
     cardScreens.set(key, screen);
-    const thumb = el('span', { class: 'thumb', 'aria-hidden': 'true' }, [screen]);
+    const thumb = el('span', { class: 'thumb', dataset: { axis }, 'aria-hidden': 'true' }, [screen]);
     paintThumbnail(screen, thumbnails.has(key) ? thumbnails.get(key) : th.thumbnail);
-    return el('li', {}, [
-      el('button', { type: 'button', class: 'theme-card', dataset: { location: th.location }, onclick: () => actions.openTheme(th.location) }, [
+    return el('li', { class: 'theme-item' }, [
+      el('button', { type: 'button', class: 'theme-card', dataset: { location: th.location }, onclick: () => { if (!gallery.select(th)) actions.openTheme(th.location); } }, [
         thumb,
         el('strong', { text: th.name }),
-        el('small', { class: 'theme-screen', text: screenLabel(th, locale()) }),
+        el('small', { class: 'theme-screen', text: themeFacts(th) }),
         el('span', { class: 'card-meta' }, [
-          el('span', { class: `badge ${axis}` }, [icon(ICONS[axis], 14), t(`axis.${axis}`)]),
+          el('span', { class: 'badge' }, [icon(ICONS[axis], 14), t(`axis.${axis}`)]),
           th.bundled && el('span', { class: 'tag', text: t('themes.bundled') }),
         ]),
       ]),
+      el('button', {
+        type: 'button', class: 'icon-button quiet theme-duplicate', title: t('inspector.duplicate'), 'aria-label': t('themesPanel.duplicateLabel', { name: th.name }),
+        onclick: () => duplicateTheme(th),
+      }, [icon(ICONS.copy, 16)]),
     ]);
   }
 
-  /** What the gallery shows when the filter keeps no theme: why, new themes, and "Show all". */
-  function emptyItem({ key, showAll }) {
-    const newButton = (axis) => el('button', { type: 'button', class: 'text-button', onclick: () => actions.newTheme(axis) }, [
-      icon(ICONS[axis], 14),
-      el('span', { text: t(axis === 'vertical' ? 'themes.newVertical' : 'themes.newHorizontal') }),
+  /** "New theme": vertical or horizontal, empty, in the size of the screen in use. */
+  function newThemeItem() {
+    const model = screenInUse()?.models[0];
+    const choice = (axis) => el('button', {
+      type: 'button', class: 'text-button quiet', id: `theme-new-${axis}`,
+      'aria-label': t(axis === 'vertical' ? 'themes.newVertical' : 'themes.newHorizontal'),
+      onclick: () => { gallery.close(); actions.newTheme(axis); },
+    }, [icon(ICONS[axis], 14), el('span', { text: t(`axis.${axis}`) })]);
+    const size = model ? `${Math.min(model.width, model.height)}×${Math.max(model.width, model.height)}` : null;
+    return el('li', { class: 'theme-new' }, [
+      kindIcon('plus'),
+      el('strong', { text: t('themesPanel.new') }),
+      size && el('span', { class: 'theme-new-size', text: size }),
+      choice('vertical'),
+      choice('horizontal'),
     ]);
+  }
+
+  /** What the gallery shows when the filter keeps no theme: why, and "Show all". */
+  function emptyItem({ key, showAll }) {
     return el('li', { class: 'empty-state' }, [
       el('p', { class: 'empty-note', text: t(key) }),
-      el('div', { class: 'button-row' }, [
-        newButton('vertical'),
-        newButton('horizontal'),
-        showAll && el('button', { type: 'button', class: 'text-button show-all', text: t('themes.showAll'), onclick: () => {
-          chooseFilter(SHOW_ALL);
-          document.querySelector('#theme-scope [data-scope="all"]')?.focus();
-        } }),
-      ]),
+      showAll && el('button', { type: 'button', class: 'text-button show-all', text: t('themes.showAll'), onclick: () => {
+        chooseFilter(SHOW_ALL);
+        document.querySelector('#theme-scope [data-scope="all"]')?.focus();
+      } }),
     ]);
   }
 
@@ -419,22 +632,34 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     }
   }
 
+  /** The head's count: how many the gallery shows, and how many fit the screen in use. */
+  function themeCountText(shown, list, screen) {
+    const count = countText(shown, list.length);
+    if (!count) { $('theme-screen-count').textContent = ''; return ''; }
+    const fit = screenCount(list, screen);
+    const text = t(count.key, count.params);
+    $('theme-screen-count').textContent = fit === null ? '' : ` \u00b7 ${t('themesPanel.forScreen', { count: fit })}`;
+    return text;
+  }
+
   function renderThemes(list) {
     themes = list;
     const screen = screenInUse();
     filteredFor = signature(screen);
     syncFilterButtons(screen);
-    const shown = filterThemes(list, filter, screen);
-    const count = countText(shown.length, list.length);
-    $('theme-count').textContent = count ? t(count.key, count.params) : '';
+    const filtered = filterThemes(list, filter, screen);
+    const shown = searchThemes(filtered, themeQuery);
+    $('theme-count').textContent = themeCountText(shown.length, list, screen);
     const grid = $('theme-grid');
     cardScreens.clear();
     if (!shown.length) {
-      grid.replaceChildren(emptyItem(emptyState(list, filter, screen)));
+      grid.replaceChildren(newThemeItem(), emptyItem(filtered.length ? { key: 'themesPanel.noMatch', showAll: false } : emptyState(list, filter, screen)));
+      gallery.update(shown);
       return;
     }
-    grid.replaceChildren(...shown.map(themeCard));
+    grid.replaceChildren(newThemeItem(), ...shown.map(themeCard));
     waiting.splice(0, waiting.length, ...shown.filter((entry) => !thumbnails.has(thumbnailKey(entry))));
+    gallery.update(shown);
     fetchThumbnails();
   }
 
@@ -456,6 +681,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
   for (const button of document.querySelectorAll('#theme-axis [data-axis]')) {
     button.addEventListener('click', () => chooseFilter({ axis: button.dataset.axis }));
   }
+  mountSearch('theme-search', 'themesPanel.search', (q) => { themeQuery = q; renderThemes(themes); }, { id: 'theme-search-input' });
 
   /** Lists what an import could not map exactly, until dismissed; `null` clears it. */
   function showImportReport(report) {
@@ -477,13 +703,19 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     ]));
   }
 
-  $('theme-new-vertical').addEventListener('click', () => actions.newTheme('vertical'));
-  $('theme-new-horizontal').addEventListener('click', () => actions.newTheme('horizontal'));
   $('theme-open').addEventListener('click', () => actions.refreshThemes());
   $('theme-import').addEventListener('click', () => actions.importTheme());
   $('theme-save-as').addEventListener('click', () => actions.saveThemeAs());
 
   // --------------------------------------------------------------- media --
+  /** A file's badge: Video, else its format (`PNG`, `GIF`). */
+  function kindOf(a) {
+    if (a.kind === 'video') return t('media.video');
+    const name = fileNameOf(a.ref);
+    const ext = name.includes('.') ? name.split('.').pop().toUpperCase() : '';
+    return ext || (moves(a) ? t('media.kindGif') : t('media.kindImage'));
+  }
+
   /**
    * One picture or video of the theme. A video, or an animated GIF, shows
    * its poster, its kind, play time and size, and becomes a video
@@ -495,13 +727,12 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     const preview = poster ?? a.dataUrl ?? null;
     const label = a.kind === 'video' ? t('media.video') : t('media.animatedGif');
     const details = moving ? [label, ...videoFacts(a, (n) => formatBytes(n, locale()))].join(' · ') : null;
-    const kind = a.kind === 'video' ? t('media.video') : moving ? t('media.kindGif') : t('media.kindImage');
-    const action = (text, paths, onclick) => el('button', { type: 'button', class: 'icon-button', title: text, 'aria-label': text, onclick }, [icon(paths, 16)]);
+    const action = (text, paths, onclick) => el('button', { type: 'button', class: 'icon-button quiet', title: text, 'aria-label': text, onclick }, [icon(paths, 16)]);
     return el('li', { class: 'media-item', dataset: { ref: a.ref } }, [
       el('span', { class: 'thumb', style: preview ? { backgroundImage: `url(${preview})` } : {} }, [
-        preview ? null : icon(ICONS.film, 22),
-        el('span', { class: 'media-kind', text: kind }),
-        el('span', { class: 'media-bg', hidden: true, text: t('media.backgroundBadge') }),
+        preview ? null : icon(a.kind === 'video' ? ICONS.video : ICONS.image, 22),
+        el('span', { class: 'tag media-kind', text: kindOf(a) }),
+        el('span', { class: 'tag media-bg', hidden: true, text: t('media.backgroundBadge') }),
       ]),
       el('span', { class: 'media-name' }, [
         el('span', { text: fileNameOf(a.ref) }),
@@ -520,11 +751,19 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     ]);
   }
 
+  /** "In the theme" with how many files and their size. */
+  function mediaHead(items) {
+    const { count, bytes } = mediaTotals(items);
+    const files = count === 1 ? t('media.countOne') : count ? t('media.count', { count }) : null;
+    const text = files && bytes !== null ? `${files} · ${formatBytes(bytes, locale())}` : files;
+    $('media-head').replaceChildren(sectionTitle(t('media.inTheme'), { count: text }));
+  }
+
   function renderMedia(assets) {
     media = assets;
     const list = $('media-list');
     const items = mediaItems(assets);
-    $('media-count').textContent = items.length === 1 ? t('media.countOne') : items.length ? t('media.count', { count: items.length }) : '';
+    mediaHead(items);
     if (!items.length) {
       list.replaceChildren(el('li', { class: 'empty-note', text: t('media.empty') }));
       return;
@@ -577,6 +816,8 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     setCatalog(next) {
       catalog = next;
       renderSensors();
+      libreShown = null;
+      renderLibre();
     },
     updateReadings,
     renderLayers,
@@ -588,9 +829,17 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
     selectTab: (name) => selectTab(tabs.find((x) => x.dataset.tab === name)),
     /** The UI's language changed: every panel is drawn again. */
     retranslate() {
+      for (const { input, labelKey, placeholderKey } of searches) {
+        input.setAttribute('aria-label', t(labelKey));
+        input.placeholder = t(placeholderKey);
+      }
+      gallery.retranslate();
       iconPicker.retranslate();
       renderWidgets();
       renderSensors();
+      renderRate();
+      libreShown = null;
+      renderLibre();
       renderLayers();
       renderThemes(themes);
       showImportReport(importReport);

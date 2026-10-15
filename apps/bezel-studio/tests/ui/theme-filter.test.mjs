@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AXES, SCOPES, SHOW_ALL, axisOf, countText, emptyState, filterThemes, fitsScreen, rememberedFilter, scopeIn, screenLabel, thumbnailKey } from '../../src/theme-filter.js';
+import { AXES, SCOPES, SHOW_ALL, axisOf, countText, emptyState, filterThemes, fitsScreen, rememberedFilter, scopeIn, screenCount, screenLabel, searchThemes, thumbnailKey } from '../../src/theme-filter.js';
 import { LOCALES } from '../../src/i18n/index.js';
 
 // A library like the bundled one: the 8.8" both ways, a 3.5" and a square.
@@ -94,4 +94,18 @@ test('a thumbnail is kept per location and revision', () => {
   assert.equal(thumbnailKey(wide), '/t/wide\na1');
   assert.notEqual(thumbnailKey(wide), thumbnailKey({ ...wide, revision: 'a2' }), 'saved again');
   assert.equal(thumbnailKey(small), '/t/small\n');
+});
+
+test('the search keeps the themes whose name has every word', () => {
+  assert.deepEqual(names(searchThemes(library, '')), names(library));
+  assert.deepEqual(names(searchThemes(library, ' wi ')), ['Wide']);
+  assert.deepEqual(names(searchThemes([...library, { ...odd, name: 'Météo et horloge' }], 'meteo HOR')), ['Météo et horloge']);
+  assert.deepEqual(searchThemes(library, 'zzz'), []);
+});
+
+test('the head counts the themes for the screen in use, whatever the filter', () => {
+  assert.equal(screenCount(library, turing88), 2);
+  assert.equal(screenCount(library, asleep21), 1);
+  assert.equal(screenCount(library, null), null, 'no screen, no second count');
+  assert.equal(screenCount([], turing88), 0);
 });
