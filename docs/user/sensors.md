@@ -28,7 +28,7 @@ Common reasons:
 
 | Sensor | Why it is unavailable | What to do |
 |---|---|---|
-| CPU temperature, fans, power (Windows) | LibreHardwareMonitor is not running | see [Windows](#windows) below |
+| CPU temperature, fans, power (Windows) | the sensor reader is unavailable | see [Windows](#windows) below |
 | CPU power (Linux) | the kernel lets only root read the RAPL counter | leave it off the theme, or grant read access to the file the reason names |
 | Fans, voltages (Linux) | the motherboard's sensor chip has no driver loaded (`nct6775`, `it87`) | load the driver for your board (`sudo sensors-detect` from lm-sensors helps) |
 | Game FPS | no overlay tool is measuring a game | see [Game FPS](fps.md) |
@@ -44,6 +44,23 @@ for temperatures and fans, NVIDIA's driver (NVML) for NVIDIA cards, `amdgpu` for
 AMD cards. Nothing to install.
 
 ## Windows
+
+Bezel Evo's Windows packages include a headless hardware sensor reader. Enable
+**hardware sensors** in Setup, or follow the portable reader setup in the
+[Windows installation guide](../../packaging/windows/README.md). Studio and
+Light remain unelevated; only configuring/running the hardware reader needs
+administrator rights. You do not need to keep a separate monitoring window open.
+Sensor availability depends on your hardware and existing hardware-access drivers;
+Bezel does not install those drivers or control fans and lighting.
+
+CPU usage, memory, disks and network work without the optional hardware reader.
+For reader health, restart and logs, see the [helper guide](../../apps/bezel-sensors-helper/README.md).
+
+### External Libre fallback (upstream setup)
+
+The instructions below describe the external Libre interface retained by this
+fork. They are an alternative when the bundled reader is unavailable, not an
+extra app required alongside the bundled reader.
 
 CPU usage, memory, disks and network work out of the box, and NVIDIA cards
 through their driver. Temperatures, fans, voltages and power need

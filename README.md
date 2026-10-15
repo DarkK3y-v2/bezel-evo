@@ -1,214 +1,75 @@
-# Bezel Evo
+<p align="center">
+  <img src="docs/images/pixel.svg" width="88" height="88" alt="Bezel Evo Pixel logo: a dotted letter B">
+</p>
+<h1 align="center">Bezel Evo</h1>
+<p align="center">Make your USB smart screen your own.</p>
+<p align="center">
+  <a href="https://github.com/jripper77/bezel/releases"><img src="https://img.shields.io/github/v/release/jripper77/bezel?include_prereleases&amp;label=release&amp;color=FF9248" alt="Latest release, including previews"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--3.0--or--later-FF9248" alt="Licence: GPL-3.0-or-later"></a>
+  <a href="#download--install"><img src="https://img.shields.io/badge/Windows-10%20%2F%2011-121518" alt="Windows 10 and 11, x64"></a>
+</p>
 
-**A Windows-focused evolution of Bezel for USB smart screens.**
+![Bezel Evo Studio in dark mode, with the widget library, an Ember example dashboard and the theme properties](docs/images/studio-hero.png)
 
-Bezel Evo combines a visual theme editor with a Light background runtime,
-local hardware monitoring and support for multiple displays. This repository
-contains the source and documentation for this fork.
+<p align="center"><sub>Studio in demo mode. Example layout and simulated sensor readings.</sub></p>
 
-Current development release: **0.1.22**. Object properties follow a consistent
-order: name/type, position and size, content/data, appearance, membership,
-playback/animation and layer/object actions. Sections are separated by horizontal lines and can be collapsed; they retain
-their state while editing; irrelevant sections are omitted. Sensor bindings,
-clock/weather configuration and image assets are separate from visual styling.
+<details>
+<summary>See the example on a screen</summary>
 
-Right-click an object in the canvas or Layers for cut/copy/paste, grouping,
-ordering, visibility and locking actions. Arrow keys move the selection (Shift
-moves by 10 px). Multi-object alignment uses the first selected object as its
-fixed reference; single-object alignment uses the canvas. Layers accept drops into groups, card faces and the root level.
-Shapes support shared or individual corner radii; media covers have shared or individual corner radii and
-text-gap controls. Each card trigger can return to an explicit face after its
-configured delay. Deselect the card and its objects to test automatic playback.
+![Illustrative portrait USB screen showing the same Ember clock, CPU gauge, history graph and memory widgets; not a product photograph](docs/images/screen-render.png)
 
-In **Themes**, **Save as .bezeltheme...** opens a file dialog to save the current
-layout and its available assets wherever you choose (also Ctrl+Shift+S).
-The top **Save** button saves to the current location or the internal library.
-A background video referenced only in screen storage stays a screen reference;
-it is not downloaded from the display when saving a theme.
+</details>
 
-Development happens on [`windows-improvements`](https://github.com/jripper77/bezel/tree/windows-improvements).
-See [FORK.md](FORK.md) for implementation details, validation and limitations.
+## What it does
 
-## Windows downloads
+- **Design visually.** Drag widgets onto the canvas, then change their size, colours and fonts.
+- **See your PC's stats.** Built-in CPU, GPU, memory and hardware monitoring, with a bundled sensor reader instead of a separate monitoring app to keep open.
+- **Go beyond gauges.** Add clocks, weather, now-playing information and history graphs.
+- **Make layouts react.** Cards switch faces with fade, slide or flip transitions, on a timer or in response to apps and media.
+- **Run multiple screens.** Give each display its own theme and orientation.
+- **Keep it running with Light.** Your saved themes stay on the screens while Studio is closed, with controls in the Windows tray.
+- **Start from a theme.** Use bundled layouts, import supported themes, or save your own as a `.bezeltheme` file.
 
-Windows x64 releases provide a **Setup executable**, a **portable ZIP**, checksums
-and the corresponding source archive on the [Releases page](https://github.com/jripper77/bezel/releases).
-The Setup installs Studio, Light, bundled themes and the headless sensor reader.
-It offers optional Light at sign-in and sensor setup; only configuring/removing
-an owned sensor task requests administrator approval. Existing tasks from other
-installations and external Libre are preserved.
+## Gallery
 
-Save and exit Studio and quit Light before updating. Updates and uninstall retain
-personal themes, preferences and caches. Silent installation does not enable
-new optional services. These first packages are unsigned; video tools such as
-FFmpeg and hardware-access drivers are not installed automatically.
-See [Windows installation and build details](packaging/windows/README.md).
+| Find your sensors | Fine-tune each widget |
+| :---: | :---: |
+| [![Studio's sensor library beside the example dashboard](docs/images/studio-library.png)](docs/images/studio-library.png) | [![CPU ring selected, with its isolated preview and editable properties](docs/images/studio-inspector.png)](docs/images/studio-inspector.png) |
+| **Cards and triggers** | **Light theme** |
+| [![A two-face Card and its app-trigger controls in Studio](docs/images/studio-card-triggers.png)](docs/images/studio-card-triggers.png) | [![The same dashboard and widget library in Studio's light theme](docs/images/studio-light.png)](docs/images/studio-light.png) |
 
-## What this fork adds
+## Download & install
 
-- **Light runtime with a native tray icon:** runs saved themes without keeping
-  the editor's WebView open. Open Studio from the tray; closing Studio returns
-  control to Light. Unsaved changes are handled before closing.
-- **Multiple screens:** separate themes, orientations and live selections;
-  Light drives the saved active screens together and shares sensor sampling. Studio delivers frames on an independent
-  worker per display, with one outstanding frame per connection and completion
-  notifications to keep slow screens from pausing faster ones. Rendering and
-  sensor state remain shared.
-- **Integrated Windows sensors:** a headless LibreHardwareMonitorLib 0.9.6
-  helper reads CPU temperature, fans, power and other available sensors. Only
-  the configured helper requires administrator rights. Studio provides reader
-  health, restart and diagnostic logs. The helper does not control fans or LEDs.
-- **Windows serial fixes:** bounded writes, transfer diagnostics and retries
-  for transient port access errors, tested on Turing 8.8-inch Rev C ROM 1.90.
-  Protocol framing and command bytes are preserved.
-- **Offline vector icons:** searchable Tabler and hardware collections, with
-  color, outline, opacity and shadow editing, plus Italian search aliases.
-- **Customizable dates and clocks:** language, presets, custom formats and
-  casing per object, including Italian dates and day names.
-- **Ordinary object groups:** group selected objects without creating a card or
-  animation, including nested groups and groups within card faces. Move/resize
-  a group together and edit individual members through Layers.
-- **Object copy and paste:** duplicate single objects or selections while
-  preserving properties, with independent IDs and Undo support.
-- **Card widgets:** shared base and named faces, manual face selection, face
-  duplication and ordering, grouping existing objects, movement, resizing and
-  clipboard support. Face changes support fade, slide and flip transitions,
-  configurable duration/direction and optional base movement. Rotate faces on a timer
-  or select a face while an app runs, is closed, is in foreground or plays media.
-  Rules have priorities and a return delay; rotation resumes after the override.
-- **Weather widgets:** city search, units, language, icon size and spacing, with
-  outline, filled, colored and shaded 3D-style vector icons authored in this fork.
-- **Windows media player:** display title, artist, cover and timeline from Windows
-  media sessions. Filter an app (e.g. Spotify) or automatically prefer a playing
-  session; hide stopped sessions or configure the empty label. App-provided
-  metadata and timing vary; this widget does not send playback commands.
-- **Image and shape transparency:** shared linear/radial controls with center,
-  radius and start/end opacity. Images retain their existing fit/framing.
-- **Screen sleep timer:** discoverable under Screen settings; default 5 minutes,
-  per-display persistence and capability checks. Turing Rev C firmware supports
-  1 to 10 minutes after PC shutdown; active Live updates keep the display awake.
-  Choose Keep in the shutdown options to disable the Off fallback.
-- **Ring gradients:** start/end colors and an adjustable transition along the
-  full arc, plus a checkbox to preview the ring at 100%.
-- **Stored-video backgrounds:** select a video in Screen Storage as the
-  background, with looping and shape windows. Shape windows support linear/radial opacity.
-- **Local video previews:** a player in Media and Screen Storage with playback,
-  pause and seeking. Storage uses an associated local copy and offers
-  original-file association when missing. Previewing does not alter the theme.
-- **Login and shutdown integration:** launch Light and the helper at login and
-  apply saved shutdown actions through the active screen connection.
-- **Recovery after long pauses:** Light detects a tray-loop pause of at least
-  ten seconds, stops the old render workers, restarts the configured sensor
-  helper off the UI thread, verifies a fresh sensor snapshot and reopens the
-  saved displays. Studio and Light also retry a missing or stalled bundled
-  reader from their sensor worker. The wake MCU and
-  display port of one screen no longer create duplicate workers.
+1. **[Open Releases](https://github.com/jripper77/bezel/releases)** and download the Windows x64 **Setup** or **portable ZIP**.
+2. Close the screen's vendor app. Run Setup, or extract the ZIP into a writable folder. Setup offers optional hardware sensors and Light at sign-in.
+3. Open **Studio**, select your screen, choose a theme, customise it and **Save**. Turn on **Live** to send it to the display.
 
-## Measuring Live animation performance
+**Requirements:** Windows 10/11 x64, a compatible USB smart screen and Microsoft Edge WebView2. Setup can download WebView2; portable Studio needs it already installed. Hardware sensors use .NET Framework 4.7.2 or newer; availability depends on your hardware and drivers. FFmpeg is separate for video conversion.
 
-In Studio Preferences, enable **Debug** to write app, sensor and device diagnostics
-into `debug.log` beside `settings.json` (the full path appears in Preferences).
-**Show readings on screen**, nested under Debug, adds a temporary overlay to the
-physical Live display. Choose any of the four corners with **Screen corner**. Turning Debug off stops file logging and hides the overlay;
-the theme file is unchanged. Logs keep one previous 5 MiB segment and exclude
-network-client targets.
+Windows preview packages are unsigned. See the [installation guide](packaging/windows/README.md) for sensor setup and updates.
 
-Preview and Live reuse recent identical scene frames within one animation interval
-(excluding video backgrounds). Debug logs record reuse, preview/editor-lock times
-and refresh-loop preparation times to help distinguish rendering from transfer costs.
+## Supported screens
 
-`SEND FPS` measures successful host transfer completion during animation bursts,
-not the panel's internal scanout. `GAP` is the interval between completions;
-`RENDER` measures theme rendering and `PRESENT` the complete driver operation.
-`handoff_ms` in the logs measures the delay from a prepared frame to its driver
-starting; stopped/replaced connections reject completions from older generations.
-For Rev C, `C` is rotation/BGRA conversion, `D` difference encoding, `W` serial
-write/drain, `A` reply wait, and `KB` the framed bytes sent. `S` shows sensor
-sampling time / configured sampling interval in milliseconds. Other drivers show
-unavailable transfer phases as `N/A`. FPS requires at least two transfers and
-resets after a pause over 300 ms. The overlay uses the previous measurements and
-updates at most four times per second; `animating` in the logs identifies active card transitions; it adds some changed pixels, so compare
-with logging enabled and the overlay disabled for the final timing capture.
+| Screen / family | Status |
+| --- | --- |
+| Turing Smart Screen 8.8" Rev C, ROM 1.90 | **Tested on hardware** |
+| Other Turing Rev C models; Turing 3.5" / UsbPCMonitor 3.5" and 5" Rev A | Supported |
+| XuanFang 3.5" / Flagship, Rev B | Supported |
+| Kipye Qiye 3.5", Rev D | Supported |
+| WeAct Studio Display FS 3.5" / 0.96" | Supported |
+| TURZX / Turing USB generation, 1.6"-12.3" | Supported |
+| WCH-based panels, 2.4"-4.3" | Supported |
 
-## Build and setup on Windows
-
-**No binary releases have been published for this fork yet.** Future packages
-will appear on [Bezel Evo's releases page](https://github.com/jripper77/bezel/releases).
-
-Build with Rust 1.98 or newer, Microsoft C++ build tools and Edge WebView2:
-
-```powershell
-git clone --branch windows-improvements https://github.com/jripper77/bezel.git
-cd bezel
-cargo build --release --locked -p bezel -p bezel-studio
-```
-
-Place `target/release/bezel.exe` and `target/release/bezel-studio.exe` together
-in your installation folder, with the scripts from [scripts/windows](scripts/windows/).
-Open Studio, save a theme and select the screens to run.
-
-The integrated sensor helper has a separate build using the Windows .NET
-Framework compiler and LibreHardwareMonitorLib. Follow the
-[helper build and setup instructions](apps/bezel-sensors-helper/README.md).
-Cargo alone does not bundle the helper or its dependencies.
-
-Run `configure-startup.cmd` as administrator with your normal Windows account
-for login setup. Only the hardware reader runs elevated. See the
-[Windows launcher guide](scripts/windows/README.md) for startup, logs and rollback.
-If you move the installation folder, update the startup configuration.
-If Windows changes a display's COM port, select its current port in Studio.
+"Supported" means a driver is implemented, not that every model or firmware has been physically tested. Check the [screen guide](docs/user/devices.md) and [full model catalogue](docs/reverse-engineering/devices.md) before choosing a display.
 
 ## Documentation
 
-- [Fork changes and validation](FORK.md)
-- [Windows Light runtime and startup](scripts/windows/README.md)
-- [Integrated sensor helper](apps/bezel-sensors-helper/README.md)
-- [Storage, video and local previews](docs/user/storage-and-video.md)
-- [Troubleshooting](docs/user/troubleshooting.md)
-- [Source structure and dependencies](Cargo.toml)
+- [User guide](docs/user/README.md) / [Your first theme](docs/user/first-theme.md) / [Editing in Studio](docs/user/studio-editing.md)
+- [Sensors](docs/user/sensors.md) / [Storage and video](docs/user/storage-and-video.md) / [Troubleshooting](docs/user/troubleshooting.md)
+- [Technical documentation](docs/) / [Windows builds](docs/build-windows.md) / [Fork changes and validation](FORK.md)
 
-## Tested hardware and current limits
+## Credits & licence
 
-Testing focuses on Windows with a Turing Smart Screen 8.8-inch Rev C ROM 1.90
-and a Turing 3.5-inch display. Other drivers and Linux support are inherited
-from Bezel; these additions have not been physically verified on every model
-or on Linux.
+Bezel Evo is a **fork of [slipalison/bezel](https://github.com/slipalison/bezel)**, created by [Alison Amorim (@slipalison)](https://github.com/slipalison). Original authorship, research and copyright notices are preserved.
 
-Local video previews require a copy on the PC, are limited to 64 MiB and depend
-on WebView codecs. The current protocol cannot retrieve device-only videos;
-those backgrounds show a placeholder in the editor. Partial alpha blending
-over stored video on ROM 1.90 still needs hardware confirmation.
-
-The corrected login configuration has been tested by launching Light and the
-helper; the next Windows login must confirm the latest path and port fixes.
-
-## Credits and licenses
-
-Bezel Evo is a derivative of **Bezel**, created by
-**[Alison Amorim (@slipalison)](https://github.com/slipalison)**.
-The original code, editor, protocol research, bundled themes and inherited
-documentation remain credited to their authors. Thank you to Alison for making
-that work available. The rename identifies this fork; inherited components
-retain their original authorship and copyright notices.
-
-- Bezel and this fork: [GPL-3.0-or-later](LICENSE).
-- Tabler Icons: [MIT](apps/bezel-studio/src/assets/tabler/LICENSE).
-- Material Design Icons: [Apache 2.0](apps/bezel-studio/src/assets/mdi/LICENSE), with its [notice](apps/bezel-studio/src/assets/mdi/NOTICE).
-- IBM Plex Sans and Mono: SIL OFL 1.1 ([license](apps/bezel-studio/src/assets/fonts/ibm-plex/LICENSE), [source and checksums](apps/bezel-studio/src/assets/fonts/ibm-plex/README.md)).
-- LibreHardwareMonitorLib: MPL-2.0; dependency licenses and source information
-  are documented in the [helper README](apps/bezel-sensors-helper/README.md).
-- Weather: Open-Meteo and GeoNames, with attribution and service terms in the
-  weather inspector and [fork documentation](FORK.md).
-
-Protocol knowledge also draws on turing-smart-screen-python and the inherited
-research in [docs/reverse-engineering](docs/reverse-engineering/).
-
-
-## Next development work
-
-The [roadmap](TODO.md) tracks face containers in Layers, timed/software/media card
-triggers and player widgets, linear/radial image transparency, radial shape
-transparency, per-screen sleep timing (default five minutes), additional colored
-and 3D-style weather icons, editor/property organization, calculated variables and
-PC-idle screensavers. These items are planned; availability and licensing of
-external event sources and icon collections still need evaluation.
+Licensed under **[GPL-3.0-or-later](LICENSE)**. See [third-party credits and licences](THIRD_PARTY.md) for LibreHardwareMonitorLib, Tabler, Material Design Icons, IBM Plex and weather-data attribution.

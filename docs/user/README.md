@@ -21,6 +21,7 @@ parts:
 
 ## Using Bezel
 
+- [Studio editing reference](studio-editing.md): object properties, layers, cards and saving themes.
 - [Sensors](sensors.md): what Bezel measures, and why a value can show `—`.
 - [Game FPS](fps.md): RivaTuner Statistics Server on Windows, MangoHud on Linux.
 - [Screen storage and video](storage-and-video.md): pictures and videos kept on
