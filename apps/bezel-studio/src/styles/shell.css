@@ -131,6 +131,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 
 /* ------------------------------------------------------------ statusbar -- */
 .statusbar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; background: var(--chrome); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-compact); font-variant-numeric: tabular-nums; }
+.memory-popover { position: fixed; inset: auto; margin: 0; width: 340px; max-width: calc(100vw - 16px); }
+.memory-popover .panel-head { margin-bottom: 8px; }
+.memory-processes { margin: 10px 0 0; padding-left: 18px; line-height: 1.8; }
 .status-clock { color: var(--accent-ink); }
 .status-saved-at:not(:empty)::before { content: "· "; }
 .status-saved-at { margin-left: -4px; }
