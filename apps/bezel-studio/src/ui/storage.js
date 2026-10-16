@@ -10,7 +10,6 @@
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
-import { udevCommand } from './udev.js';
 import { GLYPHS, createManagerView } from './manager.js';
 import { chipButton, kindIcon, sectionTitle } from './fields.js';
 import { BAR_KINDS, PLACES, bootFile, breakdown, mediaShown, placeCounts } from '../storage-breakdown.js';
@@ -188,10 +187,10 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
   };
 
   /**
-   * A command's error as a notice (with the udev command when it fixes it,
+   * A command's error as a notice (with its reason,
    * and the restart when the screen stopped responding).
    */
-  const errorNotice = (e) => ({ kind: 'error', text: errorText(t, e), command: e?.udevCommand ?? null, hung: e?.code === 'hung' });
+  const errorNotice = (e) => ({ kind: 'error', text: errorText(t, e), hung: e?.code === 'hung' });
 
   // ------------------------------------------------------------- loading --
   async function load() {
@@ -510,7 +509,6 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
     }
     // A file stored with the wrong size is deleted on request, never on its own.
     const children = [el('p', { text: n.text })];
-    if (n.command) children.push(el('p', { text: t('udev.explain') }), udevCommand(t, n.command, notify));
     if (n.hung && screen()?.restartable) children.push(buttonRow(restartButton()));
     if (n.path && storageFeatures(screen()).remove) {
       const file = fileOf(n.path);
@@ -747,10 +745,8 @@ export function createStoragePanel({ root, t, locale, bridge, notify, context, r
       return;
     }
     if (view.status === 'error') {
-      const command = view.error?.udevCommand;
       body.replaceChildren(
         el('p', { class: 'empty-note', role: 'alert', text: t('storage.loadError', { message: errorText(t, view.error) }) }),
-        ...(command ? [el('p', { class: 'hint', text: t('udev.explain') }), udevCommand(t, command, notify)] : []),
         buttonRow(el('button', { type: 'button', class: 'text-button', text: t('common.retry'), onclick: load })),
       );
       return;

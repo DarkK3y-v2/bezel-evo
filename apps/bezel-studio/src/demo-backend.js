@@ -7,7 +7,7 @@ import { createCardMotion } from './editor/card-motion.js';
 import { isShown } from './editor/cards.js';
 // An in-memory backend for demo mode: a simulated screen, sensors that move,
 // themes, media and an approximate renderer. Nothing here reaches hardware.
-import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
+import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, SCENARIOS } from './demo-data.js';
 import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank, demoSameFile } from './demo-manager.js';
 import { DEMO_FONT_CATALOG } from './demo-fonts.js';
 import { DEMO_THEME } from './demo-theme.js';
@@ -72,7 +72,7 @@ export function demoOrientation(model, remembered) {
 /** The host `net.ping` measures unless the user picks another. */
 export const DEMO_PING_HOST = '8.8.8.8';
 /** The folder the demo's folder picker returns. */
-export const DEMO_FOLDER = '/home/demo/mangohud';
+export const DEMO_FOLDER = 'C:/Users/Demo/Documents';
 
 /** Whether `text` can name a host to ping, like the backend checks it. */
 export function demoIsHost(text) {
@@ -85,7 +85,6 @@ export function demoDenied(address) {
   return Object.assign(new Error(`access denied to ${address}: ${reason}`), {
     code: 'accessDenied',
     args: { address, reason },
-    udevCommand: DEMO_UDEV_COMMAND,
   });
 }
 
@@ -1349,7 +1348,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let debugCorner = "bottom-left";
   let lightOnClose = true;
   const systemLanguage = pickLocale(hooks.languages ?? []);
-  const sensorOptions = { pingHost: null, mangohudDir: null };
+  const sensorOptions = { pingHost: null };
   const closeListeners = new Set();
   const quitListeners = new Set();
   const windowGoes = (state) => {
@@ -1645,8 +1644,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       systemLanguage,
       pingHost: sensorOptions.pingHost ?? DEMO_PING_HOST,
       defaultPingHost: DEMO_PING_HOST,
-      mangohudDir: sensorOptions.mangohudDir,
-      mangohud: true,
+
+
       themeFilter: { ...themeFilter },
     }),
     setThemeFilter: (scope, axis) => {
@@ -1661,15 +1660,13 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       themeFilter = { scope: chosen, axis };
       return Promise.resolve();
     },
-    setSensorOptions: (pingHost, mangohudDir) => {
+    setSensorOptions: (pingHost) => {
       const host = pingHost.trim();
       if (host && !demoIsHost(host)) {
         return Promise.reject(Object.assign(new Error(`"${host}" is not a host name or an IP address`), { code: 'invalidHost', args: { host } }));
       }
-      if (mangohudDir !== null && !mangohudDir.startsWith('/')) {
-        return Promise.reject(Object.assign(new Error(`"${mangohudDir}" is not a folder`), { code: 'invalidFolder', args: { folder: mangohudDir } }));
-      }
-      Object.assign(sensorOptions, { pingHost: host && host !== DEMO_PING_HOST ? host : null, mangohudDir });
+
+      Object.assign(sensorOptions, { pingHost: host && host !== DEMO_PING_HOST ? host : null });
       return Promise.resolve();
     },
     pickFolder: () => Promise.resolve(DEMO_FOLDER),

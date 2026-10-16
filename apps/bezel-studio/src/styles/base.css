@@ -297,7 +297,6 @@ button.pill:hover { border-color: var(--accent); }
 /* ------------------------------------------------------ confirm dialog -- */
 .confirm-dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .wide-dialog { width: min(720px, calc(100vw - 32px)); }
-.udev-dialog { width: min(560px, calc(100vw - 32px)); }
 .video-preview-dialog { width: min(850px, calc(100vw - 32px)); }
 .confirm-dialog::backdrop { background: rgb(10 14 26 / 55%); }
 .dialog-head { display: flex; align-items: flex-start; gap: 8px; padding: 16px 16px 0 20px; }
