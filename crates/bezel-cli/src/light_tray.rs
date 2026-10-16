@@ -87,6 +87,7 @@ fn follow_saved_theme(cli: &mut Cli) {
     *ffmpeg = settings["ffmpegPath"].as_str().map(Into::into);
     sensor_settings.ping_host = settings["pingHost"].as_str().map(Into::into);
     sensor_settings.mangohud_dir = settings["mangohudDir"].as_str().map(Into::into);
+    sensor_settings.presentmon_path = settings["presentmonPath"].as_str().map(Into::into);
 }
 
 pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
@@ -479,6 +480,7 @@ fn make_engine(
                     bezel_sensors::SensorOptions {
                         ping_host: options.ping_host.clone(),
                         mangohud_dir: options.mangohud_dir.as_ref().map(std::path::PathBuf::from),
+                        presentmon_path: options.presentmon_path.clone(),
                     },
                 ))
             };
