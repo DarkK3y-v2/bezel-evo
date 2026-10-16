@@ -528,3 +528,11 @@ Spec cambiate senza indebolire: `ring-gradient`, `player-parts`, `icons`, `backg
 **Dimensione.** +2.109.672 byte (circa 2,0 MiB) per eseguibile (`bezel.exe`, `bezel-studio.exe`), calcolati dalle dimensioni dei file incorporati.
 
 **Test.** `text::tests::the_shipped_families_are_always_there_and_bundled` (nessuna diagnostica, origine `Bundled`, niente duplicati) e `theme::tests::the_shipped_fonts_draw_a_theme_from_any_folder` (tema in una cartella temporanea senza `fonts/`: nessun avviso, pixel identici a un renderer con solo la faccia inclusa, per Inter e JetBrains Mono). `cargo test -p bezel-render -p bezel -p bezel-studio` verde, clippy `-D warnings` e fmt verdi, `font-catalog.test.mjs` 7/7, e2e `font-picker` 12/12. llvm-cov e `npm test` completo rinviati alla verifica prima della pubblicazione (nuova regola dell'utente).
+
+### Log nelle Preferenze e pannello Schermo per lo schermo scelto (`eadc011`, `2b4bf49`)
+
+**Log.** Le Preferenze hanno ora una sezione "Log" sempre visibile (percorso del log, nota, pulsante "Apri cartella dei log") che apre `%LOCALAPPDATA%\io.github.slipalison.bezel\logs` (Studio e `light.log`). Riusa il comando esistente `open_logs_folder` / `bridge.openLogsFolder()`, che prima stava dentro la sezione Debug: spostato, non duplicato. Nel demo il pulsante risolve senza effetti. Nuove chiavi `prefs.logsTitle` e `prefs.logsHint` in en, pt-BR e it.
+
+**Pannello Schermo.** Impostazioni mostra solo lo schermo scelto in alto (scheda, luminosità, Avanzate con Restituisci/Riavvia), come nel mockup `Screen.dc.html`; gli altri schermi si vedono cambiando la selezione in alto. Avvio con il computer, standby e Archivio erano già per lo schermo scelto.
+
+**Test.** `debug.spec` (sezione Log sempre visibile, un solo pulsante, anche con Debug spento) 4/4; nuovo test in `scenarios-screen.spec` con il demo `two` (un solo blocco, cambio di selezione, luminosità propria di ciascuno schermo) e lo spec intero 32/32; `standby`, `storage`, `live-screen-controls`, `device-label-020`, `multi-screen` 72/72; `i18n.test.mjs` e `static-guards.test.mjs` verdi. Rust non toccato. Suite completa e llvm-cov rinviate alla verifica prima della pubblicazione.
