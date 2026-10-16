@@ -28,6 +28,7 @@ mod path;
 mod player;
 mod renderer;
 mod shape;
+mod spectrum;
 mod svg;
 mod text;
 

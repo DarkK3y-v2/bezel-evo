@@ -462,3 +462,9 @@ test('font actions accept catalog identities and document assets, never a file p
     ['font_face', { family: 'Local', weight: 700, italic: true, asset: 'assets/local.ttc' }],
   ]);
 });
+
+test('process capture consent uses an explicit local command, not a theme patch',async()=>{
+  const calls=[];const bridge=createBridge({...page(),__TAURI__:{core:{invoke:async(cmd,args)=>{calls.push([cmd,args]);}}}});
+  await bridge.setAudioCapture(true);await bridge.setAudioCapture(false);
+  assert.deepEqual(calls,[['set_audio_capture',{on:true}],['set_audio_capture',{on:false}]]);
+});

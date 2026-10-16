@@ -12,9 +12,9 @@ test('widgets come in three groups with a count, a search and the hint at the fo
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   const panel = page.locator('#panel-widgets');
-  await expect(panel.locator('.panel-head .count')).toHaveText(t('widgets.count', { count: 13 }));
+  await expect(panel.locator('.panel-head .count')).toHaveText(t('widgets.count', { count: 14 }));
   await expect(panel.locator('.section-title')).toHaveText([t('widgets.group.textData'), t('widgets.group.indicators'), t('widgets.group.mediaStructure')]);
-  await expect(panel.locator('.widget-tile')).toHaveCount(13);
+  await expect(panel.locator('.widget-tile')).toHaveCount(14);
   await expect(panel.locator('.dashed-hint kbd')).toHaveText(t('widgets.enterKey'));
   await expectAccessible(page);
 
@@ -27,7 +27,7 @@ test('widgets come in three groups with a count, a search and the hint at the fo
   await expect(panel.locator('.widget-tile')).toHaveCount(0);
   await expect(panel).toContainText(t('widgets.none'));
   await search.fill('');
-  await expect(panel.locator('.widget-tile')).toHaveCount(13);
+  await expect(panel.locator('.widget-tile')).toHaveCount(14);
 
   // Enter on a focused tile adds it at the centre, as the hint says.
   await panel.getByRole('button', { name: t('library.addWidget', { name: t('common.text') }), exact: true }).focus();

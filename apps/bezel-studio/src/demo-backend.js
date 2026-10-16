@@ -100,6 +100,7 @@ export function demoHung() {
  */
 export function demoNextChange(theme, ms) {
   const gif = (theme?.elements ?? []).some((e) => isShown(theme, e) && e.kind?.type === 'image' && String(e.kind.asset).toLowerCase().endsWith('.gif'));
+  if ((theme?.elements ?? []).some(e => isShown(theme,e) && e.kind.content?.type === 'spectrum' && e.kind.content.demo)) return 50;
   return gif ? DEMO_GIF_FRAME_MS - (Math.floor(ms) % DEMO_GIF_FRAME_MS) : null;
 }
 
@@ -1346,6 +1347,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let debug = false;
   let debugShowReadings = false;
   let debugCorner = "bottom-left";
+  let audioCapture = false;
   const systemLanguage = pickLocale(hooks.languages ?? []);
   const sensorOptions = { pingHost: null };
   const closeListeners = new Set();
@@ -1633,8 +1635,10 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     windowState: () => windowState,
     openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
+    setAudioCapture: (on) => { audioCapture = Boolean(on); return Promise.resolve(); },
     preferences: () => Promise.resolve({
       debug, debugShowReadings, debugCorner, debugLogPath: "Demo: no file logging",
+      audioCapture,
       lightRuntime: true,
       language,
       systemLanguage,

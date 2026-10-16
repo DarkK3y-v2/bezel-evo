@@ -463,6 +463,8 @@ impl Reading {
 /// Readings taken together.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Snapshot {
+    /// Independently sampled audio display results, keyed by widget.
+    pub spectra: BTreeMap<super::theme::ElementId, super::spectrum::SpectrumFrame>,
     /// Operating-system media sessions; empty when unavailable.
     pub media: Vec<super::playback::MediaSession>,
     /// True when the operating-system media session list was read successfully.

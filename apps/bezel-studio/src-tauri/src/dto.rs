@@ -506,6 +506,7 @@ pub struct SavedDto {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreferencesDto {
+    pub audio_capture: bool,
     pub debug: bool,
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,

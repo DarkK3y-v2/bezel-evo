@@ -19,6 +19,7 @@
 //! process memory (`memory`), each call with its `// SAFETY:` reasoning.
 #![deny(unsafe_code)]
 
+pub mod audio;
 mod fake;
 mod fps;
 mod gpu;

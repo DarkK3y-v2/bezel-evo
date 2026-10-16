@@ -762,10 +762,87 @@ fn time_format(f: TimeFormatDto) -> bezel_core::domain::playback::TimeFormat {
     }
 }
 
+/// Optional spectrum configuration; defaults are applied only to this new kind.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpectrumDto {
+    pub player: Option<u32>,
+    pub bands: u16,
+    pub low: f32,
+    pub high: f32,
+    pub motion: String,
+    pub peaks: bool,
+    pub demo: bool,
+    pub thickness: f32,
+    pub gap: f32,
+    pub corners: [f32; 4],
+    pub centre: bool,
+}
+impl Default for SpectrumDto {
+    fn default() -> Self {
+        Self::from(&bezel_core::domain::spectrum::Spectrum::default())
+    }
+}
+impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
+    fn from(s: &bezel_core::domain::spectrum::Spectrum) -> Self {
+        use bezel_core::domain::spectrum::Motion;
+        Self {
+            player: s.player.map(|p| p.0),
+            bands: s.bands,
+            low: s.low,
+            high: s.high,
+            motion: match s.motion {
+                Motion::Smooth => "smooth",
+                Motion::Balanced => "balanced",
+                Motion::Snappy => "snappy",
+            }
+            .into(),
+            peaks: s.peaks,
+            demo: s.demo,
+            thickness: s.thickness,
+            gap: s.gap,
+            corners: s.corners,
+            centre: s.centre,
+        }
+    }
+}
+impl SpectrumDto {
+    fn domain(&self) -> R<bezel_core::domain::spectrum::Spectrum> {
+        use bezel_core::domain::spectrum::{Motion, Spectrum};
+        let motion = match self.motion.as_str() {
+            "smooth" => Motion::Smooth,
+            "balanced" => Motion::Balanced,
+            "snappy" => Motion::Snappy,
+            _ => return err("unknown spectrum motion"),
+        };
+        let s = Spectrum {
+            player: self.player.map(ElementId),
+            bands: self.bands,
+            low: self.low,
+            high: self.high,
+            motion,
+            peaks: self.peaks,
+            demo: self.demo,
+            thickness: self.thickness,
+            gap: self.gap,
+            corners: self.corners,
+            centre: self.centre,
+        };
+        if !s.valid() {
+            return err("invalid spectrum bounds");
+        }
+        Ok(s)
+    }
+}
+
 /// Text content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentDto {
+    Spectrum {
+        #[serde(flatten)]
+        spectrum: SpectrumDto,
+    },
     Player {
         #[serde(default)]
         source: String,
@@ -1335,6 +1412,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
     match k {
         ElementKind::Text { content, style } => KindDto::Text {
             content: match content {
+                TextContent::Spectrum(s) => ContentDto::Spectrum { spectrum: s.into() },
                 TextContent::Player(p) => ContentDto::Player {
                     source: p.source.clone(),
                     show_cover: p.show_cover,
@@ -1532,6 +1610,7 @@ fn kind(k: &KindDto) -> R<ElementKind> {
     Ok(match k {
         KindDto::Text { content, style: s } => ElementKind::Text {
             content: match content {
+                ContentDto::Spectrum { spectrum } => TextContent::Spectrum(spectrum.domain()?),
                 ContentDto::Player {
                     source,
                     show_cover,
@@ -2150,4 +2229,43 @@ fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
         end: f.end,
         radial: f.radial,
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod spectrum_tests {
+    use super::*;
+    #[test]
+    fn spectrum_defaults_round_trip_without_changing_the_schema() {
+        let dto: ContentDto = serde_json::from_str(r#"{"type":"spectrum"}"#).unwrap();
+        let ContentDto::Spectrum { spectrum } = dto else {
+            panic!("spectrum expected")
+        };
+        assert_eq!(
+            spectrum.domain().unwrap(),
+            bezel_core::domain::spectrum::Spectrum::default()
+        );
+        assert_eq!(SCHEMA, 1);
+        let value = ContentDto::Spectrum { spectrum };
+        assert_eq!(
+            serde_json::from_slice::<ContentDto>(&serde_json::to_vec(&value).unwrap()).unwrap(),
+            value
+        );
+    }
+    #[test]
+    fn spectrum_rejects_invalid_ranges_and_motion() {
+        let mut s = SpectrumDto {
+            bands: 1000,
+            ..Default::default()
+        };
+        assert!(s.domain().is_err());
+        s.bands = 32;
+        s.low = 18000.;
+        s.high = 60.;
+        assert!(s.domain().is_err());
+        s.low = 60.;
+        s.high = 16000.;
+        s.motion = "unknown".into();
+        assert!(s.domain().is_err());
+    }
 }

@@ -635,3 +635,24 @@ pub trait RuntimeConnection: Send + Sync {
         false
     }
 }
+
+/// Process-restricted audio capture factory, implemented outside the hexagon.
+/// Never falls back to a microphone or the system-wide output.
+pub trait AudioCaptureFactory: Send + Sync {
+    /// Platform capability, also reported while the followed Player is paused.
+    fn availability(&self) -> crate::domain::spectrum::AudioState {
+        crate::domain::spectrum::AudioState::Live
+    }
+    /// Resolve the session's exact app identifier and open its process tree.
+    fn open(
+        &self,
+        source: &str,
+    ) -> std::result::Result<Box<dyn AudioCapture>, crate::domain::spectrum::AudioState>;
+}
+/// Non-blocking, bounded packet reader owned by the Light audio worker.
+pub trait AudioCapture {
+    /// Drain currently available PCM; empty packets mean silence, not failure.
+    fn read(
+        &mut self,
+    ) -> std::result::Result<crate::domain::spectrum::AudioBlock, crate::domain::spectrum::AudioState>;
+}

@@ -5,7 +5,7 @@ export const MAX_COLOR_THRESHOLDS = 32;
 export function supportsValueColor(e) {
   if (!e || e.isGroup || e.card) return false;
   const k = e.kind;
-  if (k.type === 'text') return ['static', 'sensor'].includes(k.content.type);
+  if (k.type === 'text') return ['static', 'sensor', 'spectrum'].includes(k.content.type);
   if (k.type === 'shape') return !k.videoWindow;
   if (k.type === 'image') return k.asset.toLowerCase().endsWith('.svg');
   return ['ring', 'bar', 'needle', 'graph'].includes(k.type);

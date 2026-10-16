@@ -18,6 +18,8 @@ use crate::texts::parse_language;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    /// Explicit local permission; never read from theme documents.
+    pub audio_capture: bool,
     pub debug: bool,
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,
@@ -146,6 +148,17 @@ impl SettingsFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn old_settings_never_grant_audio_capture_permission() {
+        let old: Settings = serde_json::from_str(r#"{"lastTheme":"a.bezeltheme"}"#).unwrap();
+        assert!(!old.audio_capture);
+        let consent: Settings = serde_json::from_str(r#"{"audioCapture":true}"#).unwrap();
+        assert!(consent.audio_capture);
+        assert_eq!(
+            serde_json::to_value(&consent).unwrap()["audioCapture"],
+            true
+        );
+    }
 
     #[test]
     fn round_trips_and_tolerates_missing_or_broken_files() {

@@ -7,7 +7,7 @@ import {
 import { WIDGETS } from '../../src/editor/widgets.js';
 import { layerGroups } from '../../src/editor/layers.js';
 
-const LABELS = { text: 'Testo', value: 'Valore', clock: 'Orologio', weather: 'Meteo', ring: 'Anello', bar: 'Barra', needle: 'Lancetta', graph: 'Grafico', image: 'Immagine', player: 'Media player', shape: 'Forma', card: 'Card', group: 'Gruppo' };
+const LABELS = { text: 'Testo', value: 'Valore', clock: 'Orologio', weather: 'Meteo', ring: 'Anello', bar: 'Barra', needle: 'Lancetta', graph: 'Grafico', image: 'Immagine', player: 'Media player', spectrum: 'Spettro audio', shape: 'Forma', card: 'Card', group: 'Gruppo' };
 const labelOf = (w) => LABELS[w];
 
 test('the widget groups hold every widget once, plus the Group tile', () => {
@@ -15,11 +15,11 @@ test('the widget groups hold every widget once, plus the Group tile', () => {
   assert.deepEqual(WIDGET_GROUPS.map((g) => g.id), ['textData', 'indicators', 'mediaStructure']);
   assert.deepEqual([...all].sort(), [...WIDGETS, 'group'].sort());
   assert.equal(new Set(all).size, all.length);
-  assert.equal(WIDGET_COUNT, 13);
+  assert.equal(WIDGET_COUNT, 14);
 });
 
 test('the widget search matches names and ids, ignoring case and accents, and drops empty groups', () => {
-  assert.deepEqual(widgetGroups(labelOf).map((g) => g.widgets.length), [4, 4, 5]);
+  assert.deepEqual(widgetGroups(labelOf).map((g) => g.widgets.length), [4, 4, 6]);
   assert.deepEqual(widgetGroups(labelOf, ' BARRA '), [{ id: 'indicators', widgets: ['bar'] }]);
   assert.deepEqual(widgetGroups(labelOf, 'player'), [{ id: 'mediaStructure', widgets: ['player'] }]);
   assert.deepEqual(widgetGroups(labelOf, 'media pl'), [{ id: 'mediaStructure', widgets: ['player'] }]);

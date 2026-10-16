@@ -5,6 +5,7 @@ pub mod element_preview;
 mod images;
 mod presentation;
 mod sampling;
+mod spectrum;
 mod wake;
 pub use wake::Wake;
 pub mod wire;
@@ -79,6 +80,7 @@ struct Scene {
     live: bool,
     frame: Option<Arc<Frame>>,
     sequence: u64,
+    queued_sequence: Option<u64>,
     dirty: bool,
     orientation: Option<bezel_core::domain::geometry::Orientation>,
     source: Option<MediaLocation>,
@@ -153,6 +155,8 @@ pub struct Engine {
     suspended: bool,
     catalog: Vec<SensorInfo>,
     next_id: u64,
+    audio: Option<spectrum::Worker>,
+    audio_enabled: bool,
 }
 impl Engine {
     /// All adapters are injected; this exact constructor serves real Light,
@@ -193,7 +197,18 @@ impl Engine {
             suspended: false,
             catalog,
             next_id: 1,
+            audio: None,
+            audio_enabled: false,
         })
+    }
+    /// Inject process capture; consent remains disabled until locally configured.
+    pub fn with_audio(mut self, factory: Arc<dyn bezel_core::ports::AudioCaptureFactory>) -> Self {
+        self.audio = Some(spectrum::Worker::new(factory, self.wake.clone()));
+        self
+    }
+    /// Apply a locally stored choice; theme JSON can never grant capture permission.
+    pub fn audio_consent(&mut self, enabled: bool) {
+        self.audio_enabled = enabled;
     }
     /// Compatibility baseline used only when a physical connection is actually opened.
     pub fn with_handoff(
@@ -232,6 +247,7 @@ impl Engine {
                 scene.dirty = true;
             }
         }
+        self.audio_enabled = options.audio_capture;
         self.options = Some(options);
         Ok(())
     }
@@ -294,6 +310,7 @@ impl Engine {
                     live: false,
                     frame: None,
                     sequence: 0,
+                    queued_sequence: None,
                     dirty: true,
                     orientation: None,
                     source: None,
@@ -443,6 +460,9 @@ impl Engine {
     /// Deterministic clock entry for tests and the same loop's scheduling.
     pub fn tick_at(&mut self, now: Duration, time: LocalTime) -> Result<Duration> {
         if self.suspended {
+            if let Some(audio) = &self.audio {
+                audio.sync(Vec::new(), false);
+            }
             return Ok(Duration::from_millis(50));
         }
         let reading = self.sensors.latest();
@@ -450,6 +470,67 @@ impl Engine {
             self.catalog = reading.catalog.clone();
             self.catalog_sequence = reading.sequence;
         }
+        let mut requests = Vec::new();
+        for (key, scene) in &self.scenes {
+            let screen_consumes = scene.live
+                && scene
+                    .link
+                    .as_ref()
+                    .is_some_and(|l| !l.presentation_paused());
+            if !screen_consumes && !self.images.viewed(key) {
+                continue;
+            }
+            for element in scene
+                .runtime
+                .theme()
+                .elements
+                .iter()
+                .filter(|e| scene.runtime.theme().is_visible(e))
+            {
+                if let bezel_core::domain::theme::ElementKind::Text {
+                    content: bezel_core::domain::theme::TextContent::Spectrum(config),
+                    ..
+                } = &element.kind
+                {
+                    if requests.len() >= 256 {
+                        continue;
+                    }
+                    let snapshot = if reading.sequence > 0 {
+                        scene
+                            .runtime
+                            .playback_snapshot(&reading.snapshot, reading.scheduled_at)
+                    } else {
+                        scene.runtime.snapshot()
+                    };
+                    let selected = config.session(scene.runtime.theme(), snapshot);
+                    let (source, playing, state) = match selected {
+                        Ok(Some(s)) => (
+                            s.source.clone(),
+                            s.playing,
+                            bezel_core::domain::spectrum::AudioState::Live,
+                        ),
+                        Ok(None) => (
+                            String::new(),
+                            false,
+                            bezel_core::domain::spectrum::AudioState::Unavailable,
+                        ),
+                        Err(state) => (String::new(), false, state),
+                    };
+                    requests.push(spectrum::Request {
+                        key: format!("{}/{}", scene.id, element.id.0),
+                        source,
+                        playing,
+                        state,
+                        config: config.clone(),
+                    });
+                }
+            }
+        }
+        let audio_frames = self
+            .audio
+            .as_ref()
+            .map(|a| a.sync(requests.clone(), self.audio_enabled))
+            .unwrap_or_default();
         let mut next = Duration::from_millis(50);
         for (key, scene) in &mut self.scenes {
             if scene.live && scene.presenter.is_none() {
@@ -475,6 +556,7 @@ impl Engine {
                 if let Some((screen, link)) = update.opened {
                     scene.screen = Some(screen);
                     scene.link = Some(link);
+                    scene.queued_sequence = None;
                     scene.orientation = None;
                     scene.runtime.forget_screen();
                     scene.dirty = true;
@@ -489,6 +571,59 @@ impl Engine {
                     )?
                 {
                     scene.dirty = true;
+                }
+                // Audio renders follow the physical presenter when it cannot sustain 20 fps.
+                // Its slot and the audio worker both retain only their newest result.
+                if scene.live
+                    && requests
+                        .iter()
+                        .any(|r| r.key.starts_with(&format!("{}/", scene.id)))
+                    && scene.presenter.as_ref().is_some_and(|p| !p.idle())
+                {
+                    return Ok(Duration::from_millis(50));
+                }
+                if now.saturating_sub(scene.rendered_at) >= Duration::from_millis(50)
+                    || scene.frame.is_none()
+                {
+                    let frames = requests
+                        .iter()
+                        .filter(|r| r.key.starts_with(&format!("{}/", scene.id)))
+                        .filter_map(|r| {
+                            let id = r.key.rsplit('/').next()?.parse::<u32>().ok()?;
+                            let state = if r.config.demo {
+                                bezel_core::domain::spectrum::AudioState::Demo
+                            } else if !self.audio_enabled {
+                                bezel_core::domain::spectrum::AudioState::Disabled
+                            } else if self.audio.is_none()
+                                && r.state == bezel_core::domain::spectrum::AudioState::Live
+                            {
+                                bezel_core::domain::spectrum::AudioState::Unavailable
+                            } else {
+                                r.state
+                            };
+                            let frame = if matches!(
+                                state,
+                                bezel_core::domain::spectrum::AudioState::Live
+                                    | bezel_core::domain::spectrum::AudioState::Demo
+                            ) {
+                                audio_frames.get(&r.key).cloned().unwrap_or(
+                                    bezel_core::domain::spectrum::SpectrumFrame {
+                                        state,
+                                        ..Default::default()
+                                    },
+                                )
+                            } else {
+                                bezel_core::domain::spectrum::SpectrumFrame {
+                                    state,
+                                    ..Default::default()
+                                }
+                            };
+                            Some((ElementId(id), frame))
+                        })
+                        .collect();
+                    if scene.runtime.set_spectra(frames) {
+                        scene.dirty = true;
+                    }
                 }
                 let mut due = scene.runtime.next_due();
                 if matches!(scene.runtime.video(), VideoState::Host) {
@@ -551,11 +686,11 @@ impl Engine {
                     now.saturating_sub(scene.video_started),
                 )?;
                 let render_millis = render_started.elapsed().as_secs_f64() * 1000.0;
-                if scene
+                let frame_changed = scene
                     .frame
                     .as_ref()
-                    .is_none_or(|previous| previous.as_ref() != &frame)
-                {
+                    .is_none_or(|previous| previous.as_ref() != &frame);
+                if frame_changed {
                     scene.sequence = scene.sequence.saturating_add(1);
                     scene.frame = Some(Arc::new(frame));
                 }
@@ -564,11 +699,16 @@ impl Engine {
                     .as_ref()
                     .ok_or_else(|| invalid("missing rendered frame"))?
                     .clone();
-                if scene.live
+                if (scene.queued_sequence != Some(scene.sequence)
+                    || !requests
+                        .iter()
+                        .any(|r| r.key.starts_with(&format!("{}/", scene.id))))
+                    && scene.live
                     && scene.link.is_some()
                     && let Some(presenter) = &scene.presenter
                 {
                     presenter.frame(frame.clone());
+                    scene.queued_sequence = Some(scene.sequence);
                 }
                 scene.rendered_at = now;
                 scene.dirty = false;

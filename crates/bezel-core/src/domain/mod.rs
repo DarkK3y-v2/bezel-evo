@@ -35,5 +35,6 @@ pub mod weather;
 pub mod gradient;
 
 pub mod playback;
+pub mod spectrum;
 
 pub mod value_color;

@@ -35,6 +35,7 @@ fn time() -> LocalTime {
 #[derive(Clone, Debug)]
 struct Seen {
     history: Vec<Option<f64>>,
+    spectra: BTreeMap<ElementId, bezel_core::domain::spectrum::AudioState>,
     clock: Duration,
     theme: String,
 }
@@ -51,6 +52,12 @@ impl FrameRenderer for Renderer {
             .first()
             .map_or(Vec::new(), |id| context.histories.points(id, 100));
         self.0.lock().unwrap().push(Seen {
+            spectra: context
+                .snapshot
+                .spectra
+                .iter()
+                .map(|(id, f)| (*id, f.state))
+                .collect(),
             history,
             clock: context.animation,
             theme: theme.name.clone(),
@@ -609,6 +616,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
     f.engine.document("editor", 0, doc(), true).unwrap();
     advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let options = wire::Options {
+        audio_capture: false,
         ping_host: "127.0.0.1".into(),
 
         ffmpeg: None,
@@ -1073,4 +1081,176 @@ fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
     stop.store(true, Ordering::SeqCst);
     drop(client);
     thread.join().unwrap().unwrap();
+}
+
+#[test]
+fn silent_spectrum_does_not_resend_identical_frames_on_sensor_ticks() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    let element = &mut document.theme.elements[0];
+    element.kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document(&f.key, 0, document, true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    let count = f.physical.log().frames.len();
+    assert!(count > 0);
+    for n in 1..5 {
+        advance(&mut f.engine, Duration::from_secs(n), time()).unwrap();
+    }
+    assert_eq!(
+        f.physical.log().frames.len(),
+        count,
+        "settled audio must not submit unchanged frames"
+    );
+    f.engine.suspend(true);
+    assert_eq!(
+        f.engine.tick_at(Duration::from_secs(6), time()).unwrap(),
+        Duration::from_millis(50)
+    );
+}
+
+#[test]
+fn rejected_options_do_not_grant_capture_permission() {
+    let mut f = fixture();
+    let invalid = wire::Options {
+        audio_capture: true,
+        ping_host: "x".repeat(254),
+        ffmpeg: None,
+    };
+    assert!(f.engine.options(invalid).is_err());
+    assert!(!f.engine.audio_enabled);
+}
+
+#[test]
+fn scene_names_with_shared_prefixes_cannot_exchange_audio_results() {
+    use bezel_core::domain::{
+        spectrum::{AudioState, Spectrum},
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut plain = doc();
+    plain.theme.name = "plain-spectrum".into();
+    plain.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut demo = plain.clone();
+    demo.theme.name = "demo-spectrum".into();
+    if let ElementKind::Text {
+        content: TextContent::Spectrum(s),
+        ..
+    } = &mut demo.theme.elements[0].kind
+    {
+        s.demo = true;
+    }
+    f.engine.document("a", 0, plain, false).unwrap();
+    f.engine.document("a/b", 0, demo, false).unwrap();
+    f.engine.audio_consent(true);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    f.engine.images.latest("a/b", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    let plain = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "plain-spectrum")
+        .unwrap();
+    let demo = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "demo-spectrum")
+        .unwrap();
+    assert_eq!(
+        plain.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::PlayerMissing]
+    );
+    assert_eq!(
+        demo.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::Demo]
+    );
+}
+
+#[test]
+fn spectrum_switches_source_on_the_same_refresh_that_changes_the_player() {
+    use bezel_core::{
+        domain::{
+            playback::{MediaSession, Player},
+            spectrum::{AudioBlock, AudioState, Spectrum},
+            theme::{TextContent, TextStyle},
+        },
+        ports::{AudioCapture, AudioCaptureFactory},
+    };
+    struct Factory(Arc<Mutex<Vec<String>>>);
+    struct Capture;
+    impl AudioCapture for Capture {
+        fn read(&mut self) -> std::result::Result<AudioBlock, AudioState> {
+            Ok(AudioBlock {
+                samples: vec![],
+                rate: 48000,
+                channels: 2,
+            })
+        }
+    }
+    impl AudioCaptureFactory for Factory {
+        fn open(&self, source: &str) -> std::result::Result<Box<dyn AudioCapture>, AudioState> {
+            self.0.lock().unwrap().push(source.into());
+            Ok(Box::new(Capture))
+        }
+    }
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.refresh_seconds = 1.;
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut player = document.theme.elements[0].clone();
+    player.id = ElementId(2);
+    player.kind = ElementKind::Text {
+        content: TextContent::Player(Player::default()),
+        style: TextStyle::default(),
+    };
+    document.theme.elements.push(player);
+    let samples = ["Spotify.exe", "Chrome.exe"].map(|source| {
+        let mut s = Snapshot::default();
+        s.media.push(MediaSession {
+            source: source.into(),
+            playing: true,
+            ..Default::default()
+        });
+        s
+    });
+    f.engine.sensors =
+        sampling::Sampler::manual(Box::new(FakeSensors::new(Vec::new(), samples.into())));
+    let opened = Arc::new(Mutex::new(Vec::new()));
+    f.engine = f.engine.with_audio(Arc::new(Factory(opened.clone())));
+    f.engine.audio_consent(true);
+    f.engine.document("preview", 0, document, false).unwrap();
+    f.engine.sensors.advance(Duration::ZERO);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("preview", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let wait = |source: &str| {
+        let until = Instant::now() + Duration::from_secs(1);
+        while !opened.lock().unwrap().iter().any(|s| s == source) {
+            assert!(
+                Instant::now() < until,
+                "source was not requested in the Player refresh"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    };
+    wait("Spotify.exe");
+    f.engine.sensors.advance(Duration::from_secs(1));
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    wait("Chrome.exe");
 }

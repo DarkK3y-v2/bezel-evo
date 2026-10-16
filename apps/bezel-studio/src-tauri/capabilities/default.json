@@ -60,6 +60,7 @@
     "allow-close-window",
     "allow-preferences",
     "allow-set-language",
+    "allow-set-audio-capture",
     "allow-set-debug",
     "allow-set-sensor-options",
     "allow-pick-folder",

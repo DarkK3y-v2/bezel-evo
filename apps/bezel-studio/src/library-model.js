@@ -15,7 +15,7 @@ import { isShown, owners } from './editor/cards.js';
 export const WIDGET_GROUPS = Object.freeze([
   Object.freeze({ id: 'textData', widgets: Object.freeze(['text', 'value', 'clock', 'weather']) }),
   Object.freeze({ id: 'indicators', widgets: Object.freeze(['ring', 'bar', 'needle', 'graph']) }),
-  Object.freeze({ id: 'mediaStructure', widgets: Object.freeze(['image', 'player', 'shape', 'card', 'group']) }),
+  Object.freeze({ id: 'mediaStructure', widgets: Object.freeze(['image', 'player', 'spectrum', 'shape', 'card', 'group']) }),
 ]);
 
 /** How many tiles the Widgets panel has in all. */

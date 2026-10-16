@@ -9,6 +9,8 @@ use serde_json::{Value, json};
 #[serde(deny_unknown_fields)]
 pub struct Options {
     pub ping_host: String,
+    #[serde(default)]
+    pub audio_capture: bool,
     pub ffmpeg: Option<String>,
 }
 

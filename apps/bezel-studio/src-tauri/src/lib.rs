@@ -344,6 +344,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::set_unsaved,
             commands::close_window,
             commands::preferences,
+            commands::set_audio_capture,
             commands::set_debug,
             commands::set_language,
             commands::set_sensor_options,

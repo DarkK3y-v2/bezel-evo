@@ -13,10 +13,20 @@ pub(crate) struct Snapshot {
     pub render_millis: f64,
 }
 #[derive(Default)]
-pub struct Images(RwLock<BTreeMap<String, Arc<Snapshot>>>);
+pub struct Images {
+    frames: RwLock<BTreeMap<String, Arc<Snapshot>>>,
+    viewed: std::sync::Mutex<BTreeMap<String, std::time::Instant>>,
+}
 impl Images {
+    pub(crate) fn viewed(&self, key: &str) -> bool {
+        self.viewed
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(key)
+            .is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(2))
+    }
     pub(crate) fn publish(&self, key: &str, snapshot: Snapshot) {
-        self.0
+        self.frames
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .insert(key.into(), Arc::new(snapshot));
@@ -26,11 +36,21 @@ impl Images {
             return Err(invalid("invalid canvas bound"));
         }
         let snapshot = self
-            .0
+            .frames
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get(key)
             .cloned();
+        if snapshot.is_some() {
+            let mut viewed = self
+                .viewed
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            viewed.retain(|_, at| at.elapsed() < std::time::Duration::from_secs(2));
+            if viewed.len() < 32 || viewed.contains_key(key) {
+                viewed.insert(key.into(), std::time::Instant::now());
+            }
+        }
         light(LightEvent::Canvas, 0, 0.0, "request");
         let Some(snapshot) = snapshot else {
             return Ok(wire::Image {

@@ -662,6 +662,31 @@ impl ThemeRuntime {
     }
 
     /// The readings of the last [`Self::sample`] (empty before the first).
+    /// Snapshot the Player will display after accepting an incoming sample at `at`.
+    /// Independent graph points do not change the Player before the theme refresh.
+    pub fn playback_snapshot<'a>(&'a self, incoming: &'a Snapshot, at: Duration) -> &'a Snapshot {
+        if self.refresh_due(at) {
+            incoming
+        } else {
+            &self.scene.snapshot
+        }
+    }
+
+    /// Update independent audio results without sampling or resetting histories.
+    pub fn set_spectra(
+        &mut self,
+        frames: BTreeMap<ElementId, crate::domain::spectrum::SpectrumFrame>,
+    ) -> bool {
+        if self.scene.snapshot.spectra == frames {
+            return false;
+        }
+        self.scene.snapshot.spectra = frames;
+        self.scene.revision = content_revision();
+        self.recent_frame = None;
+        true
+    }
+
+    /// The latest sensor readings used by this Player and its followers.
     pub fn snapshot(&self) -> &Snapshot {
         &self.latest
     }
@@ -1246,6 +1271,7 @@ impl ThemeRuntime {
         };
         image_change(&theme, &self.timelines, at)
             .into_iter()
+            .chain(theme.elements.iter().any(|e| theme.is_visible(e) && matches!(&e.kind,crate::domain::theme::ElementKind::Text{content:crate::domain::theme::TextContent::Spectrum(s),..} if s.demo)).then_some(at+Duration::from_millis(50)))
             .chain(self.renderer_change)
             .chain(self.card_timers.next)
             .chain(self.transitions.next_change(&theme, at, view))

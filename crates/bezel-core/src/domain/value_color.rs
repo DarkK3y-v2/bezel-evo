@@ -49,6 +49,15 @@ impl Element {
         snapshot: &super::sensor::Snapshot,
         shown: &super::transition::ShownValues,
     ) -> Option<Rgba> {
+        if matches!(
+            &self.kind,
+            ElementKind::Text {
+                content: TextContent::Spectrum(_),
+                ..
+            }
+        ) {
+            return None;
+        }
         if !self.supports_value_color() {
             return None;
         }
@@ -91,7 +100,8 @@ impl Element {
             && self.card.is_none()
             && match &self.kind {
                 ElementKind::Text {
-                    content: TextContent::Static(_) | TextContent::Sensor { .. },
+                    content:
+                        TextContent::Static(_) | TextContent::Sensor { .. } | TextContent::Spectrum(_),
                     ..
                 }
                 | ElementKind::Bar { .. }
@@ -106,6 +116,15 @@ impl Element {
 
     /// Sensor wanted by an enabled rule; unsupported kinds ignore the field.
     pub fn color_sensor(&self) -> Option<&SensorKey> {
+        if matches!(
+            &self.kind,
+            ElementKind::Text {
+                content: TextContent::Spectrum(_),
+                ..
+            }
+        ) {
+            return None;
+        }
         if !self.supports_value_color() {
             return None;
         }
