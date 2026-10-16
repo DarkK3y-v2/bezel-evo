@@ -75,7 +75,8 @@ crates/bezel-cli/           DRIVING (clap) + composition root in main.rs. JSON D
 apps/bezel-studio/          Tauri 2. src-tauri/ = driving adapter (commands) + composition root; src/ = web UI
 docs/reverse-engineering/   protocol and format specs (the byte-level contract)
 packaging/linux/            udev rules (uaccess) and postinstall
-scripts/install-local.sh    release build + install into ~/.local (bin, .desktop, icon)
+scripts/windows/           build-evo.ps1 (versioned Windows release), installer and Light helpers
+scripts/install-local.sh    historical Linux install into ~/.local (not maintained, D-27)
 ```
 
 Every code unit is exactly one of: core, port (inside core), adapter, composition root. If it does not fit, the design is wrong — stop and mark the task `blocked`.
@@ -96,7 +97,7 @@ Every code unit is exactly one of: core, port (inside core), adapter, compositio
 - Destructive operations (format storage, firmware update, delete remote file, factory reset, reboot) require `Confirm::Yes` in the core use case; only a human-facing driving adapter may pass `Confirm::Yes`.
 - Transports: one owner per device handle; a device worker thread in the driving adapter serializes all writes. Timeouts are explicit; retries bounded and logged with `tracing`.
 - Discovery never writes to a port. The rev-C MCU wake (open/close of `CT88INCH`/`CT21INCH`/`USB7INCH`) is the only allowed side effect and only when the SoC gadget is absent.
-- Hardware tests are `#[ignore]` and gated by env `BEZEL_HW_TESTS=1`. CI never sees a screen. The dev machine has a Turing 8.8" (MCU 1a86:ca88 on /dev/ttyACM0, SoC 0525:a4a7 on /dev/ttyACM1).
+- Hardware tests are `#[ignore]` and gated by env `BEZEL_HW_TESTS=1`. CI never sees a screen. The dev machine (Windows 11) has a Turing 8.8" Rev C on COM6 (MCU 1a86:ca88, SoC 0525:a4a7) and a Turing 3.5" rev A on COM3.
 
 ### Sensors
 
@@ -106,7 +107,7 @@ Every code unit is exactly one of: core, port (inside core), adapter, compositio
 
 ### UI (apps/bezel-studio/src)
 
-- Static ES modules, no bundler, no framework, no inline scripts (CSP `script-src 'self'`). Every user-facing string goes through `i18n/` (pt-BR + en). Pointer events for in-canvas drag (Tauri's native file-drop owns HTML5 DnD). Keyboard operable; `prefers-color-scheme` and `prefers-reduced-motion` honoured.
+- Static ES modules, no bundler, no framework, no inline scripts (CSP `script-src 'self'`). Every user-facing string goes through `i18n/` (en + pt-BR + it, key parity). Pointer events for in-canvas drag (Tauri's native file-drop owns HTML5 DnD). Keyboard operable; `prefers-color-scheme` and `prefers-reduced-motion` honoured.
 - The preview canvas shows frames rendered by the Rust renderer (WYSIWYG); the DOM only draws selection handles and guides.
 - Demo mode: a fake bridge when `window.__TAURI__` is absent, so the UI runs in a browser for Playwright.
 
@@ -136,6 +137,7 @@ Every code unit is exactly one of: core, port (inside core), adapter, compositio
 - Conventional Commits, scope = phase slug (`feat(device-protocols): ...`). Type by task nature.
 - Atomic: 1 task = 1 commit; `Cargo.lock` rides with the task that changed it. Reference `D-XX` in the body when relevant.
 - Code, commits, PRs in English; `.jdi/` docs and reports in Italian.
+- End every commit with the trailer of the agent that wrote it (`Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; ChatGPT work uses `Co-Authored-By: ChatGPT <noreply@openai.com>`).
 - Hooks are active (`core.hooksPath .githooks`): `commit-msg` enforces the header and forbids mixing code with `.jdi/` state; `pre-commit` requires an active phase (CONTEXT.md + PLAN.md staged/committed). Never `--no-verify`.
 
 ### Local install (user requirement)
@@ -189,7 +191,7 @@ Print SUMMARY.md path + status.
 <fallbacks>
 - No tests for a task → write a minimal test first
 - `cargo llvm-cov` missing → `rustup component add llvm-tools-preview && cargo install cargo-llvm-cov --locked`
-- Tauri build deps missing on Linux → report the dnf package names (webkit2gtk4.1-devel, libudev-devel/systemd-devel, librsvg2-devel) instead of guessing
+- Tauri build deps missing on Windows → report what is missing (WebView2 runtime, MSVC build tools, NSIS) instead of guessing; Linux is not supported (D-27)
 </fallbacks>
 
 <output>

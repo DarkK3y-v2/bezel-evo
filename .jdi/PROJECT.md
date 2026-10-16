@@ -1,7 +1,9 @@
 # Bezel
 
 ## Vision
-Controlar pelo software **tudo** que as telas USB "smart screen" (Turing/TURZX e clones: XuanFang, Kipye, WeAct, UsbMonitor, 0x43A8/0x1CBE) oferecem — imagem, vídeo, cartão SD, brilho, rotação, sensores do PC — no Linux e no Windows, com um editor de temas drag-and-drop numa janela única e medições corretas.
+Controlar pelo software **tudo** que as telas USB "smart screen" (Turing/TURZX e clones: XuanFang, Kipye, WeAct, UsbMonitor, 0x43A8/0x1CBE) oferecem — imagem, vídeo, cartão SD, brilho, rotação, sensores do PC — no Windows, com um editor de temas drag-and-drop numa janela única e medições corretas.
+
+> Piattaforma: dal 2026-10-16 è supportato solo Windows (D-2026-10-16-studio-redesign-fidelity-27). Il codice Linux ereditato resta e deve compilare, ma non è mantenuto, testato né rilasciato; le note su Linux qui sotto sono storiche.
 
 ## Type
 desktop app (Tauri, janela única + bandeja) + CLI + runtime headless (serviço). Sem backend, sem nuvem.
@@ -26,7 +28,7 @@ bezel
 
 ## Research notes
 - Engenharia reversa completa em `docs/reverse-engineering/` (protocolos A/B/C/D/WeAct/TUR_USB/WCH/HID, `.turtheme` NRBF, sensores, UI TURZX, logs). Fonte: `turing-smart-screen-python` (GPL-3) e TURZX V3.07 (descompilado, strings Dotfuscator decodificadas).
-- Tela do dev: Turing 8.8" 480x1920 = hub interno com MCU `1a86:ca88` (serial `CT88INCH`, /dev/ttyACM0) + SoC Allwinner Linux `0525:a4a7` (/dev/ttyACM1). Protocolo rev C: blocos de 250 B `xx ef 69 ...`, HELLO → `chs_88inch.dev1_romX.YY`.
+- Tela do dev: Turing 8.8" 480x1920 = hub interno com MCU `1a86:ca88` (serial `CT88INCH`) + SoC Allwinner Linux `0525:a4a7`; su Windows lo schermo è su COM6 (storico Linux: /dev/ttyACM0 e /dev/ttyACM1). Protocolo rev C: blocos de 250 B `xx ef 69 ...`, HELLO → `chs_88inch.dev1_romX.YY`.
 - TURZX faz diff de frame com run-list (`idx24|0x80`, BGRA ou BGRA comprimido 3 B) e máscara POSLEN (0xD0) para sobrepor tema a vídeo tocado na própria tela (MP4 H.264 em `/mnt/SDCARD/video` ou `/mnt/UDISK/video`).
 - Linux: permissão via regra udev `uaccess` para os VID:PID; Windows: usbser (CDC) e WinUSB para 0x1CBE/0x43A8.
 - CPU temp no Windows exige driver de kernel: via LibreHardwareMonitor (WMI) quando presente; nunca inventar valor — mostrar "indisponível".
@@ -42,7 +44,9 @@ bezel
 - Conventional Commits, commits atômicos por task
 - Lingua: codice, commit e PR in inglese; discussione con l'utente e documenti in `.jdi/` in italiano (dal 2026-10-16; i documenti precedenti restano in portoghese); UI con i18n (en + pt-BR + it), mai stringhe fisse nel JS
 - `cargo fmt --check` e `cargo clippy -- -D warnings` limpos; nenhum comando destrutivo (formatar SD, firmware, apagar arquivo) sem confirmação explícita
-- Toda evolução gera build e instalação local (`scripts/install-local.sh` → `~/.local`) para teste no hardware real
+- Build e installazione locale per la prova sull'hardware reale: `scripts/windows/build-evo.ps1` (nuova versione da `VERSION`), aggiornando sul posto `dist/bezel` (vedi `AGENTS.md`); `scripts/install-local.sh` è storico (Linux)
+- Test: si testa solo ciò che si tocca durante il lavoro; suite completa e copertura una volta prima di pubblicare (push) o alla verifica della phase
+- Commit: trailer `Co-Authored-By` dell'agente che ha scritto il lavoro (ChatGPT o Claude)
 
 ## Definition of Done
 
