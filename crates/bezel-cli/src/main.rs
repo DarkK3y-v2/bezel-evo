@@ -65,6 +65,7 @@ fn sensor_source(fake: bool, settings: Option<&SensorSettings>) -> Box<dyn Senso
             options.ping_host.clone_from(host);
         }
         options.mangohud_dir.clone_from(&settings.mangohud_dir);
+        options.presentmon_path.clone_from(&settings.presentmon_path);
     }
     Box::new(SystemSensors::with_options(options))
 }

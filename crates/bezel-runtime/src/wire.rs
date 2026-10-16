@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 pub struct Options {
     pub ping_host: String,
     pub mangohud_dir: Option<String>,
+    pub presentmon_path: Option<String>,
     pub ffmpeg: Option<String>,
 }
 

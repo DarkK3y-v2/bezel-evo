@@ -611,6 +611,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
     let options = wire::Options {
         ping_host: "127.0.0.1".into(),
         mangohud_dir: None,
+        presentmon_path: None,
         ffmpeg: None,
     };
     for _ in 0..2 {

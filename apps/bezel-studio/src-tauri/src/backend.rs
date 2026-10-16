@@ -289,6 +289,7 @@ impl Backend {
             engine.options(bezel_runtime::wire::Options {
                 ping_host: options.ping_host,
                 mangohud_dir: settings.mangohud_dir,
+                presentmon_path: settings.presentmon_path,
                 ffmpeg: settings.ffmpeg_path,
             })?;
         }
