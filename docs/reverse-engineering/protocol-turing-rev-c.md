@@ -848,9 +848,9 @@ Light   HELLO; STOP_VIDEO; 200 ms; STOP_MEDIA until media_stop; PRE_UPDATE_BITMA
   without a new PLAY_VIDEO is not established, and that the overlay's alpha shows the video at all is still to be
   confirmed by eye (section 19). Light therefore stops and plays the video again, and a video theme still gets a full
   first frame after PLAY_VIDEO (the device media changed).
-- Waits between the two programs: Light looks at Studio's session lock every 100 ms; after that the connect
-  sequence takes HELLO (one reply), the vendor's 200 ms after STOP_VIDEO and one STOP_MEDIA reply, then Light reads
-  its sensors and draws. None of these was shortened: the 200 ms is the vendor's, and the gap is spent with the
+- Waits between the two programs: Light looks at Studio's session lock every 100 ms; then it loads the theme and
+  takes a first sensor sample, and the connect sequence takes HELLO (one reply), the vendor's 200 ms after
+  STOP_VIDEO and one STOP_MEDIA reply before the first frame is drawn. None of these was shortened: the 200 ms is the vendor's, and the gap is spent with the
   screen still showing Studio's last frame. Light logs, for each screen, how its first frame went out (`partial`,
   bytes) and how many milliseconds after Studio left the frame.
 - Hardware check (8.8", to do by eye): a static theme live in Studio, close Studio, watch the screen: no redraw;
