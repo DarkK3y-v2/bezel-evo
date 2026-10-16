@@ -3,7 +3,7 @@
 ## Vision
 Controlar pelo software **tudo** que as telas USB "smart screen" (Turing/TURZX e clones: XuanFang, Kipye, WeAct, UsbMonitor, 0x43A8/0x1CBE) oferecem — imagem, vídeo, cartão SD, brilho, rotação, sensores do PC — no Windows, com um editor de temas drag-and-drop numa janela única e medições corretas.
 
-> Piattaforma: dal 2026-10-16 è supportato solo Windows (D-2026-10-16-studio-redesign-fidelity-27). Il codice Linux ereditato resta e deve compilare, ma non è mantenuto, testato né rilasciato; le note su Linux qui sotto sono storiche.
+> Piattaforma: dal 2026-10-16 è supportato solo Windows (D-2026-10-16-studio-redesign-fidelity-27). Il codice Linux ereditato non si compila, non si testa né si mantiene e può essere tolto se intralcia; le note su Linux qui sotto sono storiche.
 
 ## Type
 desktop app (Tauri, janela única + bandeja) + CLI + runtime headless (serviço). Sem backend, sem nuvem.
