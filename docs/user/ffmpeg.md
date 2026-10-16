@@ -10,47 +10,29 @@ encoder `libx264`.
 Without ffmpeg, pictures and videos already in the screen's format are still
 sent; Bezel tells you when a video needs converting.
 
-## Linux
-
-**Fedora.** Fedora's own `ffmpeg-free` has no `libx264`. Enable RPM Fusion, then
-install the full ffmpeg (it replaces `ffmpeg-free`):
-
-```bash
-sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-sudo dnf install ffmpeg --allowerasing
-```
-
-**Debian, Ubuntu, Mint:**
-
-```bash
-sudo apt install ffmpeg
-```
-
-**Arch Linux:** `sudo pacman -S ffmpeg`
-
-## Windows
+## Install it
 
 ```powershell
 winget install --id Gyan.FFmpeg -e
 ```
 
-Then close and reopen Bezel (and any terminal), so they see the new `PATH`.
+Then close and reopen Studio, quit and restart Light (and any terminal), so they
+see the new `PATH`.
 
 ## Check it
 
-```bash
-ffmpeg -hide_banner -encoders | grep libx264
+```powershell
+ffmpeg -hide_banner -encoders | Select-String libx264
 ```
 
-On Windows: `ffmpeg -hide_banner -encoders | Select-String libx264`. A line with
-`libx264` means it is ready.
+A line with `libx264` means it is ready.
 
 ## An ffmpeg that is not on the PATH
 
-- In the app: **Screen → Storage → Locate ffmpeg…** (it appears when Bezel
+- In Studio: **Screen → Storage → Locate ffmpeg…** (it appears when Bezel
   cannot find one).
 - On the command line: `--ffmpeg PATH`, the program or its folder:
 
-```bash
-bezel storage put clip.mp4 --ffmpeg /opt/ffmpeg/bin/ffmpeg
+```powershell
+bezel storage put clip.mp4 --ffmpeg C:\Tools\ffmpeg\bin\ffmpeg.exe
 ```

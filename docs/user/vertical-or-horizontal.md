@@ -5,14 +5,16 @@
 Most screens can stand up (vertical, taller than wide) or lie down (horizontal,
 wider than tall). A theme stores the orientation it was made for.
 
-## In the app
+## In Studio
 
-- The **Vertical** and **Horizontal** buttons in the top bar turn the theme. The
-  layout follows: a vertical stack of gauges becomes a horizontal row.
-- **Rotate 180°**, next to them, is for a screen mounted the other way round
-  (the cable comes out of the other side).
-- **Themes → New vertical / New horizontal** start an empty theme in that
-  orientation. The built-in themes for the 8.8" and the 3.5" come in both.
+- The **Vertical** and **Horizontal** buttons on the canvas bar (and in the
+  theme's inspector) turn the theme. The layout follows: a vertical stack of
+  gauges becomes a horizontal row.
+- The rotate 180° button, next to them, is for a screen mounted the other way
+  round (the cable comes out of the other side). The size under the canvas then
+  says *turned 180°*.
+- **Themes → New theme** starts an empty theme, **Vertical** or **Horizontal**.
+  The built-in themes for the 8.8" and the 3.5" come in both.
 
 With **Live** on, the screen follows at once.
 
@@ -20,7 +22,7 @@ With **Live** on, the screen follows at once.
 
 Draw the test pattern to see which way is up:
 
-```bash
+```powershell
 bezel test-pattern --orientation horizontal --seconds 5
 ```
 
@@ -32,10 +34,10 @@ orientation.
 `horizontal-flipped` (or `portrait`, `landscape`, `reverse-portrait`,
 `reverse-landscape`):
 
-```bash
+```powershell
 bezel show wallpaper.png                                # horizontal for a wide picture, vertical otherwise
 bezel show poster.jpg --orientation vertical --fit contain
 ```
 
-`bezel run` uses the orientation stored in the theme: open the theme in the app,
+`bezel run` uses the orientation stored in the theme: open the theme in Studio,
 turn it, and save.
