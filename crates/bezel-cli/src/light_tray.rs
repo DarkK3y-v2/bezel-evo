@@ -480,7 +480,7 @@ fn make_engine(
                     bezel_sensors::SensorOptions {
                         ping_host: options.ping_host.clone(),
                         mangohud_dir: options.mangohud_dir.as_ref().map(std::path::PathBuf::from),
-                        presentmon_path: options.presentmon_path.clone(),
+                        presentmon_path: options.presentmon_path.as_ref().map(std::path::PathBuf::from),
                     },
                 ))
             };
