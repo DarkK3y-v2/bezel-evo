@@ -10,7 +10,32 @@ already run publishes. Drag the sensor onto a theme like any other.
 > been checked against a running game (not validated on hardware). If the value
 > looks wrong, please report it.
 
-## Windows: RivaTuner Statistics Server
+## Windows: Intel PresentMon (Preferred)
+
+Bezel can read frame metrics directly from Intel PresentMon's console
+application. It starts PresentMon on demand only while a game is running and
+a theme requests the sensors, and stops it about 60 seconds after the last
+frame. It is never installed as a service.
+
+1. Download the Intel PresentMon console application (v2.6.0 or newer).
+2. Place `PresentMon.exe` in one of these locations (checked in order):
+   - A `tools/` folder next to the Bezel executable.
+   - `C:\Program Files\Intel\PresentMon\PresentMon.exe`.
+   - Anywhere in your system `PATH`.
+3. **Administrator rights required**: PresentMon reads ETW events. Run Bezel
+   as Administrator, or add your user to the "Performance Log Users" group. If
+   the rights are missing, the sensors read as unavailable with a message
+   explaining the fix.
+4. Start the game. Bezel automatically starts PresentMon, excludes
+   compositor and overlay processes (like `dwm.exe`, `explorer.exe`,
+   `discord.exe`), and shows `gpu.fps`, `gpu.frametime`, `gpu.fps_low_1p`,
+   `gpu.game` and `gpu.limiter`.
+
+If PresentMon is not found or fails to start, `gpu.fps` falls back to
+RivaTuner Statistics Server (RTSS) exactly as before, and the catalog says
+which source is active.
+
+## Windows: RivaTuner Statistics Server (Fallback)
 
 1. Install RivaTuner Statistics Server (RTSS). It comes with MSI Afterburner, or
    on its own.
