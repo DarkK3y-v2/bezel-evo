@@ -7,7 +7,7 @@
 //! with the golden fixtures of `fixtures/rtss/`; only [`Rtss`] (Windows)
 //! maps the real memory, and it only reads it.
 
-use super::MAX_AGE;
+use super::{FrameMetrics, MAX_AGE};
 
 /// `dwSignature` of an initialised memory: `'RTSS'` as a DWORD, stored as
 /// the bytes `SSTR`.
@@ -211,15 +211,23 @@ impl super::FrameRateSource for Rtss {
         "RivaTuner Statistics Server shared memory".to_string()
     }
 
-    fn read(&mut self) -> Result<f64, String> {
+    fn read(&mut self) -> Result<FrameMetrics, String> {
         let memory = shared::copy().ok_or_else(|| NOT_RUNNING.to_string())?;
         // Read after the copy, so no period in it ends later than `now`.
-        frame_rate(&memory, shared::tick_count())
+        let fps = frame_rate(&memory, shared::tick_count())?;
+        Ok(FrameMetrics {
+            fps,
+            frametime: None,
+            fps_low_1p: None,
+            game: None,
+            limiter: None,
+        })
     }
 }
 
 /// The Win32 calls that open RTSS's memory read-only, copy it and let it
-/// go, and the clock its times use. The only `unsafe` in Bezel.
+/// go, and the clock its times use. One of the workspace lint's `unsafe`
+/// exceptions (see `lib.rs`'s list).
 #[cfg(windows)]
 mod shared {
     use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
