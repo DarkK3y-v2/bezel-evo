@@ -1,6 +1,9 @@
 import { boundKey } from './editor/widgets.js';
 import { demoSensorValue } from './demo-sensors.js';
 import { demoColorValue, withValueColor } from './value-color.js';
+import { demoSpectrum, spectrumOf } from './spectrum.js';
+import { translator } from './i18n/index.js';
+import { colorAt } from './value-color.js';
 import { cardPoses, drawCardProjection } from './editor/card-motion.js';
 import { isShown, effectiveOpacity, visibleWithoutFace } from './editor/cards.js';
 import { fadeLine } from './shape-fade.js';
@@ -185,7 +188,30 @@ function drawText(ctx, e, t, value, measure = false) {
   } else ctx.fillText(text, x, y, f.width);
 }
 
+function drawSpectrum(ctx, e, seconds) {
+  const c = spectrumOf(e.kind.content), f = e.frame, mid = f.y + f.height / 2;
+  const values = c.demo ? demoSpectrum(c, seconds) : Array(c.bands).fill(0);
+  const tr = translator(globalThis.document?.documentElement?.lang ?? 'en');
+  ctx.save(); ctx.globalAlpha = e.opacity ?? 1; ctx.beginPath(); ctx.rect(f.x,f.y,f.width,f.height); ctx.clip();
+  const fill = e.kind.style.paint;
+  let base = paint(fill);
+  if (fill?.stops) { base = ctx.createLinearGradient(f.x, f.y, f.x, f.y + f.height); for (const [stop,hex] of fill.stops) base.addColorStop(stop,color(hex)); }
+  ctx.fillStyle = base;
+  if (c.centre) ctx.fillRect(f.x,mid-.5,f.width,1);
+  const cell = f.width / c.bands, width = Math.max(0,Math.min(c.thickness,cell-c.gap));
+  values.forEach((value,i) => {
+    const x=f.x+i*cell+(cell-width)/2, h=value*Math.max(0,f.height/2-2);
+    ctx.fillStyle = e.colorByValue ? color(colorAt(e.colorByValue,value*100)) : base;
+    if(h>0) { ctx.beginPath(); ctx.roundRect(x,mid-h,width,h*2,c.corners.map(v=>Math.min(v,width/2,h))); ctx.fill(); }
+    if(c.peaks && value>0) { const peak=Math.min(1,value+.08)*Math.max(0,f.height/2-2);ctx.fillRect(x,mid-peak-1,width,1);ctx.fillRect(x,mid+peak,width,1); }
+  });
+  ctx.font = `${e.kind.style.size}px sans-serif`; ctx.textBaseline='top'; ctx.fillStyle=base;
+  ctx.fillText(tr(c.demo ? 'spectrum.demo' : 'spectrum.disabled'), f.x, f.y);
+  ctx.restore();
+}
+
 function drawElement(ctx, e, t, refresh = 1, motion = true) {
+  if (e.kind.content?.type === 'spectrum') { drawSpectrum(ctx,e,t); return; }
   const value = shownFraction(e, t, refresh, motion);
   e = withValueColor(e, demoColorValue(e, value, key => demoSensorValue(key, Math.floor(t / refresh) * refresh)));
   const k = e.kind;

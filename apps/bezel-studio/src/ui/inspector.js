@@ -1,3 +1,4 @@
+import { followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
 import { moveRule } from '../card-rules.js';
 import { canFitContent } from '../editor/fit-content.js';
@@ -423,6 +424,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const s = k.style;
     const c = k.content;
     if (c.type === 'player') return playerForm(e);
+    if (c.type === 'spectrum') return spectrumForm(e);
     const nodes = [], weatherAppearance = [];
     if (c.type === 'static') nodes.push(textField(t('common.text'), c.text, (v) => update(e.id, { kind: { content: { text: v } } })));
     if (c.type === 'clock') {
@@ -528,6 +530,44 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   }
 
   /** The media player (artboards PlayerData and PlayerLook). */
+  function spectrumForm(e) {
+    const c = spectrumOf(e.kind.content), theme = store.getState().theme;
+    const set = patch => update(e.id, { kind: { content: spectrumPatch(c, patch) } });
+    const players = theme.elements.filter(item => item.kind.type === 'text' && item.kind.content.type === 'player');
+    const selected = followedPlayer(theme, c);
+    const options = [['', t('spectrum.automatic')], ...players.map(item => [String(item.id), item.name])];
+    if (c.player != null && !players.some(p => p.id === c.player)) options.push([String(c.player), t('spectrum.playerMissing')]);
+    const paint = e.kind.style.paint, gradient = typeof paint === 'object';
+    const start = gradient ? paint.stops?.[0]?.[1] ?? '#38bdf8ff' : paint;
+    const end = gradient ? paint.stops?.at(-1)?.[1] ?? '#f97316ff' : '#f97316ff';
+    const setPaint = (mode, a = start, b = end) => update(e.id, { kind: { style: { paint: mode === 'gradient' ? { angle: 90, stops: [[0,a],[1,b]] } : a } } });
+    return {
+      data: [section('spectrum-source', t('spectrum.source'), [
+        selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
+        !selected && el('p', { class: 'hint', role: 'status', text: t('spectrum.playerMissing') }),
+        el('p', { class: 'hint', text: t('spectrum.browser') }),
+        segmented(t('spectrum.preview'), c.demo ? 'demo' : 'live', [['live',t('spectrum.live')],['demo',t('spectrum.demo')]], v => set({ demo: v === 'demo' })),
+        c.demo && el('p', { class: 'hint', role: 'status', text: t('spectrum.demoHint') }),
+        el('p', { class: 'hint', text: t('spectrum.enableHint') }),
+      ]), section('spectrum-bands', t('spectrum.bands'), [
+        numberField(t('spectrum.bands'), c.bands, bands => set({ bands }), { min: 8, max: 64, step: 1 }),
+        numberField(t('spectrum.low'), c.low, low => set({ low }), { min: 20, max: 23999, step: 1 }),
+        numberField(t('spectrum.high'), c.high, high => set({ high }), { min: c.low + 1, max: 24000, step: 1 }),
+      ])],
+      look: [section('spectrum-paint', t('inspector.color'), [
+        selectField(t('inspector.fill'), gradient ? 'gradient' : 'solid', [['solid', t('ring.solid')],['gradient',t('spectrum.gradient')]], mode => setPaint(mode)),
+        colorField(t('inspector.color'), start, v => setPaint(gradient ? 'gradient' : 'solid', v)),
+        gradient && colorField(t('ring.endColor'), end, v => setPaint('gradient', start, v)),
+      ]), section('spectrum-bars', t('graph.bars'), [
+        numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256 }),
+        numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128 }),
+        switchRow(t('spectrum.centre'), c.centre, centre => set({ centre })),
+        switchRow(t('spectrum.peaks'), c.peaks, peaks => set({ peaks })),
+        segmented(t('card.tab.motion'), c.motion, ['smooth','balanced','snappy'].map(v => [v,t(`spectrum.${v}`)]), motion => set({ motion })),
+      ]), cornersSection(t('insp.corners'), t('inspector.radius'), { radius: c.corners[0], corners: c.corners }, ({ radius, corners }) => set({ corners: corners ?? [radius,radius,radius,radius] }), { box: e.frame })],
+    };
+  }
+
   function playerForm(e) {
     const c = e.kind.content;
     const s = e.kind.style;
@@ -1140,7 +1180,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       switchRow(t('insp.colorByValue'), Boolean(rule), enabled => set(enabled ? defaultValueColor(e,
         sensors.catalog()[0]?.key ?? '', readIcon(assets.find(a => a.ref === e.kind.asset)?.iconSvg)?.color) : null)),
       ...(rule ? [
-        boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }))
+        e.kind.content?.type === 'spectrum' ? el('p', { class: 'hint', text: t('spectrum.levelScale') }) : boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }))
           : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } })),
         colorField(t('insp.baseColor'), rule.base, base => set({ ...rule, base })),
         el('p', { class: 'hint', text: t('insp.colorThresholdHint') }),
@@ -1202,7 +1242,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     // (D-2026-10-15-studio-redesign-fidelity-17). Main puts geometry first and
     // the ring's source/arc together; the standalone Graph/Player boards put
     // data first, with geometry below.
-    const dataFirst = widget === 'graph' || widget === 'player' || widget === 'card';
+    const dataFirst = widget === 'graph' || widget === 'spectrum' || widget === 'player' || widget === 'card';
     return [
       header(e, widget, theme),
       actions,

@@ -21,6 +21,7 @@ export const ICONS = Object.freeze({
   needle: ['M4 17a8 8 0 0 1 16 0', 'M12 17l4-5'],
   graph: ['m3 17 5-6 4 3 4-7 5 5'],
   image: [rect(3, 5, 18, 14, 2), 'm21 16-5-5-8 8'],
+  spectrum: ['M3 9v6', 'M7 5v14', 'M11 2v20', 'M15 6v12', 'M19 8v8', 'M1 12h22'],
   player: ['M9 18V6l10-2v12', circle(6.5, 18, 2.5), circle(16.5, 16, 2.5)],
   shape: [rect(4, 4, 16, 16, 3)],
   card: [rect(5, 3, 14, 18, 2), 'M9 8h6', 'M9 12h6'],

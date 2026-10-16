@@ -72,6 +72,21 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
     ]);
   }
 
+  function audioSection() {
+    const input = el('input', { id: 'prefs-audio-capture', type: 'checkbox', role: 'switch', checked: !!prefs.audioCapture, 'aria-describedby': 'prefs-audio-hint' });
+    input.addEventListener('change', async () => {
+      input.disabled = true;
+      try { await bridge.setAudioCapture(input.checked); prefs.audioCapture = input.checked; }
+      catch (error) { input.checked = !!prefs.audioCapture; notify(errorText(t, error)); }
+      finally { input.disabled = false; }
+    });
+    return el('section', { class: 'prefs-section', 'aria-labelledby': 'prefs-audio-title' }, [
+      el('h3', { id: 'prefs-audio-title', text: t('spectrum.capture') }),
+      el('label', { class: 'check', for: 'prefs-audio-capture' }, [input, el('span', { text: t('spectrum.consent') })]),
+      el('p', { id: 'prefs-audio-hint', class: 'hint', text: t('spectrum.privacy') }),
+    ]);
+  }
+
   function debugSection() {
     const input = el('input', { id: 'prefs-debug', type: 'checkbox', role: 'switch', checked: prefs.debug });
     const overlay = el('input', { id: 'prefs-debug-overlay', type: 'checkbox', checked: prefs.debugShowReadings, disabled: !prefs.debug });
@@ -177,7 +192,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
     const close = el('button', { type: 'button', class: 'icon-button dialog-close', title: t('dialog.close'), 'aria-label': t('dialog.close'), onclick: () => dialog.close() }, [icon(ICONS.close, 16)]);
     dialog.replaceChildren(
       el('div', { class: 'dialog-head' }, [el('h2', { id: 'prefs-title', text: t('prefs.title') }), close]),
-      el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), debugSection(), logsSection(), sensorsSection()]),
+      el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), audioSection(), debugSection(), logsSection(), sensorsSection()]),
       el('div', { class: 'dialog-actions' }, [el('button', { type: 'button', class: 'primary-button', text: t('common.done'), onclick: () => dialog.close() })]),
     );
     if (focused) dialog.querySelector(`#${focused}`)?.focus();
