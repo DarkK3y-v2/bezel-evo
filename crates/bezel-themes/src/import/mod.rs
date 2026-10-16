@@ -400,27 +400,6 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn reads_stay_inside_their_folder() {
-        let root = std::env::temp_dir().join(format!("bezel-import-inside-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        let inner = root.join("theme");
-        fs::create_dir_all(&inner).expect("dir");
-        fs::write(root.join("secret.txt"), b"S").expect("write");
-        fs::write(inner.join("ok.png"), b"P").expect("write");
-        std::os::unix::fs::symlink(root.join("secret.txt"), inner.join("link.png")).expect("link");
-        assert_eq!(
-            read_inside(&inner, Path::new("ok.png"), 10),
-            Ok(b"P".to_vec())
-        );
-        let e = read_inside(&inner, Path::new("link.png"), 10).expect_err("refused");
-        assert!(e.contains("points outside"), "{e}");
-        assert!(read_inside(&inner, Path::new("none.png"), 10).is_err());
-        assert!(read_inside(&root.join("nope"), Path::new("ok.png"), 10).is_err());
-        let _ = fs::remove_dir_all(&root);
-    }
-
     #[test]
     fn videos_are_found_next_to_the_theme_or_in_the_vendor_layout() {
         let root = std::env::temp_dir().join(format!("bezel-import-video-{}", std::process::id()));

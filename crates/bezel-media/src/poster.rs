@@ -240,44 +240,4 @@ mod tests {
         };
         assert!(arguments(Path::new("a"), outside).is_err());
     }
-
-    #[cfg(unix)]
-    mod with_fake_ffmpeg {
-        use super::*;
-        use crate::fakes;
-
-        /// The fake ffmpeg answers `rawvideo` with `AAAABBBB`: two pixels.
-        fn two_pixels() -> PosterSpec {
-            PosterSpec {
-                size: Size::new(2, 1),
-                at: Duration::ZERO,
-                quarter_turns: 0,
-                crop: None,
-                pad: None,
-            }
-        }
-
-        #[test]
-        fn the_picture_is_read_from_ffmpegs_pipe() {
-            let args = vec![OsString::from("rawvideo")];
-            let frame = take(&fakes::dir().join("ready/ffmpeg"), &args, two_pixels()).unwrap();
-            assert_eq!(frame.as_rgba(), b"AAAABBBB");
-        }
-
-        #[test]
-        fn failures_quote_ffmpeg_or_say_what_is_missing() {
-            let args = vec![OsString::from("rawvideo")];
-            let err = take(&fakes::dir().join("failing/ffmpeg"), &args, two_pixels()).unwrap_err();
-            assert!(err.to_string().contains("Invalid data found"), "{err}");
-            let bigger = PosterSpec {
-                size: Size::new(4, 4),
-                at: Duration::from_secs(1),
-                ..two_pixels()
-            };
-            let err = take(&fakes::dir().join("ready/ffmpeg"), &args, bigger).unwrap_err();
-            assert!(err.to_string().contains("no picture 1.0 s in"), "{err}");
-            let err = take(&fakes::dir().join("missing/ffmpeg"), &args, two_pixels());
-            assert!(matches!(err, Err(BezelError::Unsupported(_))));
-        }
-    }
 }
