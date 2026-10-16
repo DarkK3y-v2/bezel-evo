@@ -3,7 +3,106 @@
 This is a personal development fork of [slipalison/bezel](https://github.com/slipalison/bezel), based on `3f6144fe7dce7c14f2d79a8f23bbe27e0315e353`.
 The original project remains upstream at [slipalison/bezel](https://github.com/slipalison/bezel). In this repository `main` is Bezel Evo; the original's history up to the fork point is kept in the `upstream-main` branch.
 
-## Implemented
+These notes record how the fork's features are built and what was validated.
+For what Bezel Evo does, see the [README](README.md) and the
+[user guide](docs/user/README.md).
+
+## Platform, builds and releases
+
+- **Windows only (D-27).** Bezel Evo supports Windows 10 and 11 x64. The Linux
+  code inherited from Bezel is not built, tested or released by this fork; the
+  user guide describes Windows only.
+- **No CI.** The inherited pipeline (`ci.yml`), which built Linux packages and
+  could publish releases on every push, was removed. Windows packages are built
+  on demand with `scripts/windows/package-evo.ps1`, or with the manual
+  [windows-evo-package.yml](.github/workflows/windows-evo-package.yml) workflow,
+  which uploads the packages and the source as artifacts and publishes nothing.
+- **Versions.** `VERSION` is the product version shown by Studio and
+  `bezel --version`; `build-evo.ps1` increments it (see
+  [Build on Windows](docs/build-windows.md)). Release notes are in the
+  [changelog](CHANGELOG.md).
+
+## Redesigned Studio (0.1.23-0.1.26)
+
+The user-facing description is in [Editing in Studio](docs/user/studio-editing.md).
+Implementation notes:
+
+- **Shell and primitives.** Light/dark design tokens, bundled IBM Plex for the
+  UI, one catalogue of UI primitives (fields, segmented controls, switches,
+  pickers, menus, popovers) reused by every panel, and i18n modules per area
+  with en/pt-BR/it key parity checked by tests. Panel widths follow pure rules
+  and are remembered per user.
+- **Isolated preview.** The inspector asks the host to render one element on its
+  own (`renderElement`), with coalescing, stale-response discarding and the
+  element's own animation deadline; it never crops the main canvas.
+- **Value transitions (D-18).** Optional `valueTransition: {mode, durationMs}` per
+  ring, bar, needle and value. `bezel-core::domain::transition` eases
+  (ease-out cubic) between samples, capped at 20 fps and paced per screen; a
+  screen too slow for two frames in the transition gets the new value at once.
+  Existing partial-update paths are reused; no protocol byte changed.
+- **Colour by value (D-19).** Optional `colorByValue: {sensor?, base,
+  thresholds[]}` for text, value, ring, bar, needle, graph, shape and SVG icon
+  paint; the highest reached threshold wins, ties go to the last row.
+- **Fit to content (D-19).** Double-click or **Fit frame to content** measures
+  the drawn content with the renderer (no duplicated layout), one undo step.
+- **Graph window (D-16, D-17).** Each graph samples at its own interval over its
+  own duration (2 to 3600 points); themes without the fields keep one point per
+  refresh.
+- **Cards (D-21, D-24).** One `card.transition` for every face change; the
+  development-only `pairTransitions` field is ignored on load and not written.
+  Legacy `rotationSeconds` migrates to a timer trigger (`source: "timer"`,
+  `intervalSeconds`, `nextFace`). Faces are edited as a list.
+- **Media player (D-26).** Optional `showTitle`, `showArtist`, `showTime`,
+  `timeFormat` and `progressStyle` (fill, track, thickness, ends, knob, pattern,
+  segments, times); absent fields draw exactly as before (pixel-hash tests).
+- **Background (D-25).** A transactional chooser over the unchanged background
+  model: nothing changes until confirmation, which is one undo step.
+- **Colour and font pickers (D-28, D-29).** Optional theme `palette` (at most 64
+  swatches). The font catalogue comes from the renderer's own font database
+  (faces, monospace flag, PANOSE category, origin, effective fallback).
+- **Memory chip (D-20).** Private working set of this installation's Studio,
+  WebView2, Light and sensor-reader processes for the current user, sampled
+  through Win32 at most every 5 s.
+- **Logs.** Studio and Light share bounded, rotating diagnostic logs in
+  `%LOCALAPPDATA%\io.github.slipalison.bezel\logs`; **Preferences → Logs** opens
+  the folder.
+
+Every theme-format addition is optional: an older theme loads and saves back
+unchanged.
+
+## Light owns the screens (D-31, 0.1.26)
+
+- **One engine.** `bezel-runtime::Engine` lives in Light and owns the runtime,
+  monotonic clock, sensors, graph histories, transitions, host-decoded video and
+  drawing. Studio keeps the document, Undo and saving; it sends revisioned
+  drafts at each edit and receives Light's images for its canvas (only when they
+  change, scaled down when needed). Closing without saving returns Light to the
+  saved theme without resetting histories or clocks.
+- **Ownership and channel.** Light keeps persistent ownership of the physical
+  links behind owner ports. Studio connects over a named pipe restricted to the
+  current user's SID by its DACL, rejecting remote clients, with size limits
+  checked before allocation; large replies (a sensor catalogue over 64 KiB)
+  travel as binary payloads.
+- **Fallback.** If Light cannot start or stops answering, Studio builds the same
+  engine in process with direct links, under the legacy ownership lock. The
+  frame-baseline handover of `seamless-handoff` (fix A) only serves that path.
+- **Scheduling.** Sampling is separate from presentation, with one worker per
+  screen; Studio shows the measured render time.
+- **Validation.** On the Turing 8.8" Rev C (COM6) with a stored video background
+  and graphs, opening and closing Studio caused no redraw, no fallback and kept
+  graphs and video continuous. Still to be checked by hand: the pipe from a
+  second Windows account, standby/shutdown with Light as owner, a forced Light
+  crash with an unsaved draft, and two screens at once (8.8" and 3.5" rev A).
+
+## Fonts (D-32)
+
+Inter and JetBrains Mono are embedded in `bezel.exe` and `bezel-studio.exe`
+(about 2.0 MiB each) and always available to every renderer. User fonts load
+from `%APPDATA%\Bezel Evo\fonts`; themes can carry font files through the
+existing `font.asset` reference. Details and limits:
+[Fonts in Bezel Evo](docs/font-levels.md); user guide: [Fonts](docs/user/fonts.md).
+
+## Earlier Windows work (0.1.0-0.1.22)
 
 - **Windows distribution (0.1.22):** per-user NSIS Setup and an allowlisted
   portable ZIP include Studio, Light, stock themes, rebuilt headless sensors and
@@ -45,7 +144,15 @@ The original project remains upstream at [slipalison/bezel](https://github.com/s
   worker's existing screen connection instead of releasing it afterwards.
   Screens without stored-media standby support are turned off.
 
-- **Windows light tray and Studio handoff:** `bezel run --tray` adds a native tray menu with Open Studio and Quit, plus double-click to open the editor. The light process keeps no WebView and pauses its render worker while Studio owns the display. Opening Studio directly also yields the light connection cleanly before restoring live mode. Closing the editor with light waiting asks about unsaved edits, fully exits Studio and resumes light with the saved theme, screen and sensor options. Per-user OS file locks coordinate ownership and release automatically on process exit; no protocol bytes or other processes are changed. Studio preferences now include a Windows-only Light-on-close switch, enabled by default (including older settings). Closing standalone Studio starts the saved theme in Light before releasing display ownership; with the switch off, live Studio stays in the tray. Cancelled unsaved-edit dialogs never launch Light, launch failures keep Studio open, and explicit Quit stops both runtimes. Ordinary CLI runs retain their existing behavior. Windows CLI resources include the Common Controls v6 manifest required by the tray dependencies.
+- **Windows light tray and Studio handoff (before D-31):** `bezel run --tray`
+  adds the native tray menu (Open Studio, Quit; double-click opens the editor).
+  Before Light owned the screens, opening Studio paused Light and closing Studio
+  resumed it with the saved theme, coordinated by per-user OS file locks; this
+  cooperative handoff now serves only the fallback path. The Windows preference
+  **Use Bezel Light when closing Studio** (on by default) still decides whether
+  closing Studio hands over to Light or keeps Studio in the tray. Explicit Quit
+  stops both runtimes. Windows CLI resources include the Common Controls v6
+  manifest required by the tray dependencies.
 - **Windows serial I/O:** bounded 64 KiB writes, transfer diagnostics and a Windows write timeout; retry transient access-denied errors when opening a port. Read timeouts are restored after sending. Turing Rev C framing and command bytes are unchanged.
 - **Integrated Windows hardware sensors:** the bundled headless .NET Framework helper embeds unmodified LibreHardwareMonitorLib 0.9.6 and its nine library/runtime DLLs, with original licenses, dependency metadata and hashes. An elevated per-user `Bezel-Sensors` task reads hardware; CLI and Studio stay unelevated and wake only this configured task on demand. The helper publishes an atomic per-user local snapshot, and exits after 30 seconds without Bezel clients. The sensor worker prioritizes snapshots with a six-second freshness limit and 4 MiB bound; WMI and the fixed external `http://127.0.0.1:8085/data.json` remain fallbacks. Sensor IDs, raw units and custom names stay compatible. Only name aliases are imported: persisted fan-control settings are ignored and the helper never invokes control APIs. One-time setup verifies CPU temperature before disabling the previous external Libre login task. It does not install hardware drivers.
 - **Vector icons:** Media > Icons includes 6,220 offline Tabler Icons 3.48.0 (MIT) and a 375-icon hardware subset of Material Design Icons 7.4.47 (Apache 2.0), with collection filters, search, click and drag insertion. Italian searches recognise electrical and cooling terms, ignore connective words and accents, and rank primary symbols before decorated variants. SVGs render at the requested resolution. The inspector edits color, opacity, outline width and shadow blur/color/opacity. Paint and effects persist in SVG assets; each edit is undoable and independent of other copies. Tabler assets retain the MIT notice; MDI assets embed their own license and modification notice in SVG metadata.
@@ -79,16 +186,18 @@ The original project remains upstream at [slipalison/bezel](https://github.com/s
 - Ring and weather configuration browser tests passed in all four UI configurations (8 checks). Native tests verify ring gradient pixels, direction, shifted midpoint, caps, block gaps, missing sensors and test-at-100 behavior, plus theme round trips and old theme defaults.
 - Stored-video runtime checks passed (18 tests), including exact path selection, loop/once, stop, missing files and unsupported screens. Native pixel checks passed for window alpha, rounded/ellipse masks, border and layer order, linear opacity and direction; browser checks passed in four UI configurations for Storage selection, loop, windows, fade controls, Undo and clipboard. Physical video masking and partial alpha blending on ROM 1.90 still need confirmation.
 - Other screen models have not been physically verified for these additions.
-- **Platform policy (2026-10-16):** Windows is the only supported platform. The inherited Linux code is kept and must keep compiling, but it is not maintained, tested or released.
 - Windows light runtime: the saved Midnight theme is running through the CLI on COM6, without Studio, with roughly 48 MiB working set observed. The sensor command reads CPU temperature, power and fan speed from the installed LibreHardwareMonitor. The three legacy Turing login tasks were removed; the Bezel Run entry now launches the CLI wrapper and LibreHardwareMonitor has an enabled per-user elevated login task. Actual login startup still needs a reboot/sign-out check.
 - Light/Studio handoff was checked on the actual COM6 installation: direct Studio launch released the CLI connection, Studio restored the saved theme live, and clicking the native window's X exited Studio and resumed the same CLI process with the saved theme. Cooperative ownership, timeout cleanup and duplicate-instance guards passed native file-lock tests; the unsaved close decision passed its Studio test. Visual tray menu interaction remains to be confirmed by the user.
 - Embedded sensor helper: 60 sensor tests passed (one ignored), including exact IDs, invariant values, null values, freshness and size bounds; the C# serialization/control-setting self-test passed and clippy passed for sensors, CLI and Studio. On this PC, the external Libre process/server was stopped and its login task disabled, while the bundled elevated helper continued supplying CPU temperature, power and fan speed through the local snapshot. Studio's live theme preview also showed CPU temperature without the external GUI. The configured sensor task can be started from the normal unelevated account. A real login/reboot check remains pending.
 
 ## Pending
 
-- `scripts/windows` provides a saved-theme light tray launcher and the administrator setup for the bundled sensor helper. Both were configured locally; verifying a real login remains pending. The external Libre executable and its backed-up task remain available for rollback.
+- A real sign-in with Light and the bundled sensor helper configured by Setup
+  still needs to be confirmed. The external Libre executable and its backed-up
+  task remain available for rollback on the development PC.
+- The manual checks listed under [Light owns the screens](#light-owns-the-screens-d-31-0126).
 
-The serial fix, sensor fallback, icon additions, dates, editor clipboard and weather are separate commits so they can be reviewed independently. No upstream pull request has been submitted yet.
+No upstream pull request has been submitted.
 
 Bezel remains GPL-3.0-or-later. Tabler SVGs retain their MIT notice; see `apps/bezel-studio/src/assets/tabler/LICENSE`.
 
@@ -98,7 +207,14 @@ The bundled MDI hardware subset is Apache 2.0; see `apps/bezel-studio/src/assets
 
 IBM Plex: SIL OFL 1.1. The Studio bundles IBM Plex Sans (400/500/600) and IBM Plex Mono (400/500) as unmodified woff2 files from IBM's official npm packages; see `apps/bezel-studio/src/assets/fonts/ibm-plex/LICENSE` and the `README.md` beside it for source URLs and SHA-256 checksums.
 
-## Card widget (first version)
+## Release notes 0.1.4-0.1.19 (technical history)
+
+The sections below describe how the Card, layers and inspector were first built.
+The current interface (faces list, one transition, timed triggers, Data/Look
+tabs) is described in the [user guide](docs/user/studio-editing.md#cards) and in
+[Redesigned Studio](#redesigned-studio-0123-0126).
+
+### Card widget (first version)
 
 Add **Card** from Widgets, or select several objects and choose **Create card
 from selection** in the inspector. The card has an editable shape base and one
@@ -119,8 +235,7 @@ metadata. Old themes remain unchanged when saved. Studio, thumbnails and Light
 render the selected face and the shared base, with inherited card visibility
 and opacity. A card's objects keep their existing font and stroke settings;
 resizing scales their frames, and objects are not clipped to the card bounds.
-Nested cards are not supported. Timed switches, entry/exit animations and software triggers are tracked in
-TODO.md and are not implemented yet.
+Nested cards are not supported.
 
 Validation: native theme round-trip and invalid ownership rejection, renderer
 pixel checks for base/face visibility and inherited opacity, editor ownership,
@@ -128,7 +243,7 @@ clipboard/Undo and group transformations, plus accessible browser checks in
 both UI languages and light/dark modes. Windows binaries are built together so
 Studio and Light use the same theme model.
 
-## Card face transitions
+### Card face transitions
 
 A card's **Face animation** section offers None, Fade, Slide and Flip,
 150-1500 ms in the editor (themes accept up to 3000 ms), direction and a shared
@@ -151,9 +266,9 @@ second screen does not reset the first card. Sensor sampling retains the
 theme refresh interval. The preview subtracts rendering/IPC time from the next
 frame interval instead of adding an extra pause.
 
-Studio Live uses the native transition renderer and existing serial protocol.
-Light retains the settings and shows the saved face; autonomous/timed switching
-remains planned. The browser demo matches the effect poses for UI testing.
+Studio Live uses the native transition renderer and existing serial protocol;
+since D-31 Light runs the same transitions and timers for every saved theme. The
+browser demo matches the effect poses for UI testing.
 Animated cards keep face sensors sampled at the theme's normal refresh rate,
 including inactive faces, so outgoing values remain available during a change.
 Tests cover pose geometry, interrupted/reduced motion, theme round-trip and
@@ -281,6 +396,9 @@ asset-placeholder fix, document state or delivery scheduling is reverted.
 
 ### Timed card rotation (0.1.10)
 
+Since D-21 this rotation is a timed trigger; themes with `rotationSeconds` are
+migrated on load.
+
 - Optional `card.rotationSeconds` (5?3600, default absent/off) schedules one
   next face at a time in the shared core runtime, independently for each card.
   The interval includes transition time; rendering uses the configured effect.
@@ -371,6 +489,8 @@ asset-placeholder fix, document state or delivery scheduling is reverted.
 
 
 ### Consistent object property sections (0.1.14)
+
+Superseded by the redesigned inspector's Data and Look tabs; kept for history.
 
 - Name and object type precede position/size, content/data, appearance,
   membership, playback/animation and layer/object actions. Only relevant sections
@@ -524,9 +644,10 @@ Includes the previously prepared 0.1.18 independent cover corner controls.
 Moved from the project front page; implementation details and limitations are
 kept here so the README can focus on getting started.
 
-- **Light runtime with a native tray icon:** runs saved themes without keeping
-  the editor's WebView open. Open Studio from the tray; closing Studio returns
-  control to Light. Unsaved changes are handled before closing.
+- **Light owns the screens:** one engine runs the saved themes without the
+  editor's WebView; Studio edits through it, so opening and closing Studio does
+  not redraw the screen. Open Studio from the tray; unsaved changes are handled
+  before closing.
 - **Multiple screens:** separate themes, orientations and live selections;
   Light drives the saved active screens together and shares sensor sampling. Studio delivers frames on an independent
   worker per display, with one outstanding frame per connection and completion
@@ -548,16 +669,16 @@ kept here so the README can focus on getting started.
   a group together and edit individual members through Layers.
 - **Object copy and paste:** duplicate single objects or selections while
   preserving properties, with independent IDs and Undo support.
-- **Card widgets:** shared base and named faces, manual face selection, face
+- **Card widgets:** shared background and named faces in a list, face
   duplication and ordering, grouping existing objects, movement, resizing and
-  clipboard support. Face changes support fade, slide and flip transitions,
-  configurable duration/direction and optional base movement. Rotate faces on a timer
-  or select a face while an app runs, is closed, is in foreground or plays media.
-  Rules have priorities and a return delay; rotation resumes after the override.
+  clipboard support. One fade, slide or flip transition per Card, with duration,
+  direction and optional background movement. Timed triggers change faces at an
+  interval; app triggers select a face while an app runs, is closed, is in the
+  foreground or plays media, with priorities and a return delay.
 - **Weather widgets:** city search, units, language, icon size and spacing, with
   outline, filled, colored and shaded 3D-style vector icons authored in this fork.
-- **Windows media player:** display title, artist, cover and timeline from Windows
-  media sessions. Filter an app (e.g. Spotify) or automatically prefer a playing
+- **Windows media player:** display title, artist, cover, time and a styled
+  progress bar from Windows media sessions, each part optional. Filter an app (e.g. Spotify) or automatically prefer a playing
   session; hide stopped sessions or configure the empty label. App-provided
   metadata and timing vary; this widget does not send playback commands.
 - **Image and shape transparency:** shared linear/radial controls with center,
@@ -585,38 +706,23 @@ kept here so the README can focus on getting started.
 ## Hardware validation and current limits
 
 Testing focuses on Windows with a Turing Smart Screen 8.8-inch Rev C ROM 1.90
-and a Turing 3.5-inch display. Other drivers and Linux support are inherited
-from Bezel; these additions have not been physically verified on every model
-or on Linux.
+and a Turing 3.5-inch display. Other drivers are inherited from Bezel; these
+additions have not been physically verified on every model.
 
 Local video previews require a copy on the PC, are limited to 64 MiB and depend
 on WebView codecs. The current protocol cannot retrieve device-only videos;
 those backgrounds show a placeholder in the editor. Partial alpha blending
 over stored video on ROM 1.90 still needs hardware confirmation.
 
-The corrected login configuration has been tested by launching Light and the
-helper; the next Windows login must confirm the latest path and port fixes.
 
 ## Technical guides
 
 - [Windows source builds and manual setup](docs/build-windows.md)
 - [Live performance measurements and Debug overlay](docs/live-diagnostics.md)
+- [Fonts in Bezel Evo](docs/font-levels.md)
 - [Studio editing reference](docs/user/studio-editing.md)
+- [Changelog](CHANGELOG.md)
 - [Third-party credits and licences](THIRD_PARTY.md)
-
-## Historical planning snapshot
-
-The following planning text was moved from the old README. It is retained as
-a historical snapshot, not as a current feature-availability list: several
-items are already described as implemented above. Consult the implementation
-notes and [TODO.md](TODO.md) before treating an item as pending.
-
-The [roadmap](TODO.md) tracks face containers in Layers, timed/software/media card
-triggers and player widgets, linear/radial image transparency, radial shape
-transparency, per-screen sleep timing (default five minutes), additional colored
-and 3D-style weather icons, editor/property organization, calculated variables and
-PC-idle screensavers. These items are planned; availability and licensing of
-external event sources and icon collections still need evaluation.
 
 ## Windows distribution and updating
 

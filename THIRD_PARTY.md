@@ -13,9 +13,14 @@ in [Cargo.toml](Cargo.toml). Component licences remain in force.
 | LibreHardwareMonitorLib | MPL-2.0 | [Helper documentation](apps/bezel-sensors-helper/README.md), including original library source, dependency licences and source metadata |
 | Tabler Icons | MIT | [Licence](apps/bezel-studio/src/assets/tabler/LICENSE) |
 | Material Design Icons (hardware subset) | Apache-2.0 | [Licence](apps/bezel-studio/src/assets/mdi/LICENSE) and [NOTICE](apps/bezel-studio/src/assets/mdi/NOTICE) |
-| IBM Plex Sans / Mono | SIL OFL 1.1 | [Licence](apps/bezel-studio/src/assets/fonts/ibm-plex/LICENSE), [sources and SHA-256 checksums](apps/bezel-studio/src/assets/fonts/ibm-plex/README.md) |
-| Inter, JetBrains Mono (theme fonts, embedded in `bezel` and `bezel-studio`) | SIL OFL 1.1 | [Inter licence](themes/fonts/Inter-OFL.txt), [JetBrains Mono licence](themes/fonts/JetBrainsMono-OFL.txt) |
+| IBM Plex Sans / Mono (Studio's interface font) | SIL OFL 1.1 | [Licence](apps/bezel-studio/src/assets/fonts/ibm-plex/LICENSE), [sources and SHA-256 checksums](apps/bezel-studio/src/assets/fonts/ibm-plex/README.md) |
+| Inter, JetBrains Mono (theme fonts, embedded unmodified in `bezel.exe` and `bezel-studio.exe`, and shipped in `themes/fonts`) | SIL OFL 1.1 | [Inter licence](themes/fonts/Inter-OFL.txt), [JetBrains Mono licence](themes/fonts/JetBrainsMono-OFL.txt) |
 | Tauri Windows installer template | MIT | [Packaging notes](packaging/windows/README.md); the licence is included in Windows packages |
+
+The OFL lets these fonts be bundled and embedded with software; they are not
+sold on their own, and their licence files ship with the Windows packages. Fonts
+you add to your own fonts folder or include in a theme keep their own licences:
+Bezel cannot grant redistribution rights for them (see [Fonts](docs/user/fonts.md)).
 
 The bundled sensor helper includes Libre's original MPL licence and notices,
 including notices for embedded PawnIO modules. Dependency versions, hashes,
