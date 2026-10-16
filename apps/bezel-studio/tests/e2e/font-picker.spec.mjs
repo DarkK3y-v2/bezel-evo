@@ -174,3 +174,48 @@ test('a theme font the machine lacks is flagged with the font drawn instead', as
   await expect(faceSelect(page, t)).toHaveValue('700');
   expect(errors).toEqual([]);
 });
+
+
+test('user fonts, licence cancellation, theme assets, face preservation and removal with undo', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await addText(page, t);
+  await fontButton(page, t).click();
+  let dialog = picker(page, t);
+  await dialog.getByRole('button', { name: t('fontPicker.openFolder'), exact: true }).click();
+  await dialog.getByRole('button', { name: t('fontPicker.reload'), exact: true }).click();
+  await dialog.getByRole('combobox', { name: t('fontPicker.search'), exact: true }).fill('Bezel Local Demo');
+  const user = dialog.getByRole('group', { name: new RegExp(`^${t('fontPicker.user')}`) });
+  await expect(user.getByRole('option')).toHaveCount(1);
+  await user.getByRole('option').click();
+  await expect(fontButton(page, t)).toContainText('Bezel Local Demo');
+  await fontButton(page, t).click();
+  await dialog.getByRole('button', { name: t('fontPicker.include'), exact: true }).click();
+  const licence = page.locator('dialog.confirm-dialog');
+  await expect(licence).toContainText(t('fontPicker.licence'));
+  await expect(licence.getByRole('button', { name: t('dialog.cancel'), exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await fontButton(page, t).click();
+  await expect(dialog.getByRole('group', { name: new RegExp(`^${t('fontPicker.themeAssets')}`) })).toHaveCount(0);
+  await dialog.getByRole('button', { name: t('fontPicker.include'), exact: true }).click();
+  await licence.getByRole('button', { name: t('fontPicker.include'), exact: true }).click();
+  await expect(fontButton(page, t)).toBeFocused();
+  await faceSelect(page, t).selectOption('400');
+  await fontButton(page, t).click();
+  const assets = dialog.getByRole('group', { name: new RegExp(`^${t('fontPicker.themeAssets')}`) });
+  await expect(assets.getByRole('option', { name: /Bezel Local Demo/ })).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: t('fontPicker.remove'), exact: true })).toBeVisible();
+  await expectAccessible(page);
+  await dialog.getByRole('button', { name: t('fontPicker.remove'), exact: true }).click();
+  await expect(fontButton(page, t)).toContainText('Bezel Local Demo');
+  await fontButton(page, t).click();
+  await expect(assets).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.locator('#undo').click();
+  await fontButton(page, t).click();
+  await expect(assets.getByRole('option')).toHaveCount(1);
+  // Embedded families never offer inclusion.
+  await dialog.getByRole('combobox', { name: t('fontPicker.search'), exact: true }).fill('Inter');
+  await expect(dialog.getByRole('button', { name: t('fontPicker.include'), exact: true })).toBeHidden();
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});

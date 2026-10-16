@@ -497,17 +497,16 @@ function tauriBridge(invoke, tauri = {}) {
      * The renderer's font families (D-2026-10-16-studio-redesign-fidelity-28):
      * `font_catalog` → `{families: [{name, aliases?, faces: [{weight,
      * italic}], monospace, category: 'sans'|'serif'|'mono'|'display',
-     * bundled}], fallback}`, `fallback` being the family drawn for one the
+     * bundled, origin, asset?}], fallback}`, `fallback` being the family drawn for one the
      * machine lacks (`null` without fonts).
      */
     fontCatalog: () => invoke('font_catalog'),
-    /**
-     * The file of a face shipped with Bezel (`font_face {family, weight,
-     * italic}`), to draw a bundled family's name in it: an ArrayBuffer, or
-     * `null` for any other family (installed ones are the system's).
-     */
-    fontFace: async (family, weight, italic) => {
-      const data = await invoke('font_face', { family, weight, italic });
+    /** Open only the fixed per-user font directory. */
+    openFontsFolder: () => invoke('open_fonts_folder'),
+    includeFont: (family, weight, italic) => invoke('include_font', { family, weight, italic }),
+    /** A catalogued face or document font asset as an ArrayBuffer; unknown identities return null. */
+    fontFace: async (family, weight, italic, asset = null) => {
+      const data = await invoke('font_face', { family, weight, italic, ...(asset ? { asset } : {}) });
       const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : Uint8Array.from(data ?? []);
       return bytes.byteLength ? bytes.slice().buffer : null;
     },

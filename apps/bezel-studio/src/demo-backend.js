@@ -1176,6 +1176,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   // Which themes the Themes tab lists, as remembered.
   let themeFilter = { scope: null, axis: 'all' };
   const images = [];
+  const fontAssets = new Map();
+  const userFonts = [{ name: 'Bezel Local Demo', faces: [{ weight: 400, italic: false }, { weight: 700, italic: false }], category: 'sans', origin: 'user' }];
   // Videos and animated GIFs added for a background (with their posters,
   // ref → data URL, and their own size, play time and bytes), and the sizes
   // of files dropped on the window, by demo source.
@@ -1580,7 +1582,15 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       if (source) dropped.set(source, file.size);
       return source;
     },
-    fontCatalog: () => Promise.resolve(structuredClone(DEMO_FONT_CATALOG)),
+    fontCatalog: () => Promise.resolve(structuredClone({ ...DEMO_FONT_CATALOG, families: [...DEMO_FONT_CATALOG.families, ...userFonts, ...fontAssets.values()].sort((a, b) => a.name.toLowerCase() < b.name.toLowerCase() ? -1 : a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0) })),
+    openFontsFolder: () => Promise.resolve(),
+    includeFont: (family, weight, italic) => {
+      const font = [...DEMO_FONT_CATALOG.families, ...userFonts].find((f) => f.name === family && !f.bundled);
+      if (!font || !font.faces.some((f) => f.weight === weight && f.italic === italic)) return Promise.reject(new Error('invalidInput'));
+      const ref = `assets/${demoAssetName(`${family}-${weight}${italic ? 'i' : ''}.ttf`)}`;
+      fontAssets.set(ref, { ...font, faces: font.faces, asset: ref, origin: 'theme' });
+      return Promise.resolve({ ref });
+    },
     // The demo has no font files: names of bundled families fall back like a missing face.
     fontFace: () => Promise.resolve(null),
     getAutostart: () => Promise.resolve(autostart),
