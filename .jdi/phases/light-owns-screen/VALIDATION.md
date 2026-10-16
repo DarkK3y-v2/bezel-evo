@@ -1,4 +1,4 @@
-# Verifica ? un solo runtime in Light
+# Verifica — un solo runtime in Light
 
 Ambito: solo il worktree `F:\dev\bezel-light`, branch `fid/light-owner`. Nessuna modifica di VERSION, installazione o sostituzione di eseguibili. Non sono stati modificati `bezel-cli/src/theme.rs` o i moduli text/catalog del renderer.
 
