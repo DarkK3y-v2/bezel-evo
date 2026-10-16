@@ -539,6 +539,195 @@ pub struct FormatDto {
     pub decimal_bytes: bool,
 }
 
+fn is_true(v: &bool) -> bool {
+    *v
+}
+
+fn is_default<T: Default + PartialEq>(v: &T) -> bool {
+    *v == T::default()
+}
+
+/// The times a player prints.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TimeFormatDto {
+    /// `1:24 / 3:30`.
+    #[default]
+    ElapsedTotal,
+    /// `1:24 / -2:06`.
+    ElapsedRemaining,
+    /// `1:24`.
+    Elapsed,
+    /// `-2:06`.
+    Remaining,
+    /// `3:30`.
+    Total,
+}
+
+/// Where a player's times sit while its bar is shown.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TimePlacementDto {
+    /// A line of the text.
+    #[default]
+    Text,
+    /// Left and right of the bar.
+    Sides,
+    /// Above the bar.
+    Above,
+}
+
+/// How a player's bar is cut.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProgressPatternDto {
+    /// One bar.
+    #[default]
+    Continuous,
+    /// Blocks.
+    Segments,
+    /// Dots.
+    Dots,
+}
+
+/// The ends of a player's bar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProgressEndsDto {
+    /// Rounded.
+    #[default]
+    Round,
+    /// Square.
+    Square,
+}
+
+fn default_track() -> String {
+    to_hex(bezel_core::domain::playback::DEFAULT_PROGRESS_TRACK)
+}
+
+fn default_thickness() -> f32 {
+    bezel_core::domain::playback::DEFAULT_PROGRESS_THICKNESS
+}
+
+fn default_segments() -> u16 {
+    bezel_core::domain::playback::DEFAULT_PROGRESS_SEGMENTS
+}
+
+/// A player's progress bar; every field may be left out.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressStyleDto {
+    /// Filled part; absent uses the text colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<String>,
+    /// Empty track.
+    #[serde(default = "default_track")]
+    pub track: String,
+    /// Thickness, pixels.
+    #[serde(default = "default_thickness")]
+    pub thickness: f32,
+    /// `round` or `square`.
+    #[serde(default)]
+    pub ends: ProgressEndsDto,
+    /// A knob at the position.
+    #[serde(default)]
+    pub knob: bool,
+    /// `continuous`, `segments` or `dots`.
+    #[serde(default)]
+    pub pattern: ProgressPatternDto,
+    /// Blocks of `segments`.
+    #[serde(default = "default_segments")]
+    pub segments: u16,
+    /// `text`, `sides` or `above`.
+    #[serde(default)]
+    pub times: TimePlacementDto,
+}
+
+fn progress_style_dto(s: &bezel_core::domain::playback::ProgressStyle) -> Option<ProgressStyleDto> {
+    use bezel_core::domain::playback::{ProgressEnds, ProgressPattern, TimePlacement};
+    (*s != Default::default()).then(|| ProgressStyleDto {
+        fill: s.fill.map(to_hex),
+        track: to_hex(s.track),
+        thickness: s.thickness,
+        ends: match s.ends {
+            ProgressEnds::Round => ProgressEndsDto::Round,
+            ProgressEnds::Square => ProgressEndsDto::Square,
+        },
+        knob: s.knob,
+        pattern: match s.pattern {
+            ProgressPattern::Continuous => ProgressPatternDto::Continuous,
+            ProgressPattern::Segments => ProgressPatternDto::Segments,
+            ProgressPattern::Dots => ProgressPatternDto::Dots,
+        },
+        segments: s.segments,
+        times: match s.times {
+            TimePlacement::Text => TimePlacementDto::Text,
+            TimePlacement::Sides => TimePlacementDto::Sides,
+            TimePlacement::Above => TimePlacementDto::Above,
+        },
+    })
+}
+
+fn progress_style(s: Option<&ProgressStyleDto>) -> R<bezel_core::domain::playback::ProgressStyle> {
+    use bezel_core::domain::playback::{
+        PROGRESS_SEGMENTS, PROGRESS_THICKNESS, ProgressEnds, ProgressPattern, ProgressStyle,
+        TimePlacement,
+    };
+    let Some(s) = s else {
+        return Ok(ProgressStyle::default());
+    };
+    let (thin, thick) = PROGRESS_THICKNESS;
+    if !(thin..=thick).contains(&s.thickness) {
+        return err(format!("progress thickness {} out of range", s.thickness));
+    }
+    if !(PROGRESS_SEGMENTS.0..=PROGRESS_SEGMENTS.1).contains(&s.segments) {
+        return err(format!("progress segments {} out of range", s.segments));
+    }
+    Ok(ProgressStyle {
+        fill: s.fill.as_deref().map(color).transpose()?,
+        track: color(&s.track)?,
+        thickness: s.thickness,
+        ends: match s.ends {
+            ProgressEndsDto::Round => ProgressEnds::Round,
+            ProgressEndsDto::Square => ProgressEnds::Square,
+        },
+        knob: s.knob,
+        pattern: match s.pattern {
+            ProgressPatternDto::Continuous => ProgressPattern::Continuous,
+            ProgressPatternDto::Segments => ProgressPattern::Segments,
+            ProgressPatternDto::Dots => ProgressPattern::Dots,
+        },
+        segments: s.segments,
+        times: match s.times {
+            TimePlacementDto::Text => TimePlacement::Text,
+            TimePlacementDto::Sides => TimePlacement::Sides,
+            TimePlacementDto::Above => TimePlacement::Above,
+        },
+    })
+}
+
+fn time_format_dto(f: bezel_core::domain::playback::TimeFormat) -> TimeFormatDto {
+    use bezel_core::domain::playback::TimeFormat;
+    match f {
+        TimeFormat::ElapsedTotal => TimeFormatDto::ElapsedTotal,
+        TimeFormat::ElapsedRemaining => TimeFormatDto::ElapsedRemaining,
+        TimeFormat::Elapsed => TimeFormatDto::Elapsed,
+        TimeFormat::Remaining => TimeFormatDto::Remaining,
+        TimeFormat::Total => TimeFormatDto::Total,
+    }
+}
+
+fn time_format(f: TimeFormatDto) -> bezel_core::domain::playback::TimeFormat {
+    use bezel_core::domain::playback::TimeFormat;
+    match f {
+        TimeFormatDto::ElapsedTotal => TimeFormat::ElapsedTotal,
+        TimeFormatDto::ElapsedRemaining => TimeFormat::ElapsedRemaining,
+        TimeFormatDto::Elapsed => TimeFormat::Elapsed,
+        TimeFormatDto::Remaining => TimeFormat::Remaining,
+        TimeFormatDto::Total => TimeFormat::Total,
+    }
+}
+
 /// Text content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -566,6 +755,26 @@ pub enum ContentDto {
         hide_when_stopped: bool,
         #[serde(default, rename = "emptyText")]
         empty_text: String,
+        #[serde(default = "yes", rename = "showTitle", skip_serializing_if = "is_true")]
+        show_title: bool,
+        #[serde(
+            default = "yes",
+            rename = "showArtist",
+            skip_serializing_if = "is_true"
+        )]
+        show_artist: bool,
+        /// Absent follows `showProgress` (themes saved before D-26).
+        #[serde(default, rename = "showTime", skip_serializing_if = "Option::is_none")]
+        show_time: Option<bool>,
+        #[serde(default, rename = "timeFormat", skip_serializing_if = "is_default")]
+        time_format: TimeFormatDto,
+        /// Absent draws the bar as before it had options.
+        #[serde(
+            default,
+            rename = "progressStyle",
+            skip_serializing_if = "Option::is_none"
+        )]
+        progress_style: Option<ProgressStyleDto>,
     },
     /// Current weather at a saved location.
     Weather {
@@ -1102,6 +1311,11 @@ fn kind_dto(k: &ElementKind) -> KindDto {
                     show_source: p.show_source,
                     hide_when_stopped: p.hide_when_stopped,
                     empty_text: p.empty_text.clone(),
+                    show_title: p.show_title,
+                    show_artist: p.show_artist,
+                    show_time: p.show_time,
+                    time_format: time_format_dto(p.time_format),
+                    progress_style: progress_style_dto(&p.progress),
                 },
                 TextContent::Static(text) => ContentDto::Static { text: text.clone() },
                 TextContent::Sensor {
@@ -1294,6 +1508,11 @@ fn kind(k: &KindDto) -> R<ElementKind> {
                     show_source,
                     hide_when_stopped,
                     empty_text,
+                    show_title,
+                    show_artist,
+                    show_time,
+                    time_format: format_of_time,
+                    progress_style: style_of_progress,
                 } => {
                     if cover_corners.is_some_and(|r| r.iter().any(|v| !v.is_finite() || *v < 0.))
                         || !cover_radius.is_finite()
@@ -1315,6 +1534,11 @@ fn kind(k: &KindDto) -> R<ElementKind> {
                         show_source: *show_source,
                         hide_when_stopped: *hide_when_stopped,
                         empty_text: empty_text.clone(),
+                        show_title: *show_title,
+                        show_artist: *show_artist,
+                        show_time: *show_time,
+                        time_format: time_format(*format_of_time),
+                        progress: progress_style(style_of_progress.as_ref())?,
                     })
                 }
                 ContentDto::Static { text } => TextContent::Static(text.clone()),

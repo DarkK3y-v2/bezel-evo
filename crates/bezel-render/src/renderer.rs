@@ -1608,6 +1608,7 @@ mod tests {
                 show_source: true,
                 hide_when_stopped: false,
                 empty_text: "No media".into(),
+                ..Default::default()
             }),
         ];
         let mut scene = Scene::empty().with("cpu.usage", 35.);

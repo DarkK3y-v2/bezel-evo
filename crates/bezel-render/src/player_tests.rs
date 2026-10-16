@@ -50,6 +50,7 @@ fn legacy(cover: bool, progress: bool, source: bool) -> Player {
         show_source: source,
         hide_when_stopped: false,
         empty_text: "No media".into(),
+        ..Default::default()
     }
 }
 

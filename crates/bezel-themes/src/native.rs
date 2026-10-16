@@ -1518,4 +1518,108 @@ mod tests {
         let bad: ThemeDto = serde_json::from_value(json).unwrap();
         assert!(Theme::try_from(&bad).is_err());
     }
+
+    /// The text element of [`every_kind`] as a player with `content`.
+    fn player_json(content: serde_json::Value) -> serde_json::Value {
+        let (theme, _) = every_kind();
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        let text = json["elements"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|e| e["kind"]["type"] == "text")
+            .unwrap();
+        text["kind"]["content"] = content;
+        json
+    }
+
+    fn player_of(theme: &Theme) -> &bezel_core::domain::playback::Player {
+        theme
+            .elements
+            .iter()
+            .find_map(|e| match &e.kind {
+                ElementKind::Text {
+                    content: TextContent::Player(p),
+                    ..
+                } => Some(p),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    #[test]
+    fn players_saved_before_the_parts_load_and_save_unchanged() {
+        use bezel_core::domain::playback::Player;
+        let old = serde_json::json!({"type":"player","source":"Spotify","showCover":true,"coverRadius":0.0,"showProgress":true,"showSource":false,"hideWhenStopped":false,"emptyText":"No media"});
+        let json = player_json(old.clone());
+        let dto: ThemeDto = serde_json::from_value(json.clone()).unwrap();
+        let theme = Theme::try_from(&dto).unwrap();
+        assert_eq!(
+            *player_of(&theme),
+            Player {
+                source: "Spotify".into(),
+                empty_text: "No media".into(),
+                ..Player::default()
+            }
+        );
+        let saved = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        assert_eq!(saved, json, "no new field is written for an old player");
+    }
+
+    #[test]
+    fn player_parts_and_progress_style_round_trip() {
+        use bezel_core::domain::frame::Rgba;
+        use bezel_core::domain::playback::{
+            ProgressEnds, ProgressPattern, TimeFormat, TimePlacement,
+        };
+        let json = player_json(serde_json::json!({
+            "type":"player","source":"","showCover":false,"coverRadius":0.0,"showProgress":true,
+            "showSource":false,"hideWhenStopped":false,"emptyText":"",
+            "showTitle":false,"showTime":true,"timeFormat":"elapsedRemaining",
+            "progressStyle":{"fill":"#ff0000ff","track":"#00000080","thickness":6.0,"ends":"square",
+                "knob":true,"pattern":"dots","segments":20,"times":"sides"}
+        }));
+        let dto: ThemeDto = serde_json::from_value(json.clone()).unwrap();
+        let theme = Theme::try_from(&dto).unwrap();
+        let p = player_of(&theme);
+        assert!(!p.show_title && p.show_artist);
+        assert_eq!(p.show_time, Some(true));
+        assert_eq!(p.time_format, TimeFormat::ElapsedRemaining);
+        assert_eq!(p.progress.fill, Some(Rgba::opaque(255, 0, 0)));
+        assert_eq!(p.progress.track.a, 0x80);
+        assert_eq!(p.progress.thickness, 6.);
+        assert_eq!(p.progress.ends, ProgressEnds::Square);
+        assert!(p.progress.knob);
+        assert_eq!(p.progress.pattern, ProgressPattern::Dots);
+        assert_eq!(p.progress.segments, 20);
+        assert_eq!(p.progress.times, TimePlacement::Sides);
+        assert_eq!(serde_json::to_value(ThemeDto::from(&theme)).unwrap(), json);
+
+        let partial =
+            player_json(serde_json::json!({"type":"player","progressStyle":{"knob":true}}));
+        let dto: ThemeDto = serde_json::from_value(partial).unwrap();
+        let theme = Theme::try_from(&dto).unwrap();
+        let p = player_of(&theme);
+        assert!(p.progress.knob && p.show_title && p.show_artist);
+        assert_eq!(p.progress.thickness, 4.);
+
+        for bad in [
+            serde_json::json!({"thickness": 0.5}),
+            serde_json::json!({"thickness": 65}),
+            serde_json::json!({"segments": 1}),
+            serde_json::json!({"segments": 101}),
+            serde_json::json!({"track": "red"}),
+            serde_json::json!({"fill": "#12"}),
+        ] {
+            let json = player_json(serde_json::json!({"type":"player","progressStyle":bad}));
+            let dto: ThemeDto = serde_json::from_value(json).unwrap();
+            assert!(Theme::try_from(&dto).is_err(), "{bad}");
+        }
+        for bad in [
+            serde_json::json!({"type":"player","timeFormat":"never"}),
+            serde_json::json!({"type":"player","progressStyle":{"pattern":"zigzag"}}),
+        ] {
+            assert!(serde_json::from_value::<ThemeDto>(player_json(bad)).is_err());
+        }
+    }
 }

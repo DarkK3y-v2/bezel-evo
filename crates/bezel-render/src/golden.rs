@@ -1383,6 +1383,7 @@ fn player_cover_progress_and_stopped_state_use_measured_context() {
                     show_source: false,
                     hide_when_stopped: true,
                     empty_text: "No media".into(),
+                    ..Default::default()
                 }),
                 style: TextStyle {
                     font: FontSpec {
