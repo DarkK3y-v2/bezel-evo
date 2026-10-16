@@ -5,7 +5,7 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
-## [0.1.26] - Unreleased
+## [0.1.26] - 2026-10-16
 
 The first published release since 0.1.22 (0.1.23 to 0.1.25 were local builds),
 so this entry covers everything since then.
