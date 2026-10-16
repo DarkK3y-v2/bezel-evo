@@ -280,7 +280,18 @@ fn editing_one_screen_does_not_pause_another_saved_screen() {
     let first_saved = f.owner.client(false).connect(&f.screens[0]).unwrap();
     let second_saved = f.owner.client(false).connect(&second).unwrap();
     f.owner.set_editing(true);
-    let _editor = f.owner.client(true).connect(&f.screens[0]).unwrap();
+    let mut editor = f.owner.client(true).connect(&f.screens[0]).unwrap();
+    assert!(
+        !first_saved.presentation_paused(),
+        "identification alone must keep the saved theme running"
+    );
+    editor.set_brightness(Brightness::MAX).unwrap();
+    editor.storage().unwrap().info().unwrap();
+    assert!(
+        !first_saved.presentation_paused(),
+        "queries and brightness do not replace the theme"
+    );
+    editor.set_orientation(Orientation::Landscape).unwrap();
     assert!(first_saved.presentation_paused());
     assert!(!second_saved.presentation_paused());
     assert_eq!(f.physical.log().connects, 2);

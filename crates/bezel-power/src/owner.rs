@@ -211,9 +211,6 @@ impl ScreenConnector for OwnerConnector {
             links.insert(key, Arc::clone(&link));
             link
         };
-        if self.editor {
-            lock(&kept)?.edited = true;
-        }
         let identity = lock(&kept)?.link.identity().clone();
         Ok(Box::new(OwnedLink {
             kept,
@@ -235,9 +232,12 @@ impl ScreenConnector for OwnerConnector {
             .address
             .0
             .to_lowercase();
-        if let Some(kept) = lock(&self.owner.links)?.remove(&key) {
+        let mut links = lock(&self.owner.links)?;
+        if let Some(kept) = links.remove(&key) {
             lock(&kept)?.invalidate();
         }
+        // Keep the connection registry locked until the MCU restart finishes:
+        // no worker may open the same screen halfway through its restart.
         self.owner.connector.restart(screen)
     }
 }
@@ -252,6 +252,12 @@ struct OwnedLink {
 }
 
 impl OwnedLink {
+    fn claim_editor(&self) -> Result<()> {
+        if self.editor {
+            lock(&self.kept)?.edited = true;
+        }
+        Ok(())
+    }
     fn paused(&self) -> bool {
         self.owner.reload_pending()
             || (self.owner.editing() && lock(&self.kept).map_or(true, |k| k.edited))
@@ -298,6 +304,7 @@ impl ScreenLink for OwnedLink {
         self.write(|k| k.link.set_brightness(value))
     }
     fn set_orientation(&mut self, value: Orientation) -> Result<()> {
+        self.claim_editor()?;
         self.desired_orientation = Some(value);
         self.write(|k| {
             if k.orientation != Some(value) {
@@ -308,6 +315,7 @@ impl ScreenLink for OwnedLink {
         })
     }
     fn present(&mut self, frame: &Frame) -> Result<()> {
+        self.claim_editor()?;
         if !self.editor && self.allowed() {
             if let Some(orientation) = self.desired_orientation {
                 self.set_orientation(orientation)?;
@@ -321,6 +329,7 @@ impl ScreenLink for OwnedLink {
         self.write(|k| k.link.present(frame))
     }
     fn screen_off(&mut self) -> Result<()> {
+        self.claim_editor()?;
         self.write(|k| {
             k.video = None;
             k.link.screen_off()?;
@@ -329,12 +338,14 @@ impl ScreenLink for OwnedLink {
         })
     }
     fn turn_off_now(&mut self) -> Result<()> {
+        self.claim_editor()?;
         // Shutdown must reach the device even if an editor was connected.
         let mut kept = lock(&self.kept)?;
         kept.video = None;
         kept.link.turn_off_now()
     }
     fn release(&mut self) -> Result<()> {
+        self.claim_editor()?;
         // Light's worker exits can reload the saved theme without releasing
         // the screen; only an explicit editor Return releases it.
         if !self.editor {
@@ -368,8 +379,14 @@ impl ScreenStorage for OwnedLink {
         self.storage_call(|s| s.size(path))
     }
     fn upload(&mut self, path: &RemotePath, data: &[u8], job: &mut Job<'_>) -> Result<()> {
+        let was_edited = lock(&self.kept)?.edited;
+        self.claim_editor()?;
         lock(&self.kept)?.video = None;
-        self.storage_call(|s| s.upload(path, data, job))
+        let result = self.storage_call(|s| s.upload(path, data, job));
+        if self.editor {
+            lock(&self.kept)?.edited = was_edited;
+        }
+        result
     }
     fn delete(&mut self, path: &RemotePath, confirmed: Confirmed) -> Result<()> {
         {
@@ -385,6 +402,7 @@ impl ScreenStorage for OwnedLink {
         self.storage_call(|s| s.delete(path, confirmed))
     }
     fn play_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
+        self.claim_editor()?;
         self.desired_video = Some((path.clone(), repeat));
         if !self.allowed() {
             return Ok(());
@@ -401,6 +419,7 @@ impl ScreenStorage for OwnedLink {
         })
     }
     fn resume_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
+        self.claim_editor()?;
         self.desired_video = Some((path.clone(), repeat));
         if !self.allowed() {
             return Ok(());
@@ -411,10 +430,12 @@ impl ScreenStorage for OwnedLink {
         self.play_video(path, repeat)
     }
     fn play_image(&mut self, path: &RemotePath) -> Result<()> {
+        self.claim_editor()?;
         lock(&self.kept)?.video = None;
         self.storage_call(|s| s.play_image(path))
     }
     fn stop(&mut self) -> Result<()> {
+        self.claim_editor()?;
         self.desired_video = None;
         if !self.allowed() {
             return Ok(());
