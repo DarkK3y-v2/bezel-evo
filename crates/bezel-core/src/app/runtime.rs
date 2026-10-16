@@ -662,6 +662,16 @@ impl ThemeRuntime {
     }
 
     /// The readings of the last [`Self::sample`] (empty before the first).
+    /// Snapshot the Player will display after accepting an incoming sample at `at`.
+    /// Independent graph points do not change the Player before the theme refresh.
+    pub fn playback_snapshot<'a>(&'a self, incoming: &'a Snapshot, at: Duration) -> &'a Snapshot {
+        if self.refresh_due(at) {
+            incoming
+        } else {
+            &self.scene.snapshot
+        }
+    }
+
     /// Update independent audio results without sampling or resetting histories.
     pub fn set_spectra(
         &mut self,

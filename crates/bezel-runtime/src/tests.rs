@@ -1178,3 +1178,79 @@ fn scene_names_with_shared_prefixes_cannot_exchange_audio_results() {
         vec![AudioState::Demo]
     );
 }
+
+#[test]
+fn spectrum_switches_source_on_the_same_refresh_that_changes_the_player() {
+    use bezel_core::{
+        domain::{
+            playback::{MediaSession, Player},
+            spectrum::{AudioBlock, AudioState, Spectrum},
+            theme::{TextContent, TextStyle},
+        },
+        ports::{AudioCapture, AudioCaptureFactory},
+    };
+    struct Factory(Arc<Mutex<Vec<String>>>);
+    struct Capture;
+    impl AudioCapture for Capture {
+        fn read(&mut self) -> std::result::Result<AudioBlock, AudioState> {
+            Ok(AudioBlock {
+                samples: vec![],
+                rate: 48000,
+                channels: 2,
+            })
+        }
+    }
+    impl AudioCaptureFactory for Factory {
+        fn open(&self, source: &str) -> std::result::Result<Box<dyn AudioCapture>, AudioState> {
+            self.0.lock().unwrap().push(source.into());
+            Ok(Box::new(Capture))
+        }
+    }
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.refresh_seconds = 1.;
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut player = document.theme.elements[0].clone();
+    player.id = ElementId(2);
+    player.kind = ElementKind::Text {
+        content: TextContent::Player(Player::default()),
+        style: TextStyle::default(),
+    };
+    document.theme.elements.push(player);
+    let samples = ["Spotify.exe", "Chrome.exe"].map(|source| {
+        let mut s = Snapshot::default();
+        s.media.push(MediaSession {
+            source: source.into(),
+            playing: true,
+            ..Default::default()
+        });
+        s
+    });
+    f.engine.sensors =
+        sampling::Sampler::manual(Box::new(FakeSensors::new(Vec::new(), samples.into())));
+    let opened = Arc::new(Mutex::new(Vec::new()));
+    f.engine = f.engine.with_audio(Arc::new(Factory(opened.clone())));
+    f.engine.audio_consent(true);
+    f.engine.document("preview", 0, document, false).unwrap();
+    f.engine.sensors.advance(Duration::ZERO);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("preview", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let wait = |source: &str| {
+        let until = Instant::now() + Duration::from_secs(1);
+        while !opened.lock().unwrap().iter().any(|s| s == source) {
+            assert!(
+                Instant::now() < until,
+                "source was not requested in the Player refresh"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    };
+    wait("Spotify.exe");
+    f.engine.sensors.advance(Duration::from_secs(1));
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    wait("Chrome.exe");
+}

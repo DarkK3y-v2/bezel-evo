@@ -495,7 +495,14 @@ impl Engine {
                     if requests.len() >= 256 {
                         continue;
                     }
-                    let selected = config.session(scene.runtime.theme(), scene.runtime.snapshot());
+                    let snapshot = if reading.sequence > 0 {
+                        scene
+                            .runtime
+                            .playback_snapshot(&reading.snapshot, reading.scheduled_at)
+                    } else {
+                        scene.runtime.snapshot()
+                    };
+                    let selected = config.session(scene.runtime.theme(), snapshot);
                     let (source, playing, state) = match selected {
                         Ok(Some(s)) => (
                             s.source.clone(),
