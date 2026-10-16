@@ -199,7 +199,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 #status-memory, #status-libre-label, #status-fps { display: inline-block; text-align: center; font-variant-numeric: tabular-nums; }
 /* The render chip is a .pill (inline-flex, centred vertically): centre it horizontally too. */
 #status-render { justify-content: center; font-variant-numeric: tabular-nums; }
-#status-render { min-width: 12ch; }
+/* Content-box: the width is the text alone ("Render 100 ms"), so padding and border never eat into it. */
+#status-render { box-sizing: content-box; min-width: 14ch; }
 #status-memory { min-width: 16ch; }
 #status-libre-label { min-width: 15ch; }
 #status-fps { min-width: 7ch; }
