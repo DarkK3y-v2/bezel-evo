@@ -2,10 +2,9 @@
 
 /// Restart the bundled Libre reader. The task must already be configured.
 pub fn restart_libre_reader() -> std::io::Result<()> {
-    #[cfg(windows)]
     crate::sensor_log::log("restart.requested", "Restart Bezel-Sensors scheduled task");
     let result = restart();
-    #[cfg(windows)]
+
     match &result {
         Ok(()) => crate::sensor_log::log(
             "restart.scheduled",
@@ -17,7 +16,6 @@ pub fn restart_libre_reader() -> std::io::Result<()> {
 }
 
 fn restart() -> std::io::Result<()> {
-    #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         let windows = std::env::var_os("WINDIR")
@@ -48,8 +46,4 @@ fn restart() -> std::io::Result<()> {
         }
         Ok(())
     }
-    #[cfg(not(windows))]
-    Err(std::io::Error::other(
-        "The Libre reader is available on Windows only",
-    ))
 }

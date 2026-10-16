@@ -1,18 +1,9 @@
 //! Bezel sensors: the driven adapter behind the core's
 //! [`SensorSource`](bezel_core::ports::SensorSource) port.
 //!
-//! [`SystemSensors`] composes internal providers. On Linux they read `/proc`
-//! and `/sys` directly: CPU times, cpufreq and load, every hwmon chip (with
-//! the CPU temperature picked by priority), RAPL, memory, network, disks and
-//! mounts, and AMD GPUs through amdgpu's sysfs files. NVIDIA GPUs come from
-//! NVML, loaded at run time. On Windows, sysinfo measures CPU, memory,
-//! disks and network, and LibreHardwareMonitor's WMI namespace or local
-//! web server the temperatures, fans and power. On both, `gpu.fps` comes from a
-//! frame-rate overlay already running (MangoHud's logs on Linux, RivaTuner
-//! Statistics Server's shared memory on Windows) and `net.ping` from a probe
-//! thread of its own, which sends packets only while a shown value uses the
-//! ping (`SensorSource::want`, D-2026-09-30-release-polish-11;
-//! [`SensorOptions`] chooses the host and the MangoHud folder).
+//! [`SystemSensors`] composes Windows providers: sysinfo, LibreHardwareMonitor,
+//! NVIDIA NVML, RTSS, media sessions and application activity. Ping runs only
+//! while a shown value requests it; weather is cached independently.
 //! [`FakeSensors`] replays scripted snapshots for tests and demos.
 //!
 //! What every provider guarantees (D-2026-09-30-sensors-1 and -4):
@@ -28,30 +19,24 @@
 //! process memory (`memory`), each call with its `// SAFETY:` reasoning.
 #![deny(unsafe_code)]
 
-#[cfg(target_os = "linux")]
-mod amdgpu;
 mod fake;
 mod fps;
 mod gpu;
-#[cfg(any(windows, test))]
+
 mod lhm;
 mod libre_control;
-#[cfg(target_os = "linux")]
-mod linux;
+
 pub mod memory;
 mod nvidia;
 mod ping;
 mod provider;
-#[cfg(windows)]
+
 mod sensor_log;
 mod shared;
 mod system;
-#[cfg(test)]
-#[cfg(target_os = "linux")]
-mod testing;
+
 pub mod weather;
 
-#[cfg(windows)]
 mod windows;
 
 pub use fake::FakeSensors;

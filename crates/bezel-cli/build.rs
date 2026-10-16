@@ -1,5 +1,4 @@
 fn main() -> std::io::Result<()> {
-    #[cfg(windows)]
     {
         println!("cargo:rerun-if-changed=windows.manifest");
         tauri_winres::WindowsResource::new()

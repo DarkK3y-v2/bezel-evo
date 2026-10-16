@@ -15,7 +15,6 @@ mod shutdown;
 pub mod standby;
 pub mod storage;
 pub mod theme;
-pub mod udev_rules;
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -172,10 +171,6 @@ pub struct SensorSettings {
     /// [default: 8.8.8.8].
     #[arg(long, value_name = "HOST", value_parser = NonEmptyStringValueParser::new())]
     pub ping_host: Option<String>,
-    /// Folder of MangoHud's CSV logs that `gpu.fps` reads on Linux
-    /// [default: output_folder of MangoHud.conf, else your home folder].
-    #[arg(long, value_name = "DIR")]
-    pub mangohud_dir: Option<PathBuf>,
 }
 
 /// Subcommands.
@@ -201,10 +196,6 @@ pub enum Command {
         #[arg(long)]
         yes: bool,
     },
-    /// Print the Linux udev rule that lets your user open every supported
-    /// screen without root (stdout), and the one-line sudo command that
-    /// installs it (stderr). Bezel never runs that command itself.
-    UdevRules,
     /// Show an animated test pattern: color bars, a marker in each corner
     /// (red top-left, green top-right, white bottom-right, blue bottom-left)
     /// and a moving strip that exercises partial updates.
@@ -274,7 +265,7 @@ pub enum Command {
         /// Output options.
         #[command(flatten)]
         args: SensorsArgs,
-        /// Ping host and MangoHud folder.
+        /// Ping host.
         #[command(flatten)]
         settings: SensorSettings,
     },
@@ -312,7 +303,7 @@ pub enum Command {
         /// PATH.
         #[arg(long, value_name = "PATH")]
         ffmpeg: Option<PathBuf>,
-        /// Ping host and MangoHud folder.
+        /// Ping host.
         #[command(flatten)]
         settings: SensorSettings,
     },
@@ -347,7 +338,7 @@ impl Command {
         }
     }
 
-    /// The `--ping-host` and `--mangohud-dir` of `sensors` and `run`.
+    /// The `--ping-host` of `sensors` and `run`.
     pub fn sensor_settings(&self) -> Option<&SensorSettings> {
         match self {
             Command::Sensors { settings, .. } | Command::Run { settings, .. } => Some(settings),
@@ -484,8 +475,6 @@ where
         Command::MonitorMode { .. } => {
             anyhow::bail!("`monitor-mode` runs through run_monitor_mode")
         }
-        // Writes the install command to stderr: see `udev_rules::run`.
-        Command::UdevRules => anyhow::bail!("`udev-rules` runs through udev_rules::run"),
         // Says what it does before the wait: see `run_restart`.
         Command::Restart { .. } => anyhow::bail!("`restart` runs through run_restart"),
     }
@@ -576,8 +565,6 @@ mod tests {
         assert!(err.to_string().contains("run_standby_command"), "{err}");
         let err = run_args(&["bezel", "--fake", "monitor-mode", "--yes"]).unwrap_err();
         assert!(err.to_string().contains("run_monitor_mode"), "{err}");
-        let err = run_args(&["bezel", "udev-rules"]).unwrap_err();
-        assert!(err.to_string().contains("udev_rules::run"), "{err}");
         let err = run_args(&["bezel", "--fake", "restart"]).unwrap_err();
         assert!(err.to_string().contains("run_restart"), "{err}");
         assert!(
@@ -595,12 +582,11 @@ mod tests {
     }
 
     #[test]
-    fn sensors_and_run_take_the_ping_host_and_mangohud_folder() {
+    fn sensors_and_run_take_the_ping_host() {
         let wanted = SensorSettings {
             ping_host: Some("1.1.1.1".to_string()),
-            mangohud_dir: Some(PathBuf::from("/games/logs")),
         };
-        let flags = ["--ping-host", "1.1.1.1", "--mangohud-dir", "/games/logs"];
+        let flags = ["--ping-host", "1.1.1.1"];
         let sensors =
             Cli::try_parse_from(["bezel", "sensors", "--json"].iter().chain(&flags)).unwrap();
         assert_eq!(sensors.command.sensor_settings(), Some(&wanted));

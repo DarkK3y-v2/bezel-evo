@@ -610,7 +610,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
     advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let options = wire::Options {
         ping_host: "127.0.0.1".into(),
-        mangohud_dir: None,
+
         ffmpeg: None,
     };
     for _ in 0..2 {
@@ -1024,7 +1024,6 @@ fn large_sensor_catalog_uses_bounded_binary_json_instead_of_breaking_the_pipe() 
     );
 }
 
-#[cfg(windows)]
 #[test]
 fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
     use bezel_core::ports::ScreenChannel;

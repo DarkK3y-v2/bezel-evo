@@ -639,24 +639,6 @@ mod tests {
         assert_eq!(none.kind(), io::ErrorKind::TimedOut);
     }
 
-    /// Unix refuses a closed port at once (Windows retries its SYN for
-    /// about a second first).
-    #[cfg(unix)]
-    #[test]
-    fn tcp_moves_on_from_a_refused_port() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-        let open = listener.local_addr().unwrap().port();
-        let closed = {
-            let spare = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-            spare.local_addr().unwrap().port()
-        };
-        let local = IpAddr::V4(Ipv4Addr::LOCALHOST);
-        let timeout = Duration::from_secs(1);
-        assert!(connect(local, &[closed, open], timeout).unwrap() < timeout);
-        let refused = connect(local, &[closed], timeout).unwrap_err();
-        assert_eq!(refused.kind(), io::ErrorKind::ConnectionRefused);
-    }
-
     #[test]
     fn failures_say_what_was_tried() {
         let probe = NetProbe::new("h", Duration::from_millis(300));
@@ -676,16 +658,6 @@ mod tests {
             Ok(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)))
         );
         assert!(resolve("localhost").is_ok());
-    }
-
-    /// This machine, read-only: loopback answers an ICMP echo, or this
-    /// user may not open ICMP sockets (outside `ping_group_range`) and TCP
-    /// takes over.
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn loopback_answers_an_echo_or_icmp_is_not_allowed() {
-        let answer = echo(IpAddr::V4(Ipv4Addr::LOCALHOST), 1, Duration::from_secs(1));
-        assert!(matches!(answer, Ok(_) | Err(Echo::NoSocket)), "{answer:?}");
     }
 
     /// This machine's network: TEST-NET-1 (RFC 5737) never answers, and

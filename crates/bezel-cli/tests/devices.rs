@@ -72,22 +72,6 @@ fn restart_says_what_it_does_then_the_outcome() {
 }
 
 #[test]
-fn udev_rules_prints_the_rule_and_only_shows_the_command() {
-    let out = bezel(&["udev-rules"]);
-    assert!(out.status.success());
-    let rule = String::from_utf8_lossy(&out.stdout);
-    assert_eq!(
-        rule,
-        include_str!("../../../packaging/linux/60-bezel.rules")
-    );
-    let err = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        err.contains(" udev-rules 2>/dev/null | sudo tee /etc/udev/rules.d/60-bezel.rules"),
-        "{err}"
-    );
-}
-
-#[test]
 fn version_is_printed() {
     let out = bezel(&["--version"]);
     assert!(out.status.success());

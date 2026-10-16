@@ -9,7 +9,6 @@ use serde_json::{Value, json};
 #[serde(deny_unknown_fields)]
 pub struct Options {
     pub ping_host: String,
-    pub mangohud_dir: Option<String>,
     pub ffmpeg: Option<String>,
 }
 

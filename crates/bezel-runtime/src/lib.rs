@@ -219,12 +219,7 @@ impl Engine {
         if self.options.as_ref() == Some(&options) {
             return Ok(());
         }
-        if options.ping_host.len() > 253
-            || options.ffmpeg.as_ref().is_some_and(|p| p.len() > 32768)
-            || options
-                .mangohud_dir
-                .as_ref()
-                .is_some_and(|p| p.len() > 32768)
+        if options.ping_host.len() > 253 || options.ffmpeg.as_ref().is_some_and(|p| p.len() > 32768)
         {
             return Err(invalid("option bounds"));
         }
