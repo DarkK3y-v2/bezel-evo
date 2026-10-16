@@ -484,7 +484,24 @@ function tauriBridge(invoke, tauri = {}) {
     // A dropped file's path, or `null` to ask with the native dialog.
     addMedia: (path = null) => invoke('add_media', { path }),
     assets: () => invoke('list_assets'),
-    fonts: () => invoke('list_fonts'),
+    /**
+     * The renderer's font families (D-2026-10-16-studio-redesign-fidelity-28):
+     * `font_catalog` → `{families: [{name, aliases?, faces: [{weight,
+     * italic}], monospace, category: 'sans'|'serif'|'mono'|'display',
+     * bundled}], fallback}`, `fallback` being the family drawn for one the
+     * machine lacks (`null` without fonts).
+     */
+    fontCatalog: () => invoke('font_catalog'),
+    /**
+     * The file of a face shipped with Bezel (`font_face {family, weight,
+     * italic}`), to draw a bundled family's name in it: an ArrayBuffer, or
+     * `null` for any other family (installed ones are the system's).
+     */
+    fontFace: async (family, weight, italic) => {
+      const data = await invoke('font_face', { family, weight, italic });
+      const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : Uint8Array.from(data ?? []);
+      return bytes.byteLength ? bytes.slice().buffer : null;
+    },
     getAutostart: () => invoke('get_autostart'),
     setAutostart: (on) => invoke('set_autostart', { on }),
     storageOverview: (screen) => invoke('storage_overview', { screen }),

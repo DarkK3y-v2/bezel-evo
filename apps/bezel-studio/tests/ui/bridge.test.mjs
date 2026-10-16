@@ -40,6 +40,18 @@ test('parseFrame rejects short or inconsistent frames', () => {
   assert.throws(() => parseFrame(frameBytes(2, 2).subarray(0, 16)), /expected 16/);
 });
 
+test('a bundled face arrives as bytes in any IPC shape; an empty answer is none', async () => {
+  for (const answer of [new Uint8Array([1, 2, 3]).buffer, new Uint8Array([9, 1, 2, 3]).subarray(1), [1, 2, 3]]) {
+    const calls = [];
+    const bridge = createBridge({ ...page(), __TAURI__: { core: { invoke: async (cmd, args) => { calls.push([cmd, args]); return answer; } } } });
+    const bytes = await bridge.fontFace('Inter', 700, true);
+    assert.deepEqual([...new Uint8Array(bytes)], [1, 2, 3]);
+    assert.deepEqual(calls, [['font_face', { family: 'Inter', weight: 700, italic: true }]]);
+  }
+  const empty = createBridge({ ...page(), __TAURI__: { core: { invoke: async () => null } } });
+  assert.equal(await empty.fontFace('Arial', 400, false), null);
+});
+
 test('tauri mode maps every call to its command', async () => {
   const calls = [];
   const invoke = async (cmd, args) => {
@@ -67,7 +79,8 @@ test('tauri mode maps every call to its command', async () => {
   await bridge.importTheme();
   await bridge.addImage();
   await bridge.assets();
-  await bridge.fonts();
+  await bridge.fontCatalog();
+  assert.equal(await bridge.fontFace('Inter', 400, false), null, 'an empty answer: not a bundled face');
   await bridge.getAutostart();
   await bridge.setAutostart(true);
   await bridge.storageOverview('k');
@@ -104,7 +117,7 @@ test('tauri mode maps every call to its command', async () => {
   assert.deepEqual(calls.map((c) => c[0]), [
     'list_devices', 'sensor_catalog', 'sample_sensors', 'editor_session', 'render_preview', 'push_theme', 'set_live',
     'set_brightness', 'release_screen', 'save_theme', 'list_themes', 'open_theme', 'new_theme', 'import_theme',
-    'add_image', 'list_assets', 'list_fonts', 'get_autostart', 'set_autostart',
+    'add_image', 'list_assets', 'font_catalog', 'font_face', 'get_autostart', 'set_autostart',
     'storage_overview', 'media_tools', 'locate_ffmpeg', 'pick_media', 'prepare_upload', 'prepare_theme_video',
     'run_upload', 'cancel_job', 'delete_stored', 'play_stored', 'stop_playback', 'set_boot_media', 'set_boot_media',
     'set_unsaved', 'close_window', 'preferences', 'set_language', 'set_sensor_options', 'pick_folder',
@@ -112,24 +125,24 @@ test('tauri mode maps every call to its command', async () => {
     'theme_thumbnail', 'set_theme_filter', 'render_preview', 'video_auto', 'open_guide', 'set_light_on_close',
   ]);
   assert.deepEqual(calls[4][1], { theme, motion: true, cardRotation: true }, 'the preview plays a video background by default');
-  assert.deepEqual(calls[46][1], { theme, motion: false, cardRotation: false }, 'reduced motion: the poster');
-  assert.deepEqual(calls[47][1], { theme });
-  assert.deepEqual(calls[48][1], { page: 'ffmpeg', language: 'pt-BR' });
-  assert.deepEqual(calls[44][1], { location: '/home/me/t.bezeltheme' });
-  assert.deepEqual(calls[45][1], { scope: null, axis: 'vertical' });
-  assert.deepEqual(calls[42][1], { path: null }, 'the native dialog asks');
-  assert.deepEqual(calls[43][1], { path: '/home/me/Ondas.gif' }, 'a dropped file');
-  assert.deepEqual(calls[41][1], { screen: 'k' });
-  assert.deepEqual(calls[40][1], { keys: ['net.ping', 'cpu.usage'] });
-  assert.deepEqual(calls[35][1], { language: 'en' });
-  assert.deepEqual(calls[36][1], { pingHost: '1.1.1.1', mangohudDir: null });
-  assert.deepEqual(calls[38][1], { key: 'hid:/dev/hidraw7', confirmed: true });
-  assert.deepEqual(calls[32][1], { unsaved: true });
-  assert.deepEqual(calls[23][1], { screen: 'k', source: '/home/me/clip.mp4', medium: 'sd' });
-  assert.deepEqual(calls[25][1], { ticket: 7, overwrite: true });
-  assert.deepEqual(calls[27][1], { screen: 'k', path: 'internal/video/a.mp4', confirmed: true });
-  assert.deepEqual(calls[30][1], { screen: 'k', path: null, confirmed: true, brightness: null });
-  assert.deepEqual(calls[31][1], { screen: 'k', path: 'internal/video/a.mp4', confirmed: true, brightness: 40 });
+  assert.deepEqual(calls[47][1], { theme, motion: false, cardRotation: false }, 'reduced motion: the poster');
+  assert.deepEqual(calls[48][1], { theme });
+  assert.deepEqual(calls[49][1], { page: 'ffmpeg', language: 'pt-BR' });
+  assert.deepEqual(calls[45][1], { location: '/home/me/t.bezeltheme' });
+  assert.deepEqual(calls[46][1], { scope: null, axis: 'vertical' });
+  assert.deepEqual(calls[43][1], { path: null }, 'the native dialog asks');
+  assert.deepEqual(calls[44][1], { path: '/home/me/Ondas.gif' }, 'a dropped file');
+  assert.deepEqual(calls[42][1], { screen: 'k' });
+  assert.deepEqual(calls[41][1], { keys: ['net.ping', 'cpu.usage'] });
+  assert.deepEqual(calls[36][1], { language: 'en' });
+  assert.deepEqual(calls[37][1], { pingHost: '1.1.1.1', mangohudDir: null });
+  assert.deepEqual(calls[39][1], { key: 'hid:/dev/hidraw7', confirmed: true });
+  assert.deepEqual(calls[33][1], { unsaved: true });
+  assert.deepEqual(calls[24][1], { screen: 'k', source: '/home/me/clip.mp4', medium: 'sd' });
+  assert.deepEqual(calls[26][1], { ticket: 7, overwrite: true });
+  assert.deepEqual(calls[28][1], { screen: 'k', path: 'internal/video/a.mp4', confirmed: true });
+  assert.deepEqual(calls[31][1], { screen: 'k', path: null, confirmed: true, brightness: null });
+  assert.deepEqual(calls[32][1], { screen: 'k', path: 'internal/video/a.mp4', confirmed: true, brightness: 40 });
   assert.equal(bridge.fileSource({ name: 'x.png' }), null, 'dropped files come with paths from Tauri');
   assert.deepEqual(calls[6][1], { on: true, screen: 'k' });
   assert.deepEqual(calls[7][1], { screen: 'k', percent: 40 });

@@ -34,7 +34,7 @@ const LIVE_FOR: Duration = Duration::from_secs(8);
 fn backend(scratch: &Path) -> Backend {
     let themes = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../themes");
     let renderer = SkiaRenderer::with_fonts(font_files(&themes.join("fonts")), SystemFonts::Load);
-    let fonts = renderer.font_families();
+    let fonts = renderer.font_catalog();
     let blank = bezel_core::domain::theme::Theme::blank(
         "hardware",
         bezel_core::domain::geometry::Size::new(480, 1920),

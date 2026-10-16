@@ -243,7 +243,7 @@ mod tests {
             system_language: Language::English,
             make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
             udev: None,
-            fonts: Vec::new(),
+            fonts: bezel_render::FontCatalog::default(),
             studio: Session::new(studio),
             storage,
             thumbnails: crate::thumbnails::tests::thumbnails(root.join("thumbnails")),

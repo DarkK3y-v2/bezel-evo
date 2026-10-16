@@ -16,6 +16,7 @@ use bezel_core::domain::sensor::{
 };
 use bezel_core::domain::standby::{Offer, SleepMinutes, Standby, StandbyOption, Unavailable};
 use bezel_core::domain::storage::{Capacity, FileEntry, NameError, Refusal, RemotePath};
+use bezel_render::{FontCatalog, FontCategory, FontOrigin};
 use bezel_themes::dto::{SizeDto, ThemeDto};
 use serde::Serialize;
 
@@ -1340,5 +1341,80 @@ mod tests {
                 &serde_json::json!(2048)
             )
         );
+    }
+}
+
+/// The font picker's families (D-2026-10-16-studio-redesign-fidelity-28):
+/// the renderer's own font database, so a pick is drawn as previewed.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontCatalogDto {
+    /// Every family, sorted by name.
+    pub families: Vec<FontFamilyDto>,
+    /// The family drawn instead of one the machine lacks (`null`: no fonts).
+    pub fallback: Option<String>,
+}
+
+/// One family of the font database.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontFamilyDto {
+    /// The name a theme uses.
+    pub name: String,
+    /// Other names the renderer finds it by (left out when none).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
+    /// Its faces, sorted by weight then upright first.
+    pub faces: Vec<FontFaceDto>,
+    /// Every face is monospaced.
+    pub monospace: bool,
+    /// `sans`, `serif`, `mono` or `display`.
+    pub category: &'static str,
+    /// Shipped with Bezel (else installed on the machine).
+    pub bundled: bool,
+}
+
+/// One face: CSS weight and italic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct FontFaceDto {
+    /// CSS weight.
+    pub weight: u16,
+    /// Italic or oblique.
+    pub italic: bool,
+}
+
+fn category_name(category: FontCategory) -> &'static str {
+    match category {
+        FontCategory::Sans => "sans",
+        FontCategory::Serif => "serif",
+        FontCategory::Mono => "mono",
+        FontCategory::Display => "display",
+    }
+}
+
+impl From<&FontCatalog> for FontCatalogDto {
+    fn from(catalog: &FontCatalog) -> Self {
+        Self {
+            families: catalog
+                .families
+                .iter()
+                .map(|f| FontFamilyDto {
+                    name: f.name.clone(),
+                    aliases: f.aliases.clone(),
+                    faces: f
+                        .faces
+                        .iter()
+                        .map(|face| FontFaceDto {
+                            weight: face.weight,
+                            italic: face.italic,
+                        })
+                        .collect(),
+                    monospace: f.monospace,
+                    category: category_name(f.category),
+                    bundled: f.origin == FontOrigin::Bundled,
+                })
+                .collect(),
+            fallback: catalog.fallback.clone(),
+        }
     }
 }

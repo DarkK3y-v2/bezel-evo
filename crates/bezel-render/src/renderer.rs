@@ -18,6 +18,7 @@ use image::RgbaImage;
 use image::imageops::{self, FilterType};
 use tiny_skia::{Color, IntRect, Pixmap, PixmapMut, Rect, Transform};
 
+use crate::catalog::FontCatalog;
 use crate::composite::{self, Sprite, Target};
 use crate::diagnostics::Diagnostics;
 use crate::gauges::{self, BarStyle, NeedlePose, RingStyle};
@@ -265,9 +266,11 @@ impl SkiaRenderer {
         })
     }
 
-    /// Family names of the fonts a theme can use (bundled and installed).
-    pub fn font_families(&self) -> Vec<String> {
-        self.text.families()
+    /// The families of the fonts a theme can use, with their faces, and the
+    /// family drawn for a missing one: what a font picker lists
+    /// (D-2026-10-16-studio-redesign-fidelity-28).
+    pub fn font_catalog(&self) -> FontCatalog {
+        self.text.catalog()
     }
 
     /// The distinct problems met while drawing so far (a missing asset, an

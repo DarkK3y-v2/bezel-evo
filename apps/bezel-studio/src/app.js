@@ -1294,7 +1294,7 @@ if (state.screen) {
   } catch (e) { fail(e); }
 }
 bridge.getAutostart().then((on) => { state.autostart = on; renderScreenSelect(); }).catch(() => {});
-bridge.fonts().then((f) => { if (f?.length) state.fonts = f; }).catch(() => {});
+bridge.fontCatalog().then((c) => { if (c?.families?.length) state.fonts = c.families.map((f) => f.name); }).catch(() => {});
 inspector.render(state.assets);
 sampleLoop();
 memoryLoop();

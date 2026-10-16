@@ -190,7 +190,13 @@ test('images, live mode and fonts', async () => {
   assert.equal(await demo.getAutostart(), true);
   await demo.pushTheme({ name: 'pushed' });
   assert.equal((await demo.session()).theme.name, 'pushed');
-  assert.ok((await demo.fonts()).includes('Inter'));
+  const fonts = await demo.fontCatalog();
+  assert.equal(fonts.fallback, 'Inter');
+  assert.ok(fonts.families.some((f) => f.name === 'Inter' && f.bundled && f.faces.some((x) => x.weight === 700)));
+  assert.ok(fonts.families.some((f) => f.name === 'Consolas' && f.monospace && f.category === 'mono' && !f.bundled));
+  const names = fonts.families.map((f) => f.name.toLowerCase());
+  assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b)), 'sorted like the renderer');
+  assert.equal(await demo.fontFace('Inter', 400, false), null);
   const imported = await demo.importTheme();
   assert.equal(imported.theme.name, 'Imported');
   assert.deepEqual(imported.warnings, [...DEMO_IMPORT_WARNINGS]);
