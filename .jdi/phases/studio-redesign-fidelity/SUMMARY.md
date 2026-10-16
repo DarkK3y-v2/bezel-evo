@@ -416,3 +416,49 @@ Test e2e cambiati di proposito: le asserzioni sulle miniature e sui pixel delle 
 - La sezione Sfondo mostra UNA scheda dello sfondo in uso (anteprima, tipo, file, spiegazione, stato con pallino, "Cambia sfondo…") e solo le opzioni di quel tipo. "Cambia sfondo" apre un pannello nell'inspector con tre fonti espandibili ("IN USO"), nulla cambia fino alla conferma, piede "vecchio → nuovo", Annulla/Indietro/Esc senza modifiche, conferma = un passo di annullamento. Casi limite: video dello schermo mancante (invio solo con copia locale), fonte disabilitata con motivo. Orientamento a due pulsanti, aggiornamento con valori rapidi. Formato del tema invariato.
 - Conflitto all'unione solo in `tests/e2e/helpers.mjs` (helper della Card e dello Sfondo, tenuti entrambi).
 - Controlli dopo l'unione: cargo test 1108 ok, unit 498/498, Playwright completo 660/660.
+
+### Parti del Player e barra di avanzamento (D-2026-10-16-studio-redesign-fidelity-26)
+
+- **Modello (bezel-core, `domain::playback`).** `Player` ha cinque campi nuovi: `show_title`, `show_artist`, `show_time: Option<bool>`, `time_format` e `progress: ProgressStyle`.
+  - Se `show_time` manca, segue `show_progress`, come prima.
+  - `ProgressStyle` contiene: `fill: Option<Rgba>` (se manca, il colore del testo), `track`, `thickness` (1–64), `ends` (Round|Square), `knob`, `pattern` (Continuous|Segments|Dots), `segments` (2–100) e `times` (Text|Sides|Above).
+  - Il default è la barra di prima: traccia 100,100,100,100, 4 px, estremi arrotondati, tempi nel testo.
+  - Le regole pure stanno nel core: `Player::text` (righe, tempi accanto alla barra, frazione), `times`/`widest_times`, `clock_time` (`m:ss`) e `ProgressStyle::blocks` (segmenti, o tanti punti quanti ne entrano).
+- **JSON (bezel-themes).** Nel contenuto `player` ci sono campi nuovi, tutti opzionali e scritti solo quando non sono al default: `showTitle`, `showArtist`, `showTime`, `timeFormat` (`elapsedTotal|elapsedRemaining|elapsed|remaining|total`) e `progressStyle`:
+  ```json
+  "progressStyle": {"fill": "#ff0000ff", "track": "#64646464", "thickness": 4, "ends": "round|square", "knob": false, "pattern": "continuous|segments|dots", "segments": 12, "times": "text|sides|above"}
+  ```
+  - Ogni campo di `progressStyle` può mancare.
+  - Spessore, numero di segmenti e colori fuori intervallo, o enum sconosciuti, rendono il tema non valido.
+  - Un tema vecchio si carica e si risalva identico: nessun campo nuovo viene scritto.
+- **Renderer (bezel-render, `player.rs`).** Lo stesso codice serve il canvas, l'anteprima e lo schermo.
+  - Si disegnano solo le parti accese.
+  - Il blocco della barra (barra, pallino, tempi ai lati o sopra) ha l'altezza dello stile e sta 4 px sotto il testo.
+  - Una barra senza testo segue l'allineamento verticale e non lascia spazio vuoto. Una copertina da sola riempie il riquadro.
+  - La barra continua usa il disegno di prima. Segmenti e punti riusano `gauges::draw_blocks`, estratto da `draw_bar` senza cambiarne il comportamento.
+  - I tempi ai lati sono misurati sulla durata totale, così la barra non cambia lunghezza mentre il brano avanza.
+  - **Adatta (doppio clic, D-19):** misura le parti visibili. Senza copertina: larghezza del testo o della riga dei tempi, altezza del testo + blocco. Una copertina da sola diventa quadrata. Un lato senza niente da misurare (barra senza testo) mantiene il riquadro. Senza parti visibili non cambia nulla.
+- **Transizioni (D-18) e colore per valore (D-19):** non riguardano il Player, che non ha sensore. Restano invariate per gli altri oggetti; i test di Anello, Barra, Lancetta e Valore sono verdi.
+- **Demo.** `src/player-parts.js` contiene le stesse regole in JS: parti, tempi, blocchi, pallino, righe del blocco e adattamento. `demo-render.js` lo usa per disegnare e misurare. La traccia del demo ora è quella del renderer (`#64646464`).
+- **Inspector.**
+  - "Cosa mostrare" ha sei riquadri: Copertina, Titolo, Artista, Tempo, Avanzamento, Nome app (`partPatch`). Quando si spegne o accende la barra, lo stato del Tempo viene scritto prima, così i tempi non la seguono più.
+  - Aspetto ha la sezione "Barra di avanzamento", visibile quando Avanzamento è acceso. Contiene: Riempimento, Traccia (`colorField`), Spessore (`rangeField`), Estremi arrotondati (`switchRow` con la chiave esistente `inspector.roundCaps`), Pallino sulla posizione, Stile (`optionTiles` Continua/Segmenti/Punti), Blocchi (`numberField`, chiave `inspector.count`, solo per i segmenti) e "Dove vanno i tempi" (`segmented`, solo con il Tempo acceso).
+  - Dati ha la sezione Tempo con "Tempi mostrati" (`selectField`).
+  - Per gli estremi `cornerRadii` non era adatto: è una scelta tra due valori legata allo spessore, non un raggio. Ho usato lo switch già usato dall'Anello.
+  - Nuova icona `person` in `ui/icons.js`; Titolo e Tempo riusano `text` e `clock`. Le chiavi nuove sono `insp.*` in `areas/inspector.js` (en/pt-BR/it). Solo token.
+  - Nuovo stato `player-progress` per `shoot.mjs`.
+- **Commit:** `1acaed4` (test: fotogrammi e misure dei player vecchi fissati per hash, scritto prima della modifica), `a9aa58e` (modello + DTO), `787beeb` (renderer e adattamento), `e1d2ffd` (modulo puro + demo), `15f02c6` (inspector, i18n, icona, e2e, ricetta).
+
+Primitive riusate: `optionTiles`, `segmented`, `switchRow`, `rangeField`, `numberField`, `selectField`, `colorField`, `propertySection`, `ICONS.text`/`ICONS.clock`, e lato Rust `gauges::draw_blocks`/`shape::draw`. Nessuna duplicazione.
+
+| Gate | Risultato |
+| --- | --- |
+| `cargo test --workspace` | 1128 superati, 15 ignorati. Nuovi: `legacy_players_draw_and_fit_exactly_as_before` (6 configurazioni pixel-identiche e stesse misure di prima), parti singole uguali al testo statico, barra/estremi/pallino/segmenti/punti, tempi ai lati e sopra, adattamento, round trip JSON e compatibilità |
+| `cargo clippy -D warnings` / `cargo fmt --check` | verdi |
+| `cargo llvm-cov --workspace` | righe 91,83% (`playback.rs` 97,5%, `player.rs` 98,7%) |
+| `npm run test:unit` | 504/504; righe 99,42% (`player-parts.js` 100%) |
+| e2e interessati (`e2e-slot`) | 104/104 (`player-parts` nuovo, editing-017, features-016-inspector, inspector-preview, corner-radii, fidelity-integration, fit-content, inspector-sections, video-preview, inspector-stepping) |
+| `npm test` completo, quattro progetti, axe | 668/668. Una prima esecuzione, lanciata insieme a llvm-cov, ha avuto 3 rossi di tempi (`canvas-wheel-zoom` ×2, `background-chooser:68`): in serie 180/180 (`--workers=1 --repeat-each=3`) |
+| `shoot.mjs --area inspector --only app`, dark e light | controllati: `player-look` (sei riquadri, sezione barra) e `player-progress` (punti, pallino, tempi ai lati, anche nel canvas) |
+
+Validazione sull'hardware: non eseguita.
