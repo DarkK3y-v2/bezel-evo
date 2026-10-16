@@ -272,6 +272,39 @@ fn an_interval_shorter_than_the_refresh_samples_sooner() {
 }
 
 #[test]
+fn faster_graph_points_do_not_refresh_other_values_at_two_or_five_seconds() {
+    for seconds in [2, 5] {
+        let mut rt = ThemeRuntime::new(
+            graphing_every(10, Some(1), seconds as f32),
+            BTreeMap::new(),
+            Language::English,
+        );
+        let values: Vec<f64> = (0..=6).map(f64::from).collect();
+        let mut sensors = usage(&values);
+        let mut renderer = Recorder::default();
+        for elapsed in 0..=6 {
+            let now = Duration::from_secs(elapsed);
+            assert!(rt.sample_on_time(&mut sensors, now).expect("graph sample"));
+            rt.render(&mut renderer, TIME, now).expect("frame");
+            assert_eq!(
+                renderer.seen.last().expect("frame").usage,
+                Reading::Value((elapsed / seconds * seconds) as f64),
+                "only the graph updates between theme refreshes ({seconds} s at {elapsed} s)"
+            );
+            assert_eq!(
+                rt.snapshot().get(&key("cpu.usage")),
+                Reading::Value(elapsed as f64),
+                "the sensor panel still gets the latest reading"
+            );
+        }
+        assert_eq!(
+            drawn(&mut rt),
+            values.into_iter().map(Some).collect::<Vec<_>>()
+        );
+    }
+}
+
+#[test]
 fn slowing_refresh_rejoins_the_graph_clock_instead_of_sampling_twice() {
     for offset in [0, 137] {
         let mut rt = ThemeRuntime::new(

@@ -17,7 +17,7 @@ use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::{Orientation, Size};
 use bezel_core::domain::sensor::{Reading, SensorKey, Snapshot};
 use bezel_core::domain::theme::{
-    AssetRef, Binding, BoxF, Direction, Element, ElementId, ElementKind, Paint, Theme,
+    AssetRef, Binding, BoxF, Direction, Element, ElementId, ElementKind, GraphStyle, Paint, Theme,
 };
 use bezel_core::domain::transition::{MAX_TRANSITION_FPS, ValueTransition};
 use bezel_core::ports::{FrameRenderer, RenderContext};
@@ -397,5 +397,59 @@ fn changing_half_second_refresh_back_to_one_keeps_sampling_once_per_second() {
             transition.is_some(),
             drawn.len()
         );
+    }
+}
+
+#[test]
+fn one_second_graphs_do_not_restart_two_or_five_second_value_transitions() {
+    for seconds in [2, 5] {
+        let mut rt = runtime(Some(ValueTransition::smooth(400)));
+        let mut theme = rt.theme().clone();
+        theme.refresh_seconds = seconds as f32;
+        let mut graph = bar(None);
+        graph.id = ElementId(2);
+        graph.kind = ElementKind::Graph {
+            binding: Binding {
+                key: key(),
+                min: 0.0,
+                max: 100.0,
+            },
+            history: 10,
+            interval_seconds: Some(1),
+            style: GraphStyle::Line,
+            color: Rgba::WHITE,
+            fill: None,
+            line_width: 1.0,
+            autoscale: false,
+        };
+        theme.elements.push(graph);
+        rt.replace_theme(theme);
+        let mut readings = sensors(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0]);
+        let mut renderer = Recorder::default();
+        for elapsed in (0..=seconds * 1_000 + 1_000).step_by(50) {
+            rt.live_frame(&mut readings, &mut renderer, TIME, ms(elapsed))
+                .expect("frame");
+            if elapsed == 1_000 {
+                assert_eq!(
+                    renderer.shown.last(),
+                    Some(&10.0),
+                    "graph-only sample keeps the value"
+                );
+                assert!(!rt.transitioning(ms(elapsed)));
+            }
+            if elapsed == seconds * 1_000 + 50 {
+                assert!(
+                    rt.transitioning(ms(elapsed)),
+                    "theme refresh starts the transition"
+                );
+            }
+            if elapsed == seconds * 1_000 + 1_000 {
+                assert_eq!(renderer.shown.last(), Some(&(10.0 + seconds as f64 * 10.0)));
+                assert!(
+                    !rt.transitioning(ms(elapsed)),
+                    "the graph does not restart it"
+                );
+            }
+        }
     }
 }

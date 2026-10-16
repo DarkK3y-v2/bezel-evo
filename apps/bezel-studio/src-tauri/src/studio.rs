@@ -64,7 +64,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
 use std::time::{Duration, Instant};
 
-use bezel_core::app::{HOST_VIDEO_FPS, HostVideo, MissingVideo, ThemeRuntime, VideoState};
+use bezel_core::app::{
+    DEFAULT_SLOWEST_REFRESH, HOST_VIDEO_FPS, HostVideo, MissingVideo, ThemeRuntime, VideoState,
+};
 use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::discovery::Screen;
 use bezel_core::domain::frame::Frame;
@@ -87,9 +89,9 @@ use crate::media::png_of;
 use crate::messages::{ErrorCode, UiError};
 use crate::storage::MediaSetup;
 
-/// Slowest refresh, seconds (sensors still update the UI this often; the
-/// fastest is the core's `MIN_REFRESH_SECONDS`).
-pub const MAX_REFRESH: f32 = 2.0;
+/// Slowest refresh, seconds, shared with the core. The sensor panel receives
+/// the latest available readings without shortening the theme's interval.
+pub const MAX_REFRESH: f32 = DEFAULT_SLOWEST_REFRESH;
 
 /// The media converter the storage tab shares with the session.
 pub type SharedMedia = Arc<Mutex<Box<dyn MediaSetup>>>;
@@ -1971,7 +1973,7 @@ impl Studio {
                     present_ms: delivery.present_ms,
                     handoff_ms: delivery.handoff_ms,
                     sensors_ms: self.sample_millis,
-                    refresh_ms: f64::from(self.runtime.theme().refresh_seconds) * 1000.0,
+                    refresh_ms: self.runtime.refresh().as_secs_f64() * 1000.0,
                 },
                 transfer,
                 &delivery.key,
@@ -2785,6 +2787,19 @@ mod tests {
         assert!(!snapshot.is_empty());
         assert!(millis >= 0.0);
         assert_eq!(s.catalog().len(), s.refresh_catalog().unwrap().len());
+    }
+
+    #[test]
+    fn two_and_five_second_refreshes_are_not_capped_by_the_editor() {
+        for seconds in [2, 5] {
+            let mut s = studio();
+            let mut theme = s.theme().clone();
+            theme.refresh_seconds = seconds as f32;
+            s.set_theme(theme);
+            tick(&mut s, 0).unwrap();
+            assert_eq!(s.period(), Duration::from_secs(seconds));
+            assert_eq!(s.next_due(), at(&s, seconds * 1_000));
+        }
     }
 
     #[test]

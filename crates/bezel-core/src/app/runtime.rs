@@ -284,6 +284,8 @@ struct RecentFrame {
 /// A theme being shown.
 pub struct ThemeRuntime {
     scene: Scene,
+    /// Latest measurement for the sensor panel, including graph-only samples.
+    latest: Snapshot,
     /// The frame times of the theme's images, learned from the renderer
     /// (`None`: a still image).
     timelines: BTreeMap<AssetRef, Option<Timeline>>,
@@ -461,6 +463,7 @@ impl ThemeRuntime {
                 snapshot: Snapshot::default(),
                 language,
             },
+            latest: Snapshot::default(),
             video,
             info: None,
             screen: None,
@@ -646,7 +649,7 @@ impl ThemeRuntime {
 
     /// The readings of the last [`Self::sample`] (empty before the first).
     pub fn snapshot(&self) -> &Snapshot {
-        &self.scene.snapshot
+        &self.latest
     }
 
     /// What each sensor measures (the units of sensor text): from the last
@@ -987,12 +990,17 @@ impl ThemeRuntime {
             self.use_catalog(&catalog);
         }
         self.scene.histories.push(&snapshot, tick);
-        let now = match tick {
-            Tick::At { now, .. } => Some(now),
-            Tick::Untimed => None,
-        };
-        self.transitions.retarget(&self.scene.theme, &snapshot, now);
-        self.scene.snapshot = snapshot;
+        // A graph's independent point must not change the other elements or
+        // restart their value transitions before the theme's refresh is due.
+        if !matches!(tick, Tick::At { refresh: false, .. }) {
+            let now = match tick {
+                Tick::At { now, .. } => Some(now),
+                Tick::Untimed => None,
+            };
+            self.transitions.retarget(&self.scene.theme, &snapshot, now);
+            self.scene.snapshot = snapshot.clone();
+        }
+        self.latest = snapshot;
         Ok(())
     }
 
