@@ -345,6 +345,7 @@ const NOT_PROSE = new Set([
   // An Error's message for a malformed frame from the renderer: a detail for
   // the log, which the user reads inside the translated `error.unknown`.
   'bridge.js: frame too short',
+  'bridge.js: invalid render time',
   // Default theme content, editable by the user rather than UI chrome.
   'editor/widgets.js: No media session',
 ]);
