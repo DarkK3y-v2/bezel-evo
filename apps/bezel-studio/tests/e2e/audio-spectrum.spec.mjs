@@ -32,3 +32,14 @@ test('missing Player is explicit and capture permission remains a local preferen
   await dialog.getByRole('button',{name:t('common.done'),exact:true}).click();await page.getByRole('button',{name:t('prefs.title'),exact:true}).click();
   await expect(page.getByRole('switch',{name:t('spectrum.consent'),exact:true})).toBeChecked();expect(errors).toEqual([]);
 });
+test('the bars corners switch between one radius and four, under their own title',async({page,t})=>{
+  const errors=watchErrors(page), inspector=await setup(page,t);await tab(page,t,'inspector.tab.look');
+  await expect(inspector.getByRole('heading',{name:t('insp.cornersTitle'),exact:true})).toBeVisible();
+  await expect(inspector.getByRole('heading',{name:t('insp.corners'),exact:true})).toHaveCount(0);
+  const same=inspector.getByRole('button',{name:t('insp.cornersSame'),exact:true}), each=inspector.getByRole('button',{name:t('insp.cornersEach'),exact:true});
+  const control=inspector.locator('.corner-radii');
+  await expect(same).toHaveAttribute('aria-pressed','true');await expect(control.getByRole('spinbutton')).toHaveCount(1);
+  await each.click();await expect(each).toHaveAttribute('aria-pressed','true');await expect(control.getByRole('spinbutton')).toHaveCount(4);
+  await same.click();await expect(same).toHaveAttribute('aria-pressed','true');await expect(control.getByRole('spinbutton')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});

@@ -145,6 +145,8 @@ function arcPreview(kind) {
  */
 export function createInspector({ root, store, t, sensors, minRefresh, pickers: shared = null, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, bridge = null, host = NO_HOST }) {
   const update = (id, patch) => store.dispatch('update', { id, patch });
+  // Spectrum bars' corner mode chosen in this session, by element id (true = each corner).
+  const barCornerModes = new Map();
   // The app's pickers (ui/pickers.js); an inspector on its own makes its own, without fonts until asked.
   const pickers = shared ?? createPickers({ store, t, bridge: bridge ?? { fontCatalog: async () => null, fontFace: async () => null } });
   // A framing slider being dragged: its moves are one gesture (one undo
@@ -564,7 +566,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         switchRow(t('spectrum.centre'), c.centre, centre => set({ centre })),
         switchRow(t('spectrum.peaks'), c.peaks, peaks => set({ peaks })),
         segmented(t('card.tab.motion'), c.motion, ['smooth','balanced','snappy'].map(v => [v,t(`spectrum.${v}`)]), motion => set({ motion })),
-      ]), cornersSection(t('insp.corners'), t('inspector.radius'), { radius: c.corners[0], corners: c.corners }, ({ radius, corners }) => set({ corners: corners ?? [radius,radius,radius,radius] }), { box: e.frame })],
+      ]), barCorners(e.id, c, set, e.frame)],
     };
   }
 
@@ -651,6 +653,21 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     return cornersSection(t('insp.corners'), t('player.coverRadius'), cornerValue(c.coverRadius ?? 0, c.coverCorners),
       ({ radius, corners }) => update(e.id, { kind: { content: { coverRadius: radius, coverCorners: corners } } }),
       { box: coverBox(e.frame, c.coverGap ?? e.kind.style.size * 0.3) });
+  }
+
+  /**
+   * The corners of every spectrum bar, drawn on one bar. The spectrum always
+   * stores four radii, so the chosen mode is remembered per element; without
+   * a choice, equal corners show as one radius.
+   */
+  function barCorners(id, c, set, frame) {
+    const each = barCornerModes.get(id) ?? c.corners.some((r) => r !== c.corners[0]);
+    return cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(c.corners[0], each ? c.corners : null),
+      ({ radius, corners }) => {
+        barCornerModes.set(id, Boolean(corners));
+        set({ corners: corners ?? Array(4).fill(radius) });
+      },
+      { box: { width: c.thickness, height: Math.max(c.thickness, frame.height / 2) } });
   }
 
   /** The track of a bar or ring: on or off, and its color. */
