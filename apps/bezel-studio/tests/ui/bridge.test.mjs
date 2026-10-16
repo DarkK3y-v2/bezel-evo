@@ -136,7 +136,7 @@ test('tauri mode maps every call to its command', async () => {
   assert.deepEqual(calls[42][1], { screen: 'k' });
   assert.deepEqual(calls[41][1], { keys: ['net.ping', 'cpu.usage'] });
   assert.deepEqual(calls[36][1], { language: 'en' });
-  assert.deepEqual(calls[37][1], { pingHost: '1.1.1.1', mangohudDir: null });
+  assert.deepEqual(calls[37][1], { pingHost: '1.1.1.1' });
   assert.deepEqual(calls[39][1], { key: 'hid:/dev/hidraw7', confirmed: true });
   assert.deepEqual(calls[33][1], { unsaved: true });
   assert.deepEqual(calls[24][1], { screen: 'k', source: '/home/me/clip.mp4', medium: 'sd' });

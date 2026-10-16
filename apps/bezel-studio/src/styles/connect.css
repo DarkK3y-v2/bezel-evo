@@ -1,5 +1,5 @@
 /* Connect (the card over the stage while no screen can be used, unchanged:
-   D-2026-10-09-studio-redesign-fidelity-5), the udev help, and the sensor
+   D-2026-10-09-studio-redesign-fidelity-5),  and the sensor
    chip with its popover (artboard SensorStatus). */
 
 /* "Connect your smart screen" (artboard Connect): over the canvas while no screen can be used. */
@@ -23,7 +23,6 @@
 .connect-device-meta { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
 .connect-device-why { font-size: 0.85rem; color: var(--warn); }
 .connect-device .hint { margin: 4px 0 0; }
-.connect-device .udev-command { margin: 2px 0; }
 .connect-glyph { flex: none; box-sizing: border-box; border: 2px solid var(--muted); border-radius: 4px; }
 .connect-glyph[data-shape="portrait"] { width: 22px; height: 52px; }
 .connect-glyph[data-shape="landscape"] { width: 52px; height: 22px; margin-top: 14px; }
@@ -65,8 +64,6 @@
 .libre-popover-actions .primary-button svg { width: 16px; height: 16px; }
 .libre-popover-actions .primary-button:disabled { cursor: wait; }
 
-.udev-command { display: grid; gap: 6px; justify-items: start; margin: 8px 0; }
-.udev-command-text { display: block; width: 100%; padding: 8px 10px; border-radius: 8px; background: var(--surface-3); font-family: var(--font-mono); font-size: 0.8rem; overflow-wrap: anywhere; user-select: all; }
 
 @media (prefers-reduced-motion: no-preference) {
   .sensor-chip .sensor-spinner { animation: sensor-spin 900ms linear infinite; }

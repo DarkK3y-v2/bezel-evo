@@ -597,7 +597,7 @@ function tauriBridge(invoke, tauri = {}) {
     setDebug: (on, showReadings, corner) => invoke('set_debug', { on, showReadings, corner }),
     setLightOnClose: (on) => invoke('set_light_on_close', { on }),
     setLanguage: (language) => invoke('set_language', { language }),
-    setSensorOptions: (pingHost, mangohudDir) => invoke('set_sensor_options', { pingHost, mangohudDir }),
+    setSensorOptions: (pingHost) => invoke('set_sensor_options', { pingHost }),
     pickFolder: () => invoke('pick_folder'),
     showSensors: (keys) => invoke('show_sensors', { keys }),
     // A library theme's thumbnail (a `data:` URL), or `null` when it cannot be drawn.

@@ -243,7 +243,7 @@ mod tests {
             settings: SettingsFile::new(root.join("settings.json")),
             system_language: Language::English,
             make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
-            udev: None,
+
             fonts: bezel_render::FontCatalog::default(),
             studio: Session::new(studio),
             storage,

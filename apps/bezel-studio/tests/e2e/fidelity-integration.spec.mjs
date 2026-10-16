@@ -31,7 +31,7 @@ test('activity requests follow Player and triggered Card editors and stop in Sto
   expect(errors).toEqual([]);
 });
 
-for (const [kind, width] of [['wide', 720], ['udev', 560], ['video-preview', 850]]) {
+for (const [kind, width] of [['wide', 720], ['video-preview', 850]]) {
   test(`${kind} dialog has its D-15 width and stays within the window`, async ({ page, t }) => {
     await page.goto('/index.html?demo=vendorCard');
     if (kind === 'wide') {
@@ -42,13 +42,8 @@ for (const [kind, width] of [['wide', 720], ['udev', 560], ['video-preview', 850
       await page.evaluate(async kind => {
         const { translator } = await import('/i18n/index.js');
         const t = translator(document.documentElement.lang);
-        if (kind === 'udev') {
-          const { showAccessHelp } = await import('/ui/udev.js');
-          void showAccessHelp(t, { code: 'accessDenied', args: { path: '/dev/ttyUSB0' }, udevCommand: 'bezel install-udev' }, () => {});
-        } else {
           const { openVideoPreview } = await import('/ui/video-preview.js');
           openVideoPreview({ t, name: 'clip.mp4', load: async () => null });
-        }
       }, kind);
     }
     const dialog = page.locator(`dialog.${kind}-dialog`);

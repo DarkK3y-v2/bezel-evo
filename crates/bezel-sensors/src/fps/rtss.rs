@@ -202,10 +202,8 @@ pub(crate) fn frame_rate(memory: &[u8], now: u32) -> Result<f64, String> {
 }
 
 /// `gpu.fps` from this machine's RTSS.
-#[cfg(windows)]
 pub(crate) struct Rtss;
 
-#[cfg(windows)]
 impl super::FrameRateSource for Rtss {
     fn describe(&self) -> String {
         "RivaTuner Statistics Server shared memory".to_string()
@@ -220,7 +218,6 @@ impl super::FrameRateSource for Rtss {
 
 /// The Win32 calls that open RTSS's memory read-only, copy it and let it
 /// go, and the clock its times use. The only `unsafe` in Bezel.
-#[cfg(windows)]
 mod shared {
     use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
     use windows_sys::Win32::System::Memory::{

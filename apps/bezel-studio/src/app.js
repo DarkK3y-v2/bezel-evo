@@ -19,7 +19,6 @@ import { createPreferences } from './ui/preferences.js';
 import { createGifSearch } from './ui/gif-search.js';
 import { createCollectionPanel } from './ui/collection.js';
 import { createStandbyPanel } from './ui/standby.js';
-import { showAccessHelp } from './ui/udev.js';
 import { createConnect } from './ui/connect.js';
 import { createSensorStatus } from './ui/sensor-status.js';
 import { createMemoryStatus } from './ui/memory-status.js';
@@ -58,7 +57,7 @@ const state = {
   screen: null,
   screenError: null,
   // The screen whose port the system refused, with the error (it carries the
-  // udev command on Linux): the stage shows how to connect it.
+  // access error): the stage shows how to connect it.
   denied: null,
   live: false,
   autostart: false,
@@ -100,16 +99,14 @@ function toast(message) {
 }
 
 /**
- * Shows why a command failed; a port the system denied comes with the
- * command that fixes it (Linux), in a dialog.
+ * Shows why a command failed and preserves denied-screen status.
  */
 function fail(e) {
   if (e?.code === 'accessDenied' && state.screen) {
     state.denied = { key: state.screen, error: e };
     renderScreenSelect();
   }
-  if (e?.udevCommand) showAccessHelp(t, e, toast);
-  else toast(errorText(t, e));
+  toast(errorText(t, e));
 }
 
 // ------------------------------------------------------------ store ----
@@ -266,7 +263,7 @@ const standby = createStandbyPanel({
 });
 
 // The stage while no screen can be used (artboard Connect): what the bridge
-// lists, the udev command of a denied port and the theme import.
+// lists, the access error of a denied port and the theme import.
 const connect = createConnect({
   t,
   notify: toast,

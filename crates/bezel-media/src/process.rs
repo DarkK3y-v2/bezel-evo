@@ -48,16 +48,12 @@ pub(crate) fn spawn<S: AsRef<OsStr>>(program: &Path, args: &[S]) -> io::Result<C
     command.spawn()
 }
 
-#[cfg(windows)]
 fn hide_console(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     /// `CREATE_NO_WINDOW` from the Win32 process creation flags.
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     command.creation_flags(CREATE_NO_WINDOW);
 }
-
-#[cfg(not(windows))]
-fn hide_console(_: &mut Command) {}
 
 /// Runs `program` to completion and collects its output; kills it and fails
 /// with `TimedOut` after `timeout`.
@@ -173,26 +169,5 @@ mod tests {
     fn a_missing_program_is_an_io_error() {
         let err = capture(Path::new("/nonexistent/bezel-ffmpeg"), &["-version"], POLL).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn capture_collects_output_and_times_out() {
-        let fakes = crate::fakes::dir();
-        let out = capture(
-            &fakes.join("ready/ffmpeg"),
-            &["-version"],
-            Duration::from_secs(10),
-        )
-        .unwrap();
-        assert!(out.success);
-        assert!(out.stdout.starts_with("ffmpeg version 9.9-fake"));
-        let started = Instant::now();
-        let err = capture(&fakes.join("sleeper"), &["x"], Duration::from_millis(100)).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
-        assert!(started.elapsed() < Duration::from_secs(10));
-        let noisy = capture(&fakes.join("noisy"), &["x"], Duration::from_secs(10)).unwrap();
-        assert!(!noisy.success);
-        assert_eq!(noisy.stderr.len(), STDERR_KEEP);
     }
 }

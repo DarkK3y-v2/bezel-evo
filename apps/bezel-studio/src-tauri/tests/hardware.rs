@@ -50,7 +50,6 @@ fn backend(scratch: &Path) -> Backend {
         settings: SettingsFile::new(scratch.join("settings.json")),
         system_language: language(),
         make_sensors: Arc::new(|options| Box::new(SystemSensors::with_options(options))),
-        udev: None,
         fonts,
         studio: Session::new(Studio::new(
             Box::new(SystemSensors::new()),

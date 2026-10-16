@@ -521,10 +521,6 @@ pub struct PreferencesDto {
     pub ping_host: String,
     /// The host `net.ping` measures unless the user picks another.
     pub default_ping_host: &'static str,
-    /// The folder of MangoHud's logs; `None`: MangoHud's own.
-    pub mangohud_dir: Option<String>,
-    /// Whether `gpu.fps` reads MangoHud's logs on this system (Linux).
-    pub mangohud: bool,
     /// Which themes the Themes tab lists.
     pub theme_filter: ThemeFilterDto,
 }

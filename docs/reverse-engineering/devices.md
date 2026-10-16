@@ -211,7 +211,7 @@ the screen is awake. All protocol traffic goes to the SoC port.
 2. Wake routine: up to `WAKE_RETRIES = 15` iterations. Open `serial.Serial(port, 115200, timeout=1, rtscts=True)`
    and let it close immediately (exceptions ignored). If an awake port is now listed, sleep 1 s and return;
    otherwise sleep 1 s and retry. After 15 failures, log an error. **No byte is written to the MCU port**: only
-   open and close (on Linux: SET_LINE_CODING, DTR/RTS raised on open and dropped on close).
+   open and close; the USB line-coding and DTR/RTS control signals are part of the wake sequence.
 3. Return the first awake port: iSerial `20080411`, or 0525:a4a7, 1d6b:0121, 1d6b:0106.
 
 Consequences: each AUTO detection with a known MCU present costs about 1 s plus one open/close of the MCU tty, even

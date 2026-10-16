@@ -91,31 +91,10 @@ fn same_file(a: &Path, b: &Path) -> bool {
 /// temporary file can be made next to the index; on Windows the index is held
 /// open without delete sharing, so nothing can replace it.
 struct SavesBlocked {
-    #[cfg(unix)]
-    root: std::path::PathBuf,
-    #[cfg(windows)]
     _held: fs::File,
 }
 
 impl SavesBlocked {
-    /// `None` when this process writes through a read-only folder anyway
-    /// (root on Unix): the failure cannot be staged.
-    #[cfg(unix)]
-    fn new(root: &Path) -> Option<Self> {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(root, fs::Permissions::from_mode(0o555)).unwrap();
-        let blocked = Self {
-            root: root.to_path_buf(),
-        };
-        let probe = root.join("probe");
-        if fs::File::create(&probe).is_ok() {
-            fs::remove_file(&probe).unwrap();
-            return None;
-        }
-        Some(blocked)
-    }
-
-    #[cfg(windows)]
     fn new(root: &Path) -> Option<Self> {
         use std::os::windows::fs::OpenOptionsExt;
         const FILE_SHARE_READ: u32 = 0x1;
@@ -125,14 +104,6 @@ impl SavesBlocked {
             .open(root.join("collection.json"))
             .unwrap();
         Some(Self { _held: held })
-    }
-}
-
-#[cfg(unix)]
-impl Drop for SavesBlocked {
-    fn drop(&mut self) {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = fs::set_permissions(&self.root, fs::Permissions::from_mode(0o755));
     }
 }
 

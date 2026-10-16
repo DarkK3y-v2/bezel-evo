@@ -56,7 +56,7 @@ try {
         } catch { Start-Sleep -Seconds 2 }
     }
     $arguments = 'run "{0}" --screen "{1}" --screens-config "{2}" --tray' -f $settings.lastTheme, $settings.liveScreen, $settingsFile
-    foreach ($option in @(@('ffmpegPath','--ffmpeg'), @('pingHost','--ping-host'), @('mangohudDir','--mangohud-dir'))) {
+    foreach ($option in @(@('ffmpegPath','--ffmpeg'), @('pingHost','--ping-host'))) {
         $value = $settings.($option[0])
         if ($value) { $arguments += ' {0} "{1}"' -f $option[1], $value }
     }

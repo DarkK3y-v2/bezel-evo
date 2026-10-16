@@ -17,7 +17,6 @@ use bezel_cli::{
     Cli, Command, ProgressStyle, Rendering, SensorSettings, SensorsArgs, SleepPace, StandbyArgs,
     StandbyKit, StorageArgs, StorageKit, WatchStyle, clock, hang_hint, run, run_monitor_mode,
     run_restart, run_sensors, run_standby_command, run_storage_command, run_theme_command,
-    udev_rules,
 };
 use bezel_core::domain::job::CancelToken;
 use bezel_core::ports::{ArchiveStore, HandoffStore, SensorSource};
@@ -30,7 +29,6 @@ use bezel_sensors::{FakeSensors, SensorOptions, SystemSensors};
 use bezel_themes::FsThemeStore;
 use clap::Parser;
 
-#[cfg(windows)]
 mod light_tray;
 
 /// The simulated bus of `--fake`: a Turing 8.8" and a Turing USB panel in
@@ -54,17 +52,16 @@ fn user_data() -> Option<PathBuf> {
 }
 
 /// The machine's sensors (the demo ones with `--fake`), with the ping host
-/// and MangoHud folder of `settings` when the command takes them.
+/// of `settings` when the command takes it.
 fn sensor_source(fake: bool, settings: Option<&SensorSettings>) -> Box<dyn SensorSource> {
     if fake {
         return Box::new(FakeSensors::demo());
     }
     let mut options = SensorOptions::default();
-    if let Some(settings) = settings {
-        if let Some(host) = &settings.ping_host {
-            options.ping_host.clone_from(host);
-        }
-        options.mangohud_dir.clone_from(&settings.mangohud_dir);
+    if let Some(settings) = settings
+        && let Some(host) = &settings.ping_host
+    {
+        options.ping_host.clone_from(host);
     }
     Box::new(SystemSensors::with_options(options))
 }
@@ -110,10 +107,7 @@ fn renderer_for(cli: &Cli, bundled: Option<&Path>) -> SkiaRenderer {
 /// `bezel render`, `bezel run` and `bezel import`.
 fn themes(cli: &Cli) -> anyhow::Result<String> {
     if matches!(cli.command, Command::Run { tray: true, .. }) {
-        #[cfg(windows)]
         return light_tray::run(std::env::args_os().collect());
-        #[cfg(not(windows))]
-        anyhow::bail!("--tray is currently supported on Windows only");
     }
     let stop = Arc::new(AtomicBool::new(false));
     if matches!(cli.command, Command::Run { .. }) {
@@ -300,27 +294,24 @@ fn themes_with_source(
     };
     let result = if cli.fake {
         let (bus, connector) = (fake_bus(), fake_connector());
-        #[cfg(windows)]
+
         let local = light_tray::connector();
-        #[cfg(windows)]
+
         let connector: &dyn bezel_core::ports::ScreenConnector = local
             .as_ref()
             .map_or(&connector as &dyn bezel_core::ports::ScreenConnector, |c| c);
-        #[cfg(not(windows))]
-        let connector: &dyn bezel_core::ports::ScreenConnector = &connector;
+
         run_theme_command(
             cli, &bus, connector, &mut kit, &mut media, &mut pace, &mut log,
         )
     } else {
-        #[cfg(windows)]
         let local = light_tray::connector();
-        #[cfg(windows)]
+
         let connector: &dyn bezel_core::ports::ScreenConnector = local.as_ref().map_or(
             &SystemConnector as &dyn bezel_core::ports::ScreenConnector,
             |c| c,
         );
-        #[cfg(not(windows))]
-        let connector: &dyn bezel_core::ports::ScreenConnector = &SystemConnector;
+
         run_theme_command(
             cli, &SystemBus, connector, &mut kit, &mut media, &mut pace, &mut log,
         )
@@ -466,17 +457,7 @@ fn restart(cli: &Cli) -> anyhow::Result<String> {
     }
 }
 
-/// `bezel udev-rules`: the install command names the program the way the
-/// user started it.
-fn print_udev_rules() -> anyhow::Result<String> {
-    let program = std::env::args()
-        .next()
-        .unwrap_or_else(|| "bezel".to_string());
-    udev_rules::run(&program, &mut std::io::stderr())
-}
-
 fn main() -> ExitCode {
-    #[cfg(windows)]
     if std::env::args_os()
         .nth(1)
         .is_some_and(|arg| arg == "--light-owner")
@@ -505,7 +486,6 @@ fn main() -> ExitCode {
         Command::Standby(args) => standby(args, cli.fake),
         Command::MonitorMode { .. } => monitor_mode(&cli),
         Command::Restart { .. } => restart(&cli),
-        Command::UdevRules => print_udev_rules(),
         _ if cli.fake => run(
             &cli,
             &fake_bus(),
@@ -527,12 +507,7 @@ fn main() -> ExitCode {
             if let Some(hint) = hang_hint(&e) {
                 eprintln!("{hint}");
             }
-            // On Linux a denied device is fixed by the udev rule.
-            if cfg!(target_os = "linux")
-                && let Some(hint) = udev_rules::access_hint(&e)
-            {
-                eprintln!("{hint}");
-            }
+
             ExitCode::FAILURE
         }
     }

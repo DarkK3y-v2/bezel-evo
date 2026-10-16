@@ -1,7 +1,6 @@
 // The preferences dialog (the top bar's button): the app's language, which
 // follows the system's until the user picks one, and the sensors that take
-// settings (the host `net.ping` measures, and on Linux the folder of
-// MangoHud's logs for `gpu.fps`). Each change applies at once and the
+// settings (the host `net.ping` measures). Each change applies at once and the
 // backend remembers it.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
@@ -133,46 +132,22 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
     ];
   }
 
-  function mangohudField() {
-    if (!prefs.mangohud) return [];
-    const choose = el('button', { type: 'button', class: 'text-button', id: 'prefs-mangohud-choose', text: t('prefs.mangohudChoose'), onclick: pickMangohud });
-    const reset = prefs.mangohudDir
-      ? el('button', { type: 'button', class: 'text-button', id: 'prefs-mangohud-reset', text: t('prefs.mangohudReset'), onclick: () => saveSensors({ mangohudDir: null }) })
-      : null;
-    return [
-      el('div', { class: 'field', role: 'group', 'aria-labelledby': 'prefs-mangohud-label' }, [
-        el('span', { id: 'prefs-mangohud-label', text: t('prefs.mangohud') }),
-        el('p', { class: `folder-path${prefs.mangohudDir ? '' : ' default'}`, text: prefs.mangohudDir ?? t('prefs.mangohudDefault') }),
-        el('div', { class: 'button-row' }, [choose, reset]),
-      ]),
-      el('p', { class: 'hint', text: t('prefs.mangohudHint') }),
-    ];
-  }
+
 
   function sensorsSection() {
     return el('section', { class: 'prefs-section', 'aria-labelledby': 'prefs-sensors-title' }, [
       el('h3', { id: 'prefs-sensors-title', text: t('common.sensors') }),
       ...pingField(),
-      ...mangohudField(),
     ]);
   }
 
-  async function pickMangohud() {
-    let folder = null;
-    try {
-      folder = await bridge.pickFolder();
-    } catch (e) {
-      notify(errorText(t, e));
-      return;
-    }
-    if (folder) await saveSensors({ mangohudDir: folder });
-  }
+
 
   /** Saves the sensor options with `change`; a refusal is shown in place. */
   async function saveSensors(change) {
-    const next = { pingHost: prefs.pingHost, mangohudDir: prefs.mangohudDir, ...change };
+    const next = { pingHost: prefs.pingHost, ...change };
     try {
-      await bridge.setSensorOptions(next.pingHost, next.mangohudDir);
+      await bridge.setSensorOptions(next.pingHost);
       prefs = await bridge.preferences();
       sensorError = null;
       typedHost = null;
@@ -205,7 +180,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
       el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), debugSection(), logsSection(), sensorsSection()]),
       el('div', { class: 'dialog-actions' }, [el('button', { type: 'button', class: 'primary-button', text: t('common.done'), onclick: () => dialog.close() })]),
     );
-    if (focused) (dialog.querySelector(`#${focused}`) ?? dialog.querySelector('#prefs-mangohud-choose'))?.focus();
+    if (focused) dialog.querySelector(`#${focused}`)?.focus();
   }
 
   /** Opens the dialog; focus returns to the opener when it closes. */

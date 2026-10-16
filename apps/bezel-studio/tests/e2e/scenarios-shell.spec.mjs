@@ -341,7 +341,7 @@ test('the language follows the system until one is chosen', async ({ page, t, la
   expect(errors).toEqual([]);
 });
 
-test('the ping target and the MangoHud folder are set in the preferences', async ({ page, t }) => {
+test('the ping target is set in the preferences', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
@@ -363,13 +363,6 @@ test('the ping target and the MangoHud folder are set in the preferences', async
   await expect(page.locator('#toast')).toHaveText(t('prefs.sensorsSaved'));
   await expect(dialog.getByRole('alert')).toHaveCount(0);
 
-  // The MangoHud folder: its own by default, a chosen one, and back.
-  const folder = dialog.getByRole('group', { name: t('prefs.mangohud') });
-  await expect(folder).toContainText(t('prefs.mangohudDefault'));
-  await folder.getByRole('button', { name: t('prefs.mangohudChoose') }).click();
-  await expect(folder).toContainText('/home/demo/mangohud');
-  await folder.getByRole('button', { name: t('prefs.mangohudReset') }).click();
-  await expect(folder).toContainText(t('prefs.mangohudDefault'));
   await expect(host).toHaveValue('1.1.1.1');
   await expectAccessible(page);
   expect(errors).toEqual([]);

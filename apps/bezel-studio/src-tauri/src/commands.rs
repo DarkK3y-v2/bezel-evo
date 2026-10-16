@@ -56,7 +56,7 @@ async fn blocking<T: Send + 'static>(
     work: impl FnOnce(&Backend) -> UiResult<T> + Send + 'static,
 ) -> UiResult<T> {
     let backend = Arc::clone(state);
-    tauri::async_runtime::spawn_blocking(move || work(&backend).map_err(|e| backend.explain(e)))
+    tauri::async_runtime::spawn_blocking(move || work(&backend))
         .await
         .map_err(UiError::system)?
 }
@@ -682,18 +682,10 @@ pub fn set_theme_filter(
     state.set_theme_filter(scope.as_deref(), &axis)
 }
 
-/// Measures `net.ping` against `ping_host` and reads MangoHud's logs from
-/// `mangohud_dir` (`None`: MangoHud's own folder) from now on.
+/// Measures `net.ping` against `ping_host` from now on.
 #[tauri::command]
-pub async fn set_sensor_options(
-    state: State<'_, Shared>,
-    ping_host: String,
-    mangohud_dir: Option<String>,
-) -> UiResult<()> {
-    blocking(&state, move |b| {
-        b.set_sensor_options(&ping_host, mangohud_dir.as_deref())
-    })
-    .await
+pub async fn set_sensor_options(state: State<'_, Shared>, ping_host: String) -> UiResult<()> {
+    blocking(&state, move |b| b.set_sensor_options(&ping_host)).await
 }
 
 /// Asks for a folder. `None` when cancelled.

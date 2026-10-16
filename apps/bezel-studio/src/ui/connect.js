@@ -2,15 +2,14 @@
 // no screen can be used, because none is listed or the system denied the
 // selected one's port. It lists only what the bridge reports (screens the
 // system refused, panels left in desktop mode, a failed enumeration), shows
-// the udev command a denied port needs (ui/udev.js) and imports a theme
+// the error a denied port reports and imports a theme
 // (bridge.importTheme). It covers the canvas, so it can be hidden; it comes
 // back when what it says changes.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { udevCommand } from './udev.js';
 
 /** Tips that hold for every screen, in order. */
-const STEPS = ['cable', 'vendor', 'permissions'];
+const STEPS = ['cable', 'vendor'];
 
 /**
  * @param {{
@@ -48,9 +47,6 @@ export function createConnect({ t, notify, errorText, deviceLabel, onImport, onO
       el('div', { class: 'connect-device-text' }, [
         el('strong', { text: screen ? deviceLabel(screen) : error.args?.address ?? '' }),
         el('span', { class: 'connect-device-why', text: errorText(t, error) }),
-        error.udevCommand ? el('p', { class: 'hint', text: t('udev.explain') }) : null,
-        error.udevCommand ? udevCommand(t, error.udevCommand, notify) : null,
-        error.udevCommand ? el('p', { class: 'hint', text: t('udev.never') }) : null,
       ]),
     ]);
   }

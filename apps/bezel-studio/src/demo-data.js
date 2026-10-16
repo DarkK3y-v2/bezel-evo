@@ -422,8 +422,6 @@ export const DEMO_LIBRARY = Object.freeze([
   { theme: libraryTheme('TURZX 3.5"', { width: 480, height: 320 }, 'landscape', 'Digital-7'), bundled: false, drawable: false },
 ]);
 
-/** The command the app shows to install its udev rule (Linux). */
-export const DEMO_UDEV_COMMAND = 'sudo install -m 644 /home/demo/.cache/io.github.slipalison.bezel/60-bezel.rules /etc/udev/rules.d/60-bezel.rules && sudo udevadm control --reload && sudo udevadm trigger';
 
 /**
  * What the demo's samples say of the applications and media sessions
@@ -467,7 +465,7 @@ export const SCENARIOS = Object.freeze({
   noffmpeg: { screens: [turing88], ffmpeg: false, card: false, internalTotal: 32_000_000 },
   video: { screens: [turing88], theme: DEMO_VIDEO_THEME },
   turzx: { screens: [turzx] },
-  // Linux without Bezel's udev rule: the screen is listed, opening it is denied.
+  // Windows access denial: the screen is listed, opening it is denied.
   denied: { screens: [turing88], denied: true },
   // A screen whose firmware hangs: live mode and uploads stop until it is
   // restarted (D-2026-09-30-release-polish-13).

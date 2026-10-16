@@ -42,9 +42,6 @@ pub struct Settings {
     pub language: Option<String>,
     /// The host `net.ping` measures; without one, the sensors' default.
     pub ping_host: Option<String>,
-    /// The folder of MangoHud's logs read for `gpu.fps`; without one,
-    /// MangoHud's own `output_folder`.
-    pub mangohud_dir: Option<String>,
     /// Which themes the Themes tab lists ([`THEME_SCOPES`]); without one,
     /// those for the screen in use when one is known.
     pub themes_shown: Option<String>,
@@ -71,7 +68,6 @@ impl Settings {
         let defaults = SensorOptions::default();
         SensorOptions {
             ping_host: self.ping_host.clone().unwrap_or(defaults.ping_host),
-            mangohud_dir: self.mangohud_dir.as_ref().map(PathBuf::from),
         }
     }
 

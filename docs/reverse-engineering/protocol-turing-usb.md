@@ -16,7 +16,7 @@ contains video and storage functions that its display class does not call.
   presumably provides the WinUSB binding itself (MS OS descriptors, **inferred**).
 - Endpoints: the vendor hard-codes bulk OUT **0x01** and IN **0x81** and issues no control transfer, SetConfiguration
   or interface claim. Python uses interface 0 of the active configuration, the first OUT and the first IN endpoint,
-  calls `set_configuration()` (failure only warned) and on Linux `detach_kernel_driver(0)` if a kernel driver is bound
+  calls `set_configuration()` (failure only warned)
   (`find_usb_device`, `lcd_comm_turing_usb.py:462-497`; the first PID found in table order wins). Without libusb
   Python prints an error and exits (Windows needs `libusb-1.0.dll`).
 - One command = one bulk write of the 512-byte packet plus its optional payload, then one 512-byte read:
