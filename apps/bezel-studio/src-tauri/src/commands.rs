@@ -199,15 +199,17 @@ pub async fn render_preview(
     theme: ThemeDto,
     motion: Option<bool>,
     card_rotation: Option<bool>,
+    max: Option<u32>,
 ) -> UiResult<Response> {
     let motion = motion_of(motion);
     blocking(&state, move |b| {
-        b.render_cards(
+        b.render_canvas(
             &theme,
             now(),
             std::time::Instant::now(),
             motion,
             card_rotation.unwrap_or(true),
+            max,
         )
         .map(Response::new)
     })

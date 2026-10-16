@@ -47,7 +47,10 @@ pub type MakeRenderer = Box<dyn Fn() -> Box<dyn FrameRenderer> + Send + Sync>;
 pub type MakeSensors = Box<dyn Fn() -> Box<dyn SensorSource> + Send + Sync>;
 
 /// The thumbnails of the theme library, cached in a folder.
+type RemoteDraw = std::sync::Arc<crate::engine::EngineBridge>;
+
 pub struct Thumbnails {
+    remote: Option<RemoteDraw>,
     dir: PathBuf,
     make_renderer: MakeRenderer,
     make_sensors: MakeSensors,
@@ -91,11 +94,17 @@ impl Thumbnails {
     /// builds with the readings of the sensors `make_sensors` builds.
     pub fn new(dir: PathBuf, make_renderer: MakeRenderer, make_sensors: MakeSensors) -> Self {
         Self {
+            remote: None,
             dir,
             make_renderer,
             make_sensors,
             renderer: Mutex::new(None),
         }
+    }
+
+    /// Use Light for uncached thumbnails.
+    pub fn use_runtime(&mut self, remote: RemoteDraw) {
+        self.remote = Some(remote);
     }
 
     /// The folder thumbnails are kept in.
@@ -169,6 +178,9 @@ impl Thumbnails {
         language: Language,
         time: LocalTime,
     ) -> bezel_core::Result<Frame> {
+        if let Some(remote) = &self.remote {
+            return remote.thumbnail(bezel_runtime::Document { theme, assets });
+        }
         let samples = theme
             .history_lengths()
             .iter()

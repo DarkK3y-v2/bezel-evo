@@ -590,6 +590,7 @@ impl Backend {
                 .set_tool_path(Some(path.to_path_buf()));
             let chosen = path.display().to_string();
             self.settings.update(|s| s.ffmpeg_path = Some(chosen));
+            let _ = self.sync_engine_options();
             return MediaToolsDto::of(&tools, self.settings.load().ffmpeg_path);
         }
         MediaToolsDto {

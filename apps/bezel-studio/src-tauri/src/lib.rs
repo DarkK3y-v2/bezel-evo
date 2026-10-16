@@ -18,6 +18,7 @@ mod deliveries;
 pub mod diag;
 pub mod dto;
 pub mod element_preview;
+mod engine;
 pub mod gifs;
 pub mod library;
 pub mod manager;
@@ -526,7 +527,59 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
     // Each part that fails says so, before the app says it did not start.
     let folders =
         (start.folders)(app.handle()).inspect_err(|_| diag::report(DiagCode::FoldersNotFound))?;
-    let backend: Shared = Arc::new(compose(&folders, adapters, start.simulate));
+    let mut backend = compose(&folders, adapters, start.simulate);
+    #[cfg(windows)]
+    if let Some(client) = app.try_state::<bezel_power::owner_client::LightConnector>() {
+        let connection: Arc<dyn bezel_core::ports::RuntimeConnection> =
+            Arc::new(client.inner().clone());
+        let bus = Arc::clone(&backend.bus);
+        let connector = Arc::clone(&backend.connector);
+        let sensors = Arc::clone(&backend.make_sensors);
+        let options = backend.settings.load().sensor_options();
+        let ffmpeg = backend.settings.load().ffmpeg_path.map(PathBuf::from);
+        let cache = folders.cache.join("runtime-fallback");
+        let font_dirs: Vec<_> = bundled_theme_dirs(&folders)
+            .iter()
+            .map(|p| p.join("fonts"))
+            .collect();
+        backend.engine = Some(Arc::new(engine::EngineBridge::new(
+            connection,
+            Box::new(move || {
+                let fonts = font_dirs.iter().flat_map(|p| font_files(p)).collect();
+                bezel_runtime::Engine::new(
+                    Box::new(SkiaRenderer::with_fonts(fonts, SystemFonts::Load)),
+                    sensors(options.clone()),
+                    Box::new(FfmpegTranscoder::new(ffmpeg.clone())),
+                    Arc::clone(&bus),
+                    Arc::clone(&connector),
+                    clock::language(),
+                    cache.clone(),
+                    clock::now,
+                )
+                .map(|engine| {
+                    let sensors = Arc::clone(&sensors);
+                    engine.with_adapters(
+                        Box::new(move |options| {
+                            Ok((
+                                sensors(bezel_sensors::SensorOptions {
+                                    ping_host: options.ping_host.clone(),
+                                    mangohud_dir: options.mangohud_dir.as_ref().map(PathBuf::from),
+                                }),
+                                Box::new(FfmpegTranscoder::new(
+                                    options.ffmpeg.as_ref().map(PathBuf::from),
+                                )),
+                            ))
+                        }),
+                        Box::new(FakeSensors::demo()),
+                    )
+                })
+            }),
+        )));
+    }
+    if let Some(engine) = &backend.engine {
+        backend.thumbnails.use_runtime(Arc::clone(engine));
+    }
+    let backend: Shared = Arc::new(backend);
     // Before the window asks for it: the last theme, or a blank one for the
     // connected screen.
     backend.restore_debug();
@@ -716,6 +769,7 @@ fn compose(folders: &Folders, adapters: Adapters, simulate: bool) -> Backend {
     )
     .with_host_decoding(storage.shared_media(), cache.join("playing"));
     Backend {
+        engine: None,
         bus,
         connector,
         hid,

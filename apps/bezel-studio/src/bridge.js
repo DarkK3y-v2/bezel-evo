@@ -373,10 +373,12 @@ function tauriBridge(invoke, tauri = {}) {
      * @param {{motion?: boolean}} [options]
      * @returns {Promise<PreviewFrameDto>}
      */
-    render: async (theme, { motion = true, cardRotation = true } = {}) => {
+    render: async (theme, { motion = true, cardRotation = true, maxSide } = {}) => {
       const started = performance.now();
-      const frame = parseFrame(await invoke('render_preview', { theme, motion, cardRotation }));
-      return { ...frame, millis: performance.now() - started };
+      const args = { theme, motion, cardRotation };
+      if (maxSide !== undefined) args.max = maxSide;
+      const frame = parseFrame(await invoke('render_preview', args));
+      return { ...frame, unchanged: frame.width === 0 && frame.height === 0, logicalWidth: theme.canvas?.width, logicalHeight: theme.canvas?.height, millis: performance.now() - started };
     },
     /**
      * One element of the theme on its own, for the inspector's preview

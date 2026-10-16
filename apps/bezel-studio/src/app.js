@@ -444,12 +444,16 @@ async function drawPreview() {
   try {
     const { theme, selection } = store.getState();
     const editingCard = theme.elements.some(e => selection.includes(e.id) && (e.card || e.cardMember));
-    const work = bridge.render(theme, { motion: motionAllowed(), cardRotation: !editingCard });
+    const viewport = $('preview').getBoundingClientRect();
+    const maxSide = Math.max(16, Math.min(2320, Math.ceil(Math.max(viewport.width, viewport.height) * (window.devicePixelRatio || 1))));
+    const work = bridge.render(theme, { motion: motionAllowed(), cardRotation: !editingCard, maxSide });
     previewWork = work.catch(() => {});
     const frame = await work;
     if (screen !== state.screen || switchingScreen) return;
-    canvasView.drawFrame(frame);
-    inspector.frameShown();
+    if (!frame.unchanged) {
+      canvasView.drawFrame(frame);
+      inspector.frameShown();
+    }
     $('status-render').textContent = t('status.render', { ms: Math.round(frame.millis) });
     animation.shown({ nextMs: frame.nextMs ?? null, elapsed: performance.now() - started });
   } catch (e) {

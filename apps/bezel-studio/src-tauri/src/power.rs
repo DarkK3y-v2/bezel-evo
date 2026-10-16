@@ -286,6 +286,9 @@ impl Backend {
     /// session draws no frame, lends no link, connects nothing again and
     /// puts no screen live ([`crate::studio::Studio::enter_final_state`]).
     pub fn enter_final_state(&self) {
+        if let Some(engine) = &self.engine {
+            engine.suspend(true);
+        }
         self.storage.enter_final_state();
         self.studio().enter_final_state();
     }
@@ -293,6 +296,9 @@ impl Backend {
     /// The shutdown was cancelled: the final state ends. The caller shows
     /// the theme live again ([`Self::restore_live`]).
     pub fn leave_final_state(&self) {
+        if let Some(engine) = &self.engine {
+            engine.suspend(false);
+        }
         let unwanted = self.studio().leave_final_state();
         drop(unwanted);
         self.storage.leave_final_state();

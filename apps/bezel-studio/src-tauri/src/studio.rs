@@ -1017,6 +1017,14 @@ impl Studio {
 
     // ----------------------------------------------------------- document --
 
+    /// Document and asset revisions for the remote runtime adapter.
+    pub fn document_revision(&self) -> (u64, u64) {
+        (
+            self.runtime.content_revision(),
+            self.runtime.assets_revision(),
+        )
+    }
+
     /// The theme being edited.
     pub fn theme(&self) -> &Theme {
         self.runtime.theme()

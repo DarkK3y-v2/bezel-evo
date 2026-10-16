@@ -467,6 +467,7 @@ pub(crate) fn fixture_on(
     )
     .with_host_decoding(storage.shared_media(), root.join("playing"));
     let backend = Backend {
+        engine: None,
         bus: Arc::new(bus),
         connector: Arc::new(connector.clone()),
         hid: Arc::new(bezel_devices::FakeHid::default()),

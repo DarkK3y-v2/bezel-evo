@@ -401,3 +401,19 @@ test('Libre restart invokes only the configured reader command', async () => {
   await bridge.restartLibre();
   assert.deepEqual(calls, [['restart_libre_reader']]);
 });
+
+test('Light canvas carries viewport bounds and unchanged frames retain logical dimensions', async () => {
+  const calls = [];
+  let unchanged = false;
+  const bridge = createBridge({ ...page(), __TAURI__: { core: { invoke: async (command, args) => {
+    calls.push([command, args]);
+    return unchanged ? frameBytes(0, 0, 50) : frameBytes(320, 80, 50);
+  } } } });
+  const theme = { canvas: { width: 1920, height: 480 } };
+  const image = await bridge.render(theme, { maxSide: 320 });
+  assert.equal(image.width, 320); assert.equal(image.logicalWidth, 1920); assert.equal(image.logicalHeight, 480); assert.equal(image.unchanged, false);
+  unchanged = true;
+  const same = await bridge.render(theme, { maxSide: 320 });
+  assert.equal(same.unchanged, true); assert.equal(same.rgba.length, 0); assert.equal(same.nextMs, 50);
+  assert.equal(calls[0][1].max, 320);
+});
