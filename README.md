@@ -9,6 +9,10 @@
   <a href="#download--install"><img src="https://img.shields.io/badge/Windows-10%20%2F%2011-121518" alt="Windows 10 and 11, x64"></a>
 </p>
 
+https://github.com/user-attachments/assets/92eaa3a0-b369-4ae0-96b4-934210d99f47
+
+<p align="center"><sub>Bezel Evo on a Turing 8.8" screen: live sensors, weather and a Card that switches to the song playing.</sub></p>
+
 ![Bezel Evo Studio in dark mode: icon rail and widget library on the left, a portrait Ember dashboard on a dot-grid canvas with floating tool bars, and the inspector on the right with a live preview of the selected CPU ring and its Data and Look tabs](docs/images/studio-hero.png)
 
 <p align="center"><sub>Studio in demo mode. Example layout and simulated sensor readings.</sub></p>
@@ -110,7 +114,7 @@ can open; if Light cannot run, Studio drives the screens itself.
 
 **Requirements:** Windows 10/11 x64, a compatible USB smart screen and Microsoft Edge WebView2. Setup can download WebView2; portable Studio needs it already installed. Hardware sensors use .NET Framework 4.7.2 or newer; availability depends on your hardware and drivers. FFmpeg is separate for video conversion.
 
-Windows preview packages are unsigned. See the [installation guide](docs/user/install.md) for sensor setup and updates.
+The Setup and the programs are not code-signed, so Windows SmartScreen may warn the first time: choose **More info → Run anyway**. See the [installation guide](docs/user/install.md) for sensor setup and updates.
 
 ## Supported screens
 
