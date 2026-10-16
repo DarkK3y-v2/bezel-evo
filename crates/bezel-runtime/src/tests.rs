@@ -1268,3 +1268,61 @@ fn spectrum_switches_source_on_the_same_refresh_that_changes_the_player() {
     f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
     wait("Chrome.exe");
 }
+
+#[test]
+fn spectrum_on_a_face_reached_by_playback_is_scanned_like_the_renderer_draws_it() {
+    use bezel_core::domain::{
+        playback::{CardTrigger, TriggerSource},
+        spectrum::{AudioState, Spectrum},
+        theme::{Card, CardMember, TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.name = "card-spectrum".into();
+    let mut spectrum = document.theme.elements[0].clone();
+    spectrum.id = ElementId(2);
+    spectrum.kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    // Shown only on face 1, which a timer reaches while the saved face stays 0.
+    spectrum.card_member = Some(CardMember {
+        parent: ElementId(1),
+        face: Some(1),
+    });
+    document.theme.elements[0].card = Some(Card {
+        faces: vec!["sensors".into(), "music".into()],
+        active_face: 0,
+        rotation_seconds: None,
+        transition: None,
+        triggers: vec![CardTrigger {
+            source: TriggerSource::Timer,
+            interval_seconds: Some(5),
+            next_face: true,
+            app: String::new(),
+            face: 0,
+            priority: 0,
+            return_seconds: 0,
+            return_face: None,
+        }],
+    });
+    document.theme.elements.push(spectrum);
+    f.engine.document("a", 0, document, false).unwrap();
+    send(&mut f.engine, "a", RuntimeOp::Cards { on: true }, &[]).unwrap();
+    f.engine.audio_consent(true);
+    for ms in [0, 50, 5_000, 5_050, 5_100] {
+        f.engine.tick_at(Duration::from_millis(ms), time()).unwrap();
+        f.engine.images.latest("a", 0, 64).unwrap();
+    }
+    let seen = f.seen.lock().unwrap();
+    let last = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "card-spectrum")
+        .unwrap();
+    assert_eq!(
+        last.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::PlayerMissing],
+        "the spectrum on the shown face gets its state, not the default Disabled"
+    );
+}

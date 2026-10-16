@@ -157,6 +157,8 @@ pub struct Engine {
     next_id: u64,
     audio: Option<spectrum::Worker>,
     audio_enabled: bool,
+    /// Last state each spectrum widget was drawn with, for Light diagnostics.
+    spectrum_states: BTreeMap<String, bezel_core::domain::spectrum::AudioState>,
 }
 impl Engine {
     /// All adapters are injected; this exact constructor serves real Light,
@@ -199,6 +201,7 @@ impl Engine {
             next_id: 1,
             audio: None,
             audio_enabled: false,
+            spectrum_states: BTreeMap::new(),
         })
     }
     /// Inject process capture; consent remains disabled until locally configured.
@@ -208,6 +211,17 @@ impl Engine {
     }
     /// Apply a locally stored choice; theme JSON can never grant capture permission.
     pub fn audio_consent(&mut self, enabled: bool) {
+        self.set_audio_enabled(enabled);
+    }
+    fn set_audio_enabled(&mut self, enabled: bool) {
+        if self.audio_enabled != enabled {
+            light(
+                LightEvent::AudioConsent,
+                0,
+                0.0,
+                if enabled { "on" } else { "off" },
+            );
+        }
         self.audio_enabled = enabled;
     }
     /// Compatibility baseline used only when a physical connection is actually opened.
@@ -239,9 +253,10 @@ impl Engine {
             return Err(invalid("option bounds"));
         }
         // Audio consent alone never restarts the sensor reader.
-        let sources_changed = self.options.as_ref().is_none_or(|old| {
-            old.ping_host != options.ping_host || old.ffmpeg != options.ffmpeg
-        });
+        let sources_changed = self
+            .options
+            .as_ref()
+            .is_none_or(|old| old.ping_host != options.ping_host || old.ffmpeg != options.ffmpeg);
         if sources_changed && let Some(configure) = &self.configure {
             let (sensors, media) = configure(&options)?;
             self.sensors.replace(sensors);
@@ -251,7 +266,7 @@ impl Engine {
                 scene.dirty = true;
             }
         }
-        self.audio_enabled = options.audio_capture;
+        self.set_audio_enabled(options.audio_capture);
         self.options = Some(options);
         Ok(())
     }
@@ -484,13 +499,9 @@ impl Engine {
             if !screen_consumes && !self.images.viewed(key) {
                 continue;
             }
-            for element in scene
-                .runtime
-                .theme()
-                .elements
-                .iter()
-                .filter(|e| scene.runtime.theme().is_visible(e))
-            {
+            // The faces playback switched to, as the renderer draws them.
+            let shown = scene.runtime.shown_theme();
+            for element in shown.elements.iter().filter(|e| shown.is_visible(e)) {
                 if let bezel_core::domain::theme::ElementKind::Text {
                     content: bezel_core::domain::theme::TextContent::Spectrum(config),
                     ..
@@ -622,6 +633,9 @@ impl Engine {
                                     ..Default::default()
                                 }
                             };
+                            if self.spectrum_states.insert(r.key.clone(), state) != Some(state) {
+                                light(LightEvent::Spectrum, scene.id, 0.0, spectrum::kind(state));
+                            }
                             Some((ElementId(id), frame))
                         })
                         .collect();

@@ -195,6 +195,10 @@ pub enum LightEvent {
     Present,
     Canvas,
     SensorRestart,
+    /// Audio capture consent changed: `on` or `off`.
+    AudioConsent,
+    /// The state a spectrum widget is drawn with changed.
+    Spectrum,
 }
 /// Typed metrics keep private strings out of Light diagnostics.
 pub fn light(event: LightEvent, screen: u64, millis: f64, kind: &'static str) {
@@ -202,7 +206,8 @@ pub fn light(event: LightEvent, screen: u64, millis: f64, kind: &'static str) {
     let kind = match kind {
         "full" | "partial" | "unchanged" | "unknown" | "interval" | "process" | "link" | "io"
         | "scene" | "reader" | "configured" | "resume" | "client" | "direct" | "document"
-        | "session" | "request" => kind,
+        | "session" | "request" | "on" | "off" | "live" | "disabled" | "player-missing"
+        | "unavailable" | "unsupported" | "demo" => kind,
         _ => "other",
     };
     let important = matches!(

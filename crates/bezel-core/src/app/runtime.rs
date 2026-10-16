@@ -608,6 +608,11 @@ impl ThemeRuntime {
         &self.scene.theme
     }
 
+    /// The theme as drawn now: Card faces switched by playback replace the saved ones.
+    pub fn shown_theme(&self) -> Cow<'_, Theme> {
+        self.card_timers.theme(&self.scene.theme)
+    }
+
     /// Revision of asset contents.
     pub fn assets_revision(&self) -> u64 {
         self.scene.assets_revision

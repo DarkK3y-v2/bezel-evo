@@ -636,3 +636,15 @@ mod failure_tests {
         }
     }
 }
+
+/// The fixed diagnostic label of a spectrum state.
+pub(crate) fn kind(state: AudioState) -> &'static str {
+    match state {
+        AudioState::Live => "live",
+        AudioState::Disabled => "disabled",
+        AudioState::PlayerMissing => "player-missing",
+        AudioState::Unavailable => "unavailable",
+        AudioState::Unsupported => "unsupported",
+        AudioState::Demo => "demo",
+    }
+}
