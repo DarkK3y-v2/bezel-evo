@@ -297,6 +297,15 @@ impl FrameRenderer for SkiaRenderer {
         if theme.is_locked(element) || element.card.is_some() || element.is_group {
             return Ok(None);
         }
+        if matches!(
+            &element.kind,
+            ElementKind::Text {
+                content: TextContent::Spectrum(_),
+                ..
+            }
+        ) {
+            return Ok(None);
+        }
         let old = element.frame;
         let (width, height, ax, ay) = match &element.kind {
             ElementKind::Text { content, style } => {
@@ -508,6 +517,7 @@ fn value_fraction(id: ElementId, binding: &Binding, context: &RenderContext<'_>)
 /// What a text element prints now.
 fn text_of(id: ElementId, content: &TextContent, context: &RenderContext<'_>) -> String {
     match content {
+        TextContent::Spectrum(_) => String::new(),
         TextContent::Player(p) => {
             let Some(m) = bezel_core::domain::playback::session(context.snapshot, &p.source) else {
                 return p.empty_text.clone();
@@ -1085,6 +1095,50 @@ impl SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: &RenderContext<'_>,
     ) {
+        if let ElementKind::Text {
+            content: TextContent::Spectrum(s),
+            style,
+        } = &element.kind
+        {
+            let mut frame = context
+                .snapshot
+                .spectra
+                .get(&element.id)
+                .cloned()
+                .unwrap_or_default();
+            if s.demo {
+                frame.state = bezel_core::domain::spectrum::AudioState::Demo;
+                frame.levels = (0..s.bands)
+                    .map(|i| {
+                        0.45 + 0.25
+                            * (context.animation.as_secs_f32() * 2. + f32::from(i) * 0.37).sin()
+                    })
+                    .collect();
+                frame.peaks = frame.levels.iter().map(|v| (v + 0.08).min(1.)).collect();
+            }
+            crate::spectrum::draw(
+                layer,
+                element.frame,
+                s,
+                &frame,
+                &style.paint,
+                element.color_by_value.as_ref(),
+            );
+            let label = crate::spectrum::label(frame.state, context.language);
+            if !label.is_empty() {
+                self.text.draw(
+                    layer,
+                    &TextJob {
+                        text: label,
+                        style,
+                        area: element.frame,
+                    },
+                    assets,
+                    &mut self.diagnostics,
+                );
+            }
+            return;
+        }
         let color = element.value_color(context.snapshot, context.shown);
         let mut resolved;
         let element = if let Some(color) = color {
