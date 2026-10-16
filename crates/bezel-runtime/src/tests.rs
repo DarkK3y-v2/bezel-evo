@@ -35,6 +35,7 @@ fn time() -> LocalTime {
 #[derive(Clone, Debug)]
 struct Seen {
     history: Vec<Option<f64>>,
+    spectra: BTreeMap<ElementId, bezel_core::domain::spectrum::AudioState>,
     clock: Duration,
     theme: String,
 }
@@ -51,6 +52,12 @@ impl FrameRenderer for Renderer {
             .first()
             .map_or(Vec::new(), |id| context.histories.points(id, 100));
         self.0.lock().unwrap().push(Seen {
+            spectra: context
+                .snapshot
+                .spectra
+                .iter()
+                .map(|(id, f)| (*id, f.state))
+                .collect(),
             history,
             clock: context.animation,
             theme: theme.name.clone(),
@@ -1120,4 +1127,54 @@ fn rejected_options_do_not_grant_capture_permission() {
     };
     assert!(f.engine.options(invalid).is_err());
     assert!(!f.engine.audio_enabled);
+}
+
+#[test]
+fn scene_names_with_shared_prefixes_cannot_exchange_audio_results() {
+    use bezel_core::domain::{
+        spectrum::{AudioState, Spectrum},
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut plain = doc();
+    plain.theme.name = "plain-spectrum".into();
+    plain.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut demo = plain.clone();
+    demo.theme.name = "demo-spectrum".into();
+    if let ElementKind::Text {
+        content: TextContent::Spectrum(s),
+        ..
+    } = &mut demo.theme.elements[0].kind
+    {
+        s.demo = true;
+    }
+    f.engine.document("a", 0, plain, false).unwrap();
+    f.engine.document("a/b", 0, demo, false).unwrap();
+    f.engine.audio_consent(true);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    f.engine.images.latest("a/b", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    let plain = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "plain-spectrum")
+        .unwrap();
+    let demo = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "demo-spectrum")
+        .unwrap();
+    assert_eq!(
+        plain.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::PlayerMissing]
+    );
+    assert_eq!(
+        demo.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::Demo]
+    );
 }

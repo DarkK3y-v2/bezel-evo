@@ -510,7 +510,7 @@ impl Engine {
                         Err(state) => (String::new(), false, state),
                     };
                     requests.push(spectrum::Request {
-                        key: format!("{key}/{}", element.id.0),
+                        key: format!("{}/{}", scene.id, element.id.0),
                         source,
                         playing,
                         state,
@@ -570,7 +570,7 @@ impl Engine {
                 if scene.live
                     && requests
                         .iter()
-                        .any(|r| r.key.starts_with(&format!("{key}/")))
+                        .any(|r| r.key.starts_with(&format!("{}/", scene.id)))
                     && scene.presenter.as_ref().is_some_and(|p| !p.idle())
                 {
                     return Ok(Duration::from_millis(50));
@@ -580,7 +580,7 @@ impl Engine {
                 {
                     let frames = requests
                         .iter()
-                        .filter(|r| r.key.starts_with(&format!("{key}/")))
+                        .filter(|r| r.key.starts_with(&format!("{}/", scene.id)))
                         .filter_map(|r| {
                             let id = r.key.rsplit('/').next()?.parse::<u32>().ok()?;
                             let state = if r.config.demo {
@@ -695,7 +695,7 @@ impl Engine {
                 if (scene.queued_sequence != Some(scene.sequence)
                     || !requests
                         .iter()
-                        .any(|r| r.key.starts_with(&format!("{key}/"))))
+                        .any(|r| r.key.starts_with(&format!("{}/", scene.id))))
                     && scene.live
                     && scene.link.is_some()
                     && let Some(presenter) = &scene.presenter
