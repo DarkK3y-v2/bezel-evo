@@ -42,8 +42,8 @@ test('demo is bounded, explicit and animates independently of sensor refresh', (
   e.kind.content.demo=false; assert.equal(demoNextChange(theme,0),null);
   const a=demoSpectrum({},0), b=demoSpectrum({},.5); assert.equal(a.length,32);assert.notDeepEqual(a,b); assert.ok(a.every(v=>v>=0 && v<=1));
 });
-test('capture consent is local, disabled by default and independent from imported themes',async()=>{
-  const demo=createDemoBackend('turing88'); assert.equal((await demo.preferences()).audioCapture,false);
-  await demo.setAudioCapture(true); assert.equal((await demo.preferences()).audioCapture,true);
+test('audio capture is a local preference, on by default and independent from imported themes',async()=>{
+  const demo=createDemoBackend('turing88'); assert.equal((await demo.preferences()).audioCapture,true);
   await demo.setAudioCapture(false); assert.equal((await demo.preferences()).audioCapture,false);
+  await demo.setAudioCapture(true); assert.equal((await demo.preferences()).audioCapture,true);
 });
