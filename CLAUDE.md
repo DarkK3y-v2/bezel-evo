@@ -81,6 +81,13 @@ Routing em `.jdi/specialists.md` e `.jdi/reviewers.md`.
 - Discussione con l'utente e documenti in `.jdi/` (decisioni, piani, riepiloghi, report): italiano
 - i18n nel frontend: mai stringhe fisse nell'interfaccia; testi in en, pt-BR e it con parità di chiavi
 
+## Regole del progetto
+
+- Piattaforma: solo Windows è supportato (D-2026-10-16-studio-redesign-fidelity-27). Il codice Linux ereditato deve continuare a compilare, ma non è mantenuto, testato né rilasciato.
+- Test: si testa solo ciò che si tocca (crate, moduli UI e spec e2e dell'area cambiata); suite completa e copertura una sola volta, prima di pubblicare (push) o alla verifica della phase. Un test instabile si riesegue da solo.
+- Commit: ogni commit termina con il trailer dell'agente che l'ha scritto: `Co-Authored-By: ChatGPT <noreply@openai.com>` per il lavoro di ChatGPT, `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` per quello di Claude.
+- Regole operative condivise con gli altri agenti (versioni, `dist/`, build Windows): `AGENTS.md`.
+
 ## Prioridade quando conflita
 
 1. Seguranca
