@@ -55,6 +55,7 @@ struct AssetFont {
     stamp: Stamp,
     ids: Vec<fontdb::ID>,
     family: Option<String>,
+    families: HashMap<String, String>,
 }
 
 /// A text to draw.
@@ -76,6 +77,10 @@ pub(crate) struct TextEngine {
     asset_fonts: HashMap<AssetRef, AssetFont>,
     /// The faces shipped with Bezel (the `fonts` given to [`TextEngine::new`]).
     bundled: HashSet<fontdb::ID>,
+    user: HashSet<fontdb::ID>,
+    base_db: Option<fontdb::Database>,
+    user_stamp: Vec<(std::path::PathBuf, u64, Option<std::time::SystemTime>)>,
+    checked: std::time::Instant,
 }
 
 fn has_family(db: &fontdb::Database, name: &str) -> Option<String> {
@@ -114,14 +119,100 @@ impl TextEngine {
         if let Some(family) = &default_family {
             db.set_sans_serif_family(family.clone());
         }
-        Self {
+        let base_db = (system == SystemFonts::Load).then(|| db.clone());
+        let mut engine = Self {
+            user: HashSet::new(),
+            base_db,
+            user_stamp: Vec::new(),
+            checked: std::time::Instant::now() - std::time::Duration::from_secs(3),
             fonts: FontSystem::new_with_locale_and_db("en-US".to_string(), db),
             glyphs: SwashCache::new(),
             default_family,
             installed: HashMap::new(),
             asset_fonts: HashMap::new(),
             bundled,
+        };
+        engine.refresh_user_fonts();
+        engine
+    }
+
+    /// Poll only metadata at most every two seconds; rebuild shaping caches on changes.
+    pub fn refresh_user_fonts(&mut self) -> bool {
+        let Some(dir) = crate::fonts::user_fonts_directory() else {
+            return false;
+        };
+        self.refresh_user_fonts_from(&dir)
+    }
+
+    fn refresh_user_fonts_from(&mut self, dir: &std::path::Path) -> bool {
+        if self.base_db.is_none() || self.checked.elapsed() < std::time::Duration::from_secs(2) {
+            return false;
         }
+        self.checked = std::time::Instant::now();
+        let stamp = crate::fonts::folder_stamp(dir);
+        if stamp == self.user_stamp {
+            return false;
+        }
+        self.user_stamp = stamp;
+        let Some(mut db) = self.base_db.clone() else {
+            return false;
+        };
+        self.user.clear();
+        for bytes in crate::fonts::font_files(dir) {
+            if is_shipped(&bytes) {
+                continue;
+            }
+            let source = fontdb::Source::Binary(Arc::new(bytes));
+            self.user.extend(db.load_font_source(source));
+        }
+        // Prefer the user's family over an installed copy, while keeping embedded faces.
+        let names: HashSet<_> = self
+            .user
+            .iter()
+            .filter_map(|id| db.face(*id))
+            .flat_map(|f| f.families.iter().map(|(n, _)| n.to_lowercase()))
+            .collect();
+        let remove: Vec<_> = db
+            .faces()
+            .filter(|f| {
+                !self.user.contains(&f.id)
+                    && !self.bundled.contains(&f.id)
+                    && f.families
+                        .iter()
+                        .any(|(n, _)| names.contains(&n.to_lowercase()))
+            })
+            .map(|f| f.id)
+            .collect();
+        for id in remove {
+            db.remove_face(id);
+        }
+        self.fonts = FontSystem::new_with_locale_and_db("en-US".into(), db);
+        self.glyphs = SwashCache::new();
+        self.installed.clear();
+        self.asset_fonts.clear();
+        true
+    }
+
+    pub fn retain_assets(&mut self, used: &[AssetRef]) -> bool {
+        let removed: Vec<_> = self
+            .asset_fonts
+            .keys()
+            .filter(|a| !used.contains(a))
+            .cloned()
+            .collect();
+        if removed.is_empty() {
+            return false;
+        }
+        for asset in removed {
+            if let Some(font) = self.asset_fonts.remove(&asset) {
+                for id in font.ids {
+                    self.fonts.db_mut().remove_face(id);
+                }
+            }
+        }
+        self.installed.clear();
+        self.glyphs = SwashCache::new();
+        true
     }
 
     fn installed(&mut self, family: &str) -> Option<String> {
@@ -134,11 +225,18 @@ impl TextEngine {
         found
     }
 
-    fn asset_family(&mut self, asset: &AssetRef, bytes: &[u8]) -> Option<String> {
+    fn asset_family(&mut self, asset: &AssetRef, bytes: &[u8], wanted: &str) -> Option<String> {
         if let Some(font) = self.asset_fonts.get_mut(asset)
             && font.stamp.matches(bytes)
         {
-            return font.family.clone();
+            return font
+                .families
+                .get(&wanted.to_lowercase())
+                .cloned()
+                .or_else(|| font.family.clone());
+        }
+        if !crate::fonts::valid_font(bytes) {
+            return None;
         }
         let db = self.fonts.db_mut();
         for id in self
@@ -153,19 +251,38 @@ impl TextEngine {
             .load_font_source(fontdb::Source::Binary(Arc::new(bytes.to_vec())))
             .into_iter()
             .collect();
-        let family = ids
-            .first()
-            .and_then(|id| db.face(*id))
-            .and_then(|face| face.families.first())
-            .map(|(f, _)| f.clone());
+        // Private aliases give assets precedence over installed fonts and other assets.
+        let mut families = HashMap::new();
+        let mut aliased = Vec::new();
+        let mut family = None;
+        for id in ids {
+            let Some(mut info) = db.face(id).cloned() else {
+                continue;
+            };
+            db.remove_face(id);
+            for (name, _) in &mut info.families {
+                let alias = format!("bezel-asset-{}:{name}", asset.0);
+                families.insert(name.to_lowercase(), alias.clone());
+                if family.is_none() {
+                    family = Some(alias.clone());
+                }
+                *name = alias;
+            }
+            aliased.push(db.push_face_info(info));
+        }
+        let selected = families
+            .get(&wanted.to_lowercase())
+            .cloned()
+            .or_else(|| family.clone());
         self.installed.clear();
         let font = AssetFont {
             stamp: Stamp::new(bytes),
-            ids,
-            family: family.clone(),
+            ids: aliased,
+            families,
+            family,
         };
         self.asset_fonts.insert(asset.clone(), font);
-        family
+        selected
     }
 
     /// The family to shape with: the bundled asset, the installed family or
@@ -177,7 +294,9 @@ impl TextEngine {
         diagnostics: &mut Diagnostics,
     ) -> Option<String> {
         if let Some(asset) = &font.asset {
-            let family = assets.get(asset).and_then(|b| self.asset_family(asset, b));
+            let family = assets
+                .get(asset)
+                .and_then(|b| self.asset_family(asset, b, &font.family));
             if family.is_some() {
                 return family;
             }
@@ -203,7 +322,41 @@ impl TextEngine {
     /// Every family of the font database, with its faces, and the family
     /// drawn for a missing one.
     pub fn catalog(&self) -> FontCatalog {
-        crate::catalog::catalog(self.fonts.db(), &self.bundled, self.default_family.clone())
+        if let Some(base) = &self.base_db {
+            let mut seen = HashSet::new();
+            let files = self
+                .fonts
+                .db()
+                .faces()
+                .filter(|f| self.user.contains(&f.id))
+                .filter_map(|f| {
+                    if let fontdb::Source::Binary(bytes) = &f.source {
+                        seen.insert(Arc::as_ptr(bytes) as *const () as usize)
+                            .then(|| (**bytes).as_ref().to_vec())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            crate::catalog::catalog_with_user(
+                base,
+                &self.bundled,
+                &HashSet::new(),
+                self.default_family.clone(),
+            )
+            .with_user_fonts(files)
+        } else {
+            crate::catalog::catalog_with_user(
+                self.fonts.db(),
+                &self.bundled,
+                &self.user,
+                self.default_family.clone(),
+            )
+        }
+    }
+
+    pub fn watches_user_fonts(&self) -> bool {
+        self.base_db.is_some()
     }
 
     /// Draws `job` into `layer`.
@@ -393,6 +546,90 @@ mod tests {
     use crate::testkit::FONT;
 
     #[test]
+    fn a_collection_keeps_the_requested_family_and_asset_aliases_win_over_installed_names() {
+        let mut collection = b"ttcf\x00\x01\x00\x00\x00\x00\x00\x02".to_vec();
+        collection.resize(20, 0);
+        for (index, font) in [FONT, SHIPPED_FONTS[0]].iter().enumerate() {
+            while !collection.len().is_multiple_of(4) {
+                collection.push(0);
+            }
+            let start = collection.len();
+            collection[12 + index * 4..16 + index * 4]
+                .copy_from_slice(&(start as u32).to_be_bytes());
+            collection.extend_from_slice(font);
+            let tables = u16::from_be_bytes([font[4], font[5]]) as usize;
+            for table in 0..tables {
+                let at = start + 12 + table * 16 + 8;
+                let offset = u32::from_be_bytes(collection[at..at + 4].try_into().unwrap());
+                collection[at..at + 4].copy_from_slice(&(offset + start as u32).to_be_bytes());
+            }
+        }
+        assert!(crate::valid_font(&collection));
+        let mut engine = TextEngine::new(
+            vec![FONT.to_vec(), SHIPPED_FONTS[0].to_vec()],
+            SystemFonts::Skip,
+        );
+        let asset = AssetRef("assets/collection.ttc".into());
+        let inter = engine.asset_family(&asset, &collection, "Inter").unwrap();
+        let mono = engine
+            .asset_family(&asset, &collection, crate::testkit::FAMILY)
+            .unwrap();
+        assert_eq!(inter, "bezel-asset-assets/collection.ttc:Inter");
+        assert_ne!(inter, mono);
+        let catalog = crate::FontCatalog::default().with_user_fonts(vec![collection.clone()]);
+        assert_eq!(
+            catalog.portable_face(
+                "Inter",
+                crate::FontFace {
+                    weight: 400,
+                    italic: false
+                }
+            ),
+            Some(collection)
+        );
+    }
+
+    #[test]
+    fn user_files_reload_and_detached_assets_do_not_pollute_family_matching() {
+        let dir = std::env::temp_dir().join(format!("bezel-user-reload-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut engine = TextEngine::new(Vec::new(), SystemFonts::Skip);
+        engine.base_db = Some(engine.fonts.db().clone());
+        std::fs::write(dir.join("local.ttf"), FONT).unwrap();
+        assert!(engine.refresh_user_fonts_from(&dir));
+        let catalog = engine.catalog();
+        assert_eq!(catalog.families[0].origin, crate::FontOrigin::User);
+        assert!(
+            catalog
+                .portable_face(
+                    crate::testkit::FAMILY,
+                    crate::FontFace {
+                        weight: 400,
+                        italic: false
+                    }
+                )
+                .is_some()
+        );
+        assert!(
+            !engine.refresh_user_fonts_from(&dir),
+            "metadata polls are throttled"
+        );
+        std::fs::remove_file(dir.join("local.ttf")).unwrap();
+        engine.checked -= std::time::Duration::from_secs(3);
+        assert!(engine.refresh_user_fonts_from(&dir));
+        assert!(engine.catalog().families.is_empty());
+        let asset = AssetRef("assets/local.ttf".into());
+        let alias = engine
+            .asset_family(&asset, FONT, crate::testkit::FAMILY)
+            .unwrap();
+        assert!(alias.starts_with("bezel-asset-"));
+        assert!(engine.installed(crate::testkit::FAMILY).is_none());
+        assert!(engine.retain_assets(&[]));
+        assert_eq!(engine.fonts.db().faces().count(), 0);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn families_resolve_to_assets_installed_or_default() {
         let mut engine = TextEngine::new(vec![FONT.to_vec()], SystemFonts::Skip);
         let mut diagnostics = Diagnostics::default();
@@ -416,10 +653,15 @@ mod tests {
             &assets,
             &mut diagnostics,
         );
-        assert_eq!(bundled, default);
+        let alias = Some("bezel-asset-assets/font.ttf:JetBrains Mono NL".to_string());
+        assert_eq!(bundled, alias);
         assert_eq!(
-            engine.asset_family(&AssetRef("assets/font.ttf".into()), FONT),
-            default
+            engine.asset_family(
+                &AssetRef("assets/font.ttf".into()),
+                FONT,
+                crate::testkit::FAMILY
+            ),
+            alias
         );
         let unknown = engine.family_for(
             &spec("Nope", Some("assets/bad.ttf")),
