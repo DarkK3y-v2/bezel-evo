@@ -1,11 +1,114 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows
+All notable changes to Bezel Evo are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[Semantic Versioning](https://semver.org/). Versions are computed by CI from
-the Conventional Commits.
+[Semantic Versioning](https://semver.org/). The version is the one in the
+`VERSION` file, set when a Windows release is built.
 
-## [Unreleased]
+## [0.1.26] - Unreleased
+
+The first published release since 0.1.22 (0.1.23 to 0.1.25 were local builds),
+so this entry covers everything since then.
+
+### New interface
+- **Studio is redesigned from the ground up**, in dark and light: an icon rail
+  for Widgets, Sensors, Layers, Themes, Media and Screen; floating tool bars
+  over a dot-grid canvas; library and properties panels you can resize; a new
+  Pixel logo and tray icon. Studio now speaks Italian too, next to English and
+  Portuguese.
+- **The inspector shows what you change**: a live preview of the selected
+  object, drawn on its own at the top of the panel, and its settings split
+  into **Data** and **Look** tabs. Number fields keep their focus while you step
+  them with the arrow keys.
+- **One colour picker everywhere**: colour area, hue, opacity, hex code and an
+  eyedropper, with **Theme colours** saved in the theme, the colours **used in
+  this theme** and recent ones.
+- **A real font picker**: search, Sans/Serif/Mono filters, each name written in
+  its own font, a preview with the object's real text, and only the weights the
+  font really has. A font the PC lacks is marked, with the font used instead.
+- **Status at a glance**: a sensor chip that opens a popover with each piece of
+  hardware, its last reading and **Restart Libre**; a memory chip with how much
+  Bezel uses, per process; **Preferences → Logs** with **Open logs folder**.
+- **Quick hands**: the mouse wheel zooms around the pointer (touchpad pinch
+  too), the middle button pans, **Fit** shows the whole screen. The focus ring
+  appears only when you use the keyboard.
+- **Themes panel**: search, **New theme**, a larger theme gallery with
+  **Duplicate** and **Open in the editor**, and when each theme was changed.
+- **Screen panel**: the chosen screen only, with brightness, start with the
+  computer, the shutdown choice and **Advanced**; a clearer Storage manager.
+
+### Editing
+- **Double-click an object** (or **Fit frame to content**) to fit its frame to
+  what it draws: text in its font, images and icons at their proportions, the
+  weather and media player blocks.
+- **Colour by value**: texts, values, rings, bars, needles, graphs, shapes and
+  SVG icons change colour at the thresholds you set (for example orange from 70,
+  red from 90).
+- **Smooth values**: rings, bars, needles and values glide to each new reading.
+  New objects start smooth at 400 ms; older themes keep jumping until you turn
+  it on. Frames are sent only while something moves, fewer to a slow screen.
+- **One corners control** for shapes, Cards, images and the player's cover, with
+  a drawing that stays readable at any size.
+- **The background chooser**: one card shows the background in use; **Change
+  background…** offers a solid colour, a picture or video from this computer,
+  or a video already on the screen, and nothing changes until you confirm. The
+  theme's orientation is two buttons and its refresh has quick values.
+
+### Widgets
+- **Cards**: the faces are a plain list with **Edit** and a menu (rename,
+  duplicate, move, delete), a **Shared background** row, and **one transition**
+  for the whole Card. Automatic rotation is now a **timed trigger** ("every
+  30 s, the next face") next to the app and media triggers; themes using the
+  old rotation are converted when opened.
+- **Media player**: choose its parts (cover, title, artist, time, progress, app
+  name) and style the progress bar: continuous, segments or dots, round or
+  square ends, a knob, times in the text, at the sides or above.
+- **Graphs** have their own time window, written as a sentence ("show the last
+  5 minutes, with one point every 5 seconds") over a time ruler, independent of
+  the theme's refresh.
+
+### Light and screens
+- **Light owns the screens.** One runtime in Light runs the themes, the clock,
+  the sensors, the graph history, the transitions and the background videos;
+  Studio's canvas shows the picture Light draws. Opening and closing Studio no
+  longer redraws the screen: graphs keep their history, a video keeps playing.
+  Closing without saving goes back to the saved theme without starting over.
+- Studio and Light talk over a local channel that only your Windows user can
+  open. If Light cannot run, Studio drives the screens itself.
+- Each screen has its own worker and its own sampling, so a slow screen does not
+  hold up a fast one; Studio shows the measured time to draw a frame.
+
+### Fonts
+- **Inter and JetBrains Mono are built into Bezel**: themes always find them,
+  wherever they are saved.
+- **My fonts**: drop `.ttf`, `.otf` or `.ttc` files in
+  `%APPDATA%\Bezel Evo\fonts` to use them without installing them in Windows.
+  **Open fonts folder** and **Reload fonts** are in the font picker.
+- **Theme fonts**: **Include in theme** packs a font file inside the theme, after
+  a licence reminder, so a shared theme looks the same elsewhere; **Remove font
+  from theme** takes it out again.
+
+### Fixes
+- Themes with a refresh slower than 2 s are honoured instead of being capped,
+  and changing the refresh realigns sampling.
+- Sensors of identical hardware (two equal fans, two equal disks) are kept
+  apart.
+- The inspector no longer jumps when stepping number fields; the shared
+  background is named in a member's face picker.
+- The sensor catalogue is no longer reloaded at every sample.
+- Updated rustls with its security fix.
+
+### Platform: Windows only
+- Bezel Evo supports **Windows 10 and 11 only**. The documentation, the user
+  guide and its Portuguese translation now describe Windows only.
+- The inherited CI pipeline, which built Linux packages, is gone; the Windows
+  packages are built on demand.
+
+## Inherited from Bezel
+
+The entries below describe [Bezel](https://github.com/slipalison/bezel) up to
+the point this fork started. They are kept for history: the Linux packages,
+udev rules, systemd service and other Linux items no longer apply to Bezel Evo.
 
 ### Added
 - Cargo workspace with the hexagonal core (`bezel-core`), the device adapter
