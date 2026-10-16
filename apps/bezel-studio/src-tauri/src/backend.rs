@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
+use bezel_core::app::handoff::{HandedOver, hand_over};
 use bezel_core::app::{
     choose_screen, connect_screen, discover_devices, discover_screens, leave_desktop_mode,
     reopen_screen, restart_screen,
@@ -20,7 +21,8 @@ use bezel_core::domain::screen::{Brightness, Confirm};
 use bezel_core::domain::sensor::{SensorKey, Wanted};
 use bezel_core::domain::theme::{Background, ElementId, MIN_REFRESH_SECONDS, Theme};
 use bezel_core::ports::{
-    DesktopModeHid, DeviceBus, ScreenConnector, ScreenLink, SensorSource, ThemeLocation, ThemeStore,
+    DesktopModeHid, DeviceBus, HandoffStore, ScreenConnector, ScreenLink, SensorSource,
+    ThemeLocation, ThemeStore,
 };
 use bezel_sensors::SensorOptions;
 use bezel_themes::dto::{BackgroundDto, ThemeDto};
@@ -680,6 +682,26 @@ impl Backend {
         }
         let _claim = self.storage.claim()?;
         Ok(self.connect(screen)?.set_brightness(brightness)?)
+    }
+
+    /// Hands the live screens to Bezel Light: live mode stops (the settings
+    /// keep the live screens, which Light reads), each screen's last
+    /// confirmed frame is left in `store`, dated `now` (since the Unix
+    /// epoch), and the links close without sending anything more, so the
+    /// screens keep showing that frame and Light's first frame is a
+    /// difference. How many frames were left; one that cannot be left only
+    /// means a full first frame from Light.
+    pub fn hand_over_live(&self, store: &dyn HandoffStore, now: Duration) -> usize {
+        let links = self.idle_studio().take_all_live();
+        let mut left = 0;
+        for (address, link) in links {
+            match hand_over(link.as_ref(), address, store, now) {
+                Ok(HandedOver::Baseline) => left += 1,
+                Ok(HandedOver::Nothing) => {}
+                Err(_) => diag::report(DiagCode::HandoffFrameNotLeft),
+            }
+        }
+        left
     }
 
     /// Hands a screen back to its own mode; a live one (named by either of
@@ -2005,6 +2027,78 @@ mod tests {
         assert_eq!(frame.pixel(30, 30), Some(b), "the active face");
         assert_eq!(count(&frame, a), 0, "not the other face");
         assert_eq!(frame.pixel(5, 5), Some(base), "over the card's base");
+    }
+
+    /// Frames left for Light, in memory; `broken` refuses to keep them.
+    #[derive(Default)]
+    struct LeftFrames {
+        left: Mutex<Vec<bezel_core::domain::handoff::HandedFrame>>,
+        broken: bool,
+    }
+
+    impl HandoffStore for LeftFrames {
+        fn save(
+            &self,
+            handed: &bezel_core::domain::handoff::HandedFrame,
+        ) -> bezel_core::Result<()> {
+            if self.broken {
+                return Err(bezel_core::BezelError::Transport("disk full".into()));
+            }
+            self.left.lock().unwrap().push(handed.clone());
+            Ok(())
+        }
+        fn take(
+            &self,
+            _: &bezel_core::domain::discovery::DeviceAddress,
+        ) -> bezel_core::Result<Option<bezel_core::domain::handoff::HandedFrame>> {
+            Ok(None)
+        }
+    }
+
+    #[test]
+    fn handing_over_leaves_the_last_frame_and_sends_nothing_more() {
+        let f = fixture("hand-over");
+        let store = LeftFrames::default();
+        assert_eq!(
+            f.backend.hand_over_live(&store, Duration::from_secs(9)),
+            0,
+            "nothing live"
+        );
+        f.backend.set_live(true, Some(KEY), TIME).unwrap();
+        let shown = f.connector.log().frames;
+        let last = shown.last().cloned().unwrap();
+        assert_eq!(f.backend.hand_over_live(&store, Duration::from_secs(9)), 1);
+        let left = store.left.lock().unwrap().clone();
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0].key.address.0, KEY);
+        assert_eq!(left[0].key.model, "turing-8.8");
+        assert_eq!(left[0].saved_at, Duration::from_secs(9));
+        assert_eq!(left[0].baseline.frame, last, "the frame the screen shows");
+        assert_eq!(left[0].baseline.orientation, Orientation::ReversePortrait);
+        assert!(!f.backend.studio().any_live());
+        let seen = f.connector.log();
+        assert_eq!(
+            seen.releases, 0,
+            "no END_UPDATE_BITMAP: the stream goes on in Light"
+        );
+        assert_eq!(
+            seen.frames.len(),
+            shown.len(),
+            "no frame after the one left"
+        );
+        assert_eq!(
+            f.backend.settings.load().live_screen.as_deref(),
+            Some(KEY),
+            "Light reads the live screens from the settings"
+        );
+        // A store that cannot keep it only means a full first frame.
+        f.backend.set_live(true, Some(KEY), TIME).unwrap();
+        let broken = LeftFrames {
+            broken: true,
+            ..LeftFrames::default()
+        };
+        assert_eq!(f.backend.hand_over_live(&broken, Duration::from_secs(9)), 0);
+        assert!(!f.backend.studio().any_live());
     }
 
     #[test]

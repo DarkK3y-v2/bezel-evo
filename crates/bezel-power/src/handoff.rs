@@ -147,6 +147,12 @@ impl StudioSession {
     pub fn returns_to_light(&self) -> bool {
         self.returns_to_light
     }
+
+    /// The coordination folder, where [`FileHandoffStore`] keeps the frames
+    /// Studio leaves for Light.
+    pub fn directory(&self) -> &Path {
+        &self.directory
+    }
 }
 
 /// Ask light to yield and wait for its normal serial cleanup before continuing.
