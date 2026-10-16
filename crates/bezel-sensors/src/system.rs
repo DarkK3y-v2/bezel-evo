@@ -21,6 +21,9 @@ pub struct SensorOptions {
     /// Folder of MangoHud's CSV logs read for `gpu.fps` on Linux; `None`
     /// means MangoHud's own `output_folder`.
     pub mangohud_dir: Option<PathBuf>,
+    /// Path of Intel PresentMon's console executable read for `gpu.fps` on
+    /// Windows; `None` searches the usual places.
+    pub presentmon_path: Option<PathBuf>,
 }
 
 impl SensorOptions {
@@ -33,6 +36,7 @@ impl Default for SensorOptions {
         Self {
             ping_host: Self::DEFAULT_PING_HOST.to_string(),
             mangohud_dir: None,
+            presentmon_path: None,
         }
     }
 }
