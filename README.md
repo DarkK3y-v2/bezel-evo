@@ -140,6 +140,6 @@ Bezel Evo is free and open source. If it is useful to you, you can support its d
 
 ## Credits & licence
 
-Bezel Evo is a **fork of [slipalison/bezel](https://github.com/slipalison/bezel)**, created by [Alison Amorim (@slipalison)](https://github.com/slipalison). Original authorship, research and copyright notices are preserved.
+© 2026 [jripper77](https://github.com/jripper77). Bezel Evo is a **fork of [slipalison/bezel](https://github.com/slipalison/bezel)**, created by [Alison Amorim (@slipalison)](https://github.com/slipalison); original authorship, research and copyright notices are preserved (see [NOTICE](NOTICE)).
 
 Licensed under **[GPL-3.0-or-later](LICENSE)**. See [third-party credits and licences](THIRD_PARTY.md) for LibreHardwareMonitorLib, Tabler, Material Design Icons, IBM Plex, Inter, JetBrains Mono and weather-data attribution.
