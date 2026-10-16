@@ -68,7 +68,7 @@ O CSS fica em `styles/base.css`, os builders em `ui/fields.js`, os ícones em `u
 | Contagem / leitura mono | `count(text)` | `.count` (equivale a `.panel-meta`) |
 | Cabeçalho de painel | `panelHead(title, {count: Node\|string, tools: Node[], id})` | `.panel-head`, `h2` de 15px, `.panel-tools` |
 | Campo com prefixo mono | `prefixedField(prefix, label, value, onChange, {min, max, step, unit})`; grade 2×2: `fieldGrid([...])` | `.fld`, `.fld-prefix`, `.fld-unit`, `.fld-grid` |
-| Campo rotulado (legado) | `numberField`, `textField`, `selectField`, `checkField`, `colorField` | `.field`, `.check`, `.color-field` |
+| Campo rotulado (legado) | `numberField`, `textField`, `selectField`, `checkField` (il vecchio `colorField` è sostituito da `colorPicker`, D-29) | `.field`, `.check` |
 | Switch à direita | `switchRow(label, checked, onChange)` (input `role=switch`) | `.switch-row` + `.track > .thumb` (também `.switch`, `.toggle-row`) |
 | Segmented | `segmented(label, value, [[v,l]], onChange, {bare})` | `.segmented` (mesmo visual de `.subtabs` em role=tab) |
 | Chip de filtro | `chipButton(text, pressed, onClick, attrs)` | `.chip` (+ `.chip-group`) |
@@ -82,6 +82,9 @@ O CSS fica em `styles/base.css`, os builders em `ui/fields.js`, os ícones em `u
 | Miniatura de tela | `screenThumb({width, height, url})` | `.screen-thumb` (`--ratio`) |
 | Botões | markup | `.icon-button`, `.text-button`, `.primary-button`, `.danger-button`, `.chip-button`; variante `.quiet` (sem moldura até o hover) |
 | Outros | — | `.notice`, `.status-dot`, `.confirm-dialog`/`.dialog-*`, `.popover`, `.hint`, `.empty-note`, `.mono`, `kbd` |
+| Selettore font (D-28) | `fontPicker(texts, font, onChange, source)`; dati e testi da `ui/pickers.js` (`pickers.font(sample)`) | `.font-picker`, `.font-button`, `.font-missing`, `.font-list`/`.font-option`, `.font-sample` |
+| Selettore colore (D-29) | `colorPicker(label, hex, onChange, {texts, source, alpha, gesture, live})`; dati da `pickers.color()` | `.color-field`, `.color-button`, `.swatch`, `.cp-area`/`.cp-hue`/`.cp-alpha`, `.swatch-grid`, `.swatch-rows` |
+| Popover ancorato | `openPopover({node, anchor, label, onClose, refocus})`, `keepOnScreen` (usato anche da `ui/menu.js`) | `.picker-popover` |
 
 - **Ícones:** `ui/icons.js` reúne os 81 símbolos colhidos nos 17 artboards (exceto LogoAlternatives) mais os do app, uma vez cada. Grupos: tipos de widget, painéis, ações, navegação, alinhamento, estado, hardware/mídia. As cópias locais (`GROUP_ICON`, `BASE_ICON`, `FACE_ICON`, `BACKGROUND_ICON`, `PLACE_ICON`, `SCREEN_GLYPHS`, `CHEVRON_*`, `PLUS`, `FRAME_ICON`, os `GLYPHS` do manager, o `keep` do standby e os chevrons da dobra de camadas) passaram a apontar para o catálogo. A chave `card` estava definida duas vezes (o widget mostrava o ícone de cartão SD); agora `card` é o widget e `sdCard` o cartão.
 - **Duplicação consolidada:** 22 regras de SVG das folhas de área repetiam `fill/stroke/linecap/linejoin` e agora usam `.ic`. O traço ficou uniforme em 1.75; cores de traço viraram `color`. A busca de Sensores (`#panel-sensors .search`) e a da busca de GIF passaram ao `.search-box`. O `.search` antigo saiu: colidia com `.field.search` do manager.
@@ -462,3 +465,42 @@ Primitive riusate: `optionTiles`, `segmented`, `switchRow`, `rangeField`, `numbe
 | `shoot.mjs --area inspector --only app`, dark e light | controllati: `player-look` (sei riquadri, sezione barra) e `player-progress` (punti, pallino, tempi ai lati, anche nel canvas) |
 
 Validazione sull'hardware: non eseguita.
+
+### Selettore font e selettore colore condivisi (D-2026-10-16-studio-redesign-fidelity-28 e -29)
+
+**Progetto.**
+- **Un solo `fontPicker` e un solo `colorPicker`** in `ui/fields.js`, stili in `base.css`, popover unico in `ui/popover.js` (il menu a comparsa ora ne riusa `keepOnScreen`). Righe aggiunte al catalogo dei primitivi qui sopra. Tolti il datalist `font-families`, la select fissa dei pesi 300–900, il vecchio `colorField` (quadratino nativo + hex + opacità) e il campo colore del pad del video. Nessuna variante locale rimasta: testo, valore, orologio, meteo, player (testo e barra di avanzamento), forme (riempimento e contorno), anello (anche inizio e fine del gradiente), barra, grafico, icone (colore e ombra), sfondo (scheda e scelta), pad del video, regole di colore per valore e colore delle icone nel pannello Media.
+- **Dati.** `ui/pickers.js` (`createPickers`) è il contesto unico creato in `app.js` e passato a inspector e libreria: catalogo dei font dal bridge (caricato una volta; l'inspector si ridisegna quando arriva), famiglie del tema, campioni e colori usati dallo store, recenti per utente in `localStorage` (`bezel.recentFonts`, `bezel.recentColors`, con try/catch: se lo storage rifiuta, valgono per la sessione), testi tradotti.
+- **Font.** Il catalogo viene dallo **stesso database fontdb del renderer** (`bezel-render::catalog`): famiglie con le facce reali (peso, corsivo), flag monospazio, categoria (monospazio, poi PANOSE della tabella OS/2, poi il nome), origine (inclusa in Bezel o di sistema), alias localizzati e il ripiego effettivamente disegnato per una famiglia mancante. Comandi Tauri `font_catalog` (sostituisce `list_fonts`) e `font_face` (consegna solo i file delle facce incluse in Bezel, per scrivere il loro nome nel loro carattere tramite `FontFace` da byte; niente percorsi, niente font installati). Bridge `fontCatalog()`/`fontFace()`, demo equivalente (`demo-fonts.js`: famiglie di Bezel e di un Windows 11 standard). Misura sul PC di sviluppo: 140 famiglie in circa 5 ms.
+- **Popover font.** Ricerca (combobox con `aria-activedescendant`), chip Tutti/Sans/Serif/Mono, sezioni "In questo tema", "Recenti", "Inclusi in Bezel", "Font del sistema (N)" con conteggio; ogni nome nel suo carattere; anteprima con il testo reale dell'oggetto (testo, valore del sensore con prefisso e suffisso, ora, titolo in riproduzione). Frecce, PagSu/PagGiù, Invio sceglie, Esc chiude; il fuoco torna al pulsante, anche se il pannello è stato ridisegnato (chiave `data-picker`). Elenco disegnato a blocchi di 40 con `IntersectionObserver` sul fondo. La select "Stile" offre solo le facce della famiglia; se il tema chiede una faccia che non c'è, la mostra come "non c'è, si usa …" invece di cambiare il tema in silenzio. Un font del tema non installato: badge "Non installato" e nota "lo schermo mostra {ripiego}", con il nome scritto nel ripiego. Scegliere un'altra famiglia toglie l'eventuale file di font del tema.
+- **Popover colore.** Area saturazione/luminosità, barra della tinta, barra dell'opacità (tutte `role=slider` con frecce, Maiusc = passo 10, `aria-valuenow`/`aria-valuetext`), campo hex (6 cifre mantengono l'opacità, 8 la portano) e opacità in %, contagocce solo se esiste `window.EyeDropper`. Sezioni "Colori del tema" (+ Salva, Organizza: rinomina, sposta su/giù, elimina; clic = copia il colore), "Usati in questo tema" (raccolti da tutti gli oggetti e dallo sfondo, i più usati prima), "Recenti". Ogni modifica è un passo di annullamento; un trascinamento è un gesto (`store.beginGesture/endGesture`, inspector non ridisegnato durante il gesto) e un solo passo. Il colore delle icone si applica a fine trascinamento (`live: false`, perché rigenera l'SVG).
+- **CSP.** Nessuno stile inline nel markup: solo CSSOM (`style.setProperty`, come il resto dell'app); i colori modificati sono dati (`--swatch`, `--cp-hue`), i token restano per la cornice.
+
+**Formato JSON del tema.** Campo opzionale alla radice, scritto solo se non vuoto (un tema vecchio si carica e si risalva identico):
+
+```json
+"palette": [{"name": "Brand", "color": "#ff8800cc"}, {"color": "#0c0e16ff"}]
+```
+
+Al massimo 64 campioni, nome al massimo 40 caratteri (solo spazi = nessun nome), colore `#rrggbbaa`. Oltre i limiti o con un colore non valido il tema non è valido. Core: `Theme.palette: Vec<Swatch>` (`Swatch {name: Option<String>, color: Rgba}`, `PALETTE_MAX`, `SWATCH_NAME_MAX`); DTO `SwatchDto`. Nell'editor: comando `setPalette` (un passo; palette vuota = chiave assente).
+
+**Commit.**
+- `38bcaf2` - catalogo font dal database del renderer, comandi `font_catalog`/`font_face`, bridge e demo.
+- `9eda2b7` - palette opzionale nel tema (core, DTO, round-trip), `setPalette`, modelli puri `color-math.js` e `palette.js`.
+- `e4560c0` - i due selettori condivisi, contesto `ui/pickers.js`, area i18n `pickers` (en/pt-BR/it), sostituzione di tutte le varianti, spec e2e. I due selettori stanno in un solo commit perché condividono `fields.js`, popover, contesto e area i18n.
+
+**Moduli puri e test.** `font-catalog.js` (normalizzazione, ricerca, filtri, sezioni, facce, faccia più vicina, stato di un font), `color-math.js` (hex, RGB e HSV nei due sensi, opacità, lettura del campo hex, passi da tastiera), `palette.js` (aggiungi, rinomina, sposta, elimina, colori usati), `recents.js`. Rust: `catalog.rs` (categoria, PANOSE, catalogo, ripiego, file inclusi), test del backend sul DTO e sui file consegnati, round-trip della palette in `native.rs`.
+
+Spec cambiate senza indebolire: `ring-gradient`, `player-parts`, `icons`, `background-kind`, `background-chooser`, `value-color`, `video-framing` e `inspector-preview` scrivono il colore con `setColor` (stesso valore, stesso controllo, ora su `data-color`); `background-kind` conta `.color-button` al posto di `input[type=color]`; `i18n.test` registra l'area `pickers` e toglie le due eccezioni orfane di `app.js`. Nell'inspector, dopo lo spostamento di una regola di colore il fuoco va al pulsante di spostamento o di eliminazione, non al nuovo pulsante del colore.
+
+| Gate | Risultato |
+| --- | --- |
+| `cargo test --workspace` (via llvm-cov) | 1132 superati, 0 falliti, 15 ignorati preesistenti |
+| `cargo clippy --workspace --all-targets -D warnings` / `cargo fmt --check` | verdi |
+| `cargo llvm-cov --workspace --fail-under-lines 80` | righe 91,54% (`catalog.rs` 99,06%, `dto.rs` 93,43%) |
+| `npm run test:unit` | 526/526; righe 99,45% |
+| e2e nuovi (`font-picker`, `color-picker`), quattro progetti, axe chiaro e scuro | 12/12 e 24/24 |
+| `npm test` completo | 703 superati, 1 rosso di tempi (`features-016-inspector:22`, contrasto durante una transizione su elementi non toccati), verde in serie 24/24 (`--workers=1 --repeat-each=3`) |
+| `shoot.mjs --area inspector --only app`, scuro e chiaro | nuovi stati `font-picker` e `color-picker` controllati a vista |
+
+**Da verificare a mano.** Nel WebView2 reale: i nomi delle famiglie incluse (Inter, JetBrains Mono) scritti nel loro carattere tramite `FontFace` da byte (il demo non ha i file, quindi lì restano nel sans dell'interfaccia) e il contagocce di sistema. Validazione su hardware: non applicabile (nessun byte nuovo verso lo schermo).
