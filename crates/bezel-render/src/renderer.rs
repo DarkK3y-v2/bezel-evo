@@ -7,6 +7,7 @@ use bezel_core::domain::clock::{clock_case, format_clock};
 use bezel_core::domain::frame::{Frame, Rgba};
 use bezel_core::domain::geometry::Size;
 use bezel_core::domain::history::SeriesId;
+use bezel_core::domain::playback::PROGRESS_SPACING;
 use bezel_core::domain::sensor::{Reading, format_reading, fraction};
 use bezel_core::domain::theme::{
     AssetRef, Background, Binding, BoxF, Element, ElementId, ElementKind, Fit, TextContent, Theme,
@@ -33,7 +34,6 @@ struct TextFurniture {
     side: Option<f32>,
     fraction: f32,
     gap: f32,
-    progress: f32,
 }
 impl TextFurniture {
     fn new(
@@ -46,7 +46,6 @@ impl TextFurniture {
                 side: Some(w.icon_size.unwrap_or(style.size * 2.)),
                 fraction: if w.icon_size.is_none() { 0.3 } else { 1. },
                 gap: w.icon_gap.unwrap_or(style.size * 0.3).max(0.),
-                progress: 0.,
             },
             TextContent::Player(p) => {
                 let Some(media) =
@@ -54,18 +53,19 @@ impl TextFurniture {
                 else {
                     return Self::default();
                 };
+                if !p.show_cover {
+                    return Self::default();
+                }
+                let shown = p.text(media);
+                // A cover with nothing beside it fills the box.
+                let alone = shown.lines.is_empty() && shown.progress.is_none();
                 Self {
-                    side: if p.show_cover {
-                        Some(f32::INFINITY)
-                    } else {
-                        None
-                    },
-                    fraction: 0.4,
-                    gap: p.cover_gap.unwrap_or(style.size * 0.3).max(0.),
-                    progress: if p.show_progress && media.duration > 0. {
-                        8.
-                    } else {
+                    side: Some(f32::INFINITY),
+                    fraction: if alone { 1. } else { 0.4 },
+                    gap: if alone {
                         0.
+                    } else {
+                        p.cover_gap.unwrap_or(style.size * 0.3).max(0.)
                     },
                 }
             }
@@ -83,7 +83,6 @@ impl TextFurniture {
         (side, gap)
     }
     fn fit(&self, width: f32, height: f32) -> (f32, f32) {
-        let height = height + self.progress;
         if let Some(side) = self.side {
             let side = if side.is_finite() { side } else { height };
             (
@@ -214,6 +213,58 @@ impl SkiaRenderer {
 }
 
 impl SkiaRenderer {
+    /// Natural size of a player: its visible parts. A side with nothing to
+    /// measure (a lone cover, a bar without text) keeps the current frame.
+    #[allow(clippy::too_many_arguments)]
+    fn fit_player(
+        &mut self,
+        p: &bezel_core::domain::playback::Player,
+        style: &bezel_core::domain::theme::TextStyle,
+        old: BoxF,
+        measured: Option<(f32, f32)>,
+        furniture: &TextFurniture,
+        assets: &BTreeMap<AssetRef, Vec<u8>>,
+        context: &RenderContext<'_>,
+    ) -> Option<(f32, f32)> {
+        let session = bezel_core::domain::playback::session(context.snapshot, &p.source);
+        let Some(media) = session.filter(|m| !p.hide_when_stopped || m.playing) else {
+            return measured.map(|(w, h)| furniture.fit(w, h));
+        };
+        let shown = p.text(media);
+        let mut fonts = crate::player::Fonts {
+            engine: &mut self.text,
+            assets,
+            diagnostics: &mut self.diagnostics,
+        };
+        let block = crate::player::metrics(&mut fonts, p, media, &shown, style);
+        let (text_w, text_h) = if shown.lines.is_empty() {
+            (0., 0.)
+        } else {
+            measured?
+        };
+        let spacing = if shown.lines.is_empty() {
+            0.
+        } else {
+            PROGRESS_SPACING
+        };
+        let reserve = block.map_or(0., |b| b.height + spacing);
+        let width = text_w.max(block.map_or(0., |b| b.min_width));
+        let height = text_h + reserve;
+        Some(match (furniture.side, shown.lines.is_empty(), block) {
+            (None, true, None) => return None,
+            (None, _, _) => (
+                if width > 0. { width.ceil() } else { old.width },
+                height.ceil(),
+            ),
+            (Some(_), true, None) => {
+                let side = old.width.min(old.height);
+                (side, side)
+            }
+            (Some(_), true, Some(_)) => (old.width, old.height.max(height).ceil()),
+            (Some(_), false, _) => furniture.fit(width, height),
+        })
+    }
+
     /// Family names of the fonts a theme can use (bundled and installed).
     pub fn font_families(&self) -> Vec<String> {
         self.text.families()
@@ -250,11 +301,17 @@ impl FrameRenderer for SkiaRenderer {
                     style,
                     area: old,
                 };
-                let Some((w, h)) = self.text.measure(&job, assets, &mut self.diagnostics) else {
+                let measured = self.text.measure(&job, assets, &mut self.diagnostics);
+                let furniture = TextFurniture::new(content, style, &context);
+                let fitted = match content {
+                    TextContent::Player(p) => {
+                        self.fit_player(p, style, old, measured, &furniture, assets, &context)
+                    }
+                    _ => measured.map(|(w, h)| furniture.fit(w, h)),
+                };
+                let Some((w, h)) = fitted else {
                     return Ok(None);
                 };
-                let furniture = TextFurniture::new(content, style, &context);
-                let (w, h) = furniture.fit(w, h);
                 use bezel_core::domain::theme::{HAlign, VAlign};
                 let ax = match style.align {
                     HAlign::Left => 0.,
@@ -441,20 +498,7 @@ fn text_of(id: ElementId, content: &TextContent, context: &RenderContext<'_>) ->
             if p.hide_when_stopped && !m.playing {
                 return String::new();
             }
-            let mut text = format!("{}\n{}", m.title, m.artist);
-            if p.show_source {
-                text.push_str(&format!("\n{}", m.source));
-            }
-            if p.show_progress && m.duration > 0. {
-                text.push_str(&format!(
-                    "\n{}:{:02} / {}:{:02}",
-                    m.position as u64 / 60,
-                    m.position as u64 % 60,
-                    m.duration as u64 / 60,
-                    m.duration as u64 % 60
-                ));
-            }
-            text
+            p.text(m).text()
         }
         TextContent::Static(text) => text.clone(),
         TextContent::Weather(w) => w.text(context.snapshot, context.language),
@@ -1107,29 +1151,20 @@ impl SkiaRenderer {
                             area.x += side + gap;
                             area.width = (area.width - side - gap).max(0.);
                         }
-                        if p.show_progress && m.duration > 0. {
-                            let bar = BoxF::new(area.x, area.y + area.height - 4., area.width, 4.);
-                            crate::shape::draw(
-                                layer,
-                                bar,
-                                bezel_core::domain::theme::ShapeKind::Rect { radius: 2. },
-                                Some(&bezel_core::domain::theme::Paint::solid(Rgba {
-                                    r: 100,
-                                    g: 100,
-                                    b: 100,
-                                    a: 100,
-                                })),
-                                None,
-                            );
-                            let width = bar.width * (m.position / m.duration).clamp(0., 1.) as f32;
-                            crate::shape::draw(
-                                layer,
-                                BoxF::new(bar.x, bar.y, width, bar.height),
-                                bezel_core::domain::theme::ShapeKind::Rect { radius: 2. },
-                                Some(&style.paint),
-                                None,
-                            );
-                            area.height = (area.height - furniture.progress).max(0.);
+                        let shown = p.text(m);
+                        let mut fonts = crate::player::Fonts {
+                            engine: &mut self.text,
+                            assets,
+                            diagnostics: &mut self.diagnostics,
+                        };
+                        if let Some(block) = crate::player::metrics(&mut fonts, p, m, &shown, style)
+                        {
+                            let alone = shown.lines.is_empty();
+                            let place =
+                                crate::player::place(area, block.height, alone, style.valign);
+                            crate::player::draw(layer, &mut fonts, place, &block, &shown, p, style);
+                            let spacing = if alone { 0. } else { PROGRESS_SPACING };
+                            area.height = (area.height - block.height - spacing).max(0.);
                         }
                     }
                 }

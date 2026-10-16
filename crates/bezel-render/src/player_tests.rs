@@ -171,3 +171,285 @@ fn legacy_players_draw_and_fit_exactly_as_before() {
         );
     }
 }
+
+const BLUE: Rgba = Rgba::opaque(0, 0, 255);
+
+/// A player showing only the parts set by `edit`, with nothing on by default.
+fn parts(edit: impl FnOnce(&mut Player)) -> Player {
+    let mut p = Player {
+        show_cover: false,
+        show_progress: false,
+        show_title: false,
+        show_artist: false,
+        show_time: Some(false),
+        empty_text: "No media".into(),
+        ..Player::default()
+    };
+    edit(&mut p);
+    p
+}
+
+/// A bar alone, red on blue, 6 px thick.
+fn bar(edit: impl FnOnce(&mut Player)) -> Player {
+    parts(|p| {
+        p.show_progress = true;
+        p.progress.fill = Some(RED);
+        p.progress.track = BLUE;
+        p.progress.thickness = 6.;
+        edit(p);
+    })
+}
+
+fn draw(player: Player, valign: VAlign) -> Frame {
+    let theme = player_theme(player, style(HAlign::Left, valign));
+    testkit::render(&mut testkit::renderer(), &theme, &playing())
+}
+
+fn fit(player: Player, valign: VAlign) -> Option<BoxF> {
+    let theme = player_theme(player, style(HAlign::Left, valign));
+    let mut r = testkit::renderer();
+    let b = measure(&mut r, &theme, &playing());
+    if let Some(b) = b {
+        let mut fitted = theme.clone();
+        fitted.elements[0].frame = b;
+        assert_eq!(
+            measure(&mut r, &fitted, &playing()),
+            Some(b),
+            "fit is stable"
+        );
+    }
+    b
+}
+
+fn static_text(text: &str) -> Theme {
+    testkit::theme(
+        240,
+        120,
+        Background::Color(Rgba::BLACK),
+        vec![element(
+            BoxF::new(10., 8., 220., 104.),
+            ElementKind::Text {
+                content: TextContent::Static(text.into()),
+                style: style(HAlign::Left, VAlign::Top),
+            },
+        )],
+    )
+}
+
+/// The x of the first and last pixels of `row` matching `pred`.
+fn span(frame: &Frame, row: u32, pred: impl Fn(Rgba) -> bool) -> Option<(u32, u32)> {
+    let xs: Vec<u32> = (0..240)
+        .filter(|&x| pred(testkit::px(frame, x, row)))
+        .collect();
+    Some((*xs.first()?, *xs.last()?))
+}
+
+/// Separate runs of pixels of `row` matching `pred`.
+fn runs(frame: &Frame, row: u32, pred: impl Fn(Rgba) -> bool) -> usize {
+    let on: Vec<bool> = (0..240).map(|x| pred(testkit::px(frame, x, row))).collect();
+    on.windows(2).filter(|w| w[1] && !w[0]).count() + usize::from(on[0])
+}
+
+#[test]
+fn each_text_part_draws_alone_like_the_same_static_text() {
+    let mut r = testkit::renderer();
+    let cases = [
+        (parts(|p| p.show_title = true), "Track"),
+        (parts(|p| p.show_artist = true), "Artist"),
+        (parts(|p| p.show_time = Some(true)), "1:24 / 3:30"),
+        (parts(|p| p.show_source = true), "Spotify.exe"),
+        (
+            parts(|p| {
+                p.show_artist = true;
+                p.show_time = Some(true);
+                p.time_format = bezel_core::domain::playback::TimeFormat::Remaining;
+            }),
+            "Artist\n-2:06",
+        ),
+    ];
+    for (player, text) in cases {
+        let theme = player_theme(player, style(HAlign::Left, VAlign::Top));
+        let drawn = testkit::render(&mut r, &theme, &playing());
+        let expected = testkit::render(&mut r, &static_text(text), &playing());
+        assert_eq!(hash(&drawn), hash(&expected), "{text:?}");
+        assert_eq!(
+            measure(&mut r, &theme, &playing()),
+            measure(&mut r, &static_text(text), &playing()),
+            "{text:?} fit"
+        );
+    }
+}
+
+#[test]
+fn a_bar_alone_sits_by_the_vertical_alignment_with_no_space_kept() {
+    use testkit::{assert_px, px};
+    let frame = draw(bar(|_| {}), VAlign::Middle);
+    // 104 - 6 = 98, half above: rows 57..63; 40% of 220 filled.
+    assert_px(&frame, 20, 60, RED, 0);
+    assert_px(&frame, 150, 60, BLUE, 0);
+    assert_eq!(px(&frame, 20, 55), Rgba::BLACK);
+    assert_eq!(px(&frame, 20, 64), Rgba::BLACK);
+    let top = draw(bar(|_| {}), VAlign::Top);
+    assert_px(&top, 20, 10, RED, 0);
+    let bottom = draw(bar(|_| {}), VAlign::Bottom);
+    assert_px(&bottom, 20, 109, RED, 0);
+    let text_colour = draw(bar(|p| p.progress.fill = None), VAlign::Middle);
+    assert_px(&text_colour, 20, 60, Rgba::WHITE, 0);
+}
+
+#[test]
+fn bar_ends_knob_and_patterns() {
+    use bezel_core::domain::playback::{ProgressEnds, ProgressPattern};
+    use testkit::{assert_px, px};
+    let round = draw(bar(|_| {}), VAlign::Middle);
+    let square = draw(
+        bar(|p| p.progress.ends = ProgressEnds::Square),
+        VAlign::Middle,
+    );
+    assert_px(&square, 10, 57, RED, 0);
+    assert_px(&square, 229, 62, BLUE, 0);
+    assert!(px(&round, 10, 57).r < 200, "round ends cut the corner");
+    assert!(px(&round, 229, 62).b < 200);
+
+    assert_eq!(px(&round, 98, 54), Rgba::BLACK);
+    let knob = draw(bar(|p| p.progress.knob = true), VAlign::Middle);
+    assert_px(&knob, 98, 55, RED, 0);
+    assert_px(&knob, 98, 64, RED, 0);
+    assert_eq!(px(&knob, 98, 50), Rgba::BLACK);
+
+    let segments = draw(
+        bar(|p| {
+            p.progress.pattern = ProgressPattern::Segments;
+            p.progress.segments = 4;
+        }),
+        VAlign::Middle,
+    );
+    let lit = |c: Rgba| c != Rgba::BLACK;
+    assert_eq!(runs(&segments, 60, lit), 4);
+    assert_eq!(px(&segments, 63, 60), Rgba::BLACK, "a gap between blocks");
+    let dots = draw(
+        bar(|p| p.progress.pattern = ProgressPattern::Dots),
+        VAlign::Middle,
+    );
+    assert_eq!(runs(&dots, 60, lit), 23);
+    assert!(runs(&dots, 60, |c| c.r > 200) > 5, "filled dots");
+    assert!(runs(&dots, 60, |c| c.b > 200) > 5, "empty dots");
+}
+
+#[test]
+fn times_beside_or_above_the_bar() {
+    use bezel_core::domain::playback::{TimeFormat, TimePlacement};
+    let red = |c: Rgba| c.r > 200 && c.g < 60;
+    let blue = |c: Rgba| c.b > 200 && c.r < 60;
+    let white = |c: Rgba| c.r > 120 && c.g > 120 && c.b > 120;
+    let plain = draw(bar(|_| {}), VAlign::Middle);
+    assert_eq!(span(&plain, 60, red).map(|s| s.0), Some(10));
+    assert_eq!(span(&plain, 60, blue).map(|s| s.1), Some(229));
+
+    let sides = draw(
+        bar(|p| {
+            p.show_time = Some(true);
+            p.progress.times = TimePlacement::Sides;
+        }),
+        VAlign::Middle,
+    );
+    let (bar_start, _) = span(&sides, 60, red).expect("filled part");
+    let (_, bar_end) = span(&sides, 60, blue).expect("track");
+    assert!(bar_start > 40 && bar_end < 200, "{bar_start}..{bar_end}");
+    assert!(testkit::count(&sides, (10, 40, bar_start, 80), white) > 10);
+    assert!(testkit::count(&sides, (bar_end + 1, 40, 230, 80), white) > 10);
+
+    let elapsed = draw(
+        bar(|p| {
+            p.show_time = Some(true);
+            p.time_format = TimeFormat::Elapsed;
+            p.progress.times = TimePlacement::Sides;
+        }),
+        VAlign::Middle,
+    );
+    assert_eq!(
+        span(&elapsed, 60, blue).map(|s| s.1),
+        Some(229),
+        "no right time"
+    );
+
+    let above = draw(
+        bar(|p| {
+            p.show_time = Some(true);
+            p.progress.times = TimePlacement::Above;
+        }),
+        VAlign::Top,
+    );
+    // Times on a 17 px line, 2 px, then the bar at rows 27..33.
+    assert_eq!(span(&above, 30, red).map(|s| s.0), Some(10));
+    assert_eq!(span(&above, 30, blue).map(|s| s.1), Some(229));
+    assert!(testkit::count(&above, (10, 8, 60, 25), white) > 10);
+    assert!(testkit::count(&above, (180, 8, 230, 25), white) > 10);
+    assert_eq!(testkit::count(&above, (0, 34, 240, 120), white), 0);
+}
+
+#[test]
+fn fit_measures_only_the_visible_parts() {
+    use bezel_core::domain::playback::TimePlacement;
+    // One line of 14 px text is 17 px tall.
+    let title = fit(parts(|p| p.show_title = true), VAlign::Top).expect("title");
+    assert_eq!(title.height, 17.);
+    let two = fit(
+        parts(|p| {
+            p.show_title = true;
+            p.show_artist = true;
+        }),
+        VAlign::Top,
+    )
+    .expect("two lines");
+    assert_eq!(two.height, 34.);
+    assert_eq!(
+        fit(bar(|_| {}), VAlign::Top),
+        Some(BoxF::new(10., 8., 220., 6.)),
+        "a bar alone keeps its width"
+    );
+    assert_eq!(
+        fit(bar(|p| p.progress.knob = true), VAlign::Top).map(|b| b.height),
+        Some(12.)
+    );
+    let titled_bar = fit(bar(|p| p.show_title = true), VAlign::Top).expect("title and bar");
+    assert_eq!(titled_bar.height, 17. + 4. + 6.);
+    let sides = fit(
+        bar(|p| {
+            p.show_time = Some(true);
+            p.progress.times = TimePlacement::Sides;
+        }),
+        VAlign::Top,
+    )
+    .expect("sides");
+    assert_eq!(sides.height, 17.);
+    assert!(sides.width > 2. * 14. * 3.);
+    let above = fit(
+        bar(|p| {
+            p.show_title = true;
+            p.show_time = Some(true);
+            p.progress.times = TimePlacement::Above;
+        }),
+        VAlign::Top,
+    )
+    .expect("above");
+    assert_eq!(above.height, 17. + 4. + 17. + 2. + 6.);
+    assert_eq!(
+        fit(parts(|p| p.show_cover = true), VAlign::Top),
+        Some(BoxF::new(10., 8., 104., 104.)),
+        "a lone cover is square"
+    );
+    assert_eq!(
+        fit(bar(|p| p.show_cover = true), VAlign::Top),
+        Some(BoxF::new(10., 8., 220., 104.))
+    );
+    assert_eq!(fit(parts(|_| {}), VAlign::Top), None, "nothing to fit");
+}
+
+#[test]
+fn a_lone_cover_fills_its_box() {
+    let frame = draw(parts(|p| p.show_cover = true), VAlign::Top);
+    // Contained in a 104 px square at the left.
+    testkit::assert_px(&frame, 100, 60, RED, 0);
+    assert_eq!(testkit::px(&frame, 120, 60), Rgba::BLACK);
+}

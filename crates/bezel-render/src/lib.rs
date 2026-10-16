@@ -24,6 +24,7 @@ mod images;
 mod layer;
 mod paint;
 mod path;
+mod player;
 mod renderer;
 mod shape;
 mod svg;

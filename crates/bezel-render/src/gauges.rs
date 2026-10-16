@@ -52,8 +52,26 @@ pub(crate) fn draw_bar(
         Direction::LeftToRight | Direction::RightToLeft => area.width,
         Direction::TopToBottom | Direction::BottomToTop => area.height,
     };
+    let spans = blocks(length, style.segments, false);
+    draw_blocks(layer, area, fraction, style, &spans);
+}
+
+/// Draws the blocks `spans` (offsets along the bar from where it starts
+/// filling) in the track paint, then the filled length in the fill paint
+/// clipped to them; `style.segments` is not read.
+pub(crate) fn draw_blocks(
+    layer: &mut Layer<'_>,
+    area: BoxF,
+    fraction: Option<f64>,
+    style: &BarStyle<'_>,
+    spans: &[(f32, f32)],
+) {
+    let length = match style.direction {
+        Direction::LeftToRight | Direction::RightToLeft => area.width,
+        Direction::TopToBottom | Direction::BottomToTop => area.height,
+    };
     let mut pb = PathBuilder::new();
-    for (a, b) in blocks(length, style.segments, false) {
+    for &(a, b) in spans {
         let block = span(area, style.direction, a, b)
             .and_then(|r| rounded_rect(r.x(), r.y(), r.width(), r.height(), style.radius));
         if let Some(block) = block {
