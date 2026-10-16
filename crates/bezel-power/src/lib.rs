@@ -64,3 +64,8 @@ pub enum PowerError {
     Unsupported,
 }
 pub mod owner;
+
+#[cfg(windows)]
+pub mod owner_pipe;
+pub mod owner_protocol;
+

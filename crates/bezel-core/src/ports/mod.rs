@@ -63,6 +63,10 @@ pub trait DesktopModeHid {
 /// Driven port: opens a discovered screen (waking it when needed) and
 /// performs the handshake.
 pub trait ScreenConnector {
+    /// The persistent owner handles automatic session shutdown for its links.
+    fn manages_shutdown(&self) -> bool {
+        false
+    }
     /// A live link to `screen`.
     fn connect(&self, screen: &Screen) -> Result<Box<dyn ScreenLink>>;
 
@@ -101,6 +105,10 @@ pub struct TransferStats {
 /// looks at; the adapter rotates and encodes them for the panel and decides
 /// between a full frame and a partial update.
 pub trait ScreenLink: Send {
+    /// Automatic shutdown is handled by the persistent owner, once per link.
+    fn manages_shutdown(&self) -> bool {
+        false
+    }
     /// True while another local runtime supplies frames through this owner.
     /// A saved-theme runtime should wait without rendering or touching media.
     fn presentation_paused(&self) -> bool {

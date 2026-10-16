@@ -125,6 +125,41 @@ impl Owner {
         Ok(())
     }
 
+    /// Finish through retained physical links without opening any screen.
+    /// New proxy operations are refused before final shutdown/explicit Quit.
+    pub fn finish_until(
+        &self,
+        deadline: std::time::Instant,
+        operation: &mut dyn FnMut(&mut dyn ScreenLink) -> Result<()>,
+    ) -> Result<()> {
+        self.set_enabled(false);
+        let links: Vec<_> = lock(&self.links)?.values().cloned().collect();
+        let mut first_error = None;
+        for link in links {
+            loop {
+                if std::time::Instant::now() >= deadline {
+                    return Err(BezelError::Timeout("screen owner shutdown".into()));
+                }
+                match link.try_lock() {
+                    Ok(mut kept) => {
+                        if !kept.failed {
+                            if let Err(error) = operation(kept.link.as_mut()) {
+                                first_error.get_or_insert(error);
+                            }
+                            kept.video = None;
+                        }
+                        break;
+                    }
+                    Err(std::sync::TryLockError::WouldBlock) => {
+                        std::thread::sleep(std::time::Duration::from_millis(10))
+                    }
+                    Err(_) => return Err(gone()),
+                }
+            }
+        }
+        first_error.map_or(Ok(()), Err)
+    }
+
     /// A connector for the editor (true) or saved-theme runtime (false).
     pub fn client(&self, editor: bool) -> OwnerConnector {
         OwnerConnector {
@@ -142,6 +177,9 @@ pub struct OwnerConnector {
 }
 
 impl ScreenConnector for OwnerConnector {
+    fn manages_shutdown(&self) -> bool {
+        true
+    }
     fn connect(&self, screen: &Screen) -> Result<Box<dyn ScreenLink>> {
         if self.owner.disabled.load(Ordering::SeqCst) {
             return Err(BezelError::Transport(
@@ -244,6 +282,9 @@ impl OwnedLink {
 }
 
 impl ScreenLink for OwnedLink {
+    fn manages_shutdown(&self) -> bool {
+        true
+    }
     fn presentation_paused(&self) -> bool {
         !self.editor && self.paused()
     }
@@ -282,7 +323,9 @@ impl ScreenLink for OwnedLink {
     fn screen_off(&mut self) -> Result<()> {
         self.write(|k| {
             k.video = None;
-            k.link.screen_off()
+            k.link.screen_off()?;
+            k.invalidate();
+            Ok(())
         })
     }
     fn turn_off_now(&mut self) -> Result<()> {
@@ -329,6 +372,16 @@ impl ScreenStorage for OwnedLink {
         self.storage_call(|s| s.upload(path, data, job))
     }
     fn delete(&mut self, path: &RemotePath, confirmed: Confirmed) -> Result<()> {
+        {
+            let mut kept = lock(&self.kept)?;
+            if kept
+                .video
+                .as_ref()
+                .is_some_and(|(playing, _)| playing == path)
+            {
+                kept.video = None;
+            }
+        }
         self.storage_call(|s| s.delete(path, confirmed))
     }
     fn play_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
@@ -376,6 +429,31 @@ impl ScreenStorage for OwnedLink {
         lock(&self.kept)?.video = None;
         self.storage_call(|s| s.restart(confirmed))
     }
+}
+
+struct Disconnected(ScreenIdentity);
+impl ScreenLink for Disconnected {
+    fn identity(&self) -> &ScreenIdentity {
+        &self.0
+    }
+    fn set_brightness(&mut self, _: Brightness) -> Result<()> {
+        Err(gone())
+    }
+    fn set_orientation(&mut self, _: Orientation) -> Result<()> {
+        Err(gone())
+    }
+    fn present(&mut self, _: &Frame) -> Result<()> {
+        Err(gone())
+    }
+    fn screen_off(&mut self) -> Result<()> {
+        Err(gone())
+    }
+    fn release(&mut self) -> Result<()> {
+        Err(gone())
+    }
+}
+fn gone() -> BezelError {
+    BezelError::Transport("screen owner link was closed".into())
 }
 
 #[cfg(test)]
@@ -435,29 +513,4 @@ mod tests {
                 .contains(&bezel_devices::fake::StorageCall::Stop)
         );
     }
-}
-
-struct Disconnected(ScreenIdentity);
-impl ScreenLink for Disconnected {
-    fn identity(&self) -> &ScreenIdentity {
-        &self.0
-    }
-    fn set_brightness(&mut self, _: Brightness) -> Result<()> {
-        Err(gone())
-    }
-    fn set_orientation(&mut self, _: Orientation) -> Result<()> {
-        Err(gone())
-    }
-    fn present(&mut self, _: &Frame) -> Result<()> {
-        Err(gone())
-    }
-    fn screen_off(&mut self) -> Result<()> {
-        Err(gone())
-    }
-    fn release(&mut self) -> Result<()> {
-        Err(gone())
-    }
-}
-fn gone() -> BezelError {
-    BezelError::Transport("screen owner link was closed".into())
 }
