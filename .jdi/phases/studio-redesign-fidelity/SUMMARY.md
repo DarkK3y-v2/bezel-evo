@@ -504,3 +504,15 @@ Spec cambiate senza indebolire: `ring-gradient`, `player-parts`, `icons`, `backg
 | `shoot.mjs --area inspector --only app`, scuro e chiaro | nuovi stati `font-picker` e `color-picker` controllati a vista |
 
 **Da verificare a mano.** Nel WebView2 reale: i nomi delle famiglie incluse (Inter, JetBrains Mono) scritti nel loro carattere tramite `FontFace` da byte (il demo non ha i file, quindi lì restano nel sans dell'interfaccia) e il contagocce di sistema. Validazione su hardware: non applicabile (nessun byte nuovo verso lo schermo).
+
+### Correzione: font inclusi sempre disponibili (`6cb9b82`)
+
+**Sintomo.** Light su Windows avvisava `font family "Inter" is not available; using "Noto Sans"` (idem JetBrains Mono) e disegnava i temi nel carattere sbagliato.
+
+**Causa.** `bundled_candidates` (CLI/Light) cercava la cartella dei temi inclusi solo in `<exe>/../share/bezel/themes` e `<data home>/bezel/themes`, mai accanto all'eseguibile, dove la mettono installer, ZIP portabile e `dist`; i temi dell'utente in `%APPDATA%\io.github.slipalison.bezel\themes` non hanno `fonts/` accanto. Quindi `font_dirs` non trovava nessun font incluso.
+
+**Correzione.** I sette file di `themes/fonts` (Inter 400/500/600/700, JetBrains Mono 400/500/700) sono incorporati in `bezel-render` (`SHIPPED_FONTS`, `include_bytes!`) e caricati come facce incluse da ogni renderer con `SystemFonts::Load` (Light, Studio, miniature, CLI); le copie lette da una cartella `fonts/` non vengono caricate due volte. Il catalogo (D-28) li elenca come "Inclusi in Bezel". La CLI cerca inoltre i temi inclusi in `<exe dir>/themes`. Licenze OFL: già in `themes/fonts`, ora anche in `THIRD_PARTY.md`; `package-evo.ps1` copia ancora tutto `themes/` (font e OFL) e l'installer li include tramite le risorse Tauri.
+
+**Dimensione.** +2.109.672 byte (circa 2,0 MiB) per eseguibile (`bezel.exe`, `bezel-studio.exe`), calcolati dalle dimensioni dei file incorporati.
+
+**Test.** `text::tests::the_shipped_families_are_always_there_and_bundled` (nessuna diagnostica, origine `Bundled`, niente duplicati) e `theme::tests::the_shipped_fonts_draw_a_theme_from_any_folder` (tema in una cartella temporanea senza `fonts/`: nessun avviso, pixel identici a un renderer con solo la faccia inclusa, per Inter e JetBrains Mono). `cargo test -p bezel-render -p bezel -p bezel-studio` verde, clippy `-D warnings` e fmt verdi, `font-catalog.test.mjs` 7/7, e2e `font-picker` 12/12. llvm-cov e `npm test` completo rinviati alla verifica prima della pubblicazione (nuova regola dell'utente).
