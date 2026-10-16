@@ -865,3 +865,19 @@ test('the demo draws the element alone, reduced to the size asked for', async (t
   assert.equal(typeof (await demo.renderElement(gif, 903)).nextMs, 'number', 'a GIF says when it changes');
   await assert.rejects(demo.renderElement(mine, 77), (e) => e.code === 'invalidInput' && /no element 77/.test(e.args.detail));
 });
+
+
+test('demo font inclusion mirrors catalog identity, bundled refusal and theme assets', async () => {
+  const backend = createDemoBackend('turing88');
+  const before = await backend.fontCatalog();
+  const user = before.families.find((f) => f.origin === 'user');
+  assert.ok(user);
+  await backend.openFontsFolder();
+  await assert.rejects(backend.includeFont('Inter', 400, false));
+  await assert.rejects(backend.includeFont('../private', 400, false));
+  const added = await backend.includeFont(user.name, 700, false);
+  const after = await backend.fontCatalog();
+  const asset = after.families.find((f) => f.asset === added.ref);
+  assert.equal(asset.name, user.name);
+  assert.equal(asset.origin, 'theme');
+});

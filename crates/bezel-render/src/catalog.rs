@@ -6,7 +6,7 @@
 //! named together with the family drawn instead ([`FontCatalog::fallback`]).
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// How a family looks, for the picker's filters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +38,8 @@ pub enum FontOrigin {
     Bundled,
     /// Installed on this machine.
     System,
+    /// Dropped into the per-user Bezel font folder.
+    User,
 }
 
 /// A family of the font database.
@@ -57,15 +59,13 @@ pub struct FontFamily {
     pub origin: FontOrigin,
 }
 
-type FontBytes = Arc<dyn AsRef<[u8]> + Sync + Send>;
-
-/// A face shipped with Bezel, with its file, so a user interface can draw
-/// the family's name in it on a machine where it is not installed.
+/// A catalogued face and its trusted source, for preview and portable inclusion.
 #[derive(Clone)]
 struct BundledFace {
     family: String,
     face: FontFace,
-    data: FontBytes,
+    source: fontdb::Source,
+    origin: FontOrigin,
 }
 
 /// The families of a font database and the family drawn for one it lacks.
@@ -76,6 +76,16 @@ pub struct FontCatalog {
     /// The family the renderer draws a missing family with (none without fonts).
     pub fallback: Option<String>,
     bundled: Vec<BundledFace>,
+    base: Option<Box<FontCatalog>>,
+    user_cache: Arc<Mutex<Option<UserCatalog>>>,
+}
+
+type FolderStamp = Vec<(std::path::PathBuf, u64, Option<std::time::SystemTime>)>;
+
+/// Cache only the extra catalog (with its own cache), avoiding a reference cycle.
+struct UserCatalog {
+    stamp: FolderStamp,
+    catalog: FontCatalog,
 }
 
 impl std::fmt::Debug for FontCatalog {
@@ -89,14 +99,97 @@ impl std::fmt::Debug for FontCatalog {
 }
 
 impl FontCatalog {
-    /// The file of the bundled `face` of `family` (case-insensitive), the
-    /// only files handed out: nothing installed and nothing from a path.
-    /// Faces inside collections (index above 0) are not handed out.
+    /// The file of the bundled `face` of `family` (case-insensitive).
     pub fn bundled_face(&self, family: &str, face: FontFace) -> Option<&[u8]> {
         self.bundled
             .iter()
-            .find(|b| b.face == face && b.family.eq_ignore_ascii_case(family))
-            .map(|b| (*b.data).as_ref())
+            .find(|b| {
+                b.origin == FontOrigin::Bundled
+                    && b.face == face
+                    && b.family.eq_ignore_ascii_case(family)
+            })
+            .and_then(|b| match &b.source {
+                fontdb::Source::Binary(data) => Some((**data).as_ref()),
+                _ => None,
+            })
+    }
+
+    /// A catalogued file, never a caller-supplied path. Bundled fonts cannot be exported.
+    pub fn portable_face(&self, family: &str, face: FontFace) -> Option<Vec<u8>> {
+        if self
+            .families
+            .iter()
+            .any(|f| f.name.eq_ignore_ascii_case(family) && f.origin == FontOrigin::Bundled)
+        {
+            return None;
+        }
+        let file = self
+            .bundled
+            .iter()
+            .find(|b| b.family.eq_ignore_ascii_case(family) && b.face == face)?;
+        let bytes = match &file.source {
+            fontdb::Source::Binary(data) => (**data).as_ref().to_vec(),
+            fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
+                crate::fonts::read_font(path)?
+            }
+        };
+        crate::fonts::valid_font(&bytes).then_some(bytes)
+    }
+
+    /// Add validated per-user files to a snapshot without rescanning Windows fonts.
+    pub fn with_user_fonts(&self, fonts: Vec<Vec<u8>>) -> Self {
+        let mut db = fontdb::Database::new();
+        let mut ids = HashSet::new();
+        for bytes in fonts {
+            ids.extend(db.load_font_source(fontdb::Source::Binary(Arc::new(bytes))));
+        }
+        let extra = catalog_with_user(&db, &HashSet::new(), &ids, None);
+        self.with_user_catalog(&extra)
+    }
+
+    /// Refresh user fonts on demand, reading files only when folder metadata changes.
+    pub fn with_user_directory(&self) -> Self {
+        let Some(dir) = crate::fonts::user_fonts_directory() else {
+            return self.clone();
+        };
+        let stamp = crate::fonts::folder_stamp(&dir);
+        let mut cache = self
+            .user_cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if cache.as_ref().is_none_or(|cached| cached.stamp != stamp) {
+            *cache = Some(UserCatalog {
+                stamp,
+                catalog: FontCatalog::default().with_user_fonts(crate::fonts::font_files(&dir)),
+            });
+        }
+        match cache.as_ref() {
+            Some(cached) => self.with_user_catalog(&cached.catalog),
+            None => self.clone(),
+        }
+    }
+
+    fn with_user_catalog(&self, extra: &FontCatalog) -> Self {
+        let base = self.base.as_deref().unwrap_or(self);
+        let mut result = base.clone();
+        result.base = Some(Box::new(base.clone()));
+        for family in &extra.families {
+            if result.families.iter().any(|f| {
+                f.name.eq_ignore_ascii_case(&family.name) && f.origin == FontOrigin::Bundled
+            }) {
+                continue;
+            }
+            result
+                .families
+                .retain(|f| !f.name.eq_ignore_ascii_case(&family.name));
+            result
+                .bundled
+                .retain(|f| !f.family.eq_ignore_ascii_case(&family.name));
+            result.families.push(family.clone());
+        }
+        result.bundled.extend(extra.bundled.iter().cloned());
+        result.families.sort_by_key(|f| f.name.to_lowercase());
+        result
     }
 
     /// The family a theme naming `family` gets: its own name as the
@@ -201,6 +294,7 @@ struct Gathered {
     monospace: bool,
     panose: Option<[u8; PANOSE_LEN]>,
     bundled: bool,
+    user: bool,
 }
 
 fn face_of(info: &fontdb::FaceInfo) -> FontFace {
@@ -212,9 +306,19 @@ fn face_of(info: &fontdb::FaceInfo) -> FontFace {
 
 /// The catalogue of `db`: `bundled` are the ids of the faces shipped with
 /// Bezel, `fallback` the family drawn for a missing one.
+#[cfg(test)]
 pub(crate) fn catalog(
     db: &fontdb::Database,
     bundled: &HashSet<fontdb::ID>,
+    fallback: Option<String>,
+) -> FontCatalog {
+    catalog_with_user(db, bundled, &HashSet::new(), fallback)
+}
+
+pub(crate) fn catalog_with_user(
+    db: &fontdb::Database,
+    bundled: &HashSet<fontdb::ID>,
+    user: &HashSet<fontdb::ID>,
     fallback: Option<String>,
 ) -> FontCatalog {
     let mut families: BTreeMap<String, (String, Gathered)> = BTreeMap::new();
@@ -236,6 +340,7 @@ pub(crate) fn catalog(
         family.faces.insert(face_of(info));
         family.monospace &= info.monospaced;
         family.bundled |= shipped;
+        family.user |= user.contains(&info.id);
         family.aliases.extend(
             info.families
                 .iter()
@@ -246,13 +351,18 @@ pub(crate) fn catalog(
         if family.panose.is_none() {
             family.panose = db.with_face_data(info.id, panose).flatten();
         }
-        if let (true, fontdb::Source::Binary(data), 0) = (shipped, &info.source, info.index) {
-            files.push(BundledFace {
-                family: name.clone(),
-                face: face_of(info),
-                data: data.clone(),
-            });
-        }
+        files.push(BundledFace {
+            family: name.clone(),
+            face: face_of(info),
+            source: info.source.clone(),
+            origin: if shipped {
+                FontOrigin::Bundled
+            } else if user.contains(&info.id) {
+                FontOrigin::User
+            } else {
+                FontOrigin::System
+            },
+        });
     }
     FontCatalog {
         families: families
@@ -264,6 +374,8 @@ pub(crate) fn catalog(
                 monospace: g.monospace,
                 origin: if g.bundled {
                     FontOrigin::Bundled
+                } else if g.user {
+                    FontOrigin::User
                 } else {
                     FontOrigin::System
                 },
@@ -272,6 +384,8 @@ pub(crate) fn catalog(
             .collect(),
         fallback,
         bundled: files,
+        base: None,
+        user_cache: Arc::new(Mutex::new(None)),
     }
 }
 

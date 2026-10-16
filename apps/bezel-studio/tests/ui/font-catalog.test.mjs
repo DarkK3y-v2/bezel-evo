@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FONT_FILTERS, FONT_SECTIONS, faceForFamily, faceOptions, faceValue, findFamily, fontSections, fontStatus, isNamedWeight,
-  matchesQuery, nearestFace, normalizeCatalog, parseFaceValue, passesFilter, themeFamilies,
+  matchesQuery, nearestFace, normalizeCatalog, parseFaceValue, passesFilter, themeFamilies, themeFontAssets, withoutThemeFont,
 } from '../../src/font-catalog.js';
 
 const face = (weight, italic = false) => ({ weight, italic });
@@ -30,7 +30,7 @@ test('the catalogue is normalised: faces sorted once, unknown categories are san
   assert.equal(CATALOG.fallback, 'Inter');
   assert.equal(normalizeCatalog({ families: [] }).fallback, null);
   assert.deepEqual(FONT_FILTERS, ['all', 'sans', 'serif', 'mono']);
-  assert.deepEqual(FONT_SECTIONS, ['theme', 'recent', 'bundled', 'system']);
+  assert.deepEqual(FONT_SECTIONS, ['assets', 'theme', 'recent', 'bundled', 'user', 'system']);
 });
 
 test("a family is found by any case or a localized alias; a missing one falls back, an asset is the theme's", () => {
@@ -105,4 +105,27 @@ test('the face select offers only real faces, and tells when the theme asks for 
   assert.deepEqual(faceOptions(null, face(700)), [{ ...face(700), value: '700', missing: true, nearest: null }]);
   assert.deepEqual(faceForFamily(inter, face(800)), face(700));
   assert.deepEqual(faceForFamily({ faces: [] }, face(800)), face(800));
+});
+
+
+test('user and theme files have distinct sections and matching faces even with identical family names', () => {
+  const catalog = normalizeCatalog({ families: [
+    { name: 'Local', faces: [face(400)], origin: 'user' },
+    { name: 'Local', faces: [face(700)], origin: 'theme', asset: 'assets/local.ttf' },
+  ] });
+  assert.deepEqual(fontSections(catalog).map((s) => s.key), ['assets', 'user']);
+  assert.equal(findFamily(catalog, 'Local').origin, 'user');
+  assert.deepEqual(fontStatus(catalog, { family: 'Local', asset: 'assets/local.ttf' }).family.faces, [face(700)]);
+});
+
+
+test('detaching a font preserves its family and style everywhere, without mutating undo snapshots', () => {
+  const font = { family: 'Local', weight: 700, italic: true, asset: 'assets/local.ttf' };
+  const theme = { elements: [{ kind: { style: { font }, content: { progress: { font } } } }] };
+  const next = withoutThemeFont(theme, font.asset);
+  assert.deepEqual([...themeFontAssets(theme)], [font.asset]);
+  assert.deepEqual([...themeFontAssets(next)], []);
+  assert.deepEqual(next.elements[0].kind.style.font, { ...font, asset: null });
+  assert.deepEqual(next.elements[0].kind.content.progress.font, { ...font, asset: null });
+  assert.equal(theme.elements[0].kind.style.font.asset, font.asset);
 });

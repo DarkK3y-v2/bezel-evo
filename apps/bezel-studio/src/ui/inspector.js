@@ -407,7 +407,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const s = e.kind.style;
     const { texts, source } = pickers.font(sampleText(e));
     // A family picked instead of the theme's own font file drops that file.
-    const setFont = (font) => update(e.id, { kind: { style: { font: { ...font, ...(s.font.asset && font.family !== s.font.family ? { asset: null } : {}) } } } });
+    const setFont = (font) => update(e.id, { kind: { style: { font } } });
     return [
       fontPicker(texts, s.font, setFont, source),
       size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800 }),

@@ -361,6 +361,8 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::video_preview,
             commands::font_catalog,
             commands::font_face,
+            commands::include_font,
+            commands::open_fonts_folder,
             commands::get_autostart,
             commands::set_autostart,
             commands::storage_overview,
@@ -1949,7 +1951,12 @@ mod tests {
 
     /// The `#[tauri::command]`s that call [`OPEN_HELPER`]: a page opens
     /// only when the window invokes one, on the user's click.
-    const OPEN_COMMANDS: [&str; 3] = ["open_link", "open_guide", "open_logs_folder"];
+    const OPEN_COMMANDS: [&str; 4] = [
+        "open_link",
+        "open_guide",
+        "open_logs_folder",
+        "open_fonts_folder",
+    ];
 
     /// What no literal of the studio holds, tests included: the window's
     /// IPC object, then KLIPY's API and file hosts (they are
@@ -3960,7 +3967,8 @@ mod tests {
             [
                 "commands.rs: open_guide",
                 "commands.rs: open_link",
-                "commands.rs: open_logs_folder"
+                "commands.rs: open_logs_folder",
+                "commands.rs: open_fonts_folder"
             ],
             "the helper, called by the commands that open a page"
         );

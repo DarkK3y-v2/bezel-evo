@@ -361,11 +361,11 @@ const FONT_CHUNK = 40;
  * focus goes back to the button.
  * @param {object} texts translated: `family`, `face`, `title`, `search`,
  *   `filter`, `filters` {all,sans,serif,mono}, `sections`
- *   {theme,recent,bundled,system}, `faces(n)`, `missing`,
+ *   {assets,theme,recent,bundled,user,system}, `faces(n)`, `missing`,
  *   `missingNote(family, fallback)`, `faceName(face)`,
  *   `faceMissing(face, nearest)`, `none`, `loading`
  * @param {{family: string, weight: number, italic: boolean, asset?: string|null}} value
- * @param {(font: {family: string, weight: number, italic: boolean}) => void} onChange
+ * @param {(font: {family: string, weight: number, italic: boolean, asset?: string|null}) => void} onChange
  * @param {{catalog: () => object|null, themeFamilies: () => string[], recent: () => string[], remember: (name: string) => void, sample: string, showFace?: (name: string, face: object) => void}} source
  */
 export function fontPicker(texts, value, onChange, source) {
@@ -375,8 +375,8 @@ export function fontPicker(texts, value, onChange, source) {
   const shown = status.missing ? status.fallback : value.family;
   const id = fieldId();
   const nameNode = el('span', { class: 'font-button-name', id: `${id}-v`, text: value.family });
-  if (shown) nameNode.style.fontFamily = cssFamily(shown);
-  if (status.family?.bundled) source.showFace?.(status.family.name, nearestFace(status.family.faces, current));
+  if (shown) nameNode.style.fontFamily = cssFamily(source.faceFamily?.(shown, value.asset) ?? shown);
+  if (status.family && (status.family.bundled || status.family.origin === 'user' || value.asset)) source.showFace?.(status.family.name, nearestFace(status.family.faces, current), value.asset);
   const note = status.missing
     ? el('p', { class: 'font-missing', id: `${id}-m` }, [icon(ICONS.warning, 14), texts.missingNote(value.family, status.fallback ?? '—')])
     : null;
@@ -385,14 +385,16 @@ export function fontPicker(texts, value, onChange, source) {
     'aria-label': texts.family, 'aria-describedby': [`${id}-v`, note ? `${id}-m` : null].filter(Boolean).join(' '),
     dataset: { picker: `font:${texts.family}` },
   }, [nameNode, status.missing ? pill(texts.missing, { tone: 'warn' }) : null, icon(ICONS.chevronDown, 14)]);
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     if (button.getAttribute('aria-expanded') === 'true') return;
+    button.disabled = true;
+    try { await source.reload?.(); } finally { button.disabled = false; }
     openFontList(button, texts, value, onChange, source);
   });
   const faces = faceOptions(status.family, current).map((o) => [o.value, o.missing ? texts.faceMissing(o, o.nearest) : texts.faceName(o)]);
   const face = selectField(texts.face, faceValue(current), faces, (v) => {
     const next = parseFaceValue(v);
-    if (next) onChange({ family: value.family, ...next });
+    if (next) onChange({ family: value.family, asset: value.asset ?? null, ...next });
   });
   return el('div', { class: 'font-picker' }, [
     el('div', { class: 'field' }, [el('label', { for: id, text: texts.family }), button, note]),
@@ -402,7 +404,7 @@ export function fontPicker(texts, value, onChange, source) {
 
 /** The picker's popover: search, filters, the sections, the sample. */
 function openFontList(button, texts, value, onChange, source) {
-  const catalog = source.catalog();
+  let catalog = source.catalog();
   const listId = fieldId();
   const current = { weight: value.weight, italic: Boolean(value.italic) };
   let query = '', filter = 'all', options = [], active = -1, rows = [], drawn = 0;
@@ -414,11 +416,39 @@ function openFontList(button, texts, value, onChange, source) {
   const list = el('div', { class: 'font-list', id: listId, role: 'listbox', 'aria-label': texts.title });
   const sentinel = el('div', { class: 'font-more', 'aria-hidden': 'true' });
   const sample = el('p', { class: 'font-sample', text: source.sample });
-  const panel = el('div', { class: 'font-popover' }, [searchBox, chips, list, sample]);
+  const feedback = el('p', { class: 'empty-note', role: 'status' });
+  const include = el('button', { type: 'button', class: 'text-button', text: texts.include });
+  const reload = el('button', { type: 'button', class: 'text-button', text: texts.reload });
+  const folder = el('button', { type: 'button', class: 'text-button', text: texts.openFolder });
+  const remove = value.asset ? el('button', { type: 'button', class: 'text-button', text: texts.remove }) : null;
+  const actions = el('div', { class: 'dialog-actions' }, [folder, reload, include, remove]);
+  const panel = el('div', { class: 'font-popover' }, [searchBox, chips, list, sample, actions, feedback]);
+  const report = (error) => { feedback.textContent = error ? texts.error : ''; };
+  folder.addEventListener('click', async () => { try { await source.openFolder?.(); report(null); } catch (e) { report(e); } });
+  reload.addEventListener('click', async () => {
+    reload.disabled = true;
+    try { await source.reload?.(); catalog = source.catalog(); draw(); report(null); } catch (e) { report(e); }
+    finally { reload.disabled = false; }
+  });
+  include.addEventListener('click', async () => {
+    const entry = options[active]?.entry;
+    if (!entry || entry.bundled || entry.asset || entry.missing) return;
+    const face = faceForFamily(entry, current);
+    include.disabled = true;
+    close('done');
+    try {
+      const asset = await source.include?.(entry.name, face);
+      if (asset) { source.remember(entry.name); onChange({ family: entry.name, ...face, asset }); }
+    } catch (e) { report(e); button.after(feedback); }
+    finally { refocus(); }
+  });
+  remove?.addEventListener('click', () => { close('done'); refocus(); if (source.remove) source.remove(value.asset); else onChange({ ...value, asset: null }); });
 
   const preview = (entry) => {
     const family = entry?.missing ? catalog?.fallback : entry?.name ?? value.family;
-    if (family) sample.style.fontFamily = cssFamily(family);
+    if (family) sample.style.fontFamily = cssFamily(source.faceFamily?.(family, entry?.asset) ?? family);
+    include.disabled = !entry || entry.bundled || entry.asset || entry.missing;
+    include.hidden = include.disabled;
     const real = entry && !entry.missing ? entry : findFamily(catalog, value.family);
     const face = real ? nearestFace(real.faces, current) ?? current : current;
     sample.style.fontWeight = String(face.weight);
@@ -437,19 +467,19 @@ function openFontList(button, texts, value, onChange, source) {
   const pick = (entry) => {
     close('done');
     refocus();
-    const family = findFamily(catalog, entry.name);
+    const family = entry.missing ? null : entry;
     source.remember(entry.name);
-    onChange({ family: family?.name ?? entry.name, ...(family ? faceForFamily(family, current) : current) });
+    onChange({ family: family?.name ?? entry.name, ...(family ? faceForFamily(family, current) : current), asset: entry.asset ?? null });
   };
   const option = (entry) => {
     const i = options.length;
     const name = el('span', { class: 'font-option-name', text: entry.name });
     const family = entry.missing ? catalog?.fallback : entry.name;
-    if (family) name.style.fontFamily = cssFamily(family);
-    if (entry.bundled) source.showFace?.(entry.name, nearestFace(entry.faces, current));
+    if (family) name.style.fontFamily = cssFamily(source.faceFamily?.(family, entry.asset) ?? family);
+    if (!entry.missing && (entry.bundled || entry.origin === 'user' || entry.asset)) source.showFace?.(entry.name, nearestFace(entry.faces, current), entry.asset);
     const node = el('div', {
       class: 'font-option', role: 'option', id: `${listId}-${i}`,
-      'aria-selected': String(entry.name.toLowerCase() === value.family.toLowerCase()),
+      'aria-selected': String(entry.name.toLowerCase() === value.family.toLowerCase() && (entry.asset ?? null) === (value.asset ?? null)),
     }, [name, entry.missing ? pill(texts.missing, { tone: 'warn' }) : el('span', { class: 'font-option-meta', text: texts.faces(entry.faces.length) })]);
     node.entry = entry;
     node.addEventListener('pointerdown', (evt) => evt.preventDefault());

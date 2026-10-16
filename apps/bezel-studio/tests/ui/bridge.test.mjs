@@ -449,3 +449,17 @@ test('render timing trailer supports offset views and rejects invalid timings', 
     assert.throws(() => parseFrame(frameBytes(1, 1, STILL, millis)), /invalid render time/);
   }
 });
+
+
+test('font actions accept catalog identities and document assets, never a file path', async () => {
+  const calls = [];
+  const bridge = createBridge({ ...page(), __TAURI__: { core: { invoke: async (command, args) => { calls.push([command, args]); return []; } } } });
+  await bridge.openFontsFolder();
+  await bridge.includeFont('Local', 700, true);
+  await bridge.fontFace('Local', 700, true, 'assets/local.ttc');
+  assert.deepEqual(calls, [
+    ['open_fonts_folder', undefined],
+    ['include_font', { family: 'Local', weight: 700, italic: true }],
+    ['font_face', { family: 'Local', weight: 700, italic: true, asset: 'assets/local.ttc' }],
+  ]);
+});

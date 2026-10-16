@@ -1372,6 +1372,11 @@ pub struct FontFamilyDto {
     pub category: &'static str,
     /// Shipped with Bezel (else installed on the machine).
     pub bundled: bool,
+    /// `bundled`, `user` or `system`.
+    pub origin: &'static str,
+    /// Theme font file, when this entry belongs to the document.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset: Option<String>,
 }
 
 /// One face: CSS weight and italic.
@@ -1412,6 +1417,12 @@ impl From<&FontCatalog> for FontCatalogDto {
                     monospace: f.monospace,
                     category: category_name(f.category),
                     bundled: f.origin == FontOrigin::Bundled,
+                    origin: match f.origin {
+                        FontOrigin::Bundled => "bundled",
+                        FontOrigin::User => "user",
+                        FontOrigin::System => "system",
+                    },
+                    asset: None,
                 })
                 .collect(),
             fallback: catalog.fallback.clone(),

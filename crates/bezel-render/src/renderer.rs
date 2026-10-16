@@ -123,6 +123,7 @@ pub struct SkiaRenderer {
     face_cache_enabled: bool,
     render_stats: bezel_core::ports::RenderStats,
     card_scene: u64,
+    font_poll_due: Option<std::time::Duration>,
     card_scenes: HashMap<u64, crate::cards::Cards>,
 }
 
@@ -208,6 +209,7 @@ impl SkiaRenderer {
             face_cache_enabled: std::env::var_os("BEZEL_CARD_FACE_CACHE").is_some_and(|v| v == "1"),
             render_stats: bezel_core::ports::RenderStats::default(),
             card_scene: 0,
+            font_poll_due: None,
             card_scenes: HashMap::new(),
         }
     }
@@ -376,7 +378,10 @@ impl FrameRenderer for SkiaRenderer {
         self.render_stats
     }
     fn next_change(&self) -> Option<std::time::Duration> {
-        self.cards.next
+        match (self.cards.next, self.font_poll_due) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        }
     }
     fn set_motion(&mut self, allowed: bool) {
         self.cards.motion = allowed;
@@ -388,6 +393,15 @@ impl FrameRenderer for SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: RenderContext<'_>,
     ) -> Result<Frame> {
+        let changed = self.text.refresh_user_fonts();
+        if self.text.retain_assets(&theme.assets()) || changed {
+            self.layers.clear();
+            self.face_cache.clear();
+        }
+        self.font_poll_due = self
+            .text
+            .watches_user_fonts()
+            .then_some(context.animation + std::time::Duration::from_secs(2));
         self.render_stats = bezel_core::ports::RenderStats {
             face_cache_enabled: self.face_cache_enabled,
             ..bezel_core::ports::RenderStats::default()

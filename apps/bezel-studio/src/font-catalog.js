@@ -6,7 +6,7 @@
 /** The filter chips, in order. */
 export const FONT_FILTERS = Object.freeze(['all', 'sans', 'serif', 'mono']);
 /** The sections, in order. */
-export const FONT_SECTIONS = Object.freeze(['theme', 'recent', 'bundled', 'system']);
+export const FONT_SECTIONS = Object.freeze(['assets', 'theme', 'recent', 'bundled', 'user', 'system']);
 /** Most recent fonts kept. */
 export const RECENT_FONTS_MAX = 8;
 /** The weights with a name (`weight.N` in the i18n tables). */
@@ -40,15 +40,17 @@ export function normalizeCatalog(dto) {
       monospace: Boolean(f.monospace),
       category: CATEGORIES.has(f.category) ? f.category : 'sans',
       bundled: Boolean(f.bundled),
+      origin: f.origin ?? (f.bundled ? 'bundled' : 'system'),
+      ...(typeof f.asset === 'string' ? { asset: f.asset } : {}),
     }];
   });
   return { families, fallback: typeof dto.fallback === 'string' ? dto.fallback : null };
 }
 
 /** The family of `catalog` a theme naming `name` gets (any case, or a localized alias); `null` when missing. */
-export function findFamily(catalog, name) {
+export function findFamily(catalog, name, asset = null) {
   const wanted = fold(name);
-  return catalog?.families.find((f) => fold(f.name) === wanted || f.aliases.some((a) => fold(a) === wanted)) ?? null;
+  return catalog?.families.find((f) => (asset ? f.asset === asset : !f.asset) && (fold(f.name) === wanted || f.aliases.some((a) => fold(a) === wanted))) ?? null;
 }
 
 /**
@@ -60,7 +62,7 @@ export function findFamily(catalog, name) {
  */
 export function fontStatus(catalog, font) {
   if (!catalog) return { known: false, missing: false, family: null, fallback: null };
-  const family = findFamily(catalog, font?.family);
+  const family = findFamily(catalog, font?.family, font?.asset);
   const missing = !family && !font?.asset;
   return { known: true, missing, family, fallback: missing ? catalog.fallback : null };
 }
@@ -109,17 +111,19 @@ export function fontSections(catalog, { query = '', filter = 'all', theme = [], 
   if (!catalog) return [];
   const keep = (f) => passesFilter(f, filter) && matchesQuery(f, query);
   const shortcut = (names, missingToo) => names.flatMap((name) => {
-    const family = findFamily(catalog, name);
+    const family = findFamily(catalog, name) ?? catalog.families.find((f) => fold(f.name) === fold(name));
     if (family) return keep(family) ? [family] : [];
     return missingToo && filter === 'all' && matchesQuery({ name, aliases: [] }, query) ? [{ name, missing: true }] : [];
   });
   const inTheme = shortcut(theme, true);
   const themeKeys = new Set(inTheme.map((f) => fold(f.name)));
   const sections = [
+    { key: 'assets', entries: catalog.families.filter((f) => f.asset && keep(f)) },
     { key: 'theme', entries: inTheme },
     { key: 'recent', entries: shortcut(recent, false).filter((f) => !themeKeys.has(fold(f.name))) },
-    { key: 'bundled', entries: catalog.families.filter((f) => f.bundled && keep(f)) },
-    { key: 'system', entries: catalog.families.filter((f) => !f.bundled && keep(f)) },
+    { key: 'bundled', entries: catalog.families.filter((f) => !f.asset && f.bundled && keep(f)) },
+    { key: 'user', entries: catalog.families.filter((f) => !f.asset && !f.bundled && f.origin === 'user' && keep(f)) },
+    { key: 'system', entries: catalog.families.filter((f) => !f.asset && !f.bundled && f.origin !== 'user' && keep(f)) },
   ];
   return sections.filter((s) => s.entries.length).map((s) => ({ ...s, count: s.entries.length }));
 }
@@ -175,3 +179,30 @@ export const faceForFamily = (family, current) => nearestFace(family.faces, curr
 
 /** Whether `weight` has a name (Regular, Bold…); an unusual one (250, 350) is shown as its number. */
 export const isNamedWeight = (weight) => NAMED_WEIGHTS.includes(weight);
+
+
+/** Detach a font file everywhere in the document, preserving family, weight and slant. */
+export function withoutThemeFont(theme, asset) {
+  const visit = (value) => {
+    if (Array.isArray(value)) return value.map(visit);
+    if (!value || typeof value !== 'object') return value;
+    const next = Object.fromEntries(Object.entries(value).map(([key, child]) => [key, visit(child)]));
+    if (typeof next.family === 'string' && typeof next.weight === 'number' && next.asset === asset) next.asset = null;
+    return next;
+  };
+  return visit(theme);
+}
+
+/** Font files currently referenced anywhere in the theme. */
+export function themeFontAssets(theme) {
+  const assets = new Set();
+  const visit = (value) => {
+    if (Array.isArray(value)) value.forEach(visit);
+    else if (value && typeof value === 'object') {
+      if (typeof value.family === 'string' && typeof value.asset === 'string') assets.add(value.asset);
+      Object.values(value).forEach(visit);
+    }
+  };
+  visit(theme);
+  return assets;
+}

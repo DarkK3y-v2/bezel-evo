@@ -879,6 +879,7 @@ async function refreshThemes() {
 async function refreshAssets() {
   try {
     state.assets = await bridge.assets();
+    await pickers.load(false);
     library.renderMedia(state.assets);
     inspector.render(state.assets);
   } catch (e) {
