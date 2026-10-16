@@ -1,5 +1,4 @@
 - "Prova senza schermo" (Connect): só existe no modo demo web; sem lógica no app Tauri. Omitido na phase studio-redesign.
-- udev one-click (Connect): hoje só há comando para copiar (ui/udev.js); instalação com um clique exige backend novo.
 - Badge "attiva ora" nas regras de trigger: não há estado runtime de trigger exposto ao Studio.
 - Reinício de outras fontes de sensores além do LibreHardwareMonitor (popover SensorStatus).
 - Connect em tela cheia como no mockup (hero "PASSO 1 DI 2", lista de dispositivos com detecção de driver WinUSB ausente/"Come risolvere", "Usa questo schermo", "Temi recenti"): adiado pelo usuário em 2026-10-09 (D-…-fidelity-5 revista).
