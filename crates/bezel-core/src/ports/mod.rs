@@ -639,6 +639,10 @@ pub trait RuntimeConnection: Send + Sync {
 /// Process-restricted audio capture factory, implemented outside the hexagon.
 /// Never falls back to a microphone or the system-wide output.
 pub trait AudioCaptureFactory: Send + Sync {
+    /// Platform capability, also reported while the followed Player is paused.
+    fn availability(&self) -> crate::domain::spectrum::AudioState {
+        crate::domain::spectrum::AudioState::Live
+    }
     /// Resolve the session's exact app identifier and open its process tree.
     fn open(
         &self,

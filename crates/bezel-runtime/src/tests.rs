@@ -609,6 +609,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
     f.engine.document("editor", 0, doc(), true).unwrap();
     advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let options = wire::Options {
+        audio_capture: false,
         ping_host: "127.0.0.1".into(),
 
         ffmpeg: None,
@@ -1073,4 +1074,50 @@ fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
     stop.store(true, Ordering::SeqCst);
     drop(client);
     thread.join().unwrap().unwrap();
+}
+
+#[test]
+fn silent_spectrum_does_not_resend_identical_frames_on_sensor_ticks() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    let element = &mut document.theme.elements[0];
+    element.kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document(&f.key, 0, document, true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    let count = f.physical.log().frames.len();
+    assert!(count > 0);
+    for n in 1..5 {
+        advance(&mut f.engine, Duration::from_secs(n), time()).unwrap();
+    }
+    assert_eq!(
+        f.physical.log().frames.len(),
+        count,
+        "settled audio must not submit unchanged frames"
+    );
+    f.engine.suspend(true);
+    assert_eq!(
+        f.engine.tick_at(Duration::from_secs(6), time()).unwrap(),
+        Duration::from_millis(50)
+    );
+}
+
+#[test]
+fn rejected_options_do_not_grant_capture_permission() {
+    let mut f = fixture();
+    let invalid = wire::Options {
+        audio_capture: true,
+        ping_host: "x".repeat(254),
+        ffmpeg: None,
+    };
+    assert!(f.engine.options(invalid).is_err());
+    assert!(!f.engine.audio_enabled);
 }

@@ -202,6 +202,13 @@ impl Drop for Capture {
     }
 }
 impl AudioCaptureFactory for ProcessAudio {
+    fn availability(&self) -> AudioState {
+        if supported() {
+            AudioState::Live
+        } else {
+            AudioState::Unsupported
+        }
+    }
     fn open(&self, source: &str) -> Result<Box<dyn AudioCapture>, AudioState> {
         if !supported() {
             return Err(AudioState::Unsupported);

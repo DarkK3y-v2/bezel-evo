@@ -284,6 +284,7 @@ impl Backend {
             let settings = self.settings.load();
             let options = settings.sensor_options();
             engine.options(bezel_runtime::wire::Options {
+                audio_capture: settings.audio_capture,
                 ping_host: options.ping_host,
 
                 ffmpeg: settings.ffmpeg_path,
@@ -540,6 +541,7 @@ impl Backend {
     pub fn preferences(&self) -> PreferencesDto {
         let settings = self.settings.load();
         PreferencesDto {
+            audio_capture: settings.audio_capture,
             debug: settings.debug,
             debug_show_readings: settings.debug_show_readings,
             debug_corner: settings.debug_corner,

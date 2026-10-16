@@ -636,6 +636,16 @@ pub fn set_light_on_close(state: State<'_, Shared>, on: bool) {
         .update(|settings| settings.light_on_close = Some(on));
 }
 
+/// Explicit local permission to capture process audio for visible spectrum widgets.
+#[tauri::command]
+pub async fn set_audio_capture(state: State<'_, Shared>, on: bool) -> UiResult<()> {
+    blocking(&state, move |b| {
+        b.settings.update(|s| s.audio_capture = on);
+        b.sync_engine_options().map_err(UiError::from)
+    })
+    .await
+}
+
 /// Enables bounded diagnostic logs and the optional physical-screen overlay.
 #[tauri::command]
 pub fn set_debug(
