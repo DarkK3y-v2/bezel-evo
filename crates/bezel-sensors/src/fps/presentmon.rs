@@ -154,7 +154,7 @@ impl PresentMonParser {
 enum State {
     Stopped,
     Running,
-    BackingOff(Instant, Duration),
+    BackingOff(Instant),
 }
 
 pub(crate) struct PresentMon {
@@ -439,7 +439,7 @@ impl FrameRateSource for PresentMon {
         // `self.state` lives across the mutating calls below.
         let retry_at = match &self.state {
             State::Stopped => Some(Instant::now()),
-            State::BackingOff(next, _) => Some(*next),
+            State::BackingOff(next) => Some(*next),
             State::Running => None,
         };
 
@@ -451,10 +451,7 @@ impl FrameRateSource for PresentMon {
                     {
                         self.rtss_fallback = Some(Rtss);
                     }
-                    self.state = State::BackingOff(
-                        Instant::now() + self.backoff_duration,
-                        self.backoff_duration,
-                    );
+                    self.state = State::BackingOff(Instant::now() + self.backoff_duration);
                     self.backoff_duration = (self.backoff_duration * 2).min(BACKOFF_MAX);
                     return Err(format!("{}  gpu.fps falls back to RTSS", e));
                 }
@@ -473,10 +470,7 @@ impl FrameRateSource for PresentMon {
             };
             if exited {
                 self.stop();
-                self.state = State::BackingOff(
-                    Instant::now() + self.backoff_duration,
-                    self.backoff_duration,
-                );
+                self.state = State::BackingOff(Instant::now() + self.backoff_duration);
                 self.backoff_duration = (self.backoff_duration * 2).min(BACKOFF_MAX);
                 return Err("PresentMon process died unexpectedly".to_string());
             }
@@ -498,7 +492,7 @@ impl FrameRateSource for PresentMon {
         };
         if now.duration_since(idle_since) > limit {
             self.stop();
-            self.state = State::BackingOff(now + BACKOFF_MAX, BACKOFF_MAX);
+            self.state = State::BackingOff(now + BACKOFF_MAX);
             return Err("no frames for a while: PresentMon stopped".to_string());
         }
 
