@@ -1,4 +1,4 @@
-﻿# Light proprietario degli schermi — soluzione B
+# Light proprietario degli schermi — soluzione B
 
 ## Obiettivo e confine
 
@@ -18,7 +18,7 @@ Named pipe Windows locale, nome derivato da installazione e SID dell'utente corr
 
 Protocollo BZLO versione 1: intestazione fissa con lunghezze controllate, metadati JSON limitati a 64 KiB e payload binario limitato; versione e dimensioni si verificano prima di allocare. Niente deserializzazione di oggetti arbitrari o byte di protocollo del dispositivo. Le operazioni persistenti mantengono la conferma richiesta dai casi d'uso: il client trasporta l'autorizzazione, il server la verifica e ricostruisce la prova del core solo per quella richiesta. Nessuna cancellazione implicita di file.
 
-Richieste serializzate per link; I/O con scadenza, lease editor rinnovabile e rilascio in caso di EOF o processo terminato. Un client morto o un messaggio malformato non termina Light e non chiude le porte. Upload limitato al profilo del dispositivo, progressi inoltrati e cancellazione cooperativa; nessuna coda illimitata di upload. Un client bloccato non può tenere il server occupato senza limite.
+Una connessione editor persistente serializza le richieste e impone backpressure. La sessione dura quanto il canale: EOF o processo terminato la rilasciano, senza heartbeat o file di presenza. Ogni I/O bloccante ha una scadenza di 15 s e viene cancellato con CancelSynchronousIo. Un client morto o un messaggio malformato non termina Light e non chiude le porte. Upload limitato al profilo del dispositivo, progressi inoltrati e cancellazione cooperativa; nessuna coda illimitata di upload. Un client bloccato non può tenere il server occupato senza limite.
 
 Riferimenti di sicurezza: https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights e https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-createnamedpipew.
 
@@ -46,3 +46,21 @@ Il lock di istanza Light e quello fisico screen-control restano l'autorità cont
 Test richiesti: un solo connect durante Studio→Light→Studio; nessuno stop/replay dello stesso video; errore del dispositivo e crash server/client; rifiuto SID estraneo e connessione remota; rifiuto header/versione/lunghezze e frame non congruenti; storage con progressi e cancel; indipendenza di due schermi; compatibilità dei lock e del fix A. Verificare cargo test --workspace, clippy --workspace --all-targets -D warnings, fmt --check, llvm-cov almeno 80%, npm run test:unit e npm test.
 
 Hardware da verificare separatamente: Turing 8.8 Rev C COM6, internal/video/earth.mp4, transizioni ripetute in entrambi i versi, editing e salvataggio durante playback, due schermi, Return, shutdown, crash Light e ripartenza. Nessuna build viene installata e VERSION resta invariato per questa attività.
+
+## Dettagli dell'implementazione
+
+- Porte aggiunte nel core: ScreenChannel, resume_video e delega dello shutdown. Nessun tipo Win32 o formato IPC nel dominio.
+- Adapter in bezel-power: owner (link persistenti), owner_protocol (messaggi e proxy), owner_pipe (SID, ACL, pipe e scadenze), owner_client (avvio e fallback). I driver fisici e i loro pacchetti non sono cambiati.
+- L'editor prende controllo solo degli schermi che usa: gli altri runtime salvati continuano. Alla disconnessione il vecchio worker viene fermato prima di ricaricare impostazioni e temi salvati; la connessione fisica resta nella cache dell'owner.
+- L'invocazione interna bezel.exe --light-owner avvia il tray anche senza un primo tema salvato. La modalit? --fake usa adapter finti anche nel server; non espone il connettore fisico.
+- La connessione normale non prende studio-session. Nel fallback il lock legacy rimane vivo fino all'ultimo link prestato, anche se lo stato Tauri viene distrutto prima di un job. Una scrittura fallita non viene ripetuta automaticamente sul percorso diretto.
+- Luminosit?, orientamento, storage e metriche dei trasferimenti passano attraverso il proxy. Upload binario unico limitato a 120.000.000 byte e ulteriormente al profilo del modello prima di scrivere; progressi e cancel si riferiscono all'invio al dispositivo. I metadati sono limitati a 65.536 byte prima dell'allocazione.
+- Lo shutdown automatico viene delegato all'owner; Light applica le scelte del catalogo sui link gi? aperti. Quit esplicito esegue release; chiusura dell'editor e ricaricamento del tema non lo eseguono. Lo spegnimento Windows e il recupero dopo sospensione possono legittimamente chiudere o ricreare un link.
+
+### Limiti da misurare
+
+La prima versione usa un solo canale sincrono: uno schermo lento pu? ritardare gli altri. Non sono stati misurati throughput e latenza su pi? pannelli fisici. Il trasferimento di tema/patch con rendering interamente in Light rimane una possibile evoluzione, non una seconda implementazione parziale del renderer.
+
+La continuit? del video **sul dispositivo** deriva dal link persistente e da resume_video. I clock dei decoder host, delle animazioni e delle transizioni appartengono ai due runtime e non vengono trasferiti fra processi. La ripresa del tema salvato pu? quindi cambiare lo stato temporale di questi contenuti. Anche un cambio effettivo del background, Return, Play esplicito, errore di trasporto o sospensione pu? cambiare legittimamente ci? che il pannello mostra.
+
+Il test ACL esegue il controllo Windows con un token ristretto che richiede un SID estraneo: non usa credenziali di un secondo account. Una prova con due account Windows reali resta una verifica manuale aggiuntiva.
