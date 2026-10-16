@@ -44,6 +44,8 @@
 2. Close the screen's vendor app. Run Setup, or extract the ZIP into a writable folder. Setup offers optional hardware sensors and Light at sign-in.
 3. Open **Studio**, select your screen, choose a theme, customise it and **Save**. Turn on **Live** to send it to the display.
 
+**Platform:** Bezel Evo supports **Windows only**. The Linux code inherited from the original project is kept and still builds, but it is not maintained or tested.
+
 **Requirements:** Windows 10/11 x64, a compatible USB smart screen and Microsoft Edge WebView2. Setup can download WebView2; portable Studio needs it already installed. Hardware sensors use .NET Framework 4.7.2 or newer; availability depends on your hardware and drivers. FFmpeg is separate for video conversion.
 
 Windows preview packages are unsigned. See the [installation guide](packaging/windows/README.md) for sensor setup and updates.
