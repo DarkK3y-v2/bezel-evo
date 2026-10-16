@@ -314,17 +314,74 @@ impl Backend {
 
     /// The font picker's families and the fallback for a missing one.
     pub fn font_catalog(&self) -> FontCatalogDto {
-        FontCatalogDto::from(&self.fonts)
+        let mut dto = FontCatalogDto::from(&self.current_fonts());
+        let studio = self.studio();
+        for (asset, bytes) in studio.assets() {
+            if kind_of(asset) != "font" || !bezel_render::valid_font(bytes) {
+                continue;
+            }
+            let renderer = bezel_render::SkiaRenderer::with_fonts(
+                vec![bytes.clone()],
+                bezel_render::SystemFonts::Skip,
+            );
+            let mut fonts = FontCatalogDto::from(&renderer.font_catalog());
+            for family in &mut fonts.families {
+                family.asset = Some(asset.0.clone());
+                family.bundled = false;
+                family.origin = "theme";
+            }
+            dto.families.extend(fonts.families);
+        }
+        dto
     }
 
-    /// The file of a face shipped with Bezel, so the UI can show a bundled
-    /// family in its own letters on a machine where it is not installed;
-    /// empty for anything else (installed families are the system's).
+    /// A catalogued font file for the picker preview; empty for unknown identities.
     pub fn font_face(&self, family: &str, weight: u16, italic: bool) -> Vec<u8> {
+        let face = FontFace { weight, italic };
         self.fonts
-            .bundled_face(family, FontFace { weight, italic })
+            .bundled_face(family, face)
             .map(<[u8]>::to_vec)
+            .or_else(|| self.current_fonts().portable_face(family, face))
             .unwrap_or_default()
+    }
+
+    fn current_fonts(&self) -> FontCatalog {
+        self.fonts.with_user_directory()
+    }
+
+    /// Only font assets of the current document; never an arbitrary filesystem path.
+    pub fn theme_font_face(&self, asset: &str) -> Vec<u8> {
+        let studio = self.studio();
+        let key = bezel_core::domain::theme::AssetRef(asset.into());
+        studio
+            .assets()
+            .get(&key)
+            .filter(|b| kind_of(&key) == "font" && bezel_render::valid_font(b))
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    /// Include a catalogued user/system file. Bundled fonts are refused server-side.
+    pub fn include_font(&self, family: &str, weight: u16, italic: bool) -> UiResult<AddedDto> {
+        let bytes = self
+            .current_fonts()
+            .portable_face(family, FontFace { weight, italic })
+            .ok_or_else(|| UiError::new(ErrorCode::InvalidInput))?;
+        let ext = if bytes.starts_with(b"ttcf") {
+            "ttc"
+        } else if bytes.starts_with(b"OTTO") {
+            "otf"
+        } else {
+            "ttf"
+        };
+        let reference = self
+            .studio()
+            .add_asset(
+                &format!("{family}-{weight}{}.{ext}", if italic { "i" } else { "" }),
+                bytes,
+            )
+            .0;
+        Ok(AddedDto { reference })
     }
 
     /// The editing session, even after a panic in another command.
@@ -1676,6 +1733,99 @@ mod tests {
                 .is_empty()
         );
         assert!(f.backend.font_face("Arial", 400, false).is_empty());
+    }
+
+    #[test]
+    fn theme_fonts_are_catalogued_and_only_catalogued_nonbundled_files_can_be_included() {
+        let mut f = fixture("font-assets");
+        assert!(
+            f.backend
+                .include_font("JetBrains Mono NL", 400, false)
+                .is_err()
+        );
+        assert!(f.backend.include_font("../../private", 400, false).is_err());
+        let asset = f
+            .backend
+            .studio()
+            .add_asset("local.ttf", TEST_FONT.to_vec());
+        f.backend.studio().add_asset("bad.otf", b"broken".to_vec());
+        let catalog = f.backend.font_catalog();
+        let theme_font = catalog
+            .families
+            .iter()
+            .find(|font| font.asset.is_some())
+            .unwrap();
+        assert_eq!(theme_font.asset.as_deref(), Some(asset.0.as_str()));
+        assert_eq!(theme_font.origin, "theme");
+        assert!(!theme_font.bundled);
+        assert_eq!(f.backend.theme_font_face(&asset.0), TEST_FONT);
+        assert!(f.backend.theme_font_face("../../private.ttf").is_empty());
+        assert!(f.backend.theme_font_face("assets/bad.otf").is_empty());
+        // Windows' system catalog supplies the source; callers cannot submit a path.
+        f.backend.fonts = SkiaRenderer::new().font_catalog();
+        let catalog = f.backend.current_fonts();
+        let system = catalog
+            .families
+            .iter()
+            .find(|font| font.origin == bezel_render::FontOrigin::System)
+            .unwrap();
+        let face = system.faces[0];
+        let added = f
+            .backend
+            .include_font(&system.name, face.weight, face.italic)
+            .unwrap();
+        assert!(bezel_render::valid_font(
+            &f.backend.theme_font_face(&added.reference)
+        ));
+        assert!(f.backend.include_font("Inter", 400, false).is_err());
+        // Saving and reopening carries the bytes through the existing font.asset field.
+        use bezel_core::domain::theme::{
+            BoxF, Element, ElementKind, FontSpec, TextContent, TextStyle,
+        };
+        let mut theme = f.backend.studio().theme().clone();
+        theme.elements.push(Element {
+            id: ElementId(1),
+            name: "Portable text".into(),
+            frame: BoxF::new(0., 0., 200., 60.),
+            opacity: 1.,
+            visible: true,
+            locked: false,
+            is_group: false,
+            group_parent: None,
+            card_member: None,
+            card: None,
+            value_transition: None,
+            color_by_value: None,
+            kind: ElementKind::Text {
+                content: TextContent::Static("Portable".into()),
+                style: TextStyle {
+                    font: FontSpec {
+                        family: system.name.clone(),
+                        weight: face.weight,
+                        italic: face.italic,
+                        asset: Some(bezel_core::domain::theme::AssetRef(added.reference.clone())),
+                    },
+                    ..TextStyle::default()
+                },
+            },
+        });
+        f.backend.studio().set_theme(theme);
+        let saved = f.backend.save(&f.backend.session().theme, None).unwrap();
+        let (theme, assets) = f
+            .backend
+            .store
+            .load(&ThemeLocation(saved.location))
+            .unwrap();
+        assert_eq!(theme.assets().len(), 1);
+        assert!(bezel_render::valid_font(assets.values().next().unwrap()));
+        let mut isolated = Studio::new(
+            Box::new(FakeSensors::demo()),
+            Box::new(SkiaRenderer::with_fonts(Vec::new(), SystemFonts::Skip)),
+            Language::English,
+            theme.clone(),
+        );
+        isolated.start(theme, assets, None);
+        assert!(isolated.render(TIME).is_ok());
     }
 
     const TIME: LocalTime = LocalTime {

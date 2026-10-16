@@ -40,6 +40,8 @@
     "allow-video-preview",
     "allow-font-catalog",
     "allow-font-face",
+    "allow-include-font",
+    "allow-open-fonts-folder",
     "allow-get-autostart",
     "allow-set-autostart",
     "allow-storage-overview",

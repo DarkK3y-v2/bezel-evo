@@ -301,8 +301,12 @@ pub async fn open_logs_folder<R: Runtime>(app: AppHandle<R>) -> UiResult<()> {
 /// (D-2026-10-01-gif-sticker-search-15; the source guard checks it).
 async fn open_fixed<R: Runtime>(app: AppHandle<R>, url: String) -> UiResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        if url == "bezel:logs" {
-            let folder = bezel_power::diagnostics::logs_directory();
+        if url == "bezel:logs" || url == "bezel:fonts" {
+            let folder = if url == "bezel:fonts" {
+                bezel_render::user_fonts_directory().ok_or("APPDATA is unavailable")?
+            } else {
+                bezel_power::diagnostics::logs_directory()
+            };
             std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
             app.opener()
                 .open_path(folder.to_string_lossy().into_owned(), None::<&str>)
@@ -525,15 +529,43 @@ pub async fn video_preview(
 /// The font families themes can use, with their faces, and the family drawn
 /// for a missing one (D-2026-10-16-studio-redesign-fidelity-28).
 #[tauri::command]
-pub fn font_catalog(state: State<'_, Shared>) -> FontCatalogDto {
-    state.font_catalog()
+pub async fn font_catalog(state: State<'_, Shared>) -> UiResult<FontCatalogDto> {
+    blocking(&state, |b| Ok(b.font_catalog())).await
 }
 
-/// The file of a face shipped with Bezel (raw bytes; empty for any other
-/// family), so the font picker draws a bundled family's name in it.
+/// Raw bytes of a catalogued face or a validated font asset of this document.
 #[tauri::command]
-pub fn font_face(state: State<'_, Shared>, family: String, weight: u16, italic: bool) -> Response {
-    Response::new(state.font_face(&family, weight, italic))
+pub async fn font_face(
+    state: State<'_, Shared>,
+    family: String,
+    weight: u16,
+    italic: bool,
+    asset: Option<String>,
+) -> UiResult<Response> {
+    blocking(&state, move |b| {
+        Ok(Response::new(match asset {
+            Some(asset) => b.theme_font_face(&asset),
+            None => b.font_face(&family, weight, italic),
+        }))
+    })
+    .await
+}
+
+/// Copies only a catalogued face into the current document, after the UI licence notice.
+#[tauri::command]
+pub async fn include_font(
+    state: State<'_, Shared>,
+    family: String,
+    weight: u16,
+    italic: bool,
+) -> UiResult<AddedDto> {
+    blocking(&state, move |b| b.include_font(&family, weight, italic)).await
+}
+
+/// Opens the fixed shared user font folder on an explicit click.
+#[tauri::command]
+pub async fn open_fonts_folder<R: Runtime>(app: AppHandle<R>) -> UiResult<()> {
+    open_fixed(app, "bezel:fonts".into()).await
 }
 
 /// Whether the UI holds edits that are not saved: closing the window asks

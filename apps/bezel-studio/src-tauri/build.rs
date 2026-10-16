@@ -38,6 +38,8 @@ const COMMANDS: &[&str] = &[
     "video_preview",
     "font_catalog",
     "font_face",
+    "include_font",
+    "open_fonts_folder",
     "get_autostart",
     "set_autostart",
     "storage_overview",
