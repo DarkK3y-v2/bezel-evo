@@ -26,8 +26,8 @@ use bezel_core::domain::clock::{Language, LocalTime};
 use bezel_core::domain::geometry::Orientation;
 use bezel_core::domain::theme::Fit;
 use bezel_core::ports::{
-    DesktopModeHid, DeviceBus, FrameRenderer, MediaTranscoder, ScreenConnector, SensorSource,
-    ThemeStore,
+    DesktopModeHid, DeviceBus, FrameRenderer, HandoffStore, MediaTranscoder, ScreenConnector,
+    SensorSource, ThemeStore,
 };
 use clap::builder::NonEmptyStringValueParser;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -378,6 +378,9 @@ pub struct Rendering<'a> {
     pub language: Language,
     /// Folder of the themes that ship with Bezel, when installed.
     pub bundled: Option<&'a Path>,
+    /// Where Bezel Studio leaves the frame each screen shows when it hands
+    /// the screens to Bezel Light: only Light reads it (`None` elsewhere).
+    pub handoff: Option<&'a dyn HandoffStore>,
 }
 
 /// Runs `render`, `run` or `import` and returns what should be printed on
@@ -661,6 +664,7 @@ mod tests {
             clock: &now,
             language: Language::English,
             bundled: Some(&themes),
+            handoff: None,
         };
         let connector = FakeConnector::default();
         let out = run_theme_command(

@@ -20,10 +20,11 @@ use bezel_cli::{
     udev_rules,
 };
 use bezel_core::domain::job::CancelToken;
-use bezel_core::ports::{ArchiveStore, SensorSource};
+use bezel_core::ports::{ArchiveStore, HandoffStore, SensorSource};
 use bezel_devices::{FakeBus, FakeConnector, FakeHid, SystemBus, SystemConnector, SystemHid};
 use bezel_media::FfmpegTranscoder;
 use bezel_media::archive::{DiskArchive, MemoryArchive, storage_dir};
+use bezel_power::handoff::FileHandoffStore;
 use bezel_render::{SkiaRenderer, SystemFonts, font_files};
 use bezel_sensors::{FakeSensors, SensorOptions, SystemSensors};
 use bezel_themes::FsThemeStore;
@@ -123,23 +124,40 @@ fn themes(cli: &Cli) -> anyhow::Result<String> {
 }
 
 fn themes_with_stop(cli: &Cli, stop: Arc<AtomicBool>) -> anyhow::Result<String> {
-    themes_with_shutdown(cli, stop, Arc::default())
+    themes_with_shutdown(cli, stop, Arc::default(), None)
 }
 
+/// Turns off taking over the frame Bezel Studio leaves when it hands the
+/// screens to Bezel Light (for comparing with a full first frame).
+const NO_HANDOFF_BASELINE: &str = "BEZEL_NO_HANDOFF_BASELINE";
+
+/// The store of the frames Studio leaves in `directory` (Light's
+/// coordination folder), unless [`NO_HANDOFF_BASELINE`] is set.
+fn handoff_store(directory: Option<&Path>) -> Option<FileHandoffStore> {
+    let directory = directory?;
+    if std::env::var_os(NO_HANDOFF_BASELINE).is_some() {
+        return None;
+    }
+    Some(FileHandoffStore::new(directory))
+}
+
+/// `bezel run`; `handoff` is Light's coordination folder, where Studio
+/// leaves the frame each screen shows when it hands them over.
 fn themes_with_shutdown(
     cli: &Cli,
     stop: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
+    handoff: Option<&Path>,
 ) -> anyhow::Result<String> {
     if let Command::Run {
         screens_config: Some(path),
         ..
     } = &cli.command
     {
-        return multi_screens(cli, path, stop, shutdown);
+        return multi_screens(cli, path, stop, shutdown, handoff);
     }
     let sensors = sensor_source(cli.fake, cli.command.sensor_settings());
-    themes_with_source(cli, stop, shutdown, sensors)
+    themes_with_source(cli, stop, shutdown, sensors, handoff)
 }
 
 fn multi_screens(
@@ -147,6 +165,7 @@ fn multi_screens(
     path: &Path,
     stop: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
+    handoff: Option<&Path>,
 ) -> anyhow::Result<String> {
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(path)?)?;
     let keys = saved["liveScreens"].as_array().cloned().unwrap_or_default();
@@ -156,6 +175,7 @@ fn multi_screens(
             stop,
             shutdown,
             sensor_source(cli.fake, cli.command.sensor_settings()),
+            handoff,
         );
     }
     let Command::Run {
@@ -227,6 +247,7 @@ fn multi_screens(
                         Arc::clone(&stop),
                         Arc::clone(&shutdown),
                         Box::new(sensors.clone()),
+                        handoff,
                     );
                     if result.is_ok() || frames.is_some() || stop.load(Ordering::Relaxed) {
                         break result;
@@ -260,7 +281,9 @@ fn themes_with_source(
     stop: Arc<AtomicBool>,
     shutdown: Arc<AtomicBool>,
     mut sensors: Box<dyn SensorSource>,
+    handoff: Option<&Path>,
 ) -> anyhow::Result<String> {
+    let store = handoff_store(handoff);
     let bundled = bundled_dir();
     let mut renderer = renderer_for(cli, bundled.as_deref());
     let mut pace = SleepPace::with_shutdown(stop, shutdown);
@@ -273,6 +296,7 @@ fn themes_with_source(
         clock: &clock::now,
         language: clock::language(),
         bundled: bundled.as_deref(),
+        handoff: store.as_ref().map(|s| s as &dyn HandoffStore),
     };
     let result = if cli.fake {
         let (bus, connector) = (fake_bus(), fake_connector());

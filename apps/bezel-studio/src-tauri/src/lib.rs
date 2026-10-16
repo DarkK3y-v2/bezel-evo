@@ -163,6 +163,13 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
         let executable = std::env::current_exe()?.with_file_name("bezel.exe");
         if let Some(session) = manager.try_state::<bezel_power::handoff::StudioSession>() {
             session.start_light(&executable, &args)?;
+            // Light waits for this session to end; meanwhile the screens
+            // keep the frame left for it, and nothing else reaches them.
+            let store = bezel_power::handoff::FileHandoffStore::new(session.directory());
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            backend.hand_over_live(&store, now);
         }
     }
     #[cfg(not(windows))]

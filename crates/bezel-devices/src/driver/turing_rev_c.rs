@@ -25,6 +25,14 @@
 //! (D-2026-10-03-power-off-standby-5), so that the screen's own sleep timer
 //! (OPTIONS byte 14) never puts a live screen to sleep.
 //!
+//! A link may start from the frame another Bezel program left on the screen
+//! ([`ScreenLink::seed_baseline`], the handoff from Studio to Light): its
+//! first frame is then a partial update against it, the one-pixel keepalive
+//! when nothing changed, always followed by QUERY_STATUS; when the screen
+//! answers `needReSend:1` the full frame goes out at once, in the same
+//! `present`. Nothing else differs from a fresh link: no protocol byte is
+//! specific to a handoff.
+//!
 //! A cancelled upload has no abort in the protocol: after the UPLOAD_FILE
 //! header the firmware takes every byte as file data until it has the
 //! declared length (spec § 19). Bezel sends nothing more of that length
@@ -39,6 +47,7 @@ use std::time::{Duration, Instant};
 use bezel_core::domain::device::DeviceModel;
 use bezel_core::domain::frame::{Frame, RGBA_BYTES};
 use bezel_core::domain::geometry::Orientation;
+use bezel_core::domain::handoff::Baseline;
 use bezel_core::domain::job::Job;
 use bezel_core::domain::media::MediaKind;
 use bezel_core::domain::screen::{Brightness, ScreenIdentity};
@@ -191,7 +200,13 @@ pub struct TuringRevC<W: Wire, P: Pause, C: Monotonic = SteadyClock> {
     format: PixelFormat,
     class: ScreenClass,
     orientation: Orientation,
+    /// What the screen shows, native BGRA: the last frame it confirmed, or
+    /// a seeded baseline. `None` forces a full frame; it is `None` while a
+    /// frame is on its way, so a failed send never leaves a baseline.
     last: Option<Vec<u8>>,
+    /// `last` is a seeded baseline the screen has not confirmed yet: the next
+    /// frame is checked with QUERY_STATUS whatever it carries.
+    seeded: bool,
     seq: u32,
     /// PRE_UPDATE_BITMAP went out since device-side media last changed.
     streaming: bool,
@@ -236,6 +251,7 @@ impl<W: Wire, P: Pause + Clone, C: Monotonic> TuringRevC<W, P, C> {
             },
             orientation: Orientation::Portrait,
             last: None,
+            seeded: false,
             seq: 0,
             streaming: false,
             transfer: TransferStats::default(),
@@ -300,8 +316,14 @@ impl<W: Wire, P: Pause, C: Monotonic> TuringRevC<W, P, C> {
     /// Device-side media is about to change: the next frame is a full one,
     /// preceded by PRE_UPDATE_BITMAP as at a theme start (spec § 7.2).
     fn media_changed(&mut self) {
-        self.last = None;
+        self.forget_frame();
         self.streaming = false;
+    }
+
+    /// The next frame is a full one.
+    fn forget_frame(&mut self) {
+        self.last = None;
+        self.seeded = false;
     }
 
     /// Stops device-side playback (before uploads and on request), polling
@@ -341,19 +363,42 @@ impl<W: Wire, P: Pause, C: Monotonic> TuringRevC<W, P, C> {
         Ok(())
     }
 
-    /// A partial update carrying `list`, then QUERY_STATUS: a full frame
-    /// next when the device asks for one.
-    fn partial(&mut self, mut list: Vec<u8>, bgra: Vec<u8>) -> Result<()> {
+    /// A partial update carrying `list`, then QUERY_STATUS. When the device
+    /// asks for a full frame, no baseline is kept and `bgra` comes back.
+    fn partial(&mut self, mut list: Vec<u8>, bgra: Vec<u8>) -> Result<Option<Vec<u8>>> {
         self.transfer.kind = "partial";
         list.extend_from_slice(&proto::MAGIC);
         self.send(&proto::partial_header(list.len() as u32, self.seq))?;
         self.send(&proto::blocks(&list))?;
         self.seq = self.seq.wrapping_add(1);
-        self.last = Some(bgra);
         if self.needs_full_frame()? {
-            self.last = None;
+            return Ok(Some(bgra));
         }
-        Ok(())
+        self.last = Some(bgra);
+        Ok(None)
+    }
+
+    /// [`Self::partial`] during a stream: a full frame next when the device
+    /// asks for one.
+    fn stream_partial(&mut self, list: Vec<u8>, bgra: Vec<u8>) -> Result<()> {
+        self.partial(list, bgra).map(drop)
+    }
+
+    /// The first frame over a seeded baseline: the difference (`list`, the
+    /// keepalive when empty) and QUERY_STATUS; when the screen lost what it
+    /// showed and asks for a full frame, the full frame at once.
+    fn seeded_partial(&mut self, list: Vec<u8>, bgra: Vec<u8>) -> Result<()> {
+        let list = if list.is_empty() {
+            proto::keepalive_run(&bgra, self.format)
+        } else {
+            list
+        };
+        let Some(bgra) = self.partial(list, bgra)? else {
+            tracing::debug!("the seeded baseline holds");
+            return Ok(());
+        };
+        tracing::info!("the screen asked for a full frame over the seeded baseline");
+        self.full_frame(bgra)
     }
 
     /// An unchanged frame: nothing, unless nothing went out for
@@ -363,11 +408,12 @@ impl<W: Wire, P: Pause, C: Monotonic> TuringRevC<W, P, C> {
     fn keep_awake(&mut self, bgra: Vec<u8>) -> Result<()> {
         let quiet = self.clock.now().saturating_duration_since(self.sent_at);
         if quiet < KEEPALIVE_AFTER {
+            self.last = Some(bgra);
             return Ok(());
         }
         tracing::debug!(?quiet, "keepalive");
         let list = proto::keepalive_run(&bgra, self.format);
-        self.partial(list, bgra)
+        self.stream_partial(list, bgra)
     }
 
     /// QUERY_STATUS round-trip; `true` when the device asks for a full frame.
@@ -509,7 +555,7 @@ impl<W: Wire, P: Pause, C: Monotonic> ScreenLink for TuringRevC<W, P, C> {
     fn set_orientation(&mut self, orientation: Orientation) -> Result<()> {
         if orientation != self.orientation {
             self.orientation = orientation;
-            self.last = None;
+            self.forget_frame();
         }
         Ok(())
     }
@@ -524,17 +570,49 @@ impl<W: Wire, P: Pause, C: Monotonic> ScreenLink for TuringRevC<W, P, C> {
         let started = Instant::now();
         let bgra = self.native(frame)?;
         self.transfer.conversion_ms = started.elapsed().as_secs_f64() * 1000.0;
-        let Some(last) = self.last.as_ref() else {
+        let seeded = std::mem::take(&mut self.seeded);
+        let Some(last) = self.last.take() else {
             return self.full_frame(bgra);
         };
         let started = Instant::now();
-        let diff = proto::diff_runs(last, &bgra, self.format);
+        let diff = proto::diff_runs(&last, &bgra, self.format);
         self.transfer.diff_ms = started.elapsed().as_secs_f64() * 1000.0;
         match diff {
             None => self.full_frame(bgra),
+            Some(list) if seeded => self.seeded_partial(list, bgra),
             Some(list) if list.is_empty() => self.keep_awake(bgra),
-            Some(list) => self.partial(list, bgra),
+            Some(list) => self.stream_partial(list, bgra),
         }
+    }
+
+    /// The last frame the screen confirmed, back in the orientation it was
+    /// sent in; `None` while a seeded baseline is still unconfirmed.
+    fn baseline(&self) -> Option<Baseline> {
+        if self.seeded {
+            return None;
+        }
+        let model = self.identity.model;
+        let native = model.panel.in_orientation(model.native_orientation);
+        let frame = Frame::from_rgba(native, rgba_to_bgra(self.last.as_ref()?))?;
+        let turns = self.orientation.quarter_turns_to(model.native_orientation);
+        Some(Baseline {
+            orientation: self.orientation,
+            frame: frame.rotated((4 - turns) % 4),
+        })
+    }
+
+    /// Takes `baseline` when it is in this link's orientation and the
+    /// panel's size; the next frame is then checked with QUERY_STATUS.
+    fn seed_baseline(&mut self, baseline: &Baseline) -> bool {
+        if baseline.orientation != self.orientation {
+            return false;
+        }
+        let Ok(bgra) = self.native(&baseline.frame) else {
+            return false;
+        };
+        self.last = Some(bgra);
+        self.seeded = true;
+        true
     }
 
     fn last_transfer(&self) -> Option<TransferStats> {
@@ -542,7 +620,7 @@ impl<W: Wire, P: Pause, C: Monotonic> ScreenLink for TuringRevC<W, P, C> {
     }
 
     fn screen_off(&mut self) -> Result<()> {
-        self.last = None;
+        self.forget_frame();
         self.send(&proto::simple(op::TURN_OFF))?;
         // The SoC shuts down and leaves the bus; return once it is gone so
         // the next command wakes it instead of racing its shutdown.
@@ -558,13 +636,13 @@ impl<W: Wire, P: Pause, C: Monotonic> ScreenLink for TuringRevC<W, P, C> {
     /// leaves the bus about 3 s later, spec § 19); the `off` choice when the
     /// computer shuts down (D-2026-10-03-power-off-standby-3).
     fn turn_off_now(&mut self) -> Result<()> {
-        self.last = None;
+        self.forget_frame();
         tracing::info!("TURNOFF");
         self.send(&proto::simple(op::TURN_OFF))
     }
 
     fn release(&mut self) -> Result<()> {
-        self.last = None;
+        self.forget_frame();
         self.send(&proto::simple(op::END_UPDATE_BITMAP))
     }
 
@@ -970,6 +1048,217 @@ mod tests {
         assert!(s.last.is_none());
         s.present(&next).unwrap();
         assert_eq!(s.wire().sent.last().unwrap().len(), 3_701_250);
+    }
+
+    /// A wire whose writes fail while `fail` is set.
+    #[derive(Default)]
+    struct Flaky {
+        inner: ScriptedWire,
+        fail: bool,
+    }
+
+    impl Wire for Flaky {
+        fn send(&mut self, bytes: &[u8]) -> io::Result<()> {
+            if self.fail {
+                return Err(io::Error::from(io::ErrorKind::BrokenPipe));
+            }
+            self.inner.send(bytes)
+        }
+        fn receive(&mut self, max: usize, timeout: Duration) -> io::Result<Vec<u8>> {
+            self.inner.receive(max, timeout)
+        }
+        fn discard_input(&mut self) -> io::Result<()> {
+            self.inner.discard_input()
+        }
+    }
+
+    /// A theme frame of the 8.8" in `orientation` whose corners differ, so
+    /// that a wrong rotation shows.
+    fn theme_frame(orientation: Orientation) -> Frame {
+        let size = m88().panel.in_orientation(orientation);
+        let mut frame = Frame::filled(size, Rgba::BLACK);
+        frame.fill_rect(Rect::new(0, 0, 2, 1), Rgba::WHITE);
+        let red = Rgba::opaque(255, 0, 0);
+        frame.fill_rect(Rect::new(size.width - 1, size.height - 1, 1, 1), red);
+        frame
+    }
+
+    fn baseline_of(frame: &Frame, orientation: Orientation) -> Baseline {
+        Baseline {
+            orientation,
+            frame: frame.clone(),
+        }
+    }
+
+    /// Opcodes of what went out since `from`, data blocks left out, and
+    /// whether a full frame's data phase was among them.
+    fn traffic<P: Pause>(s: &Screen<P>, from: usize) -> (Vec<u8>, bool) {
+        let sent = since(s, from);
+        let full = sent.iter().any(|p| p.len() == 3_701_250);
+        (commands(sent), full)
+    }
+
+    #[test]
+    fn the_baseline_is_the_confirmed_frame_in_every_orientation() {
+        for orientation in Orientation::ALL {
+            let mut s = connected();
+            s.set_orientation(orientation).unwrap();
+            assert_eq!(s.baseline(), None, "nothing shown yet");
+            let frame = theme_frame(orientation);
+            s.present(&frame).unwrap();
+            assert_eq!(s.baseline(), Some(baseline_of(&frame, orientation)));
+        }
+    }
+
+    #[test]
+    fn an_unchanged_frame_over_a_seeded_baseline_is_the_keepalive_and_status() {
+        let mut s = connected();
+        s.set_orientation(Orientation::Landscape).unwrap();
+        let frame = theme_frame(Orientation::Landscape);
+        assert!(s.seed_baseline(&baseline_of(&frame, Orientation::Landscape)));
+        assert_eq!(s.baseline(), None, "not confirmed yet");
+        s.wire.reply(b"needReSend:0|renderCnt:0|theme:");
+        let before = s.wire().sent.len();
+        s.present(&frame).unwrap();
+        let (opcodes, full) = traffic(&s, before);
+        assert_eq!(opcodes, vec![op::UPDATE_BITMAP, op::QUERY_STATUS]);
+        assert!(!full, "no full frame: no redraw");
+        let list = &since(&s, before)[1];
+        let keepalive = proto::keepalive_run(s.last.as_ref().unwrap(), s.format);
+        assert_eq!(&list[..keepalive.len()], keepalive.as_slice());
+        assert_eq!(s.last_transfer().unwrap().kind, "partial");
+        assert_eq!(
+            s.baseline(),
+            Some(baseline_of(&frame, Orientation::Landscape))
+        );
+        // From then on an unchanged frame sends nothing, as usual.
+        let before = s.wire().sent.len();
+        s.present(&frame).unwrap();
+        assert_eq!(s.wire().sent.len(), before);
+    }
+
+    #[test]
+    fn a_changed_frame_over_a_seeded_baseline_sends_only_the_change() {
+        let mut s = connected();
+        let frame = theme_frame(Orientation::Portrait);
+        assert!(s.seed_baseline(&baseline_of(&frame, Orientation::Portrait)));
+        let mut next = frame.clone();
+        next.fill_rect(Rect::new(100, 200, 3, 1), Rgba::WHITE);
+        s.wire.reply(b"needReSend:0|renderCnt:0");
+        let before = s.wire().sent.len();
+        s.present(&next).unwrap();
+        let (opcodes, full) = traffic(&s, before);
+        assert_eq!(opcodes, vec![op::UPDATE_BITMAP, op::QUERY_STATUS]);
+        assert!(!full);
+        let header = &since(&s, before)[0];
+        let list_len = u32::from_be_bytes([header[3], header[4], header[5], header[6]]);
+        assert_eq!(list_len as usize, 5 + 3 * 4 + 2, "one run of 3 pixels");
+        assert_eq!(s.seq, 1);
+        assert_eq!(
+            s.baseline(),
+            Some(baseline_of(&next, Orientation::Portrait))
+        );
+    }
+
+    #[test]
+    fn a_screen_that_lost_its_picture_gets_the_full_frame_in_the_same_present() {
+        let mut s = connected();
+        let frame = theme_frame(Orientation::Portrait);
+        assert!(s.seed_baseline(&baseline_of(&frame, Orientation::Portrait)));
+        s.wire.reply(b"needReSend:1|renderCnt:0");
+        let before = s.wire().sent.len();
+        s.present(&frame).unwrap();
+        let (opcodes, full) = traffic(&s, before);
+        assert_eq!(
+            opcodes,
+            vec![op::UPDATE_BITMAP, op::QUERY_STATUS, op::DISPLAY_BITMAP]
+        );
+        assert!(
+            full,
+            "the right picture is on the screen after this present"
+        );
+        assert_eq!(s.last_transfer().unwrap().kind, "full");
+        assert_eq!(s.seq, 0, "partials count again from the full frame");
+        assert_eq!(
+            s.baseline(),
+            Some(baseline_of(&frame, Orientation::Portrait))
+        );
+    }
+
+    #[test]
+    fn a_baseline_of_another_orientation_or_size_is_refused() {
+        let mut s = connected();
+        let landscape = theme_frame(Orientation::Landscape);
+        assert!(!s.seed_baseline(&baseline_of(&landscape, Orientation::Landscape)));
+        assert!(!s.seed_baseline(&baseline_of(&landscape, Orientation::Portrait)));
+        let before = s.wire().sent.len();
+        s.present(&theme_frame(Orientation::Portrait)).unwrap();
+        assert!(traffic(&s, before).1, "a full frame, as without a baseline");
+    }
+
+    #[test]
+    fn a_seeded_baseline_is_forgotten_with_the_frame() {
+        let frame = theme_frame(Orientation::Portrait);
+        let seeded =
+            |s: &mut Screen| assert!(s.seed_baseline(&baseline_of(&frame, Orientation::Portrait)));
+        let mut s = connected();
+        seeded(&mut s);
+        s.set_orientation(Orientation::Landscape).unwrap();
+        assert!(!s.seeded && s.last.is_none());
+        s.set_orientation(Orientation::Portrait).unwrap();
+        seeded(&mut s);
+        s.release().unwrap();
+        assert!(!s.seeded && s.last.is_none());
+        seeded(&mut s);
+        s.turn_off_now().unwrap();
+        assert!(!s.seeded && s.last.is_none());
+        seeded(&mut s);
+        s.stop().unwrap();
+        assert!(!s.seeded && s.last.is_none());
+    }
+
+    #[test]
+    fn a_failed_send_leaves_no_baseline() {
+        let wire = Flaky {
+            inner: ScriptedWire::with_replies([
+                ROM_190.as_bytes().to_vec(),
+                b"media_stop".to_vec(),
+            ]),
+            fail: false,
+        };
+        let mut s = TuringRevC::connect(wire, &NoPause, &[m88()]).unwrap();
+        let frame = theme_frame(Orientation::Portrait);
+        s.present(&frame).unwrap();
+        assert!(s.baseline().is_some());
+        let mut next = frame.clone();
+        next.fill_rect(Rect::new(0, 5, 1, 1), Rgba::WHITE);
+        s.wire.fail = true;
+        assert!(s.present(&next).is_err());
+        assert_eq!(s.baseline(), None, "the screen may show either frame");
+        s.wire.fail = false;
+        let before = s.wire().inner.sent.len();
+        s.present(&next).unwrap();
+        let full = s.wire().inner.sent[before..]
+            .iter()
+            .any(|p| p.len() == 3_701_250);
+        assert!(full, "the next frame is full");
+        // A failed full frame leaves none either.
+        let mut seeded = TuringRevC::connect(
+            Flaky {
+                inner: ScriptedWire::with_replies([
+                    ROM_190.as_bytes().to_vec(),
+                    b"media_stop".to_vec(),
+                ]),
+                fail: false,
+            },
+            &NoPause,
+            &[m88()],
+        )
+        .unwrap();
+        assert!(seeded.seed_baseline(&baseline_of(&frame, Orientation::Portrait)));
+        seeded.wire.fail = true;
+        assert!(seeded.present(&frame).is_err());
+        assert!(seeded.last.is_none() && !seeded.seeded);
     }
 
     #[test]

@@ -307,7 +307,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     if handoff::studio_active(&folder)? {
                         return Ok(String::new());
                     }
-                    crate::themes_with_shutdown(&cli, flag, ending)
+                    crate::themes_with_shutdown(&cli, flag, ending, Some(&folder))
                 }) {
                 Ok(thread) => worker = Some(thread),
                 Err(error) => {

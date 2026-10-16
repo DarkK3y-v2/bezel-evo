@@ -4,10 +4,13 @@ use crate::Result;
 use crate::domain::animation::Timeline;
 use crate::domain::archive::{Catalog, ContentId};
 use crate::domain::clock::{Language, LocalTime};
-use crate::domain::discovery::{DesktopModePanel, Endpoint, MonitorModeConfirmed, Screen};
+use crate::domain::discovery::{
+    DesktopModePanel, DeviceAddress, Endpoint, MonitorModeConfirmed, Screen,
+};
 use crate::domain::frame::Frame;
 use crate::domain::geometry::Orientation;
 use crate::domain::gifs::{Collection, GifPage, GifQuery, Rendition};
+use crate::domain::handoff::{Baseline, HandedFrame};
 use crate::domain::history::Histories;
 use crate::domain::job::Job;
 use crate::domain::media::{MediaInfo, MediaTools, StreamSpec, TranscodeTarget};
@@ -125,12 +128,40 @@ pub trait ScreenLink: Send {
     }
     /// Hands the screen back to its standalone mode (clock, stored media).
     fn release(&mut self) -> Result<()>;
+    /// The frame this link last showed and the screen confirmed, for
+    /// another program to take over without a redraw
+    /// ([`crate::app::handoff`]). `None` when there is none (nothing shown
+    /// yet, the last send failed, the screen asked for a full frame) and,
+    /// the default, for screens whose adapter cannot check a baseline.
+    fn baseline(&self) -> Option<Baseline> {
+        None
+    }
+    /// Takes `baseline` as what the screen shows, so that the next frame is
+    /// sent as its difference to it; whether it was taken (orientation and
+    /// size must be this link's). An adapter takes one only when the screen
+    /// can tell that it lost what it showed, and then sends a full frame
+    /// at once. The default: not taken, the next frame is a full one.
+    fn seed_baseline(&mut self, _baseline: &Baseline) -> bool {
+        false
+    }
     /// The screen's stored files and device-side playback, over this same
     /// link. `None` (the default) for screens without storage; the storage
     /// use cases then answer `BezelError::Unsupported`.
     fn storage(&mut self) -> Option<&mut dyn ScreenStorage> {
         None
     }
+}
+
+/// Driven port: where a program that lets a screen go leaves the frame the
+/// screen shows, for the program that takes it over
+/// ([`crate::app::handoff`]). One per user; one baseline per screen.
+pub trait HandoffStore {
+    /// Leaves `handed`, replacing what was left for the same screen. Either
+    /// all of it is stored or nothing is.
+    fn save(&self, handed: &HandedFrame) -> Result<()>;
+    /// What was left for the screen at `address`, removed: a baseline is
+    /// taken over once. `None` when nothing readable was left.
+    fn take(&self, address: &DeviceAddress) -> Result<Option<HandedFrame>>;
 }
 
 /// Driven port: files stored on a screen (internal flash and memory card,
