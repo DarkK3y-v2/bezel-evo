@@ -7,12 +7,14 @@
 //! mounts, and AMD GPUs through amdgpu's sysfs files. NVIDIA GPUs come from
 //! NVML, loaded at run time. On Windows, sysinfo measures CPU, memory,
 //! disks and network, and LibreHardwareMonitor's WMI namespace or local
-//! web server the temperatures, fans and power. On both, `gpu.fps` comes from a
-//! frame-rate overlay already running (MangoHud's logs on Linux, RivaTuner
-//! Statistics Server's shared memory on Windows) and `net.ping` from a probe
+//! web server the temperatures, fans and power. On both, `gpu.fps` and related
+//! game metrics come from a frame-rate source (Intel PresentMon on demand,
+//! falling back to RivaTuner Statistics Server's shared memory on Windows, or
+//! MangoHud's logs on Linux) and `net.ping` from a probe
 //! thread of its own, which sends packets only while a shown value uses the
 //! ping (`SensorSource::want`, D-2026-09-30-release-polish-11;
-//! [`SensorOptions`] chooses the host and the MangoHud folder).
+//! [`SensorOptions`] chooses the host, the MangoHud folder and the
+//! PresentMon path).
 //! [`FakeSensors`] replays scripted snapshots for tests and demos.
 //!
 //! What every provider guarantees (D-2026-09-30-sensors-1 and -4):
@@ -23,9 +25,12 @@
 //! - a sample only reads local files (kernel, logs) and memory, never waits on
 //!   the network (the ping thread stores its last result; a sample reads it).
 //!
-//! `unsafe` is denied (the workspace lint); the exceptions are the read-only
-//! Win32 adapters for RTSS shared memory (`fps::rtss`) and installation-scoped
-//! process memory (`memory`), each call with its `// SAFETY:` reasoning.
+//! `unsafe` is denied (the workspace lint); the exceptions are the Win32
+//! code that maps RTSS's shared memory read-only (`fps::rtss`), the Job
+//! Object and foreground-process query that tie PresentMon to Bezel's
+//! lifetime (`fps::presentmon`) and the read-only adapter for
+//! installation-scoped process memory (`memory`), each call with its
+//! `// SAFETY:` reasoning.
 #![deny(unsafe_code)]
 
 #[cfg(target_os = "linux")]
