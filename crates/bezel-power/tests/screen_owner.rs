@@ -316,3 +316,20 @@ fn owner_shutdown_runs_once_per_retained_screen_without_connecting() {
     assert_eq!(f.physical.log().storage.calls, [StorageCall::TurnOffNow]);
     assert!(f.owner.client(true).connect(&f.screens[0]).is_err());
 }
+
+#[test]
+fn legacy_baseline_cannot_replace_a_retained_connection_baseline() {
+    let f = Fixture::new();
+    let mut original = f.owner.client(false).connect(&f.screens[0]).unwrap();
+    let frame = Frame::filled(Size::new(480, 1920), Rgba::BLACK);
+    original.present(&frame).unwrap();
+    let mut next = f.owner.client(false).connect(&f.screens[0]).unwrap();
+    let stale = bezel_core::domain::handoff::Baseline {
+        orientation: Orientation::Portrait,
+        frame: Frame::filled(Size::new(480, 1920), Rgba::WHITE),
+    };
+    assert!(!next.seed_baseline(&stale));
+    assert!(!original.seed_baseline(&stale));
+    assert!(f.physical.log().seeds.is_empty());
+    assert_eq!(f.physical.log().connects, 1);
+}

@@ -198,6 +198,7 @@ impl ScreenConnector for OwnerConnector {
         let existing = links
             .get(&key)
             .filter(|link| lock(link).is_ok_and(|k| !k.failed));
+        let seed_allowed = existing.is_none();
         let kept = if let Some(link) = existing {
             Arc::clone(link)
         } else {
@@ -219,6 +220,7 @@ impl ScreenConnector for OwnerConnector {
             editor: self.editor,
             desired_orientation: None,
             desired_video: None,
+            seed_allowed,
         }))
     }
 
@@ -249,6 +251,7 @@ struct OwnedLink {
     editor: bool,
     desired_orientation: Option<Orientation>,
     desired_video: Option<(RemotePath, Repeat)>,
+    seed_allowed: bool,
 }
 
 impl OwnedLink {
@@ -315,6 +318,7 @@ impl ScreenLink for OwnedLink {
         })
     }
     fn present(&mut self, frame: &Frame) -> Result<()> {
+        self.seed_allowed = false;
         self.claim_editor()?;
         if !self.editor && self.allowed() {
             if let Some(orientation) = self.desired_orientation {
@@ -360,7 +364,9 @@ impl ScreenLink for OwnedLink {
         lock(&self.kept).ok()?.link.baseline()
     }
     fn seed_baseline(&mut self, baseline: &bezel_core::domain::handoff::Baseline) -> bool {
-        self.allowed() && lock(&self.kept).is_ok_and(|mut k| k.link.seed_baseline(baseline))
+        let allowed = self.seed_allowed && self.allowed();
+        self.seed_allowed = false;
+        allowed && lock(&self.kept).is_ok_and(|mut k| k.link.seed_baseline(baseline))
     }
     fn storage(&mut self) -> Option<&mut dyn ScreenStorage> {
         let supported = lock(&self.kept).ok()?.link.storage().is_some();
