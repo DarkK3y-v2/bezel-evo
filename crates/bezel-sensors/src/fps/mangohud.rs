@@ -19,7 +19,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use super::{FrameRateSource, MAX_AGE};
+use super::{FrameMetrics, FrameRateSource, MAX_AGE};
 
 /// How to make MangoHud log, ending every reason given while it does not.
 const HOW_TO_LOG: &str = "run the game with MangoHud and start logging \
@@ -52,7 +52,7 @@ impl FrameRateSource for MangoHud {
         }
     }
 
-    fn read(&mut self) -> Result<f64, String> {
+    fn read(&mut self) -> Result<FrameMetrics, String> {
         let dir = self.dir.as_deref().ok_or_else(|| {
             format!(
                 "MangoHud's log folder is unknown (no HOME): pass --mangohud-dir, and {HOW_TO_LOG}"
@@ -70,7 +70,14 @@ impl FrameRateSource for MangoHud {
             ));
         }
         let (head, tail) = read_ends(&path).map_err(|e| format!("cannot read {name}: {e}"))?;
-        last_frame_rate(&head, &tail).map_err(|why| format!("{name}: {why}"))
+        let fps = last_frame_rate(&head, &tail).map_err(|why| format!("{name}: {why}"))?;
+        Ok(FrameMetrics {
+            fps,
+            frametime: None,
+            fps_low_1p: None,
+            game: None,
+            limiter: None,
+        })
     }
 }
 
@@ -257,7 +264,9 @@ mod tests {
     }
 
     fn read(tree: &FakeTree) -> Result<f64, String> {
-        MangoHud::new(Some(tree.root().to_path_buf())).read()
+        MangoHud::new(Some(tree.root().to_path_buf()))
+            .read()
+            .map(|metrics| metrics.fps)
     }
 
     #[test]
