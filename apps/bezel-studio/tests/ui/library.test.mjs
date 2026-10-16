@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALL_CATEGORIES, axisOf, catalogKeysInView, groupSensors, sensorCategories } from '../../src/ui/library.js';
-import { joinColor, splitColor } from '../../src/ui/fields.js';
+import { joinColor, splitColor } from '../../src/color-math.js';
 
 const catalog = [
   { key: 'net.down', category: 'network', label: 'Download' },

@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible, themeInspector as inspector, backgroundCard as card, changeBackgroundButton as changeButton, backgroundChooser as chooser, backgroundSourceButton as source } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, setColor, themeInspector as inspector, backgroundCard as card, changeBackgroundButton as changeButton, backgroundChooser as chooser, backgroundSourceButton as source } from './helpers.mjs';
 import { SCENARIOS } from '../../src/demo-data.js';
 
 // The theme's one background (D-2026-10-16-studio-redesign-fidelity-25):
@@ -89,9 +89,7 @@ test('Cancel, Back and Esc change nothing and give the focus back', async ({ pag
 
   // A colour picked, then Esc.
   await changeButton(page, t).click();
-  const colour = chooser(page, t).locator('input[type="text"]');
-  await colour.fill('#ff0000');
-  await colour.press('Tab');
+  await setColor(page, t, chooser(page, t), t('inspector.color'), '#ff0000');
   await expect(chooser(page, t).locator('.bg-change-line strong')).toHaveText('#FF0000');
   await expect(confirm(page, t, 'insp.bgUseColor')).toBeEnabled();
   await page.keyboard.press('Escape');

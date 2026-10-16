@@ -16,7 +16,7 @@ test('each kind shows only its own options, and each change is one undo step', a
   await expect(card(page, t, 'insp.bgSolid').locator('.bg-type')).toHaveText(t('insp.bgSolid'));
   await expect(card(page, t, 'insp.bgSolid')).toContainText(t('insp.bgSolidHint'));
   await expect(card(page, t, 'insp.bgSolid').locator('.bg-status')).toHaveCount(0);
-  await expect(section(page).locator('input[type="color"]')).toHaveCount(1);
+  await expect(section(page).locator('.color-button')).toHaveCount(1);
   await expect(section(page).getByRole('switch', { name: t('deviceVideo.loop'), exact: true })).toHaveCount(0);
   await expect(page.locator('#framing-canvas')).toHaveCount(0);
   await expectAccessible(page);
@@ -32,7 +32,7 @@ test('each kind shows only its own options, and each change is one undo step', a
   await expect(video).toContainText(t('insp.bgPcHint'));
   await expect(inspector(page)).toContainText(t('inspector.video.checkWhenLive'));
   await expect(page.locator('#framing-canvas')).toBeVisible();
-  await expect(section(page).locator('input[type="color"]')).toHaveCount(0);
+  await expect(section(page).locator('.color-button')).toHaveCount(0);
 
   // Back to a solid colour by keyboard: the last colour comes back, one step.
   await changeButton(page, t).focus();

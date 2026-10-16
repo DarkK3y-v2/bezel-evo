@@ -1,9 +1,11 @@
 import { el } from './dom.js';
+import { colorPicker } from './fields.js';
+import { splitColor } from '../color-math.js';
 import { makeDraggable } from './dragdrop.js';
 import { filterIcons, iconSvg, iconUrl, loadIconCatalog } from '../icon-catalog.js';
 
 /** Searchable offline catalog under Media > Icons. */
-export function createIconPicker({ store, canvas, stage, t, add }) {
+export function createIconPicker({ store, canvas, stage, t, pickers, add }) {
   const host = document.getElementById('media-icons');
   const PAGE = 120;
   let catalog = null;
@@ -16,7 +18,13 @@ export function createIconPicker({ store, canvas, stage, t, add }) {
   let size = 64;
   let stroke = 2;
   const search = el('input', { type: 'search', id: 'icon-search', oninput: () => { query = search.value; limit = PAGE; render(); } });
-  const colorInput = el('input', { type: 'color', value: color, oninput: () => { color = colorInput.value; render(); } });
+  // The icons' colour: the shared colour picker, opaque; the grid follows when a drag ends.
+  const colorSlot = el('div', { class: 'icon-color' });
+  const drawColor = () => colorSlot.replaceChildren(colorPicker(t('inspector.color'), color, (hex) => {
+    color = splitColor(hex).rgb;
+    drawColor();
+    render();
+  }, { ...pickers.color(), alpha: false, live: false }));
   const styleInput = el('select', { onchange: () => { style = styleInput.value; limit = PAGE; render(); } });
   const sizeInput = el('input', { type: 'number', min: 8, max: 1024, step: 1, value: size,
     onchange: () => { size = Math.round(Math.min(1024, Math.max(8, Number(sizeInput.value) || 64))); sizeInput.value = size; } });
@@ -60,8 +68,9 @@ export function createIconPicker({ store, canvas, stage, t, add }) {
     notice.textContent = t('icons.notice');
     sourceInput.replaceChildren(...[['all', t('icons.all')], ['tabler', t('icons.tabler')], ['mdi', t('icons.mdi')]].map(([value, text]) => el('option', { value, text })));
     sourceInput.value = source;
+    drawColor();
     host.replaceChildren(search,
-      el('div', { class: 'icon-options' }, [field('icons.source', sourceInput), field('inspector.style', styleInput), field('inspector.color', colorInput),
+      el('div', { class: 'icon-options' }, [field('icons.source', sourceInput), field('inspector.style', styleInput), colorSlot,
         field('inspector.size', sizeInput), field('icons.stroke', strokeInput)]), count, grid, more, notice);
     render();
   }

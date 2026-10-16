@@ -6,6 +6,9 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { joinWords, joinsPrevious } from '../sentence.js';
 import { CORNERS, cornerDrawing, cornerMode, radiiOf, withCorner, withCornerMode, withRadius } from '../corner-radii.js';
+import { alphaPercent, colorOf, hexOfHsva, hsvaOf, normalizeHex, readHexInput, rgbText, stepHsva, withAlphaPercent } from '../color-math.js';
+import { FONT_FILTERS, faceForFamily, faceOptions, faceValue, findFamily, fontSections, fontStatus, nearestFace, parseFaceValue } from '../font-catalog.js';
+import { openPopover } from './popover.js';
 
 let counter = 0;
 const fieldId = () => `f${(counter += 1)}`;
@@ -321,39 +324,454 @@ export function screenThumb({ width, height, url = null }) {
   return thumb;
 }
 
-/** Splits `#rrggbbaa` into `#rrggbb` and an alpha percentage. */
-export function splitColor(hex) {
-  const h = typeof hex === 'string' && hex.startsWith('#') ? hex.slice(1) : 'ffffffff';
-  const rgb = h.length >= 6 ? `#${h.slice(0, 6)}` : '#ffffff';
-  const a = h.length === 8 ? parseInt(h.slice(6, 8), 16) : 255;
-  return { rgb: rgb.toLowerCase(), alpha: Math.round((a / 255) * 100) };
+
+// --------------------------------------------------------------- pickers --
+// The font picker (D-2026-10-16-studio-redesign-fidelity-28) and the colour
+// picker (-29): one of each for every place a font or a colour is chosen.
+// Both open an anchored popover (ui/popover.js); a value they change is
+// handed to `onChange`, so each change is the caller's one undo step.
+
+/** A family name as a CSS font-family value; where the window lacks it, the UI's sans, never a stray serif. */
+const cssFamily = (name) => `"${String(name).replace(/["\\]/g, '\\$&')}", var(--font-sans)`;
+
+/**
+ * Where focus goes back when a popover closes: its button, or, when the
+ * panel holding it was drawn again meanwhile, the button that took its
+ * place (same `data-picker` key, same position among those).
+ */
+function refocusFor(anchor) {
+  const key = anchor.dataset.picker;
+  const index = [...document.querySelectorAll(`[data-picker="${CSS.escape(key)}"]`)].indexOf(anchor);
+  return () => {
+    const target = anchor.isConnected ? anchor : document.querySelectorAll(`[data-picker="${CSS.escape(key)}"]`)[index];
+    target?.focus();
+  };
 }
 
-/** Joins `#rrggbb` and an alpha percentage into `#rrggbbaa`. */
-export function joinColor(rgb, alphaPercent) {
-  const a = Math.round((Math.max(0, Math.min(100, alphaPercent)) / 100) * 255);
-  return `${rgb.toLowerCase()}${a.toString(16).padStart(2, '0')}`;
+/** Options of the system list drawn at a time; more as it scrolls. */
+const FONT_CHUNK = 40;
+
+/**
+ * The font of a text: a button showing the family in its own letters, which
+ * opens the picker (search, Tutti/Sans/Serif/Mono, the theme's families,
+ * recent ones, Bezel's and the system's, each name in its font, a sample of
+ * the object's text), and the face select with only the faces the family
+ * has. A family the machine lacks shows a warning and the family drawn
+ * instead. Keyboard: arrows move in the list, Enter picks, Escape closes;
+ * focus goes back to the button.
+ * @param {object} texts translated: `family`, `face`, `title`, `search`,
+ *   `filter`, `filters` {all,sans,serif,mono}, `sections`
+ *   {theme,recent,bundled,system}, `faces(n)`, `missing`,
+ *   `missingNote(family, fallback)`, `faceName(face)`,
+ *   `faceMissing(face, nearest)`, `none`, `loading`
+ * @param {{family: string, weight: number, italic: boolean, asset?: string|null}} value
+ * @param {(font: {family: string, weight: number, italic: boolean}) => void} onChange
+ * @param {{catalog: () => object|null, themeFamilies: () => string[], recent: () => string[], remember: (name: string) => void, sample: string, showFace?: (name: string, face: object) => void}} source
+ */
+export function fontPicker(texts, value, onChange, source) {
+  const catalog = source.catalog();
+  const status = fontStatus(catalog, value);
+  const current = { weight: value.weight, italic: Boolean(value.italic) };
+  const shown = status.missing ? status.fallback : value.family;
+  const id = fieldId();
+  const nameNode = el('span', { class: 'font-button-name', id: `${id}-v`, text: value.family });
+  if (shown) nameNode.style.fontFamily = cssFamily(shown);
+  if (status.family?.bundled) source.showFace?.(status.family.name, nearestFace(status.family.faces, current));
+  const note = status.missing
+    ? el('p', { class: 'font-missing', id: `${id}-m` }, [icon(ICONS.warning, 14), texts.missingNote(value.family, status.fallback ?? '—')])
+    : null;
+  const button = el('button', {
+    type: 'button', class: 'font-button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false',
+    'aria-label': texts.family, 'aria-describedby': [`${id}-v`, note ? `${id}-m` : null].filter(Boolean).join(' '),
+    dataset: { picker: `font:${texts.family}` },
+  }, [nameNode, status.missing ? pill(texts.missing, { tone: 'warn' }) : null, icon(ICONS.chevronDown, 14)]);
+  button.addEventListener('click', () => {
+    if (button.getAttribute('aria-expanded') === 'true') return;
+    openFontList(button, texts, value, onChange, source);
+  });
+  const faces = faceOptions(status.family, current).map((o) => [o.value, o.missing ? texts.faceMissing(o, o.nearest) : texts.faceName(o)]);
+  const face = selectField(texts.face, faceValue(current), faces, (v) => {
+    const next = parseFaceValue(v);
+    if (next) onChange({ family: value.family, ...next });
+  });
+  return el('div', { class: 'font-picker' }, [
+    el('div', { class: 'field' }, [el('label', { for: id, text: texts.family }), button, note]),
+    face,
+  ]);
+}
+
+/** The picker's popover: search, filters, the sections, the sample. */
+function openFontList(button, texts, value, onChange, source) {
+  const catalog = source.catalog();
+  const listId = fieldId();
+  const current = { weight: value.weight, italic: Boolean(value.italic) };
+  let query = '', filter = 'all', options = [], active = -1, rows = [], drawn = 0;
+  // The shared search box, its input a combobox over the list.
+  const searchBox = searchField(texts.search, () => {});
+  const search = searchBox.querySelector('input');
+  for (const [k, v] of Object.entries({ role: 'combobox', 'aria-controls': listId, 'aria-expanded': 'true', 'aria-autocomplete': 'list', autocomplete: 'off' })) search.setAttribute(k, v);
+  const chips = el('div', { class: 'chip-group', role: 'group', 'aria-label': texts.filter });
+  const list = el('div', { class: 'font-list', id: listId, role: 'listbox', 'aria-label': texts.title });
+  const sentinel = el('div', { class: 'font-more', 'aria-hidden': 'true' });
+  const sample = el('p', { class: 'font-sample', text: source.sample });
+  const panel = el('div', { class: 'font-popover' }, [searchBox, chips, list, sample]);
+
+  const preview = (entry) => {
+    const family = entry?.missing ? catalog?.fallback : entry?.name ?? value.family;
+    if (family) sample.style.fontFamily = cssFamily(family);
+    const real = entry && !entry.missing ? entry : findFamily(catalog, value.family);
+    const face = real ? nearestFace(real.faces, current) ?? current : current;
+    sample.style.fontWeight = String(face.weight);
+    sample.style.fontStyle = face.italic ? 'italic' : 'normal';
+  };
+  const setActive = (i) => {
+    options[active]?.classList.remove('is-active');
+    active = Math.max(0, Math.min(options.length - 1, i));
+    const node = options[active];
+    if (!node) return search.removeAttribute('aria-activedescendant');
+    node.classList.add('is-active');
+    search.setAttribute('aria-activedescendant', node.id);
+    node.scrollIntoView?.({ block: 'nearest' });
+    preview(node.entry);
+  };
+  const pick = (entry) => {
+    close('done');
+    refocus();
+    const family = findFamily(catalog, entry.name);
+    source.remember(entry.name);
+    onChange({ family: family?.name ?? entry.name, ...(family ? faceForFamily(family, current) : current) });
+  };
+  const option = (entry) => {
+    const i = options.length;
+    const name = el('span', { class: 'font-option-name', text: entry.name });
+    const family = entry.missing ? catalog?.fallback : entry.name;
+    if (family) name.style.fontFamily = cssFamily(family);
+    if (entry.bundled) source.showFace?.(entry.name, nearestFace(entry.faces, current));
+    const node = el('div', {
+      class: 'font-option', role: 'option', id: `${listId}-${i}`,
+      'aria-selected': String(entry.name.toLowerCase() === value.family.toLowerCase()),
+    }, [name, entry.missing ? pill(texts.missing, { tone: 'warn' }) : el('span', { class: 'font-option-meta', text: texts.faces(entry.faces.length) })]);
+    node.entry = entry;
+    node.addEventListener('pointerdown', (evt) => evt.preventDefault());
+    node.addEventListener('click', () => pick(entry));
+    node.addEventListener('pointerenter', () => setActive(options.indexOf(node)));
+    options.push(node);
+    return node;
+  };
+  // Draws the next rows (section heads and options), at most FONT_CHUNK options.
+  let group = null;
+  const drawMore = () => {
+    let added = 0;
+    while (drawn < rows.length && added < FONT_CHUNK) {
+      const row = rows[drawn++];
+      if (row.head) {
+        const headId = `${listId}-h${row.head.key}`;
+        group = el('div', { class: 'font-section', role: 'group', 'aria-labelledby': headId }, [
+          el('div', { class: 'section-head font-section-head', id: headId }, [
+            el('span', { class: 'section-title', text: texts.sections[row.head.key] }), count(row.head.count),
+          ]),
+        ]);
+        list.insertBefore(group, sentinel);
+      } else {
+        group.append(option(row.entry));
+        added += 1;
+      }
+    }
+    sentinel.hidden = drawn >= rows.length;
+  };
+  const draw = () => {
+    const sections = fontSections(catalog, { query, filter, theme: source.themeFamilies(), recent: source.recent() });
+    rows = sections.flatMap((section) => [{ head: section }, ...section.entries.map((entry) => ({ entry }))]);
+    options = [];
+    active = -1;
+    drawn = 0;
+    list.replaceChildren(sentinel);
+    if (!catalog) list.prepend(el('p', { class: 'empty-note', text: texts.loading }));
+    else if (!rows.length) list.prepend(el('p', { class: 'empty-note', role: 'status', text: texts.none }));
+    drawMore();
+    const chosen = options.findIndex((o) => o.getAttribute('aria-selected') === 'true');
+    setActive(query && options.length ? 0 : Math.max(0, chosen));
+  };
+  const drawFilters = () => chips.replaceChildren(...FONT_FILTERS.map((f) => chipButton(texts.filters[f], f === filter, () => {
+    filter = f;
+    drawFilters();
+    draw();
+  })));
+  const more = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver((seen) => { if (seen.some((e) => e.isIntersecting)) drawMore(); }, { root: list })
+    : null;
+  more?.observe(sentinel);
+  search.addEventListener('input', () => {
+    query = search.value;
+    draw();
+  });
+  search.addEventListener('keydown', (evt) => {
+    const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 8, PageUp: -8 }[evt.key];
+    if (step) {
+      evt.preventDefault();
+      if (active + step >= options.length && drawn < rows.length) drawMore();
+      setActive(active + step);
+    } else if (evt.key === 'Enter') {
+      evt.preventDefault();
+      if (options[active]) pick(options[active].entry);
+    }
+  });
+  const refocus = refocusFor(button);
+  const close = openPopover({ node: panel, anchor: button, label: texts.title, refocus, onClose: () => more?.disconnect() });
+  drawFilters();
+  draw();
+  search.focus();
+}
+
+/** The colour of a swatch chip, for its CSS (`--swatch`). */
+function swatchChip(hex, extra = '') {
+  const chip = el('span', { class: `swatch ${extra}`.trim(), 'aria-hidden': 'true' });
+  chip.style.setProperty('--swatch', normalizeHex(hex) ?? '#ffffffff');
+  return chip;
 }
 
 /**
- * A color with opacity: native picker + hex text + alpha %. `alphaLabel`
- * names the opacity input (translated by the caller).
+ * A colour: a button with its swatch, hex and opacity, which opens the
+ * picker: a saturation/value area, hue and opacity bars, hex and %, an
+ * eyedropper where the system has one, and the theme's swatches, the
+ * colours the theme uses and the recent ones. Every change is handed to
+ * `onChange` (`#rrggbbaa`); a drag in the area or on a bar is one gesture
+ * (`gesture.begin()` … `gesture.end()`), a key press one change.
+ * @param {string} label the colour's name (button and dialog)
+ * @param {string} hex `#rrggbbaa`
+ * @param {(hex: string) => void} onChange
+ * @param {{texts: object, source: object, alpha?: boolean, gesture?: {begin: () => void, end: () => void}|null}} opts
+ *   `texts` translated (see colorTexts in ui/pickers.js); `source`:
+ *   `swatches()`, `used()`, `recent()`, `remember(hex)` and `palette`
+ *   (`add(hex)`, `rename(i, name)`, `move(i, to)`, `remove(i)`) or null
+ *   where nothing is saved; `alpha` false for an opaque colour; `live`
+ *   false hands a drag's colour over only when it ends (a change that is costly)
  */
-export function colorField(label, hex, onChange, { alphaLabel }) {
-  const { rgb, alpha } = splitColor(hex);
-  const picker = el('input', { type: 'color', value: rgb, 'aria-label': label });
-  const text = el('input', { type: 'text', value: rgb, 'aria-label': label, spellcheck: false });
-  // The alpha input may be one adopted from the form drawn before: read it where it is.
-  const row = el('div', { class: 'color-field' }, [picker, text]);
-  const commit = (percent = Number(row.querySelector('input[type="number"]').value)) => onChange(joinColor(picker.value, percent));
-  row.append(numberInput({ min: 0, max: 100, value: String(alpha), 'aria-label': alphaLabel }, 1, (percent) => commit(percent)));
-  picker.addEventListener('input', () => { text.value = picker.value; });
-  picker.addEventListener('change', () => commit());
-  text.addEventListener('change', () => {
-    if (/^#[0-9a-f]{6}$/i.test(text.value)) {
-      picker.value = text.value.toLowerCase();
-      commit();
-    }
+export function colorPicker(label, hex, onChange, { texts, source, alpha = true, gesture = null, live = true }) {
+  const value = normalizeHex(hex) ?? '#ffffffff';
+  const id = fieldId();
+  const readout = el('span', { class: 'color-button-value', id: `${id}-v` }, [
+    el('span', { class: 'mono', text: rgbText(value) }),
+    alpha ? el('span', { class: 'mono color-button-alpha', text: `${alphaPercent(value)}%` }) : null,
+  ]);
+  const button = el('button', {
+    type: 'button', class: 'color-button', id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false',
+    'aria-label': label, 'aria-describedby': `${id}-v`, dataset: { picker: `color:${label}`, color: value },
+  }, [swatchChip(value), readout]);
+  button.addEventListener('click', () => {
+    if (button.getAttribute('aria-expanded') === 'true') return;
+    openColorPanel(button, label, value, onChange, { texts, source, alpha, gesture, live });
   });
-  return el('div', { class: 'field' }, [el('span', { text: label }), row]);
+  return el('div', { class: 'field color-field' }, [el('label', { for: id, text: label }), button]);
+}
+
+/** A slider of the colour panel (area or bar) with its keyboard. */
+function colorSlider(cls, label, keys) {
+  const thumb = el('span', { class: 'cp-thumb', 'aria-hidden': 'true' });
+  const node = el('div', { class: cls, role: 'slider', tabindex: '0', 'aria-label': label }, [thumb]);
+  node.addEventListener('keydown', (evt) => {
+    const move = keys[evt.key];
+    if (!move) return;
+    evt.preventDefault();
+    move(evt.shiftKey ? 10 : 1);
+  });
+  return { node, thumb };
+}
+
+/** The colour panel of `colorPicker`. */
+function openColorPanel(button, label, start, onChange, { texts, source, alpha, gesture, live }) {
+  let color = start;
+  let hsva = hsvaOf(color);
+  let editing = false;
+  let dragging = false;
+  let frame = 0;
+
+  // `keep`: the panel's own hue/saturation/value made `next` (exact, not re-read from the hex).
+  const commit = (next, { live = false, keep = false } = {}) => {
+    // The same colour again (Enter, then the field's change) is no change.
+    if (next === color && !live) {
+      if (keep) show();
+      return;
+    }
+    color = next;
+    if (!keep) hsva = hsvaOf(color, hsva.h);
+    show();
+    if (!live) {
+      onChange(color);
+      source.remember(color);
+      drawSwatches();
+    } else if (live && !frame) {
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        onChange(color);
+      });
+    }
+  };
+  const setHsva = (next, { live = false } = {}) => {
+    hsva = next;
+    commit(hexOfHsva(hsva), { live, keep: true });
+  };
+
+  const area = colorSlider('cp-area', texts.area, {
+    ArrowLeft: (n) => setHsva(stepHsva(hsva, 's', -n)), ArrowRight: (n) => setHsva(stepHsva(hsva, 's', n)),
+    ArrowDown: (n) => setHsva(stepHsva(hsva, 'v', -n)), ArrowUp: (n) => setHsva(stepHsva(hsva, 'v', n)),
+  });
+  const hue = colorSlider('cp-hue', texts.hue, {
+    ArrowLeft: (n) => setHsva(stepHsva(hsva, 'h', -n)), ArrowDown: (n) => setHsva(stepHsva(hsva, 'h', -n)),
+    ArrowRight: (n) => setHsva(stepHsva(hsva, 'h', n)), ArrowUp: (n) => setHsva(stepHsva(hsva, 'h', n)),
+  });
+  hue.node.setAttribute('aria-valuemin', '0');
+  hue.node.setAttribute('aria-valuemax', '360');
+  const opacity = alpha ? colorSlider('cp-alpha', texts.opacity, {
+    ArrowLeft: (n) => setHsva(stepHsva(hsva, 'a', -n)), ArrowDown: (n) => setHsva(stepHsva(hsva, 'a', -n)),
+    ArrowRight: (n) => setHsva(stepHsva(hsva, 'a', n)), ArrowUp: (n) => setHsva(stepHsva(hsva, 'a', n)),
+  }) : null;
+  opacity?.node.setAttribute('aria-valuemin', '0');
+  opacity?.node.setAttribute('aria-valuemax', '100');
+
+  // A drag on the area or a bar: the colour follows the pointer, one gesture.
+  const drag = (node, at) => {
+    node.addEventListener('pointerdown', (evt) => {
+      if (evt.button !== 0) return;
+      evt.preventDefault();
+      node.focus();
+      node.setPointerCapture?.(evt.pointerId);
+      dragging = true;
+      gesture?.begin();
+      const move = (e) => {
+        const box = node.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+        const y = Math.min(1, Math.max(0, (e.clientY - box.top) / box.height));
+        setHsva(at(x, y), { live: true });
+      };
+      const up = () => {
+        node.removeEventListener('pointermove', move);
+        node.removeEventListener('pointerup', up);
+        node.removeEventListener('pointercancel', up);
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
+        dragging = false;
+        onChange(color);
+        gesture?.end();
+        source.remember(color);
+        drawSwatches();
+      };
+      node.addEventListener('pointermove', move);
+      node.addEventListener('pointerup', up);
+      node.addEventListener('pointercancel', up);
+      move(evt);
+    });
+  };
+  drag(area.node, (x, y) => ({ ...hsva, s: x, v: 1 - y }));
+  drag(hue.node, (x) => ({ ...hsva, h: x * 360 }));
+  if (opacity) drag(opacity.node, (x) => ({ ...hsva, a: x }));
+
+  const hexInput = el('input', { type: 'text', class: 'cp-hex mono', 'aria-label': texts.hex, spellcheck: false, autocomplete: 'off', maxlength: 9 });
+  const takeHex = () => {
+    const next = readHexInput(hexInput.value, colorOf(color).a);
+    if (next && !alpha) commit(withAlphaPercent(next, 100));
+    else if (next) commit(next);
+    else hexInput.value = rgbText(color);
+  };
+  hexInput.addEventListener('change', takeHex);
+  hexInput.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') { evt.preventDefault(); takeHex(); } });
+  const percent = alpha ? el('input', { type: 'number', class: 'cp-percent', min: 0, max: 100, step: 1, 'aria-label': texts.opacityPercent }) : null;
+  percent?.addEventListener('change', () => {
+    const v = Number(percent.value);
+    if (Number.isFinite(v)) commit(withAlphaPercent(color, v));
+  });
+  const eyedropper = typeof window.EyeDropper === 'function'
+    ? iconButton(texts.eyedropper, ICONS.eyedropper, async () => {
+      try {
+        const picked = await new window.EyeDropper().open();
+        const next = readHexInput(picked?.sRGBHex, alpha ? colorOf(color).a : 255);
+        if (next) commit(next);
+      } catch {
+        // Cancelled (Escape) or refused: the colour stays.
+      }
+    }, { class: 'cp-eyedropper' })
+    : null;
+  const preview = swatchChip(color, 'cp-preview');
+  const inputs = el('div', { class: 'cp-inputs' }, [preview, hexInput, percent ? el('span', { class: 'fld cp-percent-field' }, [percent, el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: '%' })]) : null, eyedropper]);
+
+  const sections = el('div', { class: 'cp-sections' });
+  // The control of the swatch sections that last had focus (`data-focus`).
+  let lastFocus = null;
+  sections.addEventListener('focusin', (evt) => { lastFocus = evt.target.closest('[data-focus]')?.dataset.focus ?? lastFocus; });
+  const panel = el('div', { class: 'color-popover' }, [
+    area.node, hue.node, opacity?.node ?? null, inputs, sections,
+  ]);
+
+  function show() {
+    const pure = hexOfHsva({ h: hsva.h, s: 1, v: 1, a: 1 });
+    panel.style.setProperty('--cp-hue', pure);
+    panel.style.setProperty('--cp-color', color);
+    panel.style.setProperty('--cp-opaque', withAlphaPercent(color, 100));
+    area.thumb.style.left = `${hsva.s * 100}%`;
+    area.thumb.style.top = `${(1 - hsva.v) * 100}%`;
+    area.node.setAttribute('aria-valuetext', texts.areaValue(Math.round(hsva.s * 100), Math.round(hsva.v * 100)));
+    hue.thumb.style.left = `${(hsva.h / 360) * 100}%`;
+    hue.node.setAttribute('aria-valuenow', String(Math.round(hsva.h)));
+    if (opacity) {
+      opacity.thumb.style.left = `${hsva.a * 100}%`;
+      opacity.node.setAttribute('aria-valuenow', String(Math.round(hsva.a * 100)));
+      opacity.node.setAttribute('aria-valuetext', `${Math.round(hsva.a * 100)}%`);
+    }
+    preview.style.setProperty('--swatch', color);
+    if (document.activeElement !== hexInput) hexInput.value = rgbText(color);
+    if (percent && document.activeElement !== percent) percent.value = String(alphaPercent(color));
+  }
+
+  const swatchButton = (hexValue, name, focusKey) => el('button', {
+    type: 'button', class: 'swatch-button', 'aria-label': name ? `${name} (${rgbText(hexValue)})` : texts.swatch(rgbText(hexValue), alphaPercent(hexValue)),
+    title: name ?? rgbText(hexValue), 'aria-pressed': String(hexValue === color), onclick: () => commit(alpha ? hexValue : withAlphaPercent(hexValue, 100)), dataset: { focus: focusKey },
+  }, [swatchChip(hexValue)]);
+  const group = (key, title, items, tools = []) => {
+    const head = sectionTitle(title, { count: items.length });
+    head.append(...tools);
+    return el('section', { class: 'cp-section', dataset: { section: key }, 'aria-label': title }, [head, items.length ? el('div', { class: 'swatch-grid' }, items) : null]);
+  };
+  function drawSwatches() {
+    const palette = source.swatches();
+    const parts = [];
+    if (source.palette) {
+      const save = el('button', { type: 'button', class: 'text-button quiet', dataset: { focus: 'save' }, onclick: () => { source.palette.add(color); drawSwatches(); } }, [icon(ICONS.plus, 14), texts.save]);
+      const edit = palette.length ? el('button', { type: 'button', class: 'text-button quiet', dataset: { focus: 'edit' }, 'aria-pressed': String(editing), text: editing ? texts.done : texts.edit, onclick: () => { editing = !editing; drawSwatches(); } }) : null;
+      if (!palette.length) editing = false;
+      const items = editing ? [] : palette.map((s, i) => swatchButton(s.color, s.name ?? null, `theme:${i}`));
+      const section = group('theme', texts.themeColors, items, [save, edit].filter(Boolean));
+      if (editing) section.append(el('ul', { class: 'swatch-rows' }, palette.map((s, i) => swatchRow(s, i, palette.length))));
+      else if (!palette.length) section.append(el('p', { class: 'hint', text: texts.themeEmpty }));
+      parts.push(section);
+    }
+    const used = source.used();
+    if (used.length) parts.push(group('used', texts.used, used.map((c, i) => swatchButton(c, null, `used:${i}`))));
+    const recent = source.recent();
+    if (recent.length) parts.push(group('recent', texts.recent, recent.map((c, i) => swatchButton(c, null, `recent:${i}`))));
+    // Focus stays on the same control drawn again (or its section's first one), never lost to the page.
+    const focused = sections.contains(document.activeElement) || document.activeElement === document.body ? lastFocus : null;
+    sections.replaceChildren(...parts);
+    if (focused) (sections.querySelector(`[data-focus="${CSS.escape(focused)}"]:not(:disabled)`) ?? sections.querySelector('[data-focus="edit"], [data-focus="save"]') ?? area.node).focus();
+  }
+  // A swatch being edited: its name, its place and its removal, each one change of the theme.
+  function swatchRow(s, i, n) {
+    const name = el('input', { type: 'text', class: 'swatch-name', value: s.name ?? '', placeholder: rgbText(s.color), 'aria-label': texts.swatchName(i + 1), maxlength: 40, spellcheck: false, dataset: { focus: `name:${i}` } });
+    name.addEventListener('change', () => { source.palette.rename(i, name.value); drawSwatches(); });
+    return el('li', { class: 'swatch-row' }, [
+      swatchChip(s.color), name,
+      iconButton(texts.moveUp(i + 1), ICONS.up, () => { lastFocus = `up:${i - 1}`; source.palette.move(i, i - 1); drawSwatches(); }, { size: 16, disabled: i === 0, 'data-focus': `up:${i}` }),
+      iconButton(texts.moveDown(i + 1), ICONS.down, () => { lastFocus = `down:${i + 1}`; source.palette.move(i, i + 1); drawSwatches(); }, { size: 16, disabled: i === n - 1, 'data-focus': `down:${i}` }),
+      iconButton(texts.remove(i + 1), ICONS.trash, () => { source.palette.remove(i); drawSwatches(); }, { size: 16, class: 'danger', 'data-focus': `remove:${i}` }),
+    ]);
+  }
+
+  const refocus = refocusFor(button);
+  openPopover({
+    node: panel, anchor: button, label: texts.title(label), refocus, onClose: () => {
+      if (dragging) gesture?.end();
+    },
+  });
+  show();
+  drawSwatches();
+  area.node.focus();
 }

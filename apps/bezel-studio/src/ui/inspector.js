@@ -14,9 +14,10 @@ import { readIcon } from '../icon-catalog.js';
 import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
-  chipButton, colorField as colorInputs, dashedHint, fieldGrid, joinColor, kindIcon, listCard, numberField,
-  adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, splitColor, switchRow, textField,
+  chipButton, colorPicker, dashedHint, fieldGrid, fontPicker, kindIcon, listCard, numberField,
+  adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, switchRow, textField,
 } from './fields.js';
+import { joinColor, splitColor } from '../color-math.js';
 import { sentenceParts } from '../sentence.js';
 import { CORNERS, cornerValue, coverBox } from '../corner-radii.js';
 import { boundKey, createWidget, widgetOf } from '../editor/widgets.js';
@@ -28,6 +29,7 @@ import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, creat
 import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
+import { createPickers } from './pickers.js';
 import { createBackgroundPanel } from './inspector-background.js';
 import { TRANSITION_RANGE, formatMs, transitionOf, transitionPatch } from '../value-transition.js';
 import { PLAYER_PARTS, PROGRESS_DEFAULTS, PROGRESS_PATTERNS, PROGRESS_SEGMENTS, PROGRESS_THICKNESS, TIME_FORMATS, TIME_PLACEMENTS, partPatch, partsOf, progressOf } from '../player-parts.js';
@@ -124,6 +126,8 @@ function arcPreview(kind) {
  * @param {object} deps
  * @param {HTMLElement} deps.root
  * @param {() => number} deps.minRefresh the fastest refresh a theme may ask for, seconds (from the backend)
+ * @param {ReturnType<import('./pickers.js').createPickers>|null} [deps.pickers] the font and colour pickers' data
+ *   (D-2026-10-16-studio-redesign-fidelity-28, -29), shared with the library
  * @param {{context: () => {screen: object|null, live: boolean, liveVideo: object|null, tools: object|null, locale: string, auto: {rotation: number, size: object|null}|null, framing: boolean, motion: boolean}, openStorage: () => void, pickFile: () => Promise<object|null>, importFile: (source: string) => Promise<object|null>, restoreStored: (path: string, medium: string) => void, sendToScreen: (medium: string) => void, setFraming: (on: boolean) => void, openGuide: () => void}} [deps.video]
  *   the screen and ffmpeg the video background is told against, what Auto
  *   turns it (`video_auto`), whether the canvas frames it now and whether
@@ -138,12 +142,24 @@ function arcPreview(kind) {
  *   the last sample read (sensor values, apps, media) and an element of the
  *   edited theme rendered alone
  */
-export function createInspector({ root, store, t, sensors, minRefresh, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, bridge = null, host = NO_HOST }) {
+export function createInspector({ root, store, t, sensors, minRefresh, pickers: shared = null, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, bridge = null, host = NO_HOST }) {
   const update = (id, patch) => store.dispatch('update', { id, patch });
+  // The app's pickers (ui/pickers.js); an inspector on its own makes its own, without fonts until asked.
+  const pickers = shared ?? createPickers({ store, t, bridge: bridge ?? { fontCatalog: async () => null, fontFace: async () => null } });
   // A framing slider being dragged: its moves are one gesture (one undo
   // step), and the form is not drawn again under the pointer meanwhile.
   let sliding = false;
-  const colorField = (label, hex, onChange) => colorInputs(label, hex, onChange, { alphaLabel: t('inspector.opacityOf', { name: label }) });
+  // A drag in a colour picker is one gesture, one undo step, as a framing slider's.
+  const gesture = {
+    begin() {
+      if (sliding) return;
+      sliding = true;
+      store.beginGesture();
+    },
+    end: () => endSlide(),
+  };
+  /** A colour of the theme: the shared picker (D-2026-10-16-studio-redesign-fidelity-29). */
+  const colorField = (label, hex, onChange, opts = {}) => colorPicker(label, hex, onChange, { ...pickers.color(), gesture, ...opts });
 
   function sensorOptions() {
     const groups = {};
@@ -230,18 +246,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     return el('label', { class: 'field', for: id }, [el('span', {}, [label, ' ', out]), input]);
   }
 
-  /** The pad color: a picker and its hex, opaque. */
-  function padField(color) {
-    const rgb = color.slice(0, 7);
-    const picker = el('input', { type: 'color', id: 'framing-pad', value: rgb, 'aria-label': t('framing.padColor') });
-    const text = el('input', { type: 'text', id: 'framing-pad-hex', value: rgb, 'aria-label': t('framing.padHex'), spellcheck: false });
-    picker.addEventListener('input', () => { text.value = picker.value; });
-    picker.addEventListener('change', () => frame({ padColor: picker.value }));
-    text.addEventListener('change', () => {
-      if (/^#[0-9a-f]{6}$/i.test(text.value)) frame({ padColor: text.value });
-    });
-    return el('div', { class: 'field' }, [el('span', { text: t('framing.padColor') }), el('div', { class: 'color-field opaque' }, [picker, text])]);
-  }
+  /** The pad color: the shared colour picker, opaque. */
+  const padField = (color) => colorField(t('framing.padColor'), color, (hex) => frame({ padColor: splitColor(hex).rgb }), { alpha: false });
 
   /** The zoom: a slider and a number, 100–400 %, step 5 %. */
   function zoomField(zoom) {
@@ -382,16 +388,29 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ]);
   }
 
-  /** The font of a text: family, size (unless shown elsewhere), weight, color, alignment and spacing. */
+  /**
+   * The words the font picker's sample shows: the object's own text (its
+   * words, the sensor's value with prefix and suffix, the playing title,
+   * the time), else its name.
+   */
+  function sampleText(e) {
+    const c = e.kind.content ?? {};
+    if (c.type === 'static' && c.text) return c.text;
+    if (c.type === 'sensor') return `${c.prefix ?? ''}${shownValue(c.key)}${c.suffix ?? ''}`;
+    if (c.type === 'clock') return formatClock(c.pattern ?? '%H:%M', new Date(), c.language ?? null);
+    if (c.type === 'player') return host.lastSample()?.activity?.media?.[0]?.title ?? e.name;
+    return e.name;
+  }
+
+  /** The font of a text: family and face, size (unless shown elsewhere), color, alignment and spacing. */
   function fontFields(e, { size = true } = {}) {
     const s = e.kind.style;
+    const { texts, source } = pickers.font(sampleText(e));
+    // A family picked instead of the theme's own font file drops that file.
+    const setFont = (font) => update(e.id, { kind: { style: { font: { ...font, ...(s.font.asset && font.family !== s.font.family ? { asset: null } : {}) } } } });
     return [
-      textField(t('inspector.fontFamily'), s.font.family, (v) => update(e.id, { kind: { style: { font: { family: v } } } }), { list: 'font-families' }),
-      el('datalist', { id: 'font-families' }, sensors.fonts().map((f) => el('option', { value: f }))),
-      el('div', { class: 'field-row' }, [
-        size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800 }),
-        selectField(t('inspector.weight'), String(s.font.weight), [300, 400, 500, 600, 700, 800, 900].map((w) => [String(w), t(`weight.${w}`)]), (v) => update(e.id, { kind: { style: { font: { weight: Number(v) } } } })),
-      ]),
+      fontPicker(texts, s.font, setFont, source),
+      size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800 }),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
       segmented(t('inspector.align'), s.align, [['left', t('common.left')], ['center', t('inspector.alignCenter')], ['right', t('common.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
       segmented(t('axis.vertical'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
@@ -819,10 +838,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     ])];
     const look = [section('appearance', t('inspector.appearance'), [
       ...fadeFields(e),
-      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color })),
+      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color }), { live: false }),
       paint?.style === 'outline' && numberField(t('inspector.strokeWidth'), paint.stroke, (stroke) => change({ stroke: Math.min(4, Math.max(0.5, stroke)) }), { min: 0.5, max: 4, step: 0.5 }),
       paint && numberField(t('icons.shadow'), paint.shadow, (shadow) => change({ shadow: Math.min(4, Math.max(0, shadow)) }), { min: 0, max: 4, step: 0.5 }),
-      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor })),
+      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor }), { live: false }),
       selectField(t('inspector.fit'), k.fit, ['fill', 'contain', 'cover', 'none'].map((f) => [f, t(`fit.${f}`)]), (v) => update(e.id, { kind: { fit: v } })),
     ])];
     return { data, look };
@@ -1112,7 +1131,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const change = (i, patch) => set({ ...rule, thresholds: rows.map((row, n) => n === i ? { ...row, ...patch } : row) });
     const focusRow = (index, action) => queueMicrotask(() => {
       const row = root.querySelector(`[data-color-row="${index}"]`);
-      const target = row?.querySelector(`[data-color-action="${action}"]:not(:disabled)`) ?? row?.querySelector('button:not(:disabled)');
+      // The same move again, else the row's other move or removal (not its colour button).
+      const target = row?.querySelector(`[data-color-action="${action}"]:not(:disabled)`) ?? row?.querySelector('[data-color-action]:not(:disabled)') ?? row?.querySelector('button:not(:disabled)');
       target?.focus();
     });
     const reorder = (i, to, action) => { set({ ...rule, thresholds: moveRule(rows, i, to) }); focusRow(to, action); };

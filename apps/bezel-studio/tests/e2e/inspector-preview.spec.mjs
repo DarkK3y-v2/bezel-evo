@@ -2,7 +2,7 @@
 // PlayerData/Look): its head, its preview rendered alone by the backend
 // (D-2026-10-09-studio-redesign-fidelity-8), the graph's scale and window,
 // and the player's apps, all from the demo's real data.
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab, setColor } from './helpers.mjs';
 import { joinWords, sentenceParts } from '../../src/sentence.js';
 
 /** Whether the preview's canvas has a pixel drawn (`any`) or a strong red one (`red`). */
@@ -38,9 +38,7 @@ test('the preview draws the object alone: an object under it is absent, and its 
   expect(await anyPixel(preview, 'red')).toBe(false);
 
   await tab(page, t, 'inspector.tab.look');
-  const fill = inspector.locator('input[type="text"]').and(inspector.getByLabel(t('inspector.fill'), { exact: true }));
-  await fill.fill('#ff0000');
-  await fill.press('Tab');
+  await setColor(page, t, inspector, t('inspector.fill'), '#ff0000');
   await expect.poll(() => anyPixel(preview, 'red')).toBe(true);
   await page.locator('#undo').click();
   await expect.poll(() => anyPixel(preview, 'red')).toBe(false);
@@ -290,7 +288,7 @@ test('late isolated frames are discarded and Player chips follow newly available
     Object.assign(root.style, { position: 'fixed', inset: '52px 0 30px auto', width: '360px', zIndex: '100' });
     document.body.append(root);
     const inspector = createInspector({ root, store, t: translator(locale), minRefresh: () => 1,
-      sensors: { catalog: () => catalog, fonts: () => [] },
+      sensors: { catalog: () => catalog },
       host: {
         lastSample: () => sample,
         renderElement: async (id, opts) => {

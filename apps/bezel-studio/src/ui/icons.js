@@ -53,6 +53,7 @@ export const ICONS = Object.freeze({
   copy: [rect(8, 8, 12, 12, 2), 'M16 8V4H4v12h4'],
   paste: ['M9 5H5v16h14V5h-4', rect(9, 3, 6, 4, 1)],
   trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
+  eyedropper: ['M11 7l6 6', 'M4 16 15.7 4.3a1 1 0 0 1 1.4 0l2.6 2.6a1 1 0 0 1 0 1.4L8 20H4z'],
   more: ['M5 12h.01', 'M12 12h.01', 'M19 12h.01'],
   drag: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
   search: [circle(11, 11, 7), 'm20 20-3.5-3.5'],

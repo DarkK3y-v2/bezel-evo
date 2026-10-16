@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible, clickAddWidget } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, clickAddWidget, colorButton, setColor } from './helpers.mjs';
 
 test('colour rules edit values and colours, reorder, remove and Undo', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -15,19 +15,17 @@ test('colour rules edit values and colours, reorder, remove and Undo', async ({ 
   const rows = section.locator('[data-color-row]');
   const firstValue = rows.first().getByRole('spinbutton', { name: t('insp.colorThresholdValue'), exact: true });
   await firstValue.fill('60'); await firstValue.press('Tab');
-  const firstColor = rows.first().locator('input[type="text"]');
-  await firstColor.fill('#ff8800'); await firstColor.press('Tab');
+  await setColor(page, t, rows.first(), t('inspector.color'), '#ff8800');
   await add.click();
   await expect(rows).toHaveCount(2);
   const secondValue = rows.last().getByRole('spinbutton', { name: t('insp.colorThresholdValue'), exact: true });
   await secondValue.fill('80'); await secondValue.press('Tab');
-  const secondColor = rows.last().locator('input[type="text"]');
-  await secondColor.fill('#ff0000'); await secondColor.press('Tab');
+  await setColor(page, t, rows.last(), t('inspector.color'), '#ff0000');
   await rows.last().getByRole('button', { name: t('insp.colorMoveUp') }).focus();
   await page.keyboard.press('Enter');
   await expect(firstValue).toHaveValue('80');
   await expect(rows.first().getByRole('button', { name: t('insp.colorMoveDown') })).toBeFocused();
-  await expect(rows.first().locator('input[type="text"]')).toHaveValue('#ff0000');
+  await expect(colorButton(rows.first(), t('inspector.color'))).toHaveAttribute('data-color', /^#ff0000/);
   await page.locator('#undo').click(); await expect(firstValue).toHaveValue('60');
   await rows.last().getByRole('button', { name: t('insp.colorRemove') }).click();
   await expect(rows).toHaveCount(1);
