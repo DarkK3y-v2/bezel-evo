@@ -1,23 +1,17 @@
-//! `gpu.fps`: the frame rate of the game being played, read from what a
-//! frame-rate overlay already publishes (D-2026-09-30-release-polish-4).
-//! Bezel never hooks or injects into a game: on Windows it reads the shared
-//! memory of RivaTuner Statistics Server ([`rtss`]), on Linux the newest CSV
-//! log of MangoHud ([`mangohud`]).
-//!
-//! A source that is absent, or whose newest value is older than
-//! [`MAX_AGE`], reads as unavailable with a reason that says how to turn it
-//! on: never 0 and never the last value seen. A live source that reports
-//! 0 fps (a loading screen) reads 0.
+//! `gpu.fps` and related metrics: the frame rate of the game being played.
+//! Bezel never hooks or injects into a game: on Windows it prefers Intel
+//! PresentMon (on demand), falling back to RivaTuner Statistics Server.
+//! On Linux it reads the newest CSV log of MangoHud.
 
 #[cfg(target_os = "linux")]
 pub(crate) mod mangohud;
 #[cfg(any(windows, test))]
+pub(crate) mod presentmon;
+#[cfg(any(windows, test))]
 pub(crate) mod rtss;
 
 use std::time::{Duration, Instant};
-
-use bezel_core::domain::sensor::{Category, Quantity, Reading, SensorInfo, Snapshot, keys};
-
+use bezel_core::domain::sensor::{Category, Quantity, Reading, SensorInfo, Snapshot, Wanted, keys};
 use crate::SensorOptions;
 use crate::provider::{Provider, describe, put};
 
@@ -29,17 +23,33 @@ pub(crate) const HARDWARE_VALIDATED: bool = false;
 /// closed, or logging stopped.
 pub(crate) const MAX_AGE: Duration = Duration::from_secs(3);
 
+/// Aggregated frame metrics from a source. Fields that a source cannot
+/// provide are `None` and read as unavailable with a reason.
+pub(crate) struct FrameMetrics {
+    pub fps: f64,
+    pub frametime: Option<f64>,
+    pub fps_low_1p: Option<f64>,
+    pub game: Option<String>,
+    pub limiter: Option<String>,
+}
+
 /// Where the frame rate comes from.
 pub(crate) trait FrameRateSource: Send {
     /// What the catalog shows as the sensor's source.
     fn describe(&self) -> String;
-    /// The current frame rate, or why there is none (and how to get one).
-    fn read(&mut self) -> Result<f64, String>;
+    /// The current frame metrics, or why there is none.
+    fn read(&mut self) -> Result<FrameMetrics, String>;
+    /// Called when the visibility of sensors changes. Sources that run
+    /// external processes override this; the default ignores it.
+    fn want(&mut self, wanted: bool) {
+        let _ = wanted;
+    }
 }
 
 /// The `gpu.fps` provider over one [`FrameRateSource`].
 pub(crate) struct Fps {
     source: Box<dyn FrameRateSource>,
+    is_wanted: bool,
 }
 
 impl Fps {
@@ -47,6 +57,7 @@ impl Fps {
     pub(crate) fn new(source: impl FrameRateSource + 'static) -> Self {
         Self {
             source: Box::new(source),
+            is_wanted: false,
         }
     }
 }
@@ -57,23 +68,77 @@ impl Provider for Fps {
         if !HARDWARE_VALIDATED {
             source.push_str(" (not validated on hardware)");
         }
-        describe(
-            keys::GPU_FPS,
-            Category::Gpu,
-            "Game frame rate",
-            Quantity::Number,
-            source,
-        )
+        vec![
+            describe(keys::GPU_FPS, Category::Gpu, "Game frame rate", Quantity::Number, source.clone()),
+            describe(keys::GPU_FRAMETIME, Category::Gpu, "Game frame time (ms)", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS_LOW_1P, Category::Gpu, "Game 1% low FPS", Quantity::Number, source.clone()),
+            describe(keys::GPU_GAME, Category::Gpu, "Game name", Quantity::Text, source.clone()),
+            describe(keys::GPU_LIMITER, Category::Gpu, "Frame rate limiter", Quantity::Text, source),
+        ]
         .into_iter()
+        .flatten()
         .collect()
     }
 
     fn sample(&mut self, _now: Instant, out: &mut Snapshot) {
-        let reading = match self.source.read() {
-            Ok(fps) => Reading::Value(fps),
-            Err(why) => Reading::Unavailable(why),
-        };
-        put(out, keys::GPU_FPS, reading);
+        match self.source.read() {
+            Ok(m) => {
+                put(out, keys::GPU_FPS, Reading::Value(m.fps));
+                put(
+                    out,
+                    keys::GPU_FRAMETIME,
+                    m.frametime.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Value,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_FPS_LOW_1P,
+                    m.fps_low_1p.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Value,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_GAME,
+                    m.game.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Text,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_LIMITER,
+                    m.limiter.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Text,
+                    ),
+                );
+            }
+            Err(why) => {
+                let reason = why.clone();
+                put(out, keys::GPU_FPS, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FRAMETIME, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FPS_LOW_1P, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_GAME, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_LIMITER, Reading::Unavailable(reason));
+            }
+        }
+    }
+
+    fn want(&mut self, wanted: &Wanted) {
+        let wanted_now = wanted.contains(keys::GPU_FPS)
+            || wanted.contains(keys::GPU_FRAMETIME)
+            || wanted.contains(keys::GPU_FPS_LOW_1P)
+            || wanted.contains(keys::GPU_GAME)
+            || wanted.contains(keys::GPU_LIMITER);
+
+        if self.is_wanted != wanted_now {
+            self.is_wanted = wanted_now;
+            self.source.want(wanted_now);
+        }
     }
 }
 
@@ -84,10 +149,11 @@ pub(crate) fn provider(options: &SensorOptions) -> Fps {
     Fps::new(mangohud::MangoHud::new(dir))
 }
 
-/// This platform's `gpu.fps` provider.
+/// This platform's `gpu.fps` provider. PresentMon falls back to RTSS
+/// internally when it cannot start.
 #[cfg(windows)]
-pub(crate) fn provider(_options: &SensorOptions) -> Fps {
-    Fps::new(rtss::Rtss)
+pub(crate) fn provider(options: &SensorOptions) -> Fps {
+    Fps::new(presentmon::PresentMon::new(options.presentmon_path.clone()))
 }
 
 /// This platform's `gpu.fps` provider: none is read here.
@@ -105,12 +171,9 @@ impl FrameRateSource for Unsupported {
     fn describe(&self) -> String {
         "none on this system".to_string()
     }
-
-    fn read(&mut self) -> Result<f64, String> {
+    fn read(&mut self) -> Result<FrameMetrics, String> {
         Err(
-            "game FPS is read from MangoHud on Linux and from RivaTuner \
-             Statistics Server on Windows"
-                .to_string(),
+            "game FPS is read from PresentMon/RTSS on Windows and MangoHud on Linux".to_string(),
         )
     }
 }
@@ -150,24 +213,29 @@ mod tests {
         fn describe(&self) -> String {
             "a script".to_string()
         }
-
-        fn read(&mut self) -> Result<f64, String> {
-            self.0.clone()
+        fn read(&mut self) -> Result<FrameMetrics, String> {
+            self.0.clone().map(|fps| FrameMetrics {
+                fps,
+                frametime: None,
+                fps_low_1p: None,
+                game: None,
+                limiter: None,
+            })
         }
     }
 
     fn sample(fps: &mut Fps) -> Reading {
         let mut out = Snapshot::default();
         fps.sample(Instant::now(), &mut out);
-        assert_eq!(out.len(), 1);
-        out.get(&SensorKey::new(keys::GPU_FPS).unwrap())
+        assert_eq!(out.len(), 5);
+        out.get(&SensorKey::new(keys::GPU_FPS).unwrap()).clone()
     }
 
     #[test]
     fn gpu_fps_is_listed_as_not_validated_on_hardware() {
         let fps = Fps::new(Scripted(Ok(60.0)));
         let catalog = fps.catalog();
-        assert_eq!(catalog.len(), 1);
+        assert_eq!(catalog.len(), 5);
         assert_eq!(catalog[0].key.as_str(), keys::GPU_FPS);
         assert_eq!(catalog[0].category, Category::Gpu);
         assert_eq!(catalog[0].quantity, Quantity::Number);
@@ -176,16 +244,13 @@ mod tests {
 
     #[test]
     fn values_and_reasons_pass_through() {
-        assert_eq!(
-            sample(&mut Fps::new(Scripted(Ok(0.0)))),
-            Reading::Value(0.0)
-        );
+        assert_eq!(sample(&mut Fps::new(Scripted(Ok(0.0)))), Reading::Value(0.0));
         assert_eq!(
             sample(&mut Fps::new(Scripted(Err("off".into())))),
             Reading::Unavailable("off".into())
         );
         let mut none = Fps::new(Unsupported);
-        assert!(matches!(sample(&mut none), Reading::Unavailable(why) if why.contains("MangoHud")));
+        assert!(matches!(sample(&mut none), Reading::Unavailable(why) if why.contains("MangoHud") || why.contains("PresentMon")));
         assert_eq!(
             none.catalog()[0].source,
             "none on this system (not validated on hardware)"
