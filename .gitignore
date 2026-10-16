@@ -12,10 +12,22 @@ apps/*/playwright-report/
 
 # Coverage reports (CI quality job and scripts/ci/sonar-coverage.sh)
 /resultados/
+coverage/
+lcov.info
+*.lcov
+*.profraw
+*.profdata
 
-# Local artifacts
+# Test outputs anywhere in the tree
+test-results/
+playwright-report/
+
+# Local artifacts and scratch outputs
 /dist/
+/reports/
+/scratch/
 *.log
+*.tmp
 .DS_Store
 .idea/
 .vscode/
