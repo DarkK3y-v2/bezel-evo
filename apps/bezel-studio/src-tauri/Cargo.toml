@@ -21,6 +21,7 @@ tauri-build = "2.7.0"
 
 [dependencies]
 bezel-core = { workspace = true }
+bezel-runtime = { workspace = true }
 bezel-devices = { workspace = true }
 bezel-render = { workspace = true }
 bezel-sensors = { workspace = true }

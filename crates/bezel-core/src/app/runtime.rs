@@ -171,6 +171,7 @@ impl fmt::Debug for HostVideo<'_> {
 /// What a frame is drawn from: the theme with its assets and the readings.
 struct Scene {
     revision: u64,
+    assets_revision: u64,
     theme: Theme,
     assets: BTreeMap<AssetRef, Vec<u8>>,
     histories: Histories,
@@ -456,6 +457,7 @@ impl ThemeRuntime {
             wanted,
             scene: Scene {
                 revision: content_revision(),
+                assets_revision: content_revision(),
                 theme,
                 assets,
                 histories,
@@ -595,9 +597,20 @@ impl ThemeRuntime {
         self.transitions.still_previews(still);
     }
 
+    /// Revision of the document/assets/readings; adapters can avoid resending
+    /// an unchanged editor document when its local model is not sampling.
+    pub fn content_revision(&self) -> u64 {
+        self.scene.revision
+    }
+
     /// The theme being shown.
     pub fn theme(&self) -> &Theme {
         &self.scene.theme
+    }
+
+    /// Revision of asset contents.
+    pub fn assets_revision(&self) -> u64 {
+        self.scene.assets_revision
     }
 
     /// The theme's asset bytes.
@@ -609,6 +622,7 @@ impl ThemeRuntime {
     /// them); the other assets stay. New bytes for the theme's video drop
     /// what [`Self::set_video_info`] said of it.
     pub fn add_asset(&mut self, asset: AssetRef, bytes: Vec<u8>) {
+        self.scene.assets_revision = content_revision();
         self.scene.revision = content_revision();
         self.recent_frame = None;
         self.timelines.remove(&asset);
@@ -672,14 +686,16 @@ impl ThemeRuntime {
     /// again with [`Self::start_video`]. New bytes for the video drop what
     /// [`Self::set_video_info`] said of it.
     pub fn replace(&mut self, theme: Theme, assets: BTreeMap<AssetRef, Vec<u8>>) {
+        self.scene.assets_revision = content_revision();
         self.scene.revision = content_revision();
         self.recent_frame = None;
         let before = self.device_video();
         if video_bytes(&theme, &assets) != video_bytes(&self.scene.theme, &self.scene.assets) {
             self.info = None;
         }
+        self.timelines
+            .retain(|key, _| self.scene.assets.get(key) == assets.get(key));
         self.scene.assets = assets;
-        self.timelines.clear();
         self.swap_theme(theme);
         self.look_again_unless(before);
     }
@@ -929,6 +945,13 @@ impl ThemeRuntime {
                 options: device.options,
             })),
         }
+    }
+
+    /// Starts an offline scene's video on the host through the same decoder
+    /// path used by a screen without device playback. The caller owns its clock.
+    pub fn start_host_video(&mut self, host: HostVideo<'_>) -> Result<()> {
+        self.video = self.on_host(Some(host))?;
+        Ok(())
     }
 
     /// Decodes the video on the host when offered and possible.

@@ -583,6 +583,12 @@ pub trait ThemeStore {
 /// Metadata and binary payload are separate so frames never need text encoding.
 /// The adapter authenticates the peer and validates lengths before allocating.
 pub trait ScreenChannel: Send {
+    /// Binary responses used by canvas/inspector images, without text encoding.
+    fn exchange_binary(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.exchange(metadata, payload, None)
+            .map(|reply| (reply, Vec::new()))
+    }
+
     /// Whether the transport is still connected, independently of device errors.
     fn connected(&self) -> bool {
         true
@@ -595,4 +601,21 @@ pub trait ScreenChannel: Send {
         payload: &[u8],
         job: Option<&mut Job<'_>>,
     ) -> Result<Vec<u8>>;
+}
+
+/// Driving port for the single authoritative theme engine. Transport metadata
+/// and binary data are bounded and decoded by an adapter outside the core.
+pub trait RuntimeEndpoint: Send {
+    /// One idempotent scene/preview request. Device writes use their own ports.
+    fn request(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+    /// The editor disappeared: restore saved documents without replacing runtimes.
+    fn disconnected(&mut self) -> Result<()>;
+}
+
+/// Client port for the per-user runtime, with lock-protected direct recovery.
+pub trait RuntimeConnection: Send + Sync {
+    /// A request is never silently replayed after an uncertain transport failure.
+    fn request(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+    /// Claim the legacy device lock before constructing an in-process engine.
+    fn take_direct_ownership(&self) -> Result<()>;
 }
