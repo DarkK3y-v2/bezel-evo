@@ -195,6 +195,9 @@ impl ScreenConnector for OwnerConnector {
             .0
             .to_lowercase();
         let mut links = lock(&self.owner.links)?;
+        if self.owner.disabled.load(Ordering::SeqCst) {
+            return Err(gone());
+        }
         let existing = links
             .get(&key)
             .filter(|link| lock(link).is_ok_and(|k| !k.failed));
@@ -235,6 +238,9 @@ impl ScreenConnector for OwnerConnector {
             .0
             .to_lowercase();
         let mut links = lock(&self.owner.links)?;
+        if self.owner.disabled.load(Ordering::SeqCst) {
+            return Err(gone());
+        }
         if let Some(kept) = links.remove(&key) {
             lock(&kept)?.invalidate();
         }
@@ -273,13 +279,28 @@ impl OwnedLink {
         if !self.allowed() {
             return Ok(());
         }
-        lock(&self.kept)?.call(op)
+        let mut kept = lock(&self.kept)?;
+        // Recheck after acquiring the physical-link lock: a frame may have
+        // queued before shutdown, a legacy takeover or an editor claim.
+        if self.owner.disabled.load(Ordering::SeqCst) {
+            return Err(gone());
+        }
+        if !self.editor
+            && !crate::session_ending()
+            && (self.owner.reload_pending() || (self.owner.editing() && kept.edited))
+        {
+            return Ok(());
+        }
+        kept.call(op)
     }
     fn storage_call<T>(
         &mut self,
         op: impl FnOnce(&mut dyn ScreenStorage) -> Result<T>,
     ) -> Result<T> {
         let mut kept = lock(&self.kept)?;
+        if self.owner.disabled.load(Ordering::SeqCst) {
+            return Err(gone());
+        }
         kept.call(|kept| {
             let storage = kept
                 .link
@@ -343,11 +364,12 @@ impl ScreenLink for OwnedLink {
     }
     fn turn_off_now(&mut self) -> Result<()> {
         self.claim_editor()?;
-        // Shutdown must reach the device even if an editor was connected.
-        let mut kept = lock(&self.kept)?;
-        kept.video = None;
-        kept.link.turn_off_now()
+        self.write(|kept| {
+            kept.video = None;
+            kept.link.turn_off_now()
+        })
     }
+
     fn release(&mut self) -> Result<()> {
         self.claim_editor()?;
         // Light's worker exits can reload the saved theme without releasing
@@ -410,11 +432,7 @@ impl ScreenStorage for OwnedLink {
     fn play_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
         self.claim_editor()?;
         self.desired_video = Some((path.clone(), repeat));
-        if !self.allowed() {
-            return Ok(());
-        }
-        let mut kept = lock(&self.kept)?;
-        kept.call(|kept| {
+        self.write(|kept| {
             kept.video = None;
             kept.link
                 .storage()
