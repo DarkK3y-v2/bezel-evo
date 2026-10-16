@@ -1,6 +1,6 @@
 # Build Bezel Evo on Windows
 
-For a normal installation, use the [Windows releases](https://github.com/jripper77/bezel/releases)
+For a normal installation, use the [Windows releases](https://github.com/jripper77/bezel-evo/releases)
 and [installation guide](../packaging/windows/README.md).
 
 ## Product builds
@@ -36,7 +36,7 @@ requirements, payloads and `-SkipBuild`. The independent packaging workflow is
 Build with Rust 1.98 or newer, Microsoft C++ build tools and Edge WebView2:
 
 ```powershell
-git clone --branch windows-improvements https://github.com/jripper77/bezel.git
+git clone https://github.com/jripper77/bezel-evo.git
 cd bezel
 cargo build --release --locked -p bezel -p bezel-studio
 ```

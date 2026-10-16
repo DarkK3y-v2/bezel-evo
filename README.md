@@ -4,7 +4,7 @@
 <h1 align="center">Bezel Evo</h1>
 <p align="center">Make your USB smart screen your own.</p>
 <p align="center">
-  <a href="https://github.com/jripper77/bezel/releases"><img src="https://img.shields.io/github/v/release/jripper77/bezel?include_prereleases&amp;label=release&amp;color=FF9248" alt="Latest release, including previews"></a>
+  <a href="https://github.com/jripper77/bezel-evo/releases"><img src="https://img.shields.io/github/v/release/jripper77/bezel-evo?include_prereleases&amp;label=release&amp;color=FF9248" alt="Latest release, including previews"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--3.0--or--later-FF9248" alt="Licence: GPL-3.0-or-later"></a>
   <a href="#download--install"><img src="https://img.shields.io/badge/Windows-10%20%2F%2011-121518" alt="Windows 10 and 11, x64"></a>
 </p>
@@ -40,7 +40,7 @@
 
 ## Download & install
 
-1. **[Open Releases](https://github.com/jripper77/bezel/releases)** and download the Windows x64 **Setup** or **portable ZIP**.
+1. **[Open Releases](https://github.com/jripper77/bezel-evo/releases)** and download the Windows x64 **Setup** or **portable ZIP**.
 2. Close the screen's vendor app. Run Setup, or extract the ZIP into a writable folder. Setup offers optional hardware sensors and Light at sign-in.
 3. Open **Studio**, select your screen, choose a theme, customise it and **Save**. Turn on **Live** to send it to the display.
 

@@ -1,7 +1,7 @@
 # Bezel Evo - Windows implementation notes
 
 This is a personal development fork of [slipalison/bezel](https://github.com/slipalison/bezel), based on `3f6144fe7dce7c14f2d79a8f23bbe27e0315e353`.
-The original project remains upstream. `main` follows the original; `windows-improvements` carries the locally tested changes.
+The original project remains upstream at [slipalison/bezel](https://github.com/slipalison/bezel). In this repository `main` is Bezel Evo; the original's history up to the fork point is kept in the `upstream-main` branch.
 
 ## Implemented
 
@@ -621,7 +621,7 @@ external event sources and icon collections still need evaluation.
 ## Windows distribution and updating
 
 Windows x64 releases provide a **Setup executable**, a **portable ZIP**, checksums
-and the corresponding source archive on the [Releases page](https://github.com/jripper77/bezel/releases).
+and the corresponding source archive on the [Releases page](https://github.com/jripper77/bezel-evo/releases).
 The Setup installs Studio, Light, bundled themes and the headless sensor reader.
 It offers optional Light at sign-in and sensor setup; only configuring/removing
 an owned sensor task requests administrator approval. Existing tasks from other

@@ -3,7 +3,7 @@
 [Português (Brasil)](pt-BR/install.md)
 
 For Bezel Evo on Windows 10/11 x64, download the Setup executable or portable ZIP
-from [this fork's Releases page](https://github.com/jripper77/bezel/releases).
+from [this fork's Releases page](https://github.com/jripper77/bezel-evo/releases).
 Follow the [Windows installation guide](../../packaging/windows/README.md) for
 the bundled sensor reader, optional Light at sign-in and updates.
 [Source builds](../build-windows.md) have a separate guide.

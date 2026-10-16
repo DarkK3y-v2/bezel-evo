@@ -41,7 +41,7 @@ have no Authenticode signature.
 
 Bezel Evo derives from Bezel by [Alison Amorim (@slipalison)](https://github.com/slipalison).
 Original authorship and copyright notices are preserved. Bezel Evo is GPL-3.0-or-later;
-source and release history are at https://github.com/jripper77/bezel.
+source and release history are at https://github.com/jripper77/bezel-evo.
 The embedded LibreHardwareMonitorLib 0.9.6 and dependencies retain their licenses
 under `sensors/`. Tabler and Material Design Icons retain MIT and Apache notices.
 IBM Plex: SIL OFL 1.1 (`LICENSE-IBM-Plex-OFL.txt`).

@@ -20,7 +20,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.98"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/slipalison/bezel"
+repository = "https://github.com/jripper77/bezel-evo"
 authors = ["Alison Amorim"]
 
 [workspace.dependencies]
