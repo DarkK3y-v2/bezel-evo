@@ -196,7 +196,9 @@ body.resizing { cursor: col-resize; user-select: none; }
 #stage-scroll.panning, #stage-scroll.panning * { cursor: grabbing; }
 /* Chips whose numbers change every second keep a fixed width, so a value going
    from one to two digits never shifts the rest of the status bar. */
-#status-render, #status-memory, #status-libre-label, #status-fps { display: inline-block; text-align: center; font-variant-numeric: tabular-nums; }
+#status-memory, #status-libre-label, #status-fps { display: inline-block; text-align: center; font-variant-numeric: tabular-nums; }
+/* The render chip is a .pill (inline-flex, centred vertically): centre it horizontally too. */
+#status-render { justify-content: center; font-variant-numeric: tabular-nums; }
 #status-render { min-width: 12ch; }
 #status-memory { min-width: 16ch; }
 #status-libre-label { min-width: 15ch; }
