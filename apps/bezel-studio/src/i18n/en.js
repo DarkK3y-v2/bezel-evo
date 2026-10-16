@@ -21,9 +21,9 @@ export default {
   "spectrum.demoHint": "Synthetic demo — no audio is captured.",
   "spectrum.browser": "Browser audio includes other tabs of the same browser. No system-wide fallback.",
   "spectrum.capture": "Audio capture",
-  "spectrum.consent": "Allow process audio capture for spectrum widgets",
+  "spectrum.consent": "Spectra listen to the app the Player follows",
   "spectrum.privacy": "Only audio from the followed app is analysed in RAM. No microphone, recording or audio logs. Requires Windows build 20348 or newer.",
-  "spectrum.enableHint": "Enable audio capture in Preferences to use Live.",
+  "spectrum.enableHint": "Live listens to the app the Player follows; you can turn it off in Preferences.",
   "spectrum.gradient": "Gradient",
   "spectrum.levelScale": "Each band: 0–100 represents −72 to 0 dB.",
 

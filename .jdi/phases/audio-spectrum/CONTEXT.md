@@ -15,10 +15,11 @@ Widget "Spettro audio": barre specchiate dello spettro dell'audio riprodotto dal
 - D-AS-7 Inspector Aspetto: colori e gradienti, colore per livello con le soglie esistenti (D-19, per singola banda su scala interna coerente), spessore, spazio, angoli con il componente condiviso (cornerRadii), linea centrale, cappucci di picco, movimento.
 - D-AS-8 Movimento: preset Morbido / Bilanciato / Scattante + "Tieni il picco"; default Bilanciato con picchi attivi.
 - D-AS-9 Requisito di sistema: cattura in loopback per processo (build 20348+, in pratica Windows 11); su versioni precedenti il widget mostra "Non supportato su questa versione di Windows".
+- D-AS-10 (2026-10-17, decisione dell'utente, sostituisce il "consenso locale" spento di default): la cattura audio è ATTIVA di default, perché ascolta solo l'app seguita dal Player, in RAM. Resta un interruttore in Preferenze per spegnerla (utile con i browser, dove contribuiscono anche le altre schede); solo un `false` esplicito nelle impostazioni locali la spegne, il tema non può mai accenderla.
 
 ## Prima versione (contenuta)
 - Cattura per processo, analisi e rendering solo in Light; Studio mostra le immagini di Light. Un'unica cattura/analisi condivisa per sorgente anche con più widget o schermi.
-- Privacy: nessun microfono, nessun file o campione audio salvato o nei log; buffer solo in RAM; consenso locale alla cattura.
+- Privacy: nessun microfono, nessun file o campione audio salvato o nei log; buffer solo in RAM; cattura attiva di default, spegnibile in Preferenze (D-AS-10).
 - Valori iniziali da tarare: 32 bande logaritmiche, 60 Hz–16 kHz, FFT 4096 con finestra Hann.
 - Massimo 20 fps verso lo schermo, degrado automatico per dispositivo, sempre l'ultimo risultato (nessuna coda di frame vecchi); aggiornamenti parziali solo dell'area dello spettro.
 - Anteprima in Studio: Dal vivo / Demo (demo esplicita e riconoscibile).

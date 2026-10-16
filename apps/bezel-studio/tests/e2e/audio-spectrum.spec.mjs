@@ -22,15 +22,15 @@ test('spectrum follows one Player; demo, presets, gradients and band thresholds 
   await inspector.getByRole('switch',{name:t('insp.colorByValue'),exact:true}).check();await expect(inspector.getByText(t('spectrum.levelScale'),{exact:true})).toBeVisible();
   await expectAccessible(page);expect(errors).toEqual([]);
 });
-test('missing Player is explicit and capture permission remains a local preference',async({page,t})=>{
+test('missing Player is explicit and audio capture is on until turned off locally',async({page,t})=>{
   const errors=watchErrors(page), inspector=await setup(page,t,false);
   await expect(inspector.getByRole('status')).toHaveText(t('spectrum.playerMissing'));
   await expect(inspector.getByText(t('spectrum.browser'),{exact:true})).toBeVisible();
   await page.getByRole('button',{name:t('prefs.title'),exact:true}).click();const dialog=page.getByRole('dialog',{name:t('prefs.title')});
-  const consent=dialog.getByRole('switch',{name:t('spectrum.consent'),exact:true});await expect(consent).not.toBeChecked();await expect(dialog.getByText(t('spectrum.privacy'),{exact:true})).toBeVisible();
-  await consent.check();await expect(consent).toBeChecked();await expectAccessible(page);
+  const consent=dialog.getByRole('switch',{name:t('spectrum.consent'),exact:true});await expect(consent).toBeChecked();await expect(dialog.getByText(t('spectrum.privacy'),{exact:true})).toBeVisible();
+  await consent.uncheck();await expect(consent).not.toBeChecked();await expectAccessible(page);
   await dialog.getByRole('button',{name:t('common.done'),exact:true}).click();await page.getByRole('button',{name:t('prefs.title'),exact:true}).click();
-  await expect(page.getByRole('switch',{name:t('spectrum.consent'),exact:true})).toBeChecked();expect(errors).toEqual([]);
+  await expect(page.getByRole('switch',{name:t('spectrum.consent'),exact:true})).not.toBeChecked();expect(errors).toEqual([]);
 });
 test('the bars corners switch between one radius and four, under their own title',async({page,t})=>{
   const errors=watchErrors(page), inspector=await setup(page,t);await tab(page,t,'inspector.tab.look');

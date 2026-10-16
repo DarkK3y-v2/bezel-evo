@@ -18,8 +18,9 @@ use crate::texts::parse_language;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
-    /// Explicit local permission; never read from theme documents.
-    pub audio_capture: bool,
+    /// Local permission to capture the followed app's audio; on unless the
+    /// user turned it off. Never read from theme documents.
+    pub audio_capture: DefaultOn,
     pub debug: bool,
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,
@@ -48,6 +49,16 @@ pub struct Settings {
     /// The orientation of the themes the Themes tab lists ([`THEME_AXES`]);
     /// without one, both.
     pub themes_axis: Option<String>,
+}
+
+/// A choice that starts on: absent from the file, it reads as `true`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct DefaultOn(pub bool);
+impl Default for DefaultOn {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// What the Themes tab can list: the themes that fit the screen in use, or
@@ -149,15 +160,13 @@ impl SettingsFile {
 mod tests {
     use super::*;
     #[test]
-    fn old_settings_never_grant_audio_capture_permission() {
+    fn audio_capture_is_on_unless_turned_off() {
+        assert!(Settings::default().audio_capture.0);
         let old: Settings = serde_json::from_str(r#"{"lastTheme":"a.bezeltheme"}"#).unwrap();
-        assert!(!old.audio_capture);
-        let consent: Settings = serde_json::from_str(r#"{"audioCapture":true}"#).unwrap();
-        assert!(consent.audio_capture);
-        assert_eq!(
-            serde_json::to_value(&consent).unwrap()["audioCapture"],
-            true
-        );
+        assert!(old.audio_capture.0);
+        let off: Settings = serde_json::from_str(r#"{"audioCapture":false}"#).unwrap();
+        assert!(!off.audio_capture.0);
+        assert_eq!(serde_json::to_value(&off).unwrap()["audioCapture"], false);
     }
 
     #[test]

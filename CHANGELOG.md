@@ -12,9 +12,9 @@ All notable changes to Bezel Evo are documented here. The format follows
   follows (Spotify, a browser, …) as mirrored bars, with a centre line, held
   peaks, three motion presets, solid or gradient colour, colour by value and
   rounded bar corners. It listens only to that app, never the microphone or
-  the whole PC, analyses the sound in memory and records nothing. Capture is
-  off until you allow it in **Preferences**; until then, or for a quick look,
-  the widget can show a **demo**. It needs Windows 11 (build 20348 or newer).
+  the whole PC, analyses the sound in memory and records nothing. You can turn
+  it off in **Preferences**, and the widget can show a **demo** for a quick
+  look. It needs Windows 11 (build 20348 or newer).
 - A spectrum on a Card face that opens when music plays works like any other.
   When playback stops the bars fall to zero.
 

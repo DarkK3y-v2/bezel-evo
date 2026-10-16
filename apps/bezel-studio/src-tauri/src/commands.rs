@@ -632,7 +632,8 @@ pub fn set_autostart<R: Runtime>(app: AppHandle<R>, on: bool) -> UiResult<()> {
 #[tauri::command]
 pub async fn set_audio_capture(state: State<'_, Shared>, on: bool) -> UiResult<()> {
     blocking(&state, move |b| {
-        b.settings.update(|s| s.audio_capture = on);
+        b.settings
+            .update(|s| s.audio_capture = crate::settings::DefaultOn(on));
         b.sync_engine_options().map_err(UiError::from)
     })
     .await

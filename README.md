@@ -54,8 +54,8 @@ Studio has been redesigned from the ground up, in dark and light.
   round or square ends, a knob, times at the sides or above.
 - **An audio spectrum that follows the music.** Mirrored bars that move with the
   app your Player follows, with held peaks, gradients and colour by value. It
-  listens only to that app, in memory, and stays off until you allow it in
-  Preferences (Windows 11).
+  listens only to that app, in memory, and can be turned off in Preferences
+  (Windows 11).
 - **A clear background chooser.** One card shows the background in use; **Change
   background…** offers a solid colour, a picture or video from this computer, or
   a video already stored on the screen, and nothing changes until you confirm.

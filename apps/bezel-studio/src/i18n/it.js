@@ -21,9 +21,9 @@ export default {
   "spectrum.demoHint": "Demo sintetica — non viene catturato audio.",
   "spectrum.browser": "Nei browser possono contribuire altre schede dello stesso browser. Nessun ripiego sull’audio del PC.",
   "spectrum.capture": "Cattura audio",
-  "spectrum.consent": "Consenti la cattura audio dell’app per gli spettri",
+  "spectrum.consent": "Gli spettri ascoltano l’app seguita dal Player",
   "spectrum.privacy": "Si analizza solo l’audio dell’app seguita, in RAM. Nessun microfono, registrazione o audio nei log. Richiede Windows build 20348 o successiva.",
-  "spectrum.enableHint": "Per Dal vivo abilita la cattura audio nelle Preferenze.",
+  "spectrum.enableHint": "Dal vivo ascolta l’app seguita dal Player; puoi spegnerlo nelle Preferenze.",
   "spectrum.gradient": "Gradiente",
   "spectrum.levelScale": "Ogni banda: 0–100 corrisponde a −72–0 dB.",
 

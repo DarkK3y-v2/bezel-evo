@@ -1347,7 +1347,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let debug = false;
   let debugShowReadings = false;
   let debugCorner = "bottom-left";
-  let audioCapture = false;
+  let audioCapture = true;
   const systemLanguage = pickLocale(hooks.languages ?? []);
   const sensorOptions = { pingHost: null };
   const closeListeners = new Set();

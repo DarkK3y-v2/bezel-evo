@@ -490,15 +490,20 @@ fn make_engine(
         }),
         Box::new(bezel_sensors::FakeSensors::demo()),
     );
+    // Audio capture is on unless the user's local settings turned it off.
     if let Command::Run {
         screens_config: Some(path),
         ..
     } = &cli.command
-        && std::fs::metadata(path).is_ok_and(|m| m.len() <= 1024 * 1024)
-        && let Ok(bytes) = std::fs::read(path)
-        && let Ok(settings) = serde_json::from_slice::<serde_json::Value>(&bytes)
     {
-        engine.audio_consent(settings["audioCapture"].as_bool() == Some(true));
+        let settings = std::fs::metadata(path)
+            .is_ok_and(|m| m.len() <= 1024 * 1024)
+            .then(|| std::fs::read(path).ok())
+            .flatten()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
+        engine.audio_consent(
+            settings.is_none_or(|settings| settings["audioCapture"].as_bool() != Some(false)),
+        );
     }
     load_saved_documents(&mut engine, cli)?;
     Ok(engine)
