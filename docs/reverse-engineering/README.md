@@ -22,7 +22,7 @@ a bug: fix it, or fix the spec and say why in the commit message.
 | [themes-python-yaml.md](themes-python-yaml.md) | The YAML theme schema of turing-smart-screen-python, defaults, scheduler semantics, YAML 1.1 quirks, `scale_theme.py` |
 | [themes-turzx.md](themes-turzx.md) | The `.turtheme` container (MS-NRBF), record walk-through, class schemas, element types, fonts, folder layout, resolution keys |
 | [rendering.md](rendering.md) | Reference rendering semantics Bezel reproduces (Pillow widgets of the Python app, GDI+ elements of the vendor app) |
-| [sensors.md](sensors.md) | Unified sensor catalog, how each reference measures each metric, their measurement bugs, and Bezel's Linux/Windows strategy |
+| [sensors.md](sensors.md) | Unified sensor catalog, how each reference measures each metric, their measurement bugs, and Bezel's Windows strategy |
 | [ui-inventory.md](ui-inventory.md) | Feature inventory of both reference apps, UX critique, and the single-window design Bezel follows |
 | [runtime-artifacts.md](runtime-artifacts.md) | Vendor app log templates, a typical session timeline, config file layouts, `code.ini`, privacy notes |
 

@@ -37,7 +37,7 @@ pub struct Loaded {
 /// The folders searched, in order, for the themes that ship with Bezel:
 /// `override_dir` (`$BEZEL_THEMES_DIR`), `<exe dir>/themes` (the Windows
 /// installer, the portable ZIP and `dist`), `<exe dir>/../share/bezel/themes`
-/// (packages and `install-local.sh`), then `<data home>/bezel/themes`.
+/// (legacy resource layout), then `<data home>/bezel/themes`.
 pub fn bundled_candidates(
     override_dir: Option<PathBuf>,
     exe: Option<&Path>,

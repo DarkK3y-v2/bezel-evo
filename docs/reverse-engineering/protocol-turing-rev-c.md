@@ -585,7 +585,6 @@ for attempt in 0 .. max-1:
 - `max` is the start's retry count (40 after resume), or 8 when a frame fails. With 8 the USB restart runs twice and
   the MCU command once. After a failed reconnect the frame sender waits 2000 ms and tries again, 3 rounds at most.
 - One OEM build retries forever.
-- Linux equivalents of the USB restart: `USBDEVFS_RESET`, or writing 0 then 1 to the device's sysfs `authorized`.
 - The MCU and its sibling-port pairing: [devices.md](devices.md) section 5.2.
 
 Every step after the first reopen resets or re-enumerates the screen (section 16).

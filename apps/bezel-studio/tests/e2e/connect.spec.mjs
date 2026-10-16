@@ -1,7 +1,7 @@
 // "Connect your smart screen" (artboard Connect), in pt-BR and en, light and
 // dark: the stage shows it while no screen can be used (none listed, or the
 // system denied the selected one), with only what the bridge reports, the
-// udev command of a denied port and the theme import; it can be hidden to
+// connection guidance and the theme import; it can be hidden to
 // edit the theme, and it never shows while a screen works.
 import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 

@@ -10,7 +10,7 @@ apps/*/coverage/
 apps/*/test-results/
 apps/*/playwright-report/
 
-# Coverage reports (CI quality job and scripts/ci/sonar-coverage.sh)
+# Coverage reports
 /resultados/
 coverage/
 lcov.info

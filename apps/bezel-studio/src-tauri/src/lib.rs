@@ -641,8 +641,7 @@ struct Folders {
     /// The app's config folder: `settings.json`, `klipy.json`.
     config: PathBuf,
     /// The user's data folder: `<data>/bezel` is shared with the CLI (the
-    /// local copies, the collection) and holds the themes
-    /// `install-local.sh` installs.
+    /// local copies, the collection and user-installed themes).
     data: PathBuf,
     /// The app's data folder: the user's themes.
     app_data: PathBuf,
@@ -667,7 +666,7 @@ impl Folders {
 }
 
 /// Folders of the themes that ship with Bezel: next to the installed app
-/// (packages) and in the user's data folder (`install-local.sh`).
+/// resources and in the user's data folder.
 fn bundled_theme_dirs(folders: &Folders) -> Vec<PathBuf> {
     [
         folders.resources.as_ref().map(|d| d.join("themes")),

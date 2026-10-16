@@ -1,7 +1,7 @@
 # Sensors
 
 Every metric either reference app offers, how each one measures it, the measurement bugs Bezel must not repeat, and
-the strategy Bezel follows on Linux and Windows. Confidence: **static** (nothing here was measured on a machine);
+the strategy Bezel follows on Windows. Confidence: **static** (nothing here was measured on a machine);
 items marked **inferred** rely on third-party library behaviour that was not executed.
 
 ## 1. Principles for Bezel
@@ -19,50 +19,50 @@ items marked **inferred** rely on third-party library behaviour that was not exe
 
 ## 2. Unified catalog
 
-`PY` = turing-smart-screen-python (`library/sensors/sensors_python.py` on Linux, `sensors_librehardwaremonitor.py`
+`PY` = turing-smart-screen-python (`library/sensors/sensors_librehardwaremonitor.py`
 "LHM" on Windows). `TZ` = the vendor app (Windows only). A dash means the app does not offer the metric.
 
-| Metric | PY theme key | TZ data name | PY Linux | PY Windows (LHM) | TZ source | Unit |
-|---|---|---|---|---|---|---|
-| CPU usage, total | `CPU.PERCENTAGE` | `CPULOAD` | `psutil.cpu_percent(interval=INTERVAL)`, blocking for INTERVAL | Load sensor starting `CPU Total` | engine usage sensor `Total CPU Utility`, else `Total CPU Usage` (user-selectable) | % |
-| CPU usage, per core | - | - | - | - | - | % |
-| CPU frequency | `CPU.FREQUENCY` | `CPUCLOCK` (MHz), `CPUCLOCK_G` (GHz) | `psutil.cpu_freq().current` (mean of `scaling_cur_freq`) | mean of Clock sensors containing `Core #` and not `Effective` | mean of per-core clock sensors (label contains `core`; E-cores handled separately) | MHz / GHz |
-| CPU load average | `CPU.LOAD.ONE/FIVE/FIFTEEN` | - | `os.getloadavg()` | psutil emulation | - | run-queue length (shown as `%`, bug) |
-| CPU temperature | `CPU.TEMPERATURE` | `CPUTEMP` | first entry of the first chip among `coretemp`, `k10temp`, `cpu_thermal`, `zenpower` | Temperature sensor starting `Core Average`, then `Core Max`, then `CPU Package`, then any `Core...` | engine temperature `CPU Package` by default (user-selectable, e.g. `SOC`); fallback max core temperature | °C (°F option) |
-| CPU power | - | `CPUPWR` | - | - | engine power sensor `CPU Package Power` | W |
-| CPU voltage | - | `CPUVOLTAGE` | - | - | per-core `VID` sensors averaged (`VID Average`, user-selectable) | V |
-| CPU fan | `CPU.FAN_SPEED` | `CPUFAN` | hwmon heuristic percent (section 5, S3/S4) | first Control sensor containing `#2` of the Super-I/O (fan control %) | user-selected fan sensor, fuzzy match `cpu` | PY %, TZ RPM |
-| CPU model | - | `CPUMODEL` | - | - | engine device name without `AMD`/`Intel`; manual override | text |
-| GPU usage | `GPU.PERCENTAGE` | `GPULOAD` | NVIDIA: mean of GPUtil `load * 100` over all GPUs; AMD: `pyamdgpuinfo query_load() * 100` | Load `GPU Core`, fallback `D3D 3D` | first of `GPU Core Load`, `GPU Utilization`, `GPU Total Usage` | % |
-| GPU memory % | `GPU.MEMORY_PERCENT` | `GPURAMLOAD` | used / total | used / total | `GPU Memory Usage` | % |
-| GPU memory used | `GPU.MEMORY_USED` | `GPURAM` | NVIDIA `memoryUsed` (MiB); AMD `query_vram_usage()/1024/1024` | SmallData `GPU Memory Used`, fallback `D3D ... Memory Used` | `GPU D3D Memory Dedicated` | MiB / MB |
-| GPU memory total | `GPU.MEMORY_TOTAL` | `GPURAMTOTAL` | `memoryTotal` / `vram_size` | SmallData `GPU Memory Total` | engine VRAM size (KB -> MB) | MiB / MB |
-| GPU temperature | `GPU.TEMPERATURE` | `GPUTEMP` | NVIDIA mean temperature; AMD `query_temperature()` | Temperature `GPU Core` | first of `GPU Temperature`, `GPU Thermal Diode`, `GPU Core Temperature`, `GPU Global Temperature` | °C |
-| GPU clock | `GPU.FREQUENCY` | `GPUCLOCK`, `GPUCLOCK_G` | NVIDIA: **NaN**; AMD `query_sclk()/1e6` | first Clock containing `Core`, not `Effective` | `GPU Clock` or `GPU Shader Clock` | MHz / GHz |
-| GPU power | - | `GPUPWR` | - | - | label containing `Power`, excluding `Limit`/`Misc` | W |
-| GPU fan | `GPU.FAN_SPEED` | `GPUFAN` | hwmon rule (bug S2); AMD then pyadl (Windows only) | first Control sensor of the GPU (%) | GPU device fan sensor | PY %, TZ RPM |
-| GPU voltage | - | `GPUVOLTAGE` | - | - | `GPU Core Voltage` | V |
-| GPU model | - | `GPUMODEL` | - | - | device name without vendor; manual override | text |
-| Game FPS | `GPU.FPS` | `FPS` | -1 (unsupported) | Factor sensor with `FPS` in its name; keeps the previous value when `<= 0` | RTSS frame rate exposed by the engine as an "other" sensor `Framerate` | fps |
-| RAM % | `MEMORY.VIRTUAL.*` / `PERCENT_TEXT` | `RAMLOAD` | `psutil.virtual_memory().percent` = (total - available) / total | Load starting `Memory` of "Total Memory" | `Physical Memory Load` | % |
-| RAM used | `MEMORY.VIRTUAL.USED` | `RAM`, `RAM_GB` | `total - available` | Data `Memory Used` (GB) x 1e9 | `Physical Memory Used` | PY MiB, TZ MB / GB (= MB / 1024) |
-| RAM available | `MEMORY.VIRTUAL.FREE` | `RAMVALID`, `RAMVALID_GB` | `available` | Data `Memory Available` x 1e9 | `Physical Memory Available` | as above |
-| RAM total | `MEMORY.VIRTUAL.TOTAL` | `RAMTOTAL`, `RAMTOTAL_GB` | `available + used` | sum of the two | engine total physical RAM (MB) | as above |
-| RAM "model" | - | `RAMMODEL` | - | - | `<total / 1024>G` (e.g. `16G`); manual override | text |
-| Swap % | `MEMORY.SWAP` | - | `psutil.swap_memory().percent` | derived: ("Virtual Memory" - "Total Memory") used / (used + available) | - | % |
-| Disk used / total / free | `DISK.USED/TOTAL/FREE` | `DRVLOAD` (%) | `psutil.disk_usage("/")` | `psutil.disk_usage("/")` (current drive) | .NET `DriveInfo`: `(1 - TotalFreeSpace / TotalSize) * 100` for the drive letter in SubName | %, decimal GB |
-| Disk temperature | - | `HDDTEMP` | - | - | `Drive Temperature`, fallback `Drive Airflow Temperature` (disk index in SubName) | °C |
-| Disk activity | - | `HDDUSED` | - | - | `Total Activity` per drive | % |
-| Network rate up / down | `NET.WLO/ETH.UPLOAD/DOWNLOAD` | `UPSPEED`, `DOWNDSPEED` | psutil per-NIC byte counters / **nominal** INTERVAL | Throughput `Upload Speed`/`Download Speed`; psutil fallback with monotonic elapsed time | .NET `NetworkInterface.GetIPv4Statistics()` byte-counter delta / elapsed, for one selected adapter | B/s (PY), KB/s or MB/s (TZ) |
-| Network totals | `NET.*.UPLOADED/DOWNLOADED` | - | cumulative since boot | Data `Data Uploaded/Downloaded` (GB) x 1e9 | - | bytes |
-| Pump, case fans | - | `WATERPUMP`, `CASEFAN1`, `CASEFAN2` | - | - | user-selected fan sensors (fuzzy `pump` for the pump) | RPM |
-| Date / time | `DATE.DAY/HOUR` | `TIME`, `DATE`, `DAY`, `APM` | Babel with the process locale | Babel with `locale.getdefaultlocale()` | `DateTime.Now` formatted by SubName | text |
-| Uptime | `UPTIME.SECONDS/FORMATTED` | - | `uptime.uptime()` | same | - | s |
-| Ping | `PING` | - | `ping3.ping(host, unit="ms")`, 4 s timeout | same | - | ms |
-| Weather | `WEATHER.*` | `Weather` | OpenWeatherMap One Call 3.0 (user key) | same | QWeather HTTP API with the vendor's own credentials | text |
-| System volume | - | `Volume` | - | - | NAudio default render endpoint master volume scalar x 100 | % |
-| Custom | `CUSTOM.<Class>` | - | user Python class | same | - | any |
-| Static text | `static_text` | `StaticText` | - | - | - | text |
+| Metric | PY theme key | TZ data name | PY Windows (LHM) | TZ source | Unit |
+|---|---|---|---|---|---|
+| CPU usage, total | `CPU.PERCENTAGE` | `CPULOAD` | Load sensor starting `CPU Total` | engine usage sensor `Total CPU Utility`, else `Total CPU Usage` (user-selectable) | % |
+| CPU usage, per core | - | - | - | - | % |
+| CPU frequency | `CPU.FREQUENCY` | `CPUCLOCK` (MHz), `CPUCLOCK_G` (GHz) | mean of Clock sensors containing `Core #` and not `Effective` | mean of per-core clock sensors (label contains `core`; E-cores handled separately) | MHz / GHz |
+| CPU load average | `CPU.LOAD.ONE/FIVE/FIFTEEN` | - | psutil emulation | - | run-queue length (shown as `%`, bug) |
+| CPU temperature | `CPU.TEMPERATURE` | `CPUTEMP` | Temperature sensor starting `Core Average`, then `Core Max`, then `CPU Package`, then any `Core...` | engine temperature `CPU Package` by default (user-selectable, e.g. `SOC`); fallback max core temperature | °C (°F option) |
+| CPU power | - | `CPUPWR` | - | engine power sensor `CPU Package Power` | W |
+| CPU voltage | - | `CPUVOLTAGE` | - | per-core `VID` sensors averaged (`VID Average`, user-selectable) | V |
+| CPU fan | `CPU.FAN_SPEED` | `CPUFAN` | first Control sensor containing `#2` of the Super-I/O (fan control %) | user-selected fan sensor, fuzzy match `cpu` | PY %, TZ RPM |
+| CPU model | - | `CPUMODEL` | - | engine device name without `AMD`/`Intel`; manual override | text |
+| GPU usage | `GPU.PERCENTAGE` | `GPULOAD` | Load `GPU Core`, fallback `D3D 3D` | first of `GPU Core Load`, `GPU Utilization`, `GPU Total Usage` | % |
+| GPU memory % | `GPU.MEMORY_PERCENT` | `GPURAMLOAD` | used / total | `GPU Memory Usage` | % |
+| GPU memory used | `GPU.MEMORY_USED` | `GPURAM` | SmallData `GPU Memory Used`, fallback `D3D ... Memory Used` | `GPU D3D Memory Dedicated` | MiB / MB |
+| GPU memory total | `GPU.MEMORY_TOTAL` | `GPURAMTOTAL` | SmallData `GPU Memory Total` | engine VRAM size (KB -> MB) | MiB / MB |
+| GPU temperature | `GPU.TEMPERATURE` | `GPUTEMP` | Temperature `GPU Core` | first of `GPU Temperature`, `GPU Thermal Diode`, `GPU Core Temperature`, `GPU Global Temperature` | °C |
+| GPU clock | `GPU.FREQUENCY` | `GPUCLOCK`, `GPUCLOCK_G` | first Clock containing `Core`, not `Effective` | `GPU Clock` or `GPU Shader Clock` | MHz / GHz |
+| GPU power | - | `GPUPWR` | - | label containing `Power`, excluding `Limit`/`Misc` | W |
+| GPU fan | `GPU.FAN_SPEED` | `GPUFAN` | first Control sensor of the GPU (%) | GPU device fan sensor | PY %, TZ RPM |
+| GPU voltage | - | `GPUVOLTAGE` | - | `GPU Core Voltage` | V |
+| GPU model | - | `GPUMODEL` | - | device name without vendor; manual override | text |
+| Game FPS | `GPU.FPS` | `FPS` | Factor sensor with `FPS` in its name; keeps the previous value when `<= 0` | RTSS frame rate exposed by the engine as an "other" sensor `Framerate` | fps |
+| RAM % | `MEMORY.VIRTUAL.*` / `PERCENT_TEXT` | `RAMLOAD` | Load starting `Memory` of "Total Memory" | `Physical Memory Load` | % |
+| RAM used | `MEMORY.VIRTUAL.USED` | `RAM`, `RAM_GB` | Data `Memory Used` (GB) x 1e9 | `Physical Memory Used` | PY MiB, TZ MB / GB (= MB / 1024) |
+| RAM available | `MEMORY.VIRTUAL.FREE` | `RAMVALID`, `RAMVALID_GB` | Data `Memory Available` x 1e9 | `Physical Memory Available` | as above |
+| RAM total | `MEMORY.VIRTUAL.TOTAL` | `RAMTOTAL`, `RAMTOTAL_GB` | sum of the two | engine total physical RAM (MB) | as above |
+| RAM "model" | - | `RAMMODEL` | - | `<total / 1024>G` (e.g. `16G`); manual override | text |
+| Swap % | `MEMORY.SWAP` | - | derived: ("Virtual Memory" - "Total Memory") used / (used + available) | - | % |
+| Disk used / total / free | `DISK.USED/TOTAL/FREE` | `DRVLOAD` (%) | `psutil.disk_usage("/")` (current drive) | .NET `DriveInfo`: `(1 - TotalFreeSpace / TotalSize) * 100` for the drive letter in SubName | %, decimal GB |
+| Disk temperature | - | `HDDTEMP` | - | `Drive Temperature`, fallback `Drive Airflow Temperature` (disk index in SubName) | °C |
+| Disk activity | - | `HDDUSED` | - | `Total Activity` per drive | % |
+| Network rate up / down | `NET.WLO/ETH.UPLOAD/DOWNLOAD` | `UPSPEED`, `DOWNDSPEED` | Throughput `Upload Speed`/`Download Speed`; psutil fallback with monotonic elapsed time | .NET `NetworkInterface.GetIPv4Statistics()` byte-counter delta / elapsed, for one selected adapter | B/s (PY), KB/s or MB/s (TZ) |
+| Network totals | `NET.*.UPLOADED/DOWNLOADED` | - | Data `Data Uploaded/Downloaded` (GB) x 1e9 | - | bytes |
+| Pump, case fans | - | `WATERPUMP`, `CASEFAN1`, `CASEFAN2` | - | user-selected fan sensors (fuzzy `pump` for the pump) | RPM |
+| Date / time | `DATE.DAY/HOUR` | `TIME`, `DATE`, `DAY`, `APM` | Babel with `locale.getdefaultlocale()` | `DateTime.Now` formatted by SubName | text |
+| Uptime | `UPTIME.SECONDS/FORMATTED` | - | same | - | s |
+| Ping | `PING` | - | same | - | ms |
+| Weather | `WEATHER.*` | `Weather` | same | QWeather HTTP API with the vendor's own credentials | text |
+| System volume | - | `Volume` | - | NAudio default render endpoint master volume scalar x 100 | % |
+| Custom | `CUSTOM.<Class>` | - | same | - | any |
+| Static text | `static_text` | `StaticText` | - | - | text |
 
 Not offered by either app: per-core usage or clocks, disk I/O throughput, RAM or motherboard temperatures, battery,
 GPU hot-spot or memory clock, multi-GPU selection (PY), aggregated network, process lists.
@@ -134,26 +134,15 @@ model names and time. `ShowUnit` toggles the suffix.
   previews), `AUTO` (default: Windows -> LHM, others -> PYTHON).
 - One scheduler thread per metric group at the theme's `INTERVAL`; values go through `int()` truncation, `MIN_SIZE`
   padding and unit suffixes ([themes-python-yaml.md](themes-python-yaml.md) section 8).
-- GPU detection on Linux: NVIDIA (GPUtil, which runs `nvidia-smi` as a subprocess on every call) then AMD
-  (pyamdgpuinfo, then pyadl). **Intel GPUs on Linux are not supported.** NVIDIA values are averaged over all GPUs; AMD
-  uses GPU 0. The GPU thread is not started when no GPU is found.
 - LHM GPU choice (Windows): no GPU -> disabled; one -> it; several -> first NVIDIA, else the single AMD, else the AMD
   that has a `GPU Core` load sensor (skipping an APU), else the first Intel. Chosen once at startup by name; not
   configurable.
-- CPU temperature on Linux reads `psutil.sensors_temperatures()` (hwmon and thermal zones): for `coretemp` the first
-  entry is typically `Package id 0`; for `k10temp` it is `Tctl` (or `Tdie` on some kernels; `Tctl` carries a +10/+20/
-  +27 °C offset on some older Ryzen and Threadripper parts).
-- Fans on Linux: a private copy of psutil's fan reader globs `/sys/class/hwmon/hwmon*/fan*_*` (fallback
-  `.../device/fan*_*`); per fan: `current = fanN_input`; `max = fanN_max`, else a guess by current RPM (> 2200 -> 3000,
-  > 1500 -> 2200, else 1500); `min = fanN_min`, else 0; **percent = `int((cur - min) / (max - min) * 100)`**. Grouped by
-  the chip `name`, label `fanN_label` or `fanN`. Auto-selection: first fan whose label or chip contains `cpu` or
-  `proc`; manual: `CPU_FAN: "<chip>/<label>"` (for example `nct6798/fan2`). The Windows LHM path ignores `CPU_FAN`.
 - Disk: `psutil.disk_usage("/")` on both systems; `TOTAL = free + used` (excludes reserved blocks).
 - Network (PY): `psutil.net_io_counters(pernic=True)`; rate = `(now - prev) / INTERVAL`. (LHM): Throughput sensors;
   when absent (some Wi-Fi adapters) psutil with monotonic elapsed time and `max(0, delta)`.
 - Date: Babel `format_date`/`format_time` with `FORMAT`; locale from `locale.getdefaultlocale()` on Windows and
   `babel.dates.LC_TIME` elsewhere, fallback `en_US`.
-- Ping: `ping3` (ICMP; unprivileged datagram sockets on Linux need `net.ipv4.ping_group_range`), synchronous.
+- Ping: `ping3` (ICMP; availability depends on the OS), synchronous.
 - Weather: `GET https://api.openweathermap.org/data/3.0/onecall?lat=..&lon=..&exclude=minutely,hourly,daily,alerts&appid=..&units=..&lang=..`
   with no timeout; period `max(300, INTERVAL)` (at most 288 calls/day).
 - Custom: every key under `STATS.CUSTOM` (except `INTERVAL`) names a class in `sensors_custom.py`, instantiated on
@@ -196,7 +185,7 @@ Python (all confirmed from source unless marked):
 | S3 | `sensors_python.py:106` | Fan percent can exceed 100 or go negative (guessed max); `max == min` raises ZeroDivisionError outside the per-fan handler, so the caller returns NaN for all fans |
 | S4 | `sensors_python.py:171-178` | Manual `CPU_FAN` wins only if no earlier fan matches the automatic `cpu`/`proc` rule |
 | S5 | `stats.py:298-303, 591-596` | CPU/GPU frequency radials receive a **string** (`f"{ghz:.2f}"`): TypeError, the thread dies |
-| S6 | `stats.py:286-291, 391` | Frequency has no NaN handling: unsupported (always on NVIDIA Linux) prints `nan GHz`; the bar gets `int(GHz)` (1 GHz steps) |
+| S6 | `stats.py:286-291, 391` | Frequency has no NaN handling: unsupported prints `nan GHz`; the bar gets `int(GHz)` (1 GHz steps) |
 | S7 | `stats.py:269-281` | CPU% NaN -> `int(nan)` ValueError, the thread dies |
 | S8 | `stats.py:935-954` | Ping timeout returns `None`, error `False`; `int(None)` kills the thread; the call blocks up to 4 s in the sensor thread |
 | S9 | `sensors_python.py:493-495` | Network rate divided by the nominal INTERVAL, not the elapsed time; first sample 0; counter resets give negative rates; errors print `-1.0 B/s` |
@@ -225,29 +214,6 @@ Vendor app (static):
 
 ## 6. Bezel strategy
 
-### 6.1 Linux
-
-| Metric | Source |
-|---|---|
-| CPU usage (total and per core) | `/proc/stat` deltas over measured elapsed time |
-| CPU frequency | mean of `/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq` over online cores (fallback `cpuinfo_cur_freq`); per-core available |
-| CPU temperature | hwmon by chip `name` and label: `coretemp` `Package id 0`; `k10temp` `Tctl`/`Tdie`/`Tccd*`; `zenpower`; `cpu_thermal`/`soc_thermal`; `acpitz` last. Document the `Tctl` offset. User can pick any hwmon input. |
-| CPU power | RAPL energy counters under `/sys/class/powercap/intel-rapl*/energy_uj` (delta / elapsed). Reading them needs root or a udev/group rule on current kernels; AMD coverage depends on the kernel (verify). Unavailable otherwise. |
-| CPU voltage | Super-I/O hwmon `in*_input` (`nct6775`, `it87`) when present; optional |
-| Fans, pump | hwmon `fanN_input` (RPM) and `pwmN` (duty / 255 -> %); chosen by hwmon path and label; RPM and % kept separate |
-| NVIDIA GPU | NVML: utilisation, memory used/total, temperature, fan %, graphics clock, power (no voltage) |
-| AMD GPU | amdgpu sysfs: `gpu_busy_percent`, `mem_info_vram_used`/`mem_info_vram_total`, hwmon `temp1_input`, `power1_average` (or `power1_input`), `fan1_input`, `pwm1`, `in0_input` (vddgfx, mV), `pp_dpm_sclk` |
-| Intel GPU | i915/xe sysfs frequency (`gt_cur_freq_mhz`); usage needs perf counters (optional) |
-| RAM, swap | `/proc/meminfo`: `MemTotal - MemAvailable`, `SwapTotal - SwapFree` |
-| Disk space | `statvfs` per chosen mount point |
-| Disk I/O, temperature | `/proc/diskstats` (sectors x 512, elapsed-based); `drivetemp` or NVMe hwmon |
-| Network | `/sys/class/net/<if>/statistics/{rx,tx}_bytes` with monotonic elapsed time, 64-bit wrap handling, "auto" = default-route interface, and sum of all |
-| Volume | PipeWire / PulseAudio default sink |
-| FPS | the newest MangoHud CSV log, read-only (section 8.2); unavailable with how to enable logging otherwise |
-| Weather | Open-Meteo (no key) with its geocoding API; cached, with a stale marker and timeouts |
-| Ping | unprivileged ICMP (`SOCK_DGRAM`, `ping_group_range`) or TCP-connect fallback, in its own task; timeout = unavailable (section 8.3) |
-| Date/time | CLDR-compatible formatter (Python themes use CLDR patterns such as `yyyy.MM.dd`, `HH:mm:ss zzz`, `EEE d MMM`); the vendor SubName vocabulary as aliases |
-
 ### 6.2 Windows
 
 | Metric | Source |
@@ -269,8 +235,6 @@ render path. Each sample carries its timestamp so history graphs use real time s
 
 1. Units of LHM `Data` sensors in the version the Python project bundles (GiB versus GB, S17).
 2. Exact LHM sensor names on AMD Ryzen and for the FPS factor; psutil's Windows load-average emulation cadence.
-3. Whether ping3 works on Linux without `ping_group_range` or root. (Bezel does not depend on it: an ICMP datagram
-   socket outside `ping_group_range` is refused, and Bezel then times a TCP connect instead; section 8.3.)
 4. The vendor engine's `code.ini` flag semantics (64 / 0 / 8192) and the drop-down population rules for fans and
    voltages.
 5. NVIDIA memory units reported by GPUtil (assumed MiB).
@@ -278,7 +242,7 @@ render path. Each sample carries its timestamp so history graphs use real time s
 ## 8. Game FPS and ping sources (Bezel 1.0)
 
 Bezel never hooks, injects into or draws over a game: `gpu.fps` reads what a frame-rate overlay that already runs
-publishes (D-2026-09-30-release-polish-4). Both readers are tested with golden fixtures in
+publishes (D-2026-09-30-release-polish-4). The RTSS reader is tested with golden fixtures in
 `crates/bezel-sensors/src/fps/fixtures/`, written by hand from the sources below; none comes from a real game yet, so
 the catalog marks the sensor "not validated on hardware" (`hardware_validated = false`). A missing source, or a value
 older than 3 s, is unavailable with a reason that says how to turn the source on (never 0, never the last value); a
@@ -327,47 +291,11 @@ is in the `Kaldaien/BMF` repository on GitHub), structure `RTSS_SHARED_MEMORY`, 
 - A period that has not closed for 3 s means the game is minimized, paused or closing (RTSS closes a period only while
   frames are presented): unavailable.
 
-### 8.2 MangoHud CSV logs (Linux)
-
-Source: MangoHud's `src/logging.cpp` (`writeFileHeaders`, `Logger::writeToFile`, `Logger::start_logging`,
-`writeSummary`) and `src/config.cpp` (`enumerate_config_files`, `parseConfigFile`, `parseConfigLine`), master of
-2026-09-30.
-
-- MangoHud logs while logging is toggled on (`toggle_logging`, default `Shift_L+F2`) or after `autostart_log=<seconds>`.
-  Each session writes `<output_folder>/<program>_<YYYY-MM-DD_HH-MM-SS>.csv` (under Wine, the program is the `.exe`
-  name); an empty `output_folder` means `$HOME`.
-- Layout (the bracketed lines only with `log_versioning`):
-
-```text
-[v1]
-[<MangoHud version>]
-[---------------------SYSTEM INFO---------------------]
-os,cpu,gpu,ram,kernel,driver,cpuscheduler
-<system values>
-[--------------------FRAME METRICS--------------------]
-fps,frametime,cpu_load,cpu_power,gpu_load,cpu_temp,gpu_temp,gpu_core_clock,gpu_mem_clock,gpu_vram_used,gpu_power,ram_used,swap_used,process_rss,cpu_mhz,elapsed
-<one row per logged interval, flushed as it is written; elapsed = nanoseconds since logging started>
-```
-
-- `stop_logging` then writes `<same name>_summary.csv` (percentiles and averages), which is not a frame log.
-- Bezel takes the newest file named `*_YYYY-MM-DD_HH-MM-SS.csv` by modification time, finds the `fps` column by name
-  in the frame-metric header (first 4 KiB) and reads it from the last complete row (last 4 KiB; a row still being
-  written is skipped). A file last written more than 3 s ago is stale.
-- Folder: `--mangohud-dir` (CLI) or the studio setting; else MangoHud's own lookup without the per-game files:
-  `MANGOHUD_CONFIGFILE` alone when set, else the first file that exists of `/etc/MangoHud.conf` and
-  `$XDG_CONFIG_HOME/MangoHud/MangoHud.conf` (`~/.config` without `XDG_CONFIG_HOME`), in that order (MangoHud reads only
-  the first one it finds); its `output_folder` (`key=value` lines, `#` comments, `~` expanded), else `$HOME`.
-
 ### 8.3 `net.ping`
 
 - A thread of its own probes the host (setting `ping_host`, CLI `--ping-host`, default 8.8.8.8) once a second with a
   2 s timeout; a sample only reads the last result, so a mute host never delays it (D-2026-09-30-release-polish-5). No
   answer within the timeout, or a result older than 5 s (the probe is stuck, for example resolving the name), is
   unavailable.
-- ICMP echo request (type 8, ICMPv6 128; identifier 0, a sequence number, 8 bytes of payload) through
-  `socket(AF_INET or AF_INET6, SOCK_DGRAM, IPPROTO_ICMP or IPPROTO_ICMPV6)`. Linux allows it for the groups in
-  `net.ipv4.ping_group_range` (Fedora: `0 2147483647`), writes its own identifier, filters the replies for the socket
-  and returns the ICMP message without the IP header. The reply (type 0, ICMPv6 129) must echo the sequence and
-  payload.
-- When that socket is refused (a user outside `ping_group_range`, Windows), Bezel times a TCP connect (SYN to SYN-ACK)
+- On Windows, when the ICMP socket is refused, Bezel times a TCP connect (SYN to SYN-ACK)
   to port 53, then 443.
