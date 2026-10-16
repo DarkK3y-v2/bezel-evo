@@ -15,6 +15,8 @@ authors.workspace = true
 fake = []
 
 [dependencies]
+tracing.workspace = true
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 # The handoff store implements a port of the core (`HandoffStore`).
 bezel-core = { workspace = true }
 thiserror = { workspace = true }
