@@ -814,3 +814,45 @@ for as long as the USB is powered.
 12. What start modes 1 and 2 show without a memory card (the internal `/mnt/UDISK/` folders?), and whether the
     "first entry" of `/mnt/SDCARD/video/` follows the directory order, the name or the age.
 13. Which host packets reset the sleep timer: it was measured with streamed frames only.
+14. Whether PRE_UPDATE_BITMAP 0x86 at a new connection resets what the firmware diffs partial updates against, or
+    keeps the frame the screen shows (section 21). Bezel relies on QUERY_STATUS to tell.
+
+## 21. Handing the screen from Studio to Light (Bezel, Windows)
+
+Bezel's own sequence, made only of packets the sections above document; no byte is specific to it.
+
+```
+Studio  (window closed, Light started and waiting for Studio's session lock)
+        the live links leave the frame loop; nothing is sent after the last frame
+        the last frame each screen confirmed is written to a per-user file (screen address, model, HELLO answer,
+        orientation, size, time), then the port closes. No END_UPDATE_BITMAP 0x87: the stream is not ended.
+Light   HELLO; STOP_VIDEO; 200 ms; STOP_MEDIA until media_stop; PRE_UPDATE_BITMAP     (connect, section 7.2 steps 1-8)
+        file found, same screen / firmware / orientation / size, at most 20 s old -> it is the diff baseline
+        first frame: partial update against it (section 9.2), or the one-pixel keepalive when nothing changed,
+        then QUERY_STATUS; needReSend:1 -> full frame (section 8.2) at once, in the same step
+```
+
+- Why a redraw happened before: Light started with no baseline, so its first frame was a full frame (3.7 MB on the
+  8.8"), which the panel redraws visibly although it shows the same theme. Studio does not send 0x87 when it closes
+  towards Light (it never did: its process ends and the port closes); 0x87 goes out only from an explicit "hand
+  back to the screen".
+- What keeps the frame: section 19 ("Video after the host", "Host shut down") shows that the last frame stays on the
+  screen after the host closes the port and through a new connection and HELLO. Whether 0x86 at the new connection
+  resets the firmware's own diff state is not documented (section 20, question 14): a firmware that lost what it
+  showed answers `needReSend:1` to the QUERY_STATUS that always follows the first frame, and gets the full frame.
+  A firmware that lost it and answered nothing (or `needReSend:0`) would keep a partly wrong picture until those
+  pixels change: this is what the hardware check below rules out.
+- Not done, device video: the connect sequence stops what the device plays (STOP_VIDEO / STOP_MEDIA), as the vendor
+  and Python always do at a theme start (sections 7.1, 7.2). Streaming over a playing video is the overlay of
+  section 13.5, but whether a new connection (HELLO, 0x86) leaves a video playing and its alpha overlay working
+  without a new PLAY_VIDEO is not established, and that the overlay's alpha shows the video at all is still to be
+  confirmed by eye (section 19). Light therefore stops and plays the video again, and a video theme still gets a full
+  first frame after PLAY_VIDEO (the device media changed).
+- Waits between the two programs: Light looks at Studio's session lock every 100 ms; then it loads the theme and
+  takes a first sensor sample, and the connect sequence takes HELLO (one reply), the vendor's 200 ms after
+  STOP_VIDEO and one STOP_MEDIA reply before the first frame is drawn. None of these was shortened: the 200 ms is the vendor's, and the gap is spent with the
+  screen still showing Studio's last frame. Light logs, for each screen, how its first frame went out (`partial`,
+  bytes) and how many milliseconds after Studio left the frame.
+- Hardware check (8.8", to do by eye): a static theme live in Studio, close Studio, watch the screen: no redraw;
+  Light's log says `first frame after the handoff: partial`. Set `BEZEL_NO_HANDOFF_BASELINE=1` for Light to compare
+  with the old full first frame.

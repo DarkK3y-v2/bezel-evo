@@ -607,6 +607,7 @@ mod tests {
             clock: &now,
             language: Language::English,
             bundled: None,
+            handoff: None,
         };
         let mut pauses = Vec::new();
         let mut log = Vec::new();

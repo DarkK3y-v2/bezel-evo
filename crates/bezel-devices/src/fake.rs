@@ -13,6 +13,7 @@ use bezel_core::domain::discovery::{
 };
 use bezel_core::domain::frame::Frame;
 use bezel_core::domain::geometry::Orientation;
+use bezel_core::domain::handoff::Baseline;
 use bezel_core::domain::job::Job;
 use bezel_core::domain::screen::{Brightness, ScreenIdentity};
 use bezel_core::domain::standby::PlanB;
@@ -198,6 +199,8 @@ pub struct FakeLog {
     pub offs: usize,
     /// `release` calls.
     pub releases: usize,
+    /// Baselines a link took (`seed_baseline` that answered `true`).
+    pub seeds: Vec<Frame>,
     /// Connections opened (`ScreenConnector::connect` that succeeded).
     pub connects: usize,
     /// Screens restarted through the connector (`ScreenConnector::restart`),
@@ -530,6 +533,7 @@ impl ScreenConnector for FakeConnector {
             },
             orientation: Orientation::Portrait,
             brightness: None,
+            shown: None,
             has_storage: matches!(model.family, Family::TuringRevC | Family::TuringUsb),
             log: Arc::clone(&self.log),
             script: Arc::clone(&self.script),
@@ -544,6 +548,9 @@ pub struct FakeScreen {
     orientation: Orientation,
     /// The last level this link set: what its OPTIONS carry.
     brightness: Option<Brightness>,
+    /// What the screen shows, as this link last presented it (or was
+    /// seeded with): its baseline for a handoff.
+    shown: Option<Frame>,
     has_storage: bool,
     log: Arc<Mutex<FakeLog>>,
     script: Arc<Mutex<Script>>,
@@ -586,6 +593,9 @@ impl ScreenLink for FakeScreen {
     }
 
     fn set_orientation(&mut self, orientation: Orientation) -> Result<()> {
+        if orientation != self.orientation {
+            self.shown = None;
+        }
         self.orientation = orientation;
         self.record(|l| l.orientations.push(orientation));
         Ok(())
@@ -612,23 +622,47 @@ impl ScreenLink for FakeScreen {
         }
         drop(script);
         self.record(|l| l.frames.push(frame.clone()));
+        self.shown = Some(frame.clone());
         Ok(())
     }
 
     fn screen_off(&mut self) -> Result<()> {
+        self.shown = None;
         self.record(|l| l.offs += 1);
         Ok(())
     }
 
     /// Records [`StorageCall::TurnOffNow`] (not an `offs`).
     fn turn_off_now(&mut self) -> Result<()> {
+        self.shown = None;
         self.store(StorageCall::TurnOffNow, |_| ());
         Ok(())
     }
 
     fn release(&mut self) -> Result<()> {
+        self.shown = None;
         self.record(|l| l.releases += 1);
         Ok(())
+    }
+
+    fn baseline(&self) -> Option<Baseline> {
+        let frame = self.shown.clone()?;
+        Some(Baseline {
+            orientation: self.orientation,
+            frame,
+        })
+    }
+
+    /// Takes a baseline of this link's orientation and panel size, and
+    /// records it in [`FakeLog::seeds`].
+    fn seed_baseline(&mut self, baseline: &Baseline) -> bool {
+        let expected = self.identity.model.panel.in_orientation(self.orientation);
+        if baseline.orientation != self.orientation || baseline.frame.size() != expected {
+            return false;
+        }
+        self.shown = Some(baseline.frame.clone());
+        self.record(|l| l.seeds.push(baseline.frame.clone()));
+        true
     }
 
     fn storage(&mut self) -> Option<&mut dyn ScreenStorage> {
@@ -764,6 +798,41 @@ mod tests {
         assert!(silent.query_model(&stray, &confirmed).is_err());
         assert!(silent.back_to_monitor(&stray, confirmed).is_err());
         assert_eq!(silent.calls().len(), 2, "a stray device gets nothing");
+    }
+
+    #[test]
+    fn fake_screen_keeps_what_it_shows_as_its_baseline() {
+        let connector = FakeConnector::default();
+        let mut link = open_screen(&FakeBus::turing_88(), &connector, None).unwrap();
+        assert_eq!(link.baseline(), None, "nothing shown yet");
+        let panel = link.identity().model.panel;
+        let frame = Frame::filled(panel, Rgba::WHITE);
+        link.present(&frame).unwrap();
+        let baseline = link.baseline().unwrap();
+        assert_eq!(
+            (baseline.orientation, &baseline.frame),
+            (Orientation::Portrait, &frame)
+        );
+        link.set_orientation(Orientation::Landscape).unwrap();
+        assert_eq!(link.baseline(), None, "another orientation forgets it");
+        assert!(!link.seed_baseline(&baseline), "the orientation differs");
+        link.set_orientation(Orientation::Portrait).unwrap();
+        let small = Baseline {
+            orientation: Orientation::Portrait,
+            frame: Frame::filled(panel.transposed(), Rgba::WHITE),
+        };
+        assert!(!link.seed_baseline(&small), "the size differs");
+        assert!(link.seed_baseline(&baseline));
+        assert_eq!(link.baseline(), Some(baseline.clone()));
+        assert_eq!(connector.log().seeds, vec![frame]);
+        link.release().unwrap();
+        assert_eq!(link.baseline(), None);
+        assert!(link.seed_baseline(&baseline));
+        link.screen_off().unwrap();
+        assert_eq!(link.baseline(), None);
+        assert!(link.seed_baseline(&baseline));
+        link.turn_off_now().unwrap();
+        assert_eq!(link.baseline(), None);
     }
 
     #[test]

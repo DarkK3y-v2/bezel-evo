@@ -68,7 +68,7 @@ use bezel_core::app::{
     DEFAULT_SLOWEST_REFRESH, HOST_VIDEO_FPS, HostVideo, MissingVideo, ThemeRuntime, VideoState,
 };
 use bezel_core::domain::clock::{Language, LocalTime};
-use bezel_core::domain::discovery::Screen;
+use bezel_core::domain::discovery::{DeviceAddress, Screen};
 use bezel_core::domain::frame::Frame;
 use bezel_core::domain::framing::{PanelLayout, VideoFraming, auto_turns};
 use bezel_core::domain::geometry::{Orientation, Size};
@@ -476,6 +476,17 @@ impl Live {
     fn answers_to(&self, key: &str) -> bool {
         self.key == key || self.screen.as_ref().is_some_and(|s| s.answers_to(key))
     }
+
+    /// The address its frames go to, as discovery names it (the key it is
+    /// live under when it was not discovered): the screen's key for a
+    /// handoff, the same one Bezel Light finds it under.
+    fn display_address(&self) -> DeviceAddress {
+        self.screen
+            .as_ref()
+            .and_then(Screen::address)
+            .cloned()
+            .unwrap_or_else(|| DeviceAddress(self.key.clone()))
+    }
 }
 
 /// A frame on its way to the live screen with the screen's link, out of the
@@ -777,6 +788,25 @@ impl Studio {
         for studio in self.documents.values_mut() {
             studio.stop_all();
         }
+    }
+
+    /// Stops every live screen for a handoff to Bezel Light and hands out
+    /// each link that is here, with its display's address, for the caller
+    /// to leave what it shows and close it. A link that is out (showing a
+    /// frame, lent to a job, being connected again) is not handed out: that
+    /// screen gets a full first frame from Light.
+    pub fn take_all_live(&mut self) -> Vec<(DeviceAddress, Box<dyn ScreenLink>)> {
+        let mut links = Vec::new();
+        let address = self.live.as_ref().map(Live::display_address);
+        if let Some(address) = address
+            && let Some(link) = self.stop_live()
+        {
+            links.push((address, link));
+        }
+        for studio in self.documents.values_mut() {
+            links.extend(studio.take_all_live());
+        }
+        links
     }
     pub fn reconnects_due(&mut self, now: Instant) -> Vec<(Option<String>, Attempt)> {
         let mut attempts = Vec::new();

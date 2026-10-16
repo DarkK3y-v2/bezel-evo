@@ -2,6 +2,7 @@
 
 mod card_timer;
 pub mod gifs;
+pub mod handoff;
 pub mod manager;
 mod runtime;
 mod screens;

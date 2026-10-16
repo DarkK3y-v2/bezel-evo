@@ -431,6 +431,7 @@ dependencies = [
 name = "bezel-power"
 version = "0.0.0"
 dependencies = [
+ "bezel-core",
  "dbus",
  "thiserror 2.0.21",
  "windows-sys 0.61.2",
