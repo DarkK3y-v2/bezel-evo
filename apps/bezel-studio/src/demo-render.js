@@ -7,6 +7,7 @@ import { fadeLine } from './shape-fade.js';
 import { weatherText } from './weather-format.js';
 import { formatClock } from './clock-format.js';
 import { easedDemoValue } from './value-transition.js';
+import { barGeometry, blockMetrics, blockRows, coverShare, fitPlayer, placeBlock, playerText, progressOf, PROGRESS_SPACING } from './player-parts.js';
 // An approximate renderer for demo mode (browser only). The real preview is
 // the Rust renderer's frame; this only has to look plausible and be fast.
 
@@ -65,22 +66,59 @@ export function demoGraphPoints(kind, refreshSeconds, t, seed) {
   return Array.from({ length: count }, (_, i) => fraction(newest - (count - 1 - i) * every, seed));
 }
 
+/** The session the demo's players show (always playing, 40% through). */
+const DEMO_MEDIA = Object.freeze({ title: 'Demo track', artist: 'Demo artist', source: 'Demo media app', position: 84, duration: 210 });
+
 // One decoration model for drawing and fitting in the browser demo.
 function textFurniture({ content: c, style: s }) {
-  const cover = c.type === 'player' && c.showCover;
+  const cover = c.type === 'player' && c.showCover !== false;
   const icon = c.type === 'weather' && c.showIcon !== false;
-  const fraction = cover ? 0.4 : icon ? (c.iconSize == null ? 0.3 : 1) : 0;
+  const share = cover ? coverShare(c, playerText(c, DEMO_MEDIA), s.size) : null;
+  const fraction = cover ? share.fraction : icon ? (c.iconSize == null ? 0.3 : 1) : 0;
   const desired = cover ? Infinity : icon ? c.iconSize ?? s.size * 2 : 0;
-  const gap = Math.max(0, cover ? c.coverGap ?? s.size * 0.3 : icon ? c.iconGap ?? s.size * 0.3 : 0);
-  const progress = c.type === 'player' && c.showProgress ? 8 : 0;
+  const gap = Math.max(0, cover ? share.gap : icon ? c.iconGap ?? s.size * 0.3 : 0);
   return {
     layout: f => ({ gap: Math.min(gap, f.width), side: Math.min(desired, f.height, f.width * fraction, Math.max(0, f.width - gap)) }),
     fit: (width, height) => {
-      height += progress;
       const side = Number.isFinite(desired) ? desired : height;
       return { width: Math.ceil(fraction ? Math.max(width + side + gap, side / fraction) : width), height: Math.ceil(Math.max(height, side)) };
     },
   };
+}
+
+/** One time of a player measured with the canvas font. */
+const timeLabel = (ctx, s) => (text) => ({ width: Math.ceil(ctx.measureText(text).width), height: Math.ceil(s.size * 1.2) });
+
+/** The player's progress block in `area`; returns the area left for the text. */
+function drawProgress(ctx, c, s, area, shown) {
+  const m = blockMetrics(c, DEMO_MEDIA, shown, timeLabel(ctx, s), s.size);
+  if (!m) return area;
+  const alone = shown.lines.length === 0;
+  const block = placeBlock(area, m.height, alone, s.valign ?? 'top');
+  const { row, labels } = blockRows(c, block, m, shown);
+  const style = progressOf(c);
+  const { bar, blocks, radius, filled, knob } = barGeometry(c, row, shown.progress);
+  const fill = style.fill ? color(style.fill) : paint(s.paint);
+  const path = new Path2D();
+  for (const [a, b] of blocks) path.roundRect(bar.x + a, bar.y, b - a, bar.height, Math.min(radius, (b - a) / 2));
+  ctx.save();
+  ctx.fillStyle = color(style.track);
+  ctx.fill(path);
+  ctx.clip(path);
+  ctx.fillStyle = fill;
+  ctx.fillRect(bar.x, bar.y, filled, bar.height);
+  ctx.restore();
+  if (knob) { ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(knob.cx, knob.cy, knob.d / 2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = paint(s.paint);
+  for (const label of labels) {
+    ctx.textAlign = label.align;
+    ctx.textBaseline = label.valign === 'top' ? 'top' : 'middle';
+    const x = label.align === 'right' ? label.box.x + label.box.width : label.box.x;
+    const y = label.valign === 'top' ? label.box.y : label.box.y + label.box.height / 2;
+    ctx.fillText(label.text, x, y);
+  }
+  ctx.textAlign = s.align === 'center' ? 'center' : s.align === 'right' ? 'right' : 'left';
+  return { ...area, height: Math.max(0, area.height - m.height - (alone ? 0 : PROGRESS_SPACING)) };
 }
 
 function drawText(ctx, e, t, value, measure = false) {
@@ -93,12 +131,19 @@ function drawText(ctx, e, t, value, measure = false) {
   } else if (k.content.type === 'weather') {
     text = weatherText(k.content, 20, 3);
   } else if (k.content.type === 'player') {
-    text = `Demo track\nDemo artist${k.content.showSource ? '\nDemo media app' : ''}${k.content.showProgress ? '\n1:24 / 3:30' : ''}`;
+    text = playerText(k.content, DEMO_MEDIA).lines.join('\n');
   } else if (k.content.type === 'sensor') {
     text = `${k.content.prefix ?? ''}${Number.isFinite(value) ? Math.round(value * 100) : '\u2014'}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
   }
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
+  if (measure && k.content.type === 'player') {
+    const shown = playerText(k.content, DEMO_MEDIA);
+    const lines = shown.lines;
+    const block = lines.length ? { width: Math.max(...lines.map(line => ctx.measureText(line).width)), height: lines.length * Math.ceil(s.size * 1.2) } : null;
+    const m = blockMetrics(k.content, DEMO_MEDIA, shown, timeLabel(ctx, s), s.size);
+    return fitPlayer(k.content, shown, block, m, e.frame, s.size);
+  }
   if (measure) {
     const lines = text.split('\n');
     const width = Math.max(...lines.map(line => ctx.measureText(line).width));
@@ -126,8 +171,8 @@ function drawText(ctx, e, t, value, measure = false) {
   }
   if (k.content.type==='player') {
     ctx.textBaseline='top';
-    if(k.content.showCover){const {side,gap}=textFurniture(k).layout(f);ctx.save();ctx.beginPath();ctx.roundRect(f.x,f.y,side,side,k.content.coverCorners ?? k.content.coverRadius ?? 0);ctx.clip();ctx.fillStyle='#334155';ctx.fillRect(f.x,f.y,side,side);ctx.fillStyle=paint(s.paint);ctx.fillText('\u266b',f.x+side*.3,f.y+side*.3);ctx.restore();f={...f,x:f.x+side+gap,width:f.width-side-gap};}
-    if(k.content.showProgress){ctx.fillStyle='#64748b';ctx.fillRect(f.x,f.y+f.height-4,f.width,4);ctx.fillStyle=paint(s.paint);ctx.fillRect(f.x,f.y+f.height-4,f.width*.4,4);}
+    if(k.content.showCover !== false){const {side,gap}=textFurniture(k).layout(f);ctx.save();ctx.beginPath();ctx.roundRect(f.x,f.y,side,side,k.content.coverCorners ?? k.content.coverRadius ?? 0);ctx.clip();ctx.fillStyle='#334155';ctx.fillRect(f.x,f.y,side,side);ctx.fillStyle=paint(s.paint);ctx.fillText('\u266b',f.x+side*.3,f.y+side*.3);ctx.restore();f={...f,x:f.x+side+gap,width:f.width-side-gap};}
+    f = drawProgress(ctx, k.content, s, f, playerText(k.content, DEMO_MEDIA));
   }
   ctx.fillStyle=paint(s.paint);
   const x = s.align === 'center' ? f.x + f.width / 2 : s.align === 'right' ? f.x + f.width : f.x;
