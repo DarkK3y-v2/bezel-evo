@@ -9,34 +9,96 @@
   <a href="#download--install"><img src="https://img.shields.io/badge/Windows-10%20%2F%2011-121518" alt="Windows 10 and 11, x64"></a>
 </p>
 
-![Bezel Evo Studio in dark mode, with the widget library, an Ember example dashboard and the theme properties](docs/images/studio-hero.png)
+![Bezel Evo Studio in dark mode: icon rail and widget library on the left, a portrait Ember dashboard on a dot-grid canvas with floating tool bars, and the inspector on the right with a live preview of the selected CPU ring and its Data and Look tabs](docs/images/studio-hero.png)
 
 <p align="center"><sub>Studio in demo mode. Example layout and simulated sensor readings.</sub></p>
 
 <details>
 <summary>See the example on a screen</summary>
 
-![Illustrative portrait USB screen showing the same Ember clock, CPU gauge, history graph and memory widgets; not a product photograph](docs/images/screen-render.png)
+![Illustrative portrait USB screen showing the same Ember clock, CPU gauge, history graph, memory and now-playing widgets; not a product photograph](docs/images/screen-render.png)
 
 </details>
 
-## What it does
+## A new Studio
 
-- **Design visually.** Drag widgets onto the canvas, then change their size, colours and fonts.
-- **See your PC's stats.** Built-in CPU, GPU, memory and hardware monitoring, with a bundled sensor reader instead of a separate monitoring app to keep open.
-- **Go beyond gauges.** Add clocks, weather, now-playing information and history graphs.
-- **Make layouts react.** Cards switch faces with fade, slide or flip transitions, on a timer or in response to apps and media.
-- **Run multiple screens.** Give each display its own theme and orientation.
-- **Keep it running with Light.** On Windows, Light keeps the screen connections open. Studio feeds it frames and controls over a local channel restricted to your user; closing Studio resumes the saved themes without reconnecting or restarting an unchanged device video. If Light cannot run, Studio can take over directly.
-- **Start from a theme.** Use bundled layouts, import supported themes, or save your own as a `.bezeltheme` file.
+Studio has been redesigned from the ground up, in dark and light.
+
+- **A calmer workspace.** An icon rail for Widgets, Sensors, Layers, Themes, Media
+  and Screen; floating tool bars over a dot-grid canvas; library and properties
+  panels you can resize. In English, Italian and Portuguese.
+- **An inspector that shows what you change.** Every object gets a live preview
+  of itself, drawn on its own at the top of the panel, and its settings split
+  into **Data** and **Look** tabs.
+- **One colour picker everywhere.** Colour area, hue, opacity, hex code and an
+  eyedropper, plus **Theme colours** you save once and reuse, the colours already
+  **used in this theme**, and recent ones.
+- **A real font picker.** Search, filter Sans/Serif/Mono, each name written in its
+  own font, a preview with the object's real text, and only the weights the font
+  really has. Fonts come from three places: [included with Bezel, your own fonts
+  folder, or packed inside the theme](docs/user/fonts.md).
+- **Cards that are easy to follow.** A plain list of faces with **Edit** for each,
+  a shared background under all of them, **one transition** for the whole Card
+  (fade, slide or flip) and **timed triggers** ("every 30 s, the next face")
+  next to the app and media triggers.
+- **Values that glide.** Rings, bars, needles and numbers move smoothly to each
+  new reading instead of jumping, without flooding the screen with frames.
+- **Colour by value.** Turn a gauge, a graph, a text or an icon orange above 70
+  and red above 90, with as many thresholds as you like.
+- **A media player you compose.** Choose the parts (cover, title, artist, time,
+  progress, app name) and style the progress bar: continuous, segments or dots,
+  round or square ends, a knob, times at the sides or above.
+- **A clear background chooser.** One card shows the background in use; **Change
+  background…** offers a solid colour, a picture or video from this computer, or
+  a video already stored on the screen, and nothing changes until you confirm.
+- **Quick hands.** Mouse wheel zooms around the pointer, the middle button pans,
+  double-clicking an object fits its frame to its content.
+- **Status at a glance.** The sensor chip opens a popover with each piece of
+  hardware and its last reading, with **Restart Libre** one click away; a memory
+  chip shows how much Bezel uses, per process; **Preferences → Logs** opens the
+  logs folder.
 
 ## Gallery
 
-| Find your sensors | Fine-tune each widget |
+| Colours from your theme | Fonts with their real weights |
 | :---: | :---: |
-| [![Studio's sensor library beside the example dashboard](docs/images/studio-library.png)](docs/images/studio-library.png) | [![CPU ring selected, with its isolated preview and editable properties](docs/images/studio-inspector.png)](docs/images/studio-inspector.png) |
-| **Cards and triggers** | **Light theme** |
-| [![A two-face Card and its app-trigger controls in Studio](docs/images/studio-card-triggers.png)](docs/images/studio-card-triggers.png) | [![The same dashboard and widget library in Studio's light theme](docs/images/studio-light.png)](docs/images/studio-light.png) |
+| [![The CPU ring's Look tab with the colour picker open: colour area, hue and opacity bars, hex code, eyedropper, five saved theme colours and the colours used in the theme](docs/images/studio-color-picker.png)](docs/images/studio-color-picker.png) | [![The clock's font picker: search, Sans, Serif and Mono filters, sections In this theme, Included with Bezel, My fonts and System fonts, and a preview of 12:00](docs/images/studio-font-picker.png)](docs/images/studio-font-picker.png) |
+| **Card faces and one transition** | **A media player you compose** |
+| [![A Card selected: its two faces in a list with Edit buttons, the shared background row and a slide transition of 650 ms](docs/images/studio-card-faces.png)](docs/images/studio-card-faces.png) | [![The media player's What to show tiles and its progress bar options: fill, track, thickness, round ends, knob, segments and times at the sides](docs/images/studio-player.png)](docs/images/studio-player.png) |
+| **Change the background** | **Sensor status** |
+| [![The Change background panel with three sources: solid colour in use, from this computer opened with Choose a file, and video from the screen](docs/images/studio-background.png)](docs/images/studio-background.png) | [![Sensors panel with live sparklines and the sensor status popover listing each piece of hardware, one of them missing, with Restart Libre](docs/images/studio-sensors.png)](docs/images/studio-sensors.png) |
+| **Light theme** | **On the screen** |
+| [![Studio in its light theme: Layers with a Card's faces and the CPU ring's colour-by-value thresholds at 70 and 90](docs/images/studio-light.png)](docs/images/studio-light.png) | [![Illustrative portrait USB screen showing the Ember example; not a product photograph](docs/images/screen-render.png)](docs/images/screen-render.png) |
+
+## Light keeps everything running
+
+**Bezel Light** is the small tray program that owns your screens. It runs the
+themes, reads the sensors, keeps the graph history and clocks, plays the
+transitions and decodes background videos, all in one place. Studio is the
+editor: while it is open, its canvas shows the very picture Light sends to the
+screen.
+
+So opening and closing Studio is seamless: **no redraw, graphs keep their
+history, a video keeps playing, the picture stays fluid.** Close Studio without
+saving and the screen goes back to the saved theme, still without starting
+over. Studio talks to Light over a local channel that only your Windows user
+can open; if Light cannot run, Studio drives the screens itself.
+
+## And everything else
+
+- **See your PC's stats.** CPU, GPU, memory, disks, network, fans and power, with
+  a bundled hardware sensor reader instead of a separate monitoring app to keep
+  open. A value that cannot be read shows why; Bezel never makes one up.
+- **Go beyond gauges.** Clocks and dates, weather, now-playing, history graphs
+  with their own time window, offline icons, images, animated GIFs and video
+  backgrounds.
+- **Run multiple screens.** Give each display its own theme and orientation;
+  Light drives them together with one sensor reader.
+- **Manage the screen's storage.** Send, move, rename and clean up the pictures
+  and videos stored on screens that keep them, and choose what they show when the
+  PC shuts down.
+- **Start from a theme.** Use bundled layouts, import vendor and
+  turing-smart-screen-python themes, or save your own as a `.bezeltheme` file.
 
 ## Download & install
 
@@ -44,11 +106,11 @@
 2. Close the screen's vendor app. Run Setup, or extract the ZIP into a writable folder. Setup offers optional hardware sensors and Light at sign-in.
 3. Open **Studio**, select your screen, choose a theme, customise it and **Save**. Turn on **Live** to send it to the display.
 
-**Platform:** Bezel Evo supports **Windows only**. The Linux code inherited from the original project is kept and still builds, but it is not maintained or tested.
+**Platform:** Bezel Evo supports **Windows only**.
 
 **Requirements:** Windows 10/11 x64, a compatible USB smart screen and Microsoft Edge WebView2. Setup can download WebView2; portable Studio needs it already installed. Hardware sensors use .NET Framework 4.7.2 or newer; availability depends on your hardware and drivers. FFmpeg is separate for video conversion.
 
-Windows preview packages are unsigned. See the [installation guide](packaging/windows/README.md) for sensor setup and updates.
+Windows preview packages are unsigned. See the [installation guide](docs/user/install.md) for sensor setup and updates.
 
 ## Supported screens
 
@@ -66,9 +128,9 @@ Windows preview packages are unsigned. See the [installation guide](packaging/wi
 
 ## Documentation
 
-- [User guide](docs/user/README.md) / [Your first theme](docs/user/first-theme.md) / [Editing in Studio](docs/user/studio-editing.md)
-- [Sensors](docs/user/sensors.md) / [Storage and video](docs/user/storage-and-video.md) / [Troubleshooting](docs/user/troubleshooting.md)
-- [Technical documentation](docs/) / [Windows builds](docs/build-windows.md) / [Fork changes and validation](FORK.md)
+- [User guide](docs/user/README.md) / [Your first theme](docs/user/first-theme.md) / [Editing in Studio](docs/user/studio-editing.md) / [Fonts](docs/user/fonts.md)
+- [Sensors](docs/user/sensors.md) / [Storage and video](docs/user/storage-and-video.md) / [Troubleshooting and logs](docs/user/troubleshooting.md)
+- [What's new](CHANGELOG.md) / [Technical documentation](docs/) / [Windows builds](docs/build-windows.md) / [Fork changes and validation](FORK.md)
 
 ## Support
 
@@ -80,4 +142,4 @@ Bezel Evo is free and open source. If it is useful to you, you can support its d
 
 Bezel Evo is a **fork of [slipalison/bezel](https://github.com/slipalison/bezel)**, created by [Alison Amorim (@slipalison)](https://github.com/slipalison). Original authorship, research and copyright notices are preserved.
 
-Licensed under **[GPL-3.0-or-later](LICENSE)**. See [third-party credits and licences](THIRD_PARTY.md) for LibreHardwareMonitorLib, Tabler, Material Design Icons, IBM Plex and weather-data attribution.
+Licensed under **[GPL-3.0-or-later](LICENSE)**. See [third-party credits and licences](THIRD_PARTY.md) for LibreHardwareMonitorLib, Tabler, Material Design Icons, IBM Plex, Inter, JetBrains Mono and weather-data attribution.
