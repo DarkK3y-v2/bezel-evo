@@ -567,7 +567,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
                                 sensors(bezel_sensors::SensorOptions {
                                     ping_host: options.ping_host.clone(),
                                     mangohud_dir: options.mangohud_dir.as_ref().map(PathBuf::from),
-                                    presentmon_path: options.presentmon_path.clone(),
+                                    presentmon_path: options.presentmon_path.as_ref().map(PathBuf::from),
                                 }),
                                 Box::new(FfmpegTranscoder::new(
                                     options.ffmpeg.as_ref().map(PathBuf::from),
