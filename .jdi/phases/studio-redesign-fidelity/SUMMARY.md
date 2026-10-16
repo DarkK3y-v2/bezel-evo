@@ -2,6 +2,18 @@
 
 **Status:** complete (T-1..T-8 executadas; galeria aprovada pelo usuário; avisos 1-5 da revisão corrigidos; aviso 6, itens manuais, pendente)
 
+## Stato al 2026-10-16
+- Verifica: `REVIEW.md` = APPROVED_WITH_WARNINGS (2026-10-15, `c28b861`); avvisi 1-5 corretti, restano tre righe
+  Manual `MANUAL_REQUIRED` (font nel WebView2, tray su barra chiara/scura reale, build di release): `/jdi-ship`
+  le rifiuta finché `/jdi-confirm-dod` non le chiude.
+- Dopo la verifica la fase ha raccolto le decisioni di follow-up D-16..D-32, tutte integrate su
+  `windows-improvements` (sezioni in fondo) tranne: D-27 (solo Windows, decisione di piattaforma senza codice),
+  D-31 (spostata nella fase `light-owns-screen`), D-32 (font su tre livelli: livello 1 fatto in `6cb9b82`,
+  livelli 2 e 3 in corso con ChatGPT nel worktree `F:\dev\bezel-fonts`, branch `fid/fonts`). Il numero D-30 non
+  è stato assegnato.
+- Controlli visivi delle D-24/D-25 nell'app reale e del selettore font/colore (contagocce) nel WebView2: aperti,
+  vedi `.jdi/todos/`.
+
 ## Executed tasks
 - T-1: fundação sem mudança visual (CSS por área, i18n por área, costuras do contrato Host, ferramentas de fidelidade e de e2e). Commits: 0fe8ac4, 01d37b1, 0cb8290, 438b3dc, 6f64309, 49bd158.
 - T-2..T-8 e correções da revisão: concluídas, ver as seções abaixo.

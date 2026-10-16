@@ -63,3 +63,12 @@ Non eseguita (per istruzione). Verifica manuale sull'8.8" rev C (COM6):
 4. Contro-prova con `BEZEL_NO_HANDOFF_BASELINE=1` nell'ambiente di Light: torna il ridisegno (primo fotogramma `full`).
 5. Se dopo il passaggio restano zone sbagliate (pixel di Studio non aggiornati), il firmware non ha segnalato
    `needReSend`: disattivare con la variabile e riportarlo.
+
+## Stato al 2026-10-16
+- Merge su `windows-improvements`: `7c43fac` e `c1757de` ("hand Light the frame Studio left (fix A)").
+- Superata come percorso principale da `light-owns-screen` (D-31): Light tiene sempre i link, quindi nel caso
+  normale non c'è più passaggio di porta. Il fix A resta attivo solo nel fallback diretto di Studio.
+- La verifica hardware dei passi sopra (fix A da solo, contro-prova con `BEZEL_NO_HANDOFF_BASELINE=1`) non è
+  stata registrata. La prova dell'utente del 2026-10-16 (nessun ridisegno, grafici e earth.mp4 continui, nessun
+  fallback) riguarda il percorso Light proprietario e non esercita il fix A.
+- Nessun REVIEW.md: la fase non è passata da `/jdi-verify`.
