@@ -373,6 +373,15 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             && sensor_recovery.is_none()
             && Instant::now() >= retry_at
         {
+            if reload_saved {
+                let reload=(|| -> anyhow::Result<()> {
+                    let mut cli=Cli::try_parse_from(&arguments)?;
+                    if !simulate { follow_saved_theme(&mut cli); }
+                    let mut engine=engine.lock().map_err(|_|anyhow::anyhow!("runtime lock poisoned"))?;
+                    load_saved_documents(&mut engine,&cli)
+                })();
+                if let Err(error)=reload { eprintln!("bezel light: saved document recovery: {error}"); }
+            }
             reload_saved = false;
             owner.saved_ready();
             stop = Arc::new(AtomicBool::new(false));
@@ -466,6 +475,13 @@ fn make_engine(
         }),
         Box::new(bezel_sensors::FakeSensors::demo()),
     );
+    load_saved_documents(&mut engine, cli)?;
+    Ok(engine)
+}
+
+// Only startup and lock-protected legacy recovery read files again. Pipe editor
+// leases restore documents inside the existing scenes and never enter this path.
+fn load_saved_documents(engine: &mut bezel_runtime::Engine, cli: &Cli) -> anyhow::Result<()> {
     if let Command::Run {
         theme,
         target,
@@ -499,6 +515,12 @@ fn make_engine(
         {
             themes.push((key.clone(), theme.clone()));
         }
+        engine.follow_saved_live(
+            &themes
+                .iter()
+                .map(|(key, _)| key.clone())
+                .collect::<Vec<_>>(),
+        );
         for (key, path) in themes {
             match bezel_cli::theme::load(&bezel_themes::FsThemeStore, &path) {
                 Ok(loaded) => {
@@ -519,5 +541,5 @@ fn make_engine(
             }
         }
     }
-    Ok(engine)
+    Ok(())
 }

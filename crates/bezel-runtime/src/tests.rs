@@ -579,3 +579,133 @@ fn independent_scenes_and_demo_thumbnail_leave_live_histories_untouched() {
     assert_eq!(last[0].history.len(), 2);
     assert_eq!(last[1].history.len(), 2);
 }
+
+#[test]
+fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories() {
+    let mut f = fixture();
+    let configured = Arc::new(AtomicU64::new(0));
+    let count = configured.clone();
+    f.engine = f.engine.with_adapters(
+        Box::new(move |_| {
+            count.fetch_add(1, Ordering::SeqCst);
+            Ok((
+                Box::new(FakeSensors::demo()),
+                Box::new(bezel_media::FfmpegTranscoder::new(None)),
+            ))
+        }),
+        Box::new(FakeSensors::demo()),
+    );
+    f.engine.document("editor", 0, doc(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let options = wire::Options {
+        ping_host: "127.0.0.1".into(),
+        mangohud_dir: None,
+        ffmpeg: None,
+    };
+    for _ in 0..2 {
+        send(
+            &mut f.engine,
+            "editor",
+            RuntimeOp::Options {
+                options: options.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+    }
+    assert_eq!(configured.load(Ordering::SeqCst), 1);
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    let (status, _) = send(
+        &mut f.engine,
+        "editor",
+        RuntimeOp::Sensors {
+            listed: Some(vec!["cpu.usage".into()]),
+        },
+        &[],
+    )
+    .unwrap();
+    assert!(!wire::catalog(&status).is_empty());
+    assert!(!wire::snapshot(&status).is_empty());
+    assert_eq!(f.seen.lock().unwrap().last().unwrap().history.len(), 2);
+    let mut bad = options;
+    bad.ping_host = "x".repeat(254);
+    assert!(
+        send(
+            &mut f.engine,
+            "editor",
+            RuntimeOp::Options { options: bad },
+            &[]
+        )
+        .is_err()
+    );
+}
+#[test]
+fn suspend_reconnect_and_explicit_live_off_keep_the_same_document_clock() {
+    let mut f = fixture();
+    f.engine.document(&f.key, 0, doc(), true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let frames = f.physical.log().frames.len();
+    f.engine.suspend(true);
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    assert_eq!(f.physical.log().frames.len(), frames);
+    f.engine.suspend(false);
+    f.engine.disconnect_links();
+    f.owner.clear().unwrap();
+    f.engine.tick_at(Duration::from_secs(2), time()).unwrap();
+    assert_eq!(f.physical.log().connects, 2);
+    assert_eq!(
+        f.seen.lock().unwrap().last().unwrap().clock,
+        Duration::from_secs(2)
+    );
+    f.engine.live(&f.key, false).unwrap();
+    f.engine.follow_saved_live(&[]);
+    f.engine.tick_at(Duration::from_secs(3), time()).unwrap();
+    assert_eq!(f.physical.log().connects, 2);
+}
+#[test]
+fn legacy_baseline_is_seeded_after_orientation_and_before_the_first_engine_frame() {
+    use bezel_core::{
+        app::handoff::hand_over,
+        domain::{discovery::DeviceAddress, handoff::HandedFrame},
+        ports::HandoffStore,
+    };
+    #[derive(Default)]
+    struct Store(Mutex<Option<HandedFrame>>);
+    impl HandoffStore for Store {
+        fn save(&self, frame: &HandedFrame) -> Result<()> {
+            *self.0.lock().unwrap() = Some(frame.clone());
+            Ok(())
+        }
+        fn take(&self, _: &DeviceAddress) -> Result<Option<HandedFrame>> {
+            Ok(self.0.lock().unwrap().take())
+        }
+    }
+    let mut f = fixture();
+    let screen = bezel_core::app::discover_screens(&FakeBus::turing_88())
+        .unwrap()
+        .remove(0);
+    let mut previous = f.physical.connect(&screen).unwrap();
+    previous.set_orientation(Orientation::Landscape).unwrap();
+    previous
+        .present(&Frame::filled(Size::new(1920, 480), Rgba::BLACK))
+        .unwrap();
+    let store = Arc::new(Store::default());
+    hand_over(
+        previous.as_ref(),
+        DeviceAddress(f.key.clone()),
+        store.as_ref(),
+        Duration::from_secs(99),
+    )
+    .unwrap();
+    drop(previous);
+    f.engine = f.engine.with_handoff(store, || Duration::from_secs(100));
+    f.engine.document(&f.key, 0, doc(), true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    assert_eq!(f.physical.log().seeds.len(), 1);
+    assert_eq!(
+        f.physical.log().frames.len(),
+        1,
+        "only the old owner has sent a frame"
+    );
+}

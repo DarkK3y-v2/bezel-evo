@@ -298,6 +298,15 @@ impl Engine {
         }
         Ok(())
     }
+    /// Reconcile only explicit persisted live choices after legacy direct recovery.
+    pub fn follow_saved_live(&mut self, keys: &[String]) {
+        for (key, scene) in &mut self.scenes {
+            if !keys.contains(key) {
+                scene.live = false;
+                scene.link = None;
+            }
+        }
+    }
     /// Attach a physical display once, preserving the runtime and its clocks.
     pub fn live(&mut self, key: &str, on: bool) -> Result<()> {
         let scene = self
@@ -329,6 +338,9 @@ impl Engine {
             {
                 return Err(invalid("theme does not fit screen"));
             }
+            let orientation = scene.runtime.theme().orientation;
+            link.set_orientation(orientation)?;
+            scene.orientation = Some(orientation);
             if let Some((store, wall)) = &self.handoff
                 && let Some(address) = screen.address()
             {

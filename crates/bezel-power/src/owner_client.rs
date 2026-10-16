@@ -77,7 +77,15 @@ impl LightConnector {
             .as_ref()
             .is_some_and(|remote| !remote.connected())
         {
+            // A new server would have lost the acknowledged draft and sequence.
+            // Recover in-process rather than attaching cached editor state to it.
             state.remote = None;
+            state.fallback = Some(
+                handoff::enter_studio(&self.directory, Duration::from_secs(10)).map_err(|e| {
+                    BezelError::Transport(format!("Light crashed; direct takeover: {e}"))
+                })?,
+            );
+            return op(self.direct.as_ref());
         }
         if state.remote.is_none() {
             match self.remote() {
@@ -263,6 +271,43 @@ mod tests {
     use super::*;
     use bezel_core::{app::discover_screens, domain::screen::Brightness};
     use bezel_devices::{FakeBus, FakeConnector};
+    #[test]
+    fn a_dead_established_session_falls_back_without_relaunching_an_empty_runtime() {
+        struct Dead;
+        impl bezel_core::ports::ScreenChannel for Dead {
+            fn connected(&self) -> bool {
+                false
+            }
+            fn exchange(
+                &mut self,
+                _: &[u8],
+                _: &[u8],
+                _: Option<&mut bezel_core::domain::job::Job<'_>>,
+            ) -> Result<Vec<u8>> {
+                Err(BezelError::Transport("dead".into()))
+            }
+        }
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target")
+            .join(format!("dead-owner-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let direct = FakeConnector::default();
+        let client = LightConnector {
+            direct: Arc::new(direct.clone()),
+            executable: directory.join("must-not-run.exe"),
+            directory: directory.clone(),
+            state: Arc::new(Mutex::new(State {
+                remote: Some(RemoteConnector::new(Box::new(Dead))),
+                fallback: None,
+            })),
+        };
+        let screen = discover_screens(&FakeBus::turing_88()).unwrap().remove(0);
+        drop(client.connect(&screen).unwrap());
+        assert!(handoff::studio_active(&directory).unwrap());
+        assert_eq!(direct.log().connects, 1);
+        drop(client);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
     #[test]
     fn missing_light_falls_back_under_legacy_lock_without_losing_studio() {
         let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
