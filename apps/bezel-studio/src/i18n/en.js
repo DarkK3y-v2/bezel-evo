@@ -491,6 +491,8 @@ export default {
   'prefs.debugCorner.bottom-right': "Bottom right",
   'prefs.debugTitle': "Debug",
   'prefs.debugEnable': "Enable diagnostic logs",
+  "prefs.logsTitle": "Logs",
+  "prefs.logsHint": "Studio and Light write their logs to this folder, also when Debug is off.",
   "prefs.openLogs": "Open logs folder",
   'prefs.debugOverlay': "Show readings on screen",
   'prefs.debugOverlayHint': "Host delivery FPS, rendering, serial transfer and sensor timings during Live. The overlay adds some transfer traffic.",

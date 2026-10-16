@@ -491,6 +491,8 @@ export default {
   "prefs.debugCorner.bottom-right": "In basso a destra",
   "prefs.debugTitle": "Debug",
   "prefs.debugEnable": "Attiva i log diagnostici",
+  "prefs.logsTitle": "Log",
+  "prefs.logsHint": "Studio e Light scrivono i loro log in questa cartella, anche con il Debug spento.",
   "prefs.openLogs": "Apri cartella dei log",
   "prefs.debugOverlay": "Mostra le letture sullo schermo",
   "prefs.debugOverlayHint": "FPS di consegna dal computer, rendering, trasferimento seriale e tempi dei sensori durante la diretta. La sovrimpressione aggiunge un po' di traffico.",

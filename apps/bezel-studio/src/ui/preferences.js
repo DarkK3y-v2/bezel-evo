@@ -101,8 +101,18 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
         el('p', { class: 'hint', text: t('prefs.debugOverlayHint') }),
       ]),
       el('p', { class: 'hint', text: t('prefs.debugHint') }),
-      el('p', { class: 'hint', style: { overflowWrap: 'anywhere' }, text: prefs.debugLogPath }),
-      el('button', { type: 'button', class: 'text-button', text: t('prefs.openLogs'), onclick: () => bridge.openLogsFolder().catch(e => notify(errorText(t, e))) }),
+    ]);
+  }
+
+  /** Always shown: where Studio and Light write their logs, and a click opens that folder. */
+  function logsSection() {
+    const open = el('button', { type: 'button', class: 'text-button', id: 'prefs-open-logs', text: t('prefs.openLogs'),
+      'aria-describedby': 'prefs-logs-hint', onclick: () => bridge.openLogsFolder().catch((e) => notify(errorText(t, e))) });
+    return el('section', { class: 'prefs-section', 'aria-labelledby': 'prefs-logs-title' }, [
+      el('h3', { id: 'prefs-logs-title', text: t('prefs.logsTitle') }),
+      el('p', { class: 'folder-path', text: prefs.debugLogPath }),
+      el('p', { id: 'prefs-logs-hint', class: 'hint', text: t('prefs.logsHint') }),
+      el('div', { class: 'button-row' }, [open]),
     ]);
   }
 
@@ -192,7 +202,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
     const close = el('button', { type: 'button', class: 'icon-button dialog-close', title: t('dialog.close'), 'aria-label': t('dialog.close'), onclick: () => dialog.close() }, [icon(ICONS.close, 16)]);
     dialog.replaceChildren(
       el('div', { class: 'dialog-head' }, [el('h2', { id: 'prefs-title', text: t('prefs.title') }), close]),
-      el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), debugSection(), sensorsSection()]),
+      el('div', { class: 'dialog-body' }, [languageField(), runtimeSection(), debugSection(), logsSection(), sensorsSection()]),
       el('div', { class: 'dialog-actions' }, [el('button', { type: 'button', class: 'primary-button', text: t('common.done'), onclick: () => dialog.close() })]),
     );
     if (focused) (dialog.querySelector(`#${focused}`) ?? dialog.querySelector('#prefs-mangohud-choose'))?.focus();

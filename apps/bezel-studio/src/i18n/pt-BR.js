@@ -491,6 +491,8 @@ export default {
   'prefs.debugCorner.bottom-right': "Inferior direito",
   'prefs.debugTitle': "Debug",
   'prefs.debugEnable': "Ativar logs de diagn?stico",
+  "prefs.logsTitle": "Logs",
+  "prefs.logsHint": "O Studio e o Light gravam os logs nesta pasta, mesmo com o Debug desligado.",
   "prefs.openLogs": "Abrir pasta de logs",
   'prefs.debugOverlay': "Mostrar leituras na tela",
   'prefs.debugOverlayHint': "FPS de envio, renderiza??o, transfer?ncia serial e sensores no modo Live. A sobreposi??o aumenta o tr?fego.",

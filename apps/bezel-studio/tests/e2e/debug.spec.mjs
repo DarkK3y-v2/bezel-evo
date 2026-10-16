@@ -5,9 +5,12 @@ test('Debug owns logging and its screen-readings suboption independently', async
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await page.getByRole('button', { name: t('prefs.title') }).click();
-  const openLogs=page.getByRole('button',{name:t('prefs.openLogs'),exact:true});
+  const logs = page.getByRole('region', { name: t('prefs.logsTitle'), exact: true });
+  const openLogs = logs.getByRole('button', { name: t('prefs.openLogs'), exact: true });
   await expect(openLogs).toBeVisible();
+  await expect(page.getByRole('button', { name: t('prefs.openLogs'), exact: true })).toHaveCount(1);
   await openLogs.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const debug = page.locator('#prefs-debug');
   const overlay = page.locator('#prefs-debug-overlay');
   const corner = page.locator('#prefs-debug-corner');
@@ -30,6 +33,8 @@ test('Debug owns logging and its screen-readings suboption independently', async
   await debug.uncheck();
   await expect(overlay).toBeDisabled();
   await expect(corner).toBeDisabled();
+  await expect(openLogs).toBeVisible();
+  await expect(openLogs).toBeEnabled();
   await debug.check();
   await overlay.uncheck();
   await expect(corner).toBeDisabled();
