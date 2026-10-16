@@ -32,6 +32,8 @@ mod text;
 #[cfg(test)]
 mod golden;
 #[cfg(test)]
+mod player_tests;
+#[cfg(test)]
 mod testkit;
 
 pub use fonts::font_files;
