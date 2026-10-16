@@ -352,3 +352,50 @@ fn a_forgotten_screen_forgets_its_pace() {
     rt.forget_screen();
     assert!(rt.transitioning(ms(1_100)), "a new screen eases");
 }
+
+#[test]
+fn changing_half_second_refresh_back_to_one_keeps_sampling_once_per_second() {
+    for transition in [None, Some(ValueTransition::smooth(400))] {
+        let mut rt = runtime(transition);
+        let mut theme = rt.theme().clone();
+        theme.refresh_seconds = 0.5;
+        rt.replace_theme(theme);
+        let mut readings = sensors(&[10.0, 30.0, 50.0, 70.0, 90.0]);
+        let mut renderer = Recorder::default();
+        let mut sampled = Vec::new();
+        let mut drawn = Vec::new();
+        for t in (0..=3_000).step_by(10) {
+            let now = ms(t);
+            if t == 750 {
+                let mut theme = rt.theme().clone();
+                theme.refresh_seconds = 1.0;
+                rt.replace_theme(theme);
+            }
+            if now < rt.next_due() {
+                continue;
+            }
+            let before = readings.samples_taken();
+            rt.live_frame(&mut readings, &mut renderer, TIME, now)
+                .expect("live frame");
+            drawn.push(now);
+            if readings.samples_taken() != before {
+                sampled.push(now);
+            }
+        }
+        assert_eq!(sampled, [ms(0), ms(500), ms(1_000), ms(2_000), ms(3_000)]);
+        assert_eq!(rt.refresh(), ms(1_000));
+        if transition.is_some() {
+            assert!(
+                drawn.len() > sampled.len(),
+                "animation frames do not take extra samples"
+            );
+        } else {
+            assert_eq!(drawn, sampled);
+        }
+        println!(
+            "refresh 0.5 -> 1 s, smooth={}: samples={sampled:?}, frames={}",
+            transition.is_some(),
+            drawn.len()
+        );
+    }
+}

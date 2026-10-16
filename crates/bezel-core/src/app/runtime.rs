@@ -254,6 +254,10 @@ pub const DEFAULT_SLOWEST_REFRESH: f32 = 60.0;
 /// When a live loop samples and draws, on the caller's clock.
 #[derive(Debug, Clone, Copy, Default)]
 struct Cadence {
+    /// The first refresh on this clock, shared with the initial graph points.
+    origin: Option<Duration>,
+    /// The scheduled time of the last refresh, independent of later edits.
+    refreshed: Duration,
     /// When the next sample is due (`None`: at once).
     sample: Option<Duration>,
     /// When the screen's last frame was drawn (`None`: none yet).
@@ -693,6 +697,22 @@ impl ThemeRuntime {
     /// Puts `theme` in place, keeping the history of sensors still graphed;
     /// another video goes back to [`VideoState::NotStarted`].
     fn swap_theme(&mut self, theme: Theme) {
+        let before = self.refresh();
+        let after = refresh_interval(theme.refresh_seconds, self.slowest);
+        if before != after
+            && let Some(origin) = self.cadence.origin
+        {
+            // Keep the original phase when changing the period. Keeping the
+            // old deadline can leave a 1 s refresh halfway between a graph's
+            // 1 s points forever, taking two samples per second.
+            let last = self.cadence.refreshed;
+            let phase = last.saturating_sub(origin).as_nanos() % after.as_nanos();
+            let phase = Duration::new(
+                (phase / 1_000_000_000) as u64,
+                (phase % 1_000_000_000) as u32,
+            );
+            self.cadence.sample = Some(last + after - phase);
+        }
         self.scene.revision = content_revision();
         self.recent_frame = None;
         let mut histories = Histories::new(&theme.graph_series());
@@ -1109,9 +1129,17 @@ impl ThemeRuntime {
         }
         let refresh = self.refresh_due(now);
         if refresh {
+            self.cadence.origin.get_or_insert(now);
             let every = self.refresh();
-            let next = self.cadence.sample.unwrap_or(now) + every;
-            self.cadence.sample = Some(if next > now { next } else { now + every });
+            let due = self.cadence.sample.unwrap_or(now);
+            let next = due + every;
+            self.cadence.refreshed = if next > now { due } else { now };
+            self.cadence.sample = Some(if next > now {
+                next
+            } else {
+                self.cadence.origin = Some(now);
+                now + every
+            });
         }
         self.sample_at(sensors, Tick::At { now, refresh })?;
         Ok(true)

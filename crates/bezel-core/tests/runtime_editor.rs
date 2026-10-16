@@ -272,6 +272,95 @@ fn an_interval_shorter_than_the_refresh_samples_sooner() {
 }
 
 #[test]
+fn slowing_refresh_rejoins_the_graph_clock_instead_of_sampling_twice() {
+    for offset in [0, 137] {
+        let mut rt = ThemeRuntime::new(
+            graphing_every(10, Some(1), 0.5),
+            BTreeMap::new(),
+            Language::English,
+        );
+        let mut sensors = usage(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0]);
+        let mut sampled = Vec::new();
+        for elapsed in (0..=4_000).step_by(10) {
+            if elapsed == 1_250 {
+                let mut edited = rt.theme().clone();
+                edited.refresh_seconds = 1.0;
+                rt.replace_theme(edited);
+            }
+            if rt
+                .sample_on_time(&mut sensors, Duration::from_millis(offset + elapsed))
+                .expect("sample")
+            {
+                sampled.push(elapsed);
+            }
+        }
+        assert_eq!(sampled, [0, 500, 1_000, 2_000, 3_000, 4_000]);
+        assert_eq!(
+            drawn(&mut rt),
+            [Some(10.0), Some(30.0), Some(40.0), Some(50.0), Some(60.0)]
+        );
+    }
+}
+
+#[test]
+fn changing_refresh_both_ways_keeps_the_graph_history_and_original_phase() {
+    let mut rt = ThemeRuntime::new(
+        graphing_every(10, Some(1), 1.0),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let mut sensors = usage(&[10.0, 20.0, 30.0, 40.0, 50.0, 60.0]);
+    let mut sampled = Vec::new();
+    for elapsed in (0..=4_000).step_by(10) {
+        if matches!(elapsed, 1_250 | 1_750 | 2_250) {
+            let mut edited = rt.theme().clone();
+            if elapsed == 1_750 {
+                edited.name = "a name edit keeps the schedule".into();
+            } else {
+                edited.refresh_seconds = if elapsed == 1_250 { 0.5 } else { 1.0 };
+            }
+            rt.replace_theme(edited);
+        }
+        if rt
+            .sample_on_time(&mut sensors, Duration::from_millis(elapsed))
+            .expect("sample")
+        {
+            sampled.push(elapsed);
+        }
+    }
+    assert_eq!(sampled, [0, 1_000, 1_500, 2_000, 3_000, 4_000]);
+    assert_eq!(
+        drawn(&mut rt),
+        [Some(10.0), Some(20.0), Some(40.0), Some(50.0), Some(60.0)]
+    );
+}
+
+#[test]
+fn rapid_refresh_edits_do_not_invent_an_overdue_sample() {
+    let mut rt = ThemeRuntime::new(
+        graphing_every(10, Some(1), 0.5),
+        BTreeMap::new(),
+        Language::English,
+    );
+    let mut sensors = usage(&[10.0]);
+    let mut sampled = Vec::new();
+    for elapsed in (0..=2_000).step_by(10) {
+        if matches!(elapsed, 750 | 800) {
+            let mut edited = rt.theme().clone();
+            edited.refresh_seconds = if elapsed == 750 { 1.0 } else { 0.5 };
+            rt.replace_theme(edited);
+        }
+        if rt
+            .sample_on_time(&mut sensors, Duration::from_millis(elapsed))
+            .expect("sample")
+        {
+            sampled.push(elapsed);
+        }
+    }
+    assert_eq!(sampled, [0, 500, 1_000, 1_500, 2_000]);
+}
+
+#[test]
 fn a_graph_without_an_interval_takes_a_point_per_refresh_as_before() {
     let mut rt = ThemeRuntime::new(
         graphing_every(10, None, 2.0),
