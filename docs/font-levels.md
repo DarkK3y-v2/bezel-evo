@@ -1,6 +1,7 @@
 # Fonts in Bezel Evo (D-32)
 
-Studio and Light share the renderer and the same three font sources. The theme
+Studio and Light share the renderer and the same three font sources. For the
+user-facing guide, see [Fonts](user/fonts.md). The theme
 format stays unchanged: portable fonts use the existing `font.asset` reference.
 
 - **Included with Bezel:** Inter and JetBrains Mono are embedded in the binary.
