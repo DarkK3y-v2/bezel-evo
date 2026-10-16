@@ -78,14 +78,14 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
     if (refocus) toggle.focus();
   }
 
-  /** One hardware: its dot, its name over its sources, and its value (or what is missing). */
-  function row({ category, sources, value, missing, name }) {
+  /** One hardware: its dot, its name over the programs that read it and how many sensors, and its value (or what is missing). */
+  function row({ category, sources, count, value, missing, name }) {
     const ok = !missing.length;
     return el('li', { class: 'libre-row', dataset: { state: ok ? 'ok' : 'missing' } }, [
       el('span', { class: 'status-dot', dataset: { state: ok ? 'ok' : 'partial' }, 'aria-hidden': 'true' }),
       el('span', { class: 'libre-row-name' }, [
         el('span', { text: name ? `${t(`category.${category}`)} / ${name}` : t(`category.${category}`) }),
-        el('span', { class: 'libre-row-via', text: sources.join(' · ') }),
+        el('span', { class: 'libre-row-via', text: [...sources, t(count === 1 ? 'sensorChip.sensorsOne' : 'sensorChip.sensorsMany', { count })].join(' · ') }),
       ]),
       el('span', { class: 'libre-row-value', text: ok ? value ?? '—' : t('sensorStatus.missing') }),
     ]);

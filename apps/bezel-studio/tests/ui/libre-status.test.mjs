@@ -60,9 +60,10 @@ test('a row per hardware: sources, the best value and the Libre groups missing',
   };
   const rows = hardwareRows(all, readings, libreStatus(all, readings));
   assert.deepEqual(rows.map((r) => r.category), ['cpu', 'board', 'network', 'disk']);
-  assert.deepEqual(rows[0], { category: 'cpu', sources: ['sysinfo', 'LibreHardwareMonitor'], value: '53 °C', missing: [] });
+  assert.deepEqual(rows[0], { category: 'cpu', sources: ['sysinfo', 'LibreHardwareMonitor'], count: rows[0].count, value: '53 °C', missing: [] });
+  assert.ok(rows[0].count > 0);
   // The synthetic zero still reads, but the group it belongs to is missing.
-  assert.deepEqual(rows[1], { category: 'board', sources: ['LibreHardwareMonitor'], value: '0 W', missing: ['Corsair Input'] });
+  assert.deepEqual(rows[1], { category: 'board', sources: ['LibreHardwareMonitor'], count: rows[1].count, value: '0 W', missing: ['Corsair Input'] });
   assert.equal(rows[2].value, '12');
   assert.equal(rows[3].value, null);
   assert.deepEqual(hardwareRows(all, null, null).map((r) => r.value), [null, null, null, null]);
@@ -99,4 +100,19 @@ test('identically named hardware uses physical ids to place its missing reading'
   const health = libreStatus(sensors, readings);
   assert.deepEqual(health.hardware.map((hardware) => hardware.id), ['lhm.psu.corsair.0', 'lhm.psu.corsair.1']);
   assert.deepEqual(hardwareRows(sensors, readings, health).map((row) => row.missing), [[], ['Corsair Input']]);
+});
+
+test('the popover names the reading program, never the raw sensor path', async () => {
+  const { sourceProgram, hardwareRows } = await import('../../src/libre-status.js');
+  assert.equal(sourceProgram('LibreHardwareMonitor Voltage /lpc/nct6687dr/0/voltage/11'), 'LibreHardwareMonitor');
+  assert.equal(sourceProgram('sysinfo'), 'sysinfo');
+  assert.equal(sourceProgram('none'), null);
+  assert.equal(sourceProgram(''), null);
+  const catalog = [
+    { key: 'a', category: 'board', source: 'LibreHardwareMonitor Fan /lpc/nct6687dr/0/fan/0', quantity: 'rpm', label: 'Fan 1' },
+    { key: 'b', category: 'board', source: 'LibreHardwareMonitor Voltage /lpc/nct6687dr/0/voltage/1', quantity: 'volts', label: 'Vcore' },
+    { key: 'c', category: 'system', source: 'none', quantity: 'seconds' },
+  ];
+  const rows = hardwareRows(catalog, {}, null);
+  assert.deepEqual(rows.map(r => [r.category, r.sources, r.count]), [['board', ['LibreHardwareMonitor'], 2], ['system', [], 1]]);
 });

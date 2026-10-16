@@ -54,19 +54,29 @@ export function sensorChip({ health, error = null, restarting = false, sampleMil
   return { state: 'ok', key: 'sensorChip.ok', params: { ms: Math.round(sampleMillis ?? 0) }, quickRestart: false };
 }
 
+/**
+ * The program that reads a sensor, as the popover shows it: the first word of
+ * its source ("LibreHardwareMonitor Voltage /lpc/…" → "LibreHardwareMonitor").
+ * A source that names no program ("none") is not shown.
+ */
+export function sourceProgram(source) {
+  const word = String(source ?? '').trim().split(/\s+/)[0] ?? '';
+  return word && word !== 'none' ? word : null;
+}
+
 /** The quantities that best say a hardware is read, in order. */
 const SHOWN_FIRST = Object.freeze(['celsius', 'percent', 'watts']);
 const rank = (sensor) => (SHOWN_FIRST.includes(sensor.quantity) ? SHOWN_FIRST.indexOf(sensor.quantity) : SHOWN_FIRST.length);
 
 /**
  * One row per hardware of the catalog, in catalog order (artboard
- * SensorStatus): the sources that read it, the value that best shows it is
+ * SensorStatus): the programs that read it, how many sensors it has, the value that best shows it is
  * read (a temperature, else a share, else a power, else any) and the Libre
  * groups of that category that do not read (`missing`).
  * @param {{key: string, category: string, source: string, quantity: string}[]} catalog
  * @param {Record<string, {value?: number, display?: string, unavailable?: string}>|null} readings
  * @param {{hardware?: {name: string, category: string|null, ok: boolean}[]}|null} health
- * @returns {{category: string, sources: string[], value: string|null, missing: string[], name?: string}[]}
+ * @returns {{category: string, sources: string[], count: number, value: string|null, missing: string[], name?: string}[]}
  */
 export function hardwareRows(catalog, readings, health) {
   const rows = new Map();
@@ -82,7 +92,8 @@ export function hardwareRows(catalog, readings, health) {
     const id = extra ? `${sensor.category}|${group}` : sensor.category;
     if (!rows.has(id)) rows.set(id, { category: sensor.category, sources: [], sensors: [], ...(extra ? { name: sensor.label ?? group } : {}) });
     const row = rows.get(id);
-    if (!row.sources.includes(sensor.source)) row.sources.push(sensor.source);
+    const program = sourceProgram(sensor.source);
+    if (program && !row.sources.includes(program)) row.sources.push(program);
     row.sensors.push(sensor);
   }
   const failed = (health?.hardware ?? []).filter((h) => !h.ok);
@@ -92,6 +103,7 @@ export function hardwareRows(catalog, readings, health) {
     return {
       category,
       sources,
+      count: sensors.length,
       value: reading ? reading.display ?? String(reading.value) : null,
       missing: failed.filter((h) => h.category === category && sensors.some((s) => h.id ? hardwareGroup(s) === h.id : s.label === h.name || hardwareGroup(s) === h.name)).map((h) => h.name),
       ...(name ? { name } : {}),

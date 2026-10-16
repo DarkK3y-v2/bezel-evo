@@ -17,7 +17,7 @@ export default {
     'sensorChip.title.partialMany': 'Sensors: {count} hardware not read',
     'sensorChip.title.error': 'Sensors stopped: no readings',
     'sensorChip.title.restarting': 'Restarting the sensors…',
-    'sensorChip.hardware': 'Hardware read',
+    'sensorChip.hardware': 'Hardware read', 'sensorChip.sensorsOne': '1 sensor', 'sensorChip.sensorsMany': '{count} sensors',
     'sensorChip.lastReading': 'last reading {ago}',
   },
   'pt-BR': {
@@ -31,7 +31,7 @@ export default {
     'sensorChip.title.partialMany': 'Sensores: {count} hardwares sem leitura',
     'sensorChip.title.error': 'Sensores parados: nenhuma leitura',
     'sensorChip.title.restarting': 'Reiniciando os sensores…',
-    'sensorChip.hardware': 'Hardware lido',
+    'sensorChip.hardware': 'Hardware lido', 'sensorChip.sensorsOne': '1 sensor', 'sensorChip.sensorsMany': '{count} sensores',
     'sensorChip.lastReading': 'última leitura {ago}',
   },
   it: {
@@ -45,7 +45,7 @@ export default {
     'sensorChip.title.partialMany': 'Sensori: {count} hardware senza letture',
     'sensorChip.title.error': 'Sensori fermi: nessuna lettura',
     'sensorChip.title.restarting': 'Riavvio dei sensori in corso…',
-    'sensorChip.hardware': 'Hardware letto',
+    'sensorChip.hardware': 'Hardware letto', 'sensorChip.sensorsOne': '1 sensore', 'sensorChip.sensorsMany': '{count} sensori',
     'sensorChip.lastReading': 'ultima lettura {ago}',
   },
 };
