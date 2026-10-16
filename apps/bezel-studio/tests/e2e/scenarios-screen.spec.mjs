@@ -1,8 +1,9 @@
 // The screen in demo mode, in pt-BR and en, light and dark: live mode and
 // start at login, a denied port shows the udev command (in a dialog and on
 // the stage), a panel in desktop mode goes back only after a dialog, a hung
-// screen is restarted after one, and a live screen that drops is connected
-// again, saying so.
+// screen is restarted after one, a live screen that drops is connected
+// again, saying so, and the Screen panel shows only the screen chosen at the
+// top.
 import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
 
 test('without a screen, live mode explains itself', async ({ page, t }) => {
@@ -38,6 +39,50 @@ test('live mode and start at login', async ({ page, t }) => {
   await page.getByRole('switch').click({ force: true });
   await expect(page.getByRole('switch')).not.toBeChecked();
   await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('the Screen panel shows only the screen chosen at the top', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=two');
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await page.getByRole('tab', { name: t('library.screen') }).click();
+  const panel = page.locator('#panel-screen');
+  const names = { '/dev/ttyACM1': 'Turing Smart Screen 8.8"', COM3: 'COM3' };
+  const picker = page.locator('#screen-select');
+  const first = await picker.inputValue();
+  const second = Object.keys(names).find((key) => key !== first);
+  const slider = panel.getByRole('slider', { name: t('screen.brightness') });
+  const autostart = panel.getByRole('checkbox', { name: t('screenPanel.autostart'), exact: true });
+  const advanced = panel.getByRole('group', { name: t('screen.advanced'), exact: true });
+  // Only the chosen screen: one card, one brightness, one set of advanced actions.
+  await expect(panel.locator('.screen-block')).toHaveCount(1);
+  await expect(panel.getByRole('region', { name: names[first], exact: true })).toBeVisible();
+  await expect(panel.getByRole('region', { name: names[second], exact: true })).toHaveCount(0);
+  await expect(panel.locator('.screen-card .meta')).toHaveText(new RegExp(`^${first.replace(/[/.]/g, '\$&')} · `));
+  await expect(slider).toHaveCount(1);
+  await expect(advanced).toHaveCount(1);
+  await expect(autostart).toBeVisible();
+  await slider.fill('40');
+  await expect(slider).toHaveValue('40');
+  await expectAccessible(page);
+
+  // The other screen shows once chosen at the top, with its own brightness.
+  await picker.selectOption(second);
+  await expect(panel.getByRole('region', { name: names[second], exact: true })).toBeVisible();
+  await expect(panel.getByRole('region', { name: names[first], exact: true })).toHaveCount(0);
+  await expect(panel.locator('.screen-block')).toHaveCount(1);
+  await expect(panel.locator('.screen-card .meta')).toHaveText(new RegExp(`^${second.replace(/[/.]/g, '\$&')} · `));
+  await expect(slider).toHaveCount(1);
+  await expect(slider).toHaveValue('70');
+  await expect(advanced).toHaveCount(1);
+  await expect(autostart).toBeVisible();
+  await expectAccessible(page);
+
+  // And back: the first keeps the level set on it.
+  await picker.selectOption(first);
+  await expect(panel.getByRole('region', { name: names[first], exact: true })).toBeVisible();
+  await expect(slider).toHaveValue('40');
   expect(errors).toEqual([]);
 });
 

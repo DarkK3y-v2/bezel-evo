@@ -1,7 +1,8 @@
-// The Screen panel's Settings (artboard Screen): each screen's card (glyph,
-// name, port, size and protocol in mono, its state) with its brightness,
-// "Start with the computer", the panels the vendor app left in desktop mode
-// and, at the end of the tab, the advanced actions.
+// The Screen panel's Settings (artboard Screen): the card of the screen
+// chosen at the top (glyph, name, port, size and protocol in mono, its
+// state) with its brightness, "Start with the computer", the panels the
+// vendor app left in desktop mode and, at the end of the tab, its advanced
+// actions. The other screens show only once chosen at the top.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { rangeField, screenThumb, sectionTitle, switchRow } from './fields.js';
@@ -10,9 +11,9 @@ import { rangeField, screenThumb, sectionTitle, switchRow } from './fields.js';
 const PROTOCOLS = Object.freeze({ 'turing-rev-a': 'A', 'turing-rev-b': 'B', 'turing-rev-c': 'C', 'turing-usb': 'USB' });
 
 /**
- * The screen panel (Screen › Settings): one card per screen (glyph, name,
- * size, protocol, state), its brightness, "Start with the computer", the
- * panels in desktop mode and the advanced actions.
+ * The screen panel (Screen › Settings): the chosen screen's card (glyph,
+ * name, size, protocol, state), its brightness, "Start with the computer",
+ * the panels in desktop mode and its advanced actions.
  * @param {{
  *   root: HTMLElement,
  *   t: (k: string, p?: object) => string,
@@ -129,10 +130,9 @@ export function createScreenPanel({ root, t, actions }) {
   }
 
   /** "Advanced": give the screen back to its own firmware, and restart it. */
-  function advanced(s, restart, labelled) {
+  function advanced(s, restart) {
     const { note, button } = restartParts(s, restart);
-    const name = s.models.length === 1 ? s.models[0].name : s.key;
-    return el('section', { class: 'screen-advanced', role: 'group', 'aria-label': labelled ? `${t('screen.advanced')} · ${name}` : t('screen.advanced') }, [
+    return el('section', { class: 'screen-advanced', role: 'group', 'aria-label': t('screen.advanced') }, [
       sectionTitle(t('screen.advanced')),
       note,
       el('button', { type: 'button', class: 'text-button', onclick: () => actions.release(s.key) }, [icon(ICONS.handBack, 16), el('span', { text: t('screen.release') })]),
@@ -140,19 +140,18 @@ export function createScreenPanel({ root, t, actions }) {
     ]);
   }
 
-  /** One screen: its card and its brightness (and its advanced actions, when there are several). */
-  function screenBlock(s, current, live, brightness, restart, several) {
+  /** The chosen screen: its card and its brightness. */
+  function screenBlock(s, live, brightness) {
     const model = s.models.length === 1 ? s.models[0] : null;
     return el('section', { class: 'screen-block', 'aria-label': model ? model.name : s.key }, [
-      screenCard(s, model, s.key === current && live),
+      screenCard(s, model, live),
       brightnessField(s, brightness[s.key] ?? 70),
-      several ? advanced(s, restart, true) : null,
     ]);
   }
 
   /**
    * @param {object[]} screens the screens listed
-   * @param {string|null} current the screen in use
+   * @param {string|null} current the screen chosen at the top, the only one shown
    * @param {boolean} live whether the screen in use is live
    * @param {Record<string, number>} brightness the level set on each screen in this session
    * @param {object[]} desktopMode the panels in desktop mode
@@ -161,14 +160,14 @@ export function createScreenPanel({ root, t, actions }) {
   function render(screens, current, live, brightness = {}, desktopMode = [], restart = {}) {
     args = [screens, current, live, brightness, desktopMode, restart];
     const desktop = [desktopSection(desktopMode)].filter(Boolean);
-    if (!screens.length) {
+    const chosen = screens.find((s) => s.key === current) ?? null;
+    if (!chosen) {
       root.replaceChildren(el('p', { class: 'empty-note', text: t('screen.none') }), autostartField(), ...desktop);
       tail.replaceChildren();
       return;
     }
-    const several = screens.length > 1;
-    root.replaceChildren(...screens.map((s) => screenBlock(s, current, live, brightness, restart, several)), autostartField(), ...desktop);
-    tail.replaceChildren(...(several ? [] : [advanced(screens[0], restart, false)]));
+    root.replaceChildren(screenBlock(chosen, live, brightness), autostartField(), ...desktop);
+    tail.replaceChildren(advanced(chosen, restart));
   }
 
   return {
