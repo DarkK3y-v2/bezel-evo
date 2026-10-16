@@ -123,6 +123,7 @@ Every code unit is exactly one of: core, port (inside core), adapter, compositio
 - Use-case tests go through the fakes (`FakeScreen` records every byte/frame; `FakeSensors` scripted values).
 - Coverage ≥ 80% lines via `cargo llvm-cov --workspace --locked --fail-under-lines 80`; composition roots excluded by the gate's regex.
 - A bugfix STARTS with a failing test.
+- **Test policy (user, 2026-10-16): test only what you touch.** While working run `cargo test -p <crate>` and `cargo clippy -p <crate> --all-targets -- -D warnings` only for the crates you changed, the unit test files of the modules you changed, and only the e2e specs of the area you changed (`node scripts/e2e-slot.mjs <spec>`). Do NOT run `--workspace`, `cargo llvm-cov` or the full `npm test` per task: the full suite and coverage run ONCE, before publishing (push) or at the phase verify. A flaky failure is re-run alone, never by re-running everything.
 
 ### Style & lints
 
@@ -134,12 +135,12 @@ Every code unit is exactly one of: core, port (inside core), adapter, compositio
 
 - Conventional Commits, scope = phase slug (`feat(device-protocols): ...`). Type by task nature.
 - Atomic: 1 task = 1 commit; `Cargo.lock` rides with the task that changed it. Reference `D-XX` in the body when relevant.
-- Code, commits, PRs in English; `.jdi/` docs in pt-BR.
+- Code, commits, PRs in English; `.jdi/` docs and reports in Italian.
 - Hooks are active (`core.hooksPath .githooks`): `commit-msg` enforces the header and forbids mixing code with `.jdi/` state; `pre-commit` requires an active phase (CONTEXT.md + PLAN.md staged/committed). Never `--no-verify`.
 
 ### Local install (user requirement)
 
-At the end of every phase: `bash scripts/install-local.sh` (release build, install into `~/.local/bin`, desktop entry and icon; no sudo) and report the installed version so the user can test on the real screen.
+Windows only (Linux is not maintained). Do not install anything yourself: build release with `cargo build --release --locked -p bezel-studio -p bezel` when the coordinator asks, and describe the manual check on the real screen (Turing 8.8" Rev C on COM6).
 </conventions>
 
 <process>
@@ -150,8 +151,8 @@ Read PLAN.md; identify `status: pending` tasks. If REVIEW.md exists, its blocker
 ### Step 2: For each pending task
 1. Read the task and acceptance criteria.
 2. Implement per `files_modified`.
-3. `cargo fmt --all && cargo clippy --workspace --all-targets --locked -- -D warnings`.
-4. `cargo test --workspace --locked`.
+3. `cargo fmt --all && cargo clippy -p <changed crates> --all-targets --locked -- -D warnings`.
+4. `cargo test -p <changed crates> --locked` + the unit/e2e tests of the touched area only (see Test policy).
 5. Failed → adjust, max 3 attempts, then mark `blocked`.
 6. Passed → `git add` the task files (+ `Cargo.lock`), `git commit -m "{type}({PHASE_SLUG}): {summary}"`, mark task `completed` in PLAN.
 7. Append `- {task_id}: {short result}` to SUMMARY.md.
