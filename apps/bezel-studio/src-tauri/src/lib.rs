@@ -343,6 +343,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::measure_element,
             commands::video_auto,
             commands::open_guide,
+            commands::open_logs_folder,
             commands::push_theme,
             commands::set_live,
             commands::set_brightness,
@@ -1948,7 +1949,7 @@ mod tests {
 
     /// The `#[tauri::command]`s that call [`OPEN_HELPER`]: a page opens
     /// only when the window invokes one, on the user's click.
-    const OPEN_COMMANDS: [&str; 2] = ["open_link", "open_guide"];
+    const OPEN_COMMANDS: [&str; 3] = ["open_link", "open_guide", "open_logs_folder"];
 
     /// What no literal of the studio holds, tests included: the window's
     /// IPC object, then KLIPY's API and file hosts (they are
@@ -3956,7 +3957,11 @@ mod tests {
         );
         assert_eq!(
             helpers,
-            ["commands.rs: open_guide", "commands.rs: open_link"],
+            [
+                "commands.rs: open_guide",
+                "commands.rs: open_link",
+                "commands.rs: open_logs_folder"
+            ],
             "the helper, called by the commands that open a page"
         );
         // The one module that prints is built, and its functions were read.

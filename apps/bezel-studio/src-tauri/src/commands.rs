@@ -155,8 +155,15 @@ pub async fn sample_sensors(state: State<'_, Shared>) -> UiResult<SampleDto> {
 /// Restart the configured Windows hardware reader on the blocking pool.
 #[tauri::command]
 pub async fn restart_libre_reader(state: State<'_, Shared>) -> UiResult<()> {
-    blocking(&state, |_| {
-        bezel_sensors::restart_libre_reader().map_err(UiError::system)
+    blocking(&state, |b| {
+        bezel_sensors::restart_libre_reader().map_err(UiError::system)?;
+        if let Some(engine) = &b.engine {
+            engine.request(
+                "__options__",
+                bezel_runtime::wire::RuntimeOp::SensorRestarted,
+            )?;
+        }
+        Ok(())
     })
     .await
 }
@@ -282,15 +289,33 @@ pub async fn open_link<R: Runtime>(app: AppHandle<R>, link: String) -> UiResult<
     open_fixed(app, link_url(&link)?.to_string()).await
 }
 
-/// Opens `url`, one of the app's fixed addresses, in the system's browser.
-/// The one user of the system opener, called only by [`open_link`] and
-/// [`open_guide`], so a page opens only on the user's click
+/// Opens only the shared app-owned diagnostics folder on an explicit click.
+#[tauri::command]
+pub async fn open_logs_folder<R: Runtime>(app: AppHandle<R>) -> UiResult<()> {
+    open_fixed(app, "bezel:logs".into()).await
+}
+
+/// Opens a fixed app address or the app-owned diagnostics folder.
+/// The sole system opener, called by [`open_link`], [`open_guide`] and
+/// [`open_logs_folder`] only on an explicit user click
 /// (D-2026-10-01-gif-sticker-search-15; the source guard checks it).
 async fn open_fixed<R: Runtime>(app: AppHandle<R>, url: String) -> UiResult<()> {
-    tauri::async_runtime::spawn_blocking(move || app.opener().open_url(url, None::<&str>))
-        .await
-        .map_err(UiError::system)?
-        .map_err(UiError::system)
+    tauri::async_runtime::spawn_blocking(move || {
+        if url == "bezel:logs" {
+            let folder = bezel_power::diagnostics::logs_directory();
+            std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+            app.opener()
+                .open_path(folder.to_string_lossy().into_owned(), None::<&str>)
+                .map_err(|e| e.to_string())
+        } else {
+            app.opener()
+                .open_url(url, None::<&str>)
+                .map_err(|e| e.to_string())
+        }
+    })
+    .await
+    .map_err(UiError::system)?
+    .map_err(UiError::system)
 }
 
 /// Shows the UI's theme on the live screen now.

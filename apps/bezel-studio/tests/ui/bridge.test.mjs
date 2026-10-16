@@ -417,3 +417,10 @@ test('Light canvas carries viewport bounds and unchanged frames retain logical d
   assert.equal(same.unchanged, true); assert.equal(same.rgba.length, 0); assert.equal(same.nextMs, 50);
   assert.equal(calls[0][1].max, 320);
 });
+
+test('opening diagnostics uses a fixed folder command without a user-supplied path', async () => {
+  const calls=[];
+  const bridge=createBridge({ ...page(), __TAURI__: { core:{ invoke:async (...args)=>{calls.push(args);} } } });
+  await bridge.openLogsFolder();
+  assert.deepEqual(calls,[['open_logs_folder']]);
+});

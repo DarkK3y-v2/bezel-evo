@@ -454,6 +454,7 @@ function tauriBridge(invoke, tauri = {}) {
     useCollected: (id, target) => invoke('use_collected', { id, target }),
     /** Opens a link of the backend's fixed list in the system's browser (`klipyPartnerPanel`). */
     openLink: (link) => invoke('open_link', { link }),
+    openLogsFolder: () => invoke('open_logs_folder'),
     pushTheme: (theme) => invoke('push_theme', { theme }),
     setLive: (on, screen) => invoke('set_live', { on, screen }),
     setBrightness: (screen, percent) => invoke('set_brightness', { screen, percent }),

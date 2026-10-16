@@ -1624,6 +1624,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       for (const cb of quitListeners) cb();
     },
     windowState: () => windowState,
+    openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
     setLightOnClose: (on) => { lightOnClose = on; return Promise.resolve(); },
     preferences: () => Promise.resolve({
