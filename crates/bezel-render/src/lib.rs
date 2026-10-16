@@ -39,7 +39,7 @@ mod player_tests;
 mod testkit;
 
 pub use catalog::{FontCatalog, FontCategory, FontFace, FontFamily, FontOrigin, category};
-pub use fonts::font_files;
+pub use fonts::{SHIPPED_FONTS, font_files};
 pub use renderer::SkiaRenderer;
 pub use svg::{svg_size, svg_thumbnail};
 pub use text::SystemFonts;

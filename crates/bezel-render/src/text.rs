@@ -18,16 +18,18 @@ use tiny_skia::{IntSize, Mask, Pixmap, Rect};
 use crate::catalog::FontCatalog;
 use crate::composite::premultiply;
 use crate::diagnostics::{Diagnostics, Stamp};
+use crate::fonts::{SHIPPED_FONTS, is_shipped};
 use crate::layer::Layer;
 use crate::paint::paint_for;
 
 /// Whether the renderer may use the fonts installed on the machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SystemFonts {
-    /// Scan and use the installed fonts (the default for the app).
+    /// Scan and use the installed fonts and the fonts Bezel ships (the
+    /// default for the app).
     #[default]
     Load,
-    /// Only bundled fonts: reproducible output (tests, golden images).
+    /// Only the fonts given: reproducible output (tests, golden images).
     Skip,
 }
 
@@ -84,14 +86,22 @@ fn has_family(db: &fontdb::Database, name: &str) -> Option<String> {
 }
 
 impl TextEngine {
-    /// An engine with `fonts` (font file bytes) and optionally the installed fonts.
+    /// An engine with `fonts` (font file bytes) and optionally the installed
+    /// fonts; with them, also the fonts Bezel ships ([`SHIPPED_FONTS`]),
+    /// whatever folder the theme is in. Copies of those in `fonts` are skipped.
     pub fn new(fonts: Vec<Vec<u8>>, system: SystemFonts) -> Self {
         let mut db = fontdb::Database::new();
+        let mut bundled = HashSet::new();
         if system == SystemFonts::Load {
             db.load_system_fonts();
+            for bytes in SHIPPED_FONTS {
+                bundled.extend(db.load_font_source(fontdb::Source::Binary(Arc::new(bytes))));
+            }
         }
-        let mut bundled = HashSet::new();
         for bytes in fonts {
+            if system == SystemFonts::Load && is_shipped(&bytes) {
+                continue;
+            }
             bundled.extend(db.load_font_source(fontdb::Source::Binary(Arc::new(bytes))));
         }
         let default_family = DEFAULT_FAMILIES
@@ -424,6 +434,32 @@ mod tests {
         assert_eq!(
             empty.family_for(&spec("Inter", None), &assets, &mut diagnostics),
             None
+        );
+    }
+
+    #[test]
+    fn the_shipped_families_are_always_there_and_bundled() {
+        let copies: Vec<Vec<u8>> = SHIPPED_FONTS.iter().map(|b| b.to_vec()).collect();
+        let mut engine = TextEngine::new(copies, SystemFonts::Load);
+        let mut diagnostics = Diagnostics::default();
+        let catalog = engine.catalog();
+        for family in ["Inter", "JetBrains Mono"] {
+            let spec = FontSpec {
+                family: family.into(),
+                ..FontSpec::default()
+            };
+            let found = engine.family_for(&spec, &BTreeMap::new(), &mut diagnostics);
+            assert_eq!(found.as_deref(), Some(family));
+            let listed = catalog.families.iter().find(|f| f.name == family).unwrap();
+            assert_eq!(listed.origin, crate::FontOrigin::Bundled, "{family}");
+        }
+        assert_eq!(diagnostics.count(), 0);
+        let shipped = engine.bundled.len();
+        assert_eq!(shipped, SHIPPED_FONTS.len(), "copies are not loaded twice");
+        assert!(
+            TextEngine::new(Vec::new(), SystemFonts::Skip)
+                .bundled
+                .is_empty()
         );
     }
 

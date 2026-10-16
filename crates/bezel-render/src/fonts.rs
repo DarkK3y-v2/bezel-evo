@@ -1,8 +1,28 @@
 //! Font files shipped next to the themes (`themes/fonts/`), read once so a
-//! renderer can be built with them ([`crate::SkiaRenderer::with_fonts`]).
+//! renderer can be built with them ([`crate::SkiaRenderer::with_fonts`]),
+//! and the families Bezel ships embedded in the binary ([`SHIPPED_FONTS`]),
+//! so they never depend on where the themes folder is.
 
 use std::fs;
 use std::path::Path;
+
+/// The font files Bezel ships (`themes/fonts/`, SIL OFL 1.1, licences in
+/// that folder): Inter (400, 500, 600, 700) and JetBrains Mono (400, 500,
+/// 700). A renderer that loads the installed fonts loads these first.
+pub const SHIPPED_FONTS: [&[u8]; 7] = [
+    include_bytes!("../../../themes/fonts/Inter-Regular.ttf"),
+    include_bytes!("../../../themes/fonts/Inter-Medium.ttf"),
+    include_bytes!("../../../themes/fonts/Inter-SemiBold.ttf"),
+    include_bytes!("../../../themes/fonts/Inter-Bold.ttf"),
+    include_bytes!("../../../themes/fonts/JetBrainsMono-Regular.otf"),
+    include_bytes!("../../../themes/fonts/JetBrainsMono-Medium.otf"),
+    include_bytes!("../../../themes/fonts/JetBrainsMono-Bold.otf"),
+];
+
+/// Whether `bytes` is one of [`SHIPPED_FONTS`] (a copy read from a folder).
+pub(crate) fn is_shipped(bytes: &[u8]) -> bool {
+    SHIPPED_FONTS.contains(&bytes)
+}
 
 /// Largest font file read, bytes.
 const MAX_FONT_FILE: u64 = 32 * 1024 * 1024;

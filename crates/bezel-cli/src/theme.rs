@@ -35,7 +35,8 @@ pub struct Loaded {
 }
 
 /// The folders searched, in order, for the themes that ship with Bezel:
-/// `override_dir` (`$BEZEL_THEMES_DIR`), `<exe dir>/../share/bezel/themes`
+/// `override_dir` (`$BEZEL_THEMES_DIR`), `<exe dir>/themes` (the Windows
+/// installer, the portable ZIP and `dist`), `<exe dir>/../share/bezel/themes`
 /// (packages and `install-local.sh`), then `<data home>/bezel/themes`.
 pub fn bundled_candidates(
     override_dir: Option<PathBuf>,
@@ -44,6 +45,7 @@ pub fn bundled_candidates(
 ) -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = override_dir.into_iter().collect();
     if let Some(bin) = exe.and_then(Path::parent) {
+        out.push(bin.join("themes"));
         out.push(bin.join("..").join("share").join("bezel").join("themes"));
     }
     out.extend(data_home.map(|d| d.join("bezel").join("themes")));
@@ -403,6 +405,7 @@ mod tests {
             found,
             vec![
                 PathBuf::from("/override"),
+                PathBuf::from("/opt/bezel/bin/themes"),
                 PathBuf::from("/opt/bezel/bin/../share/bezel/themes"),
                 PathBuf::from("/home/u/.local/share/bezel/themes"),
             ]
@@ -592,6 +595,56 @@ mod tests {
         std::fs::write(dir.join("junk.txt"), b"hello").unwrap();
         assert!(load(&FsThemeStore, &dir.join("junk.txt")).is_err());
         assert!(load(&FsThemeStore, &dir.join("broken.bezeltheme")).is_err());
+    }
+
+    /// `small_theme` with its text drawn in `family`, saved alone in a fresh
+    /// folder (no `fonts/` beside it), rendered as `bezel render` does.
+    fn render_in(family: &str, renderer: &mut SkiaRenderer) -> (Vec<u8>, Vec<u8>) {
+        let dir = scratch(&format!("shipped-{}", family.replace(' ', "-")));
+        let mut theme = small_theme();
+        if let ElementKind::Text { style, .. } = &mut theme.elements[0].kind {
+            style.font.family = family.into();
+        }
+        save(&theme, &dir.join("mine"));
+        let fonts: Vec<Vec<u8>> = font_dirs(&dir.join("mine"), None)
+            .iter()
+            .flat_map(|d| bezel_render::font_files(d))
+            .collect();
+        assert!(fonts.is_empty(), "no fonts beside the theme");
+        let mut sensors = FakeSensors::demo();
+        let mut kit = Rendering {
+            store: &FsThemeStore,
+            renderer,
+            sensors: &mut sensors,
+            clock: &now,
+            language: Language::English,
+            bundled: None,
+            handoff: None,
+        };
+        let mut log = Vec::new();
+        let png = dir.join("out.png");
+        render(&mut kit, &dir.join("mine"), &png, &mut |_| {}, &mut log).unwrap();
+        (log, image::open(&png).unwrap().to_rgba8().into_raw())
+    }
+
+    #[test]
+    fn the_shipped_fonts_draw_a_theme_from_any_folder() {
+        let mut app = SkiaRenderer::with_fonts(Vec::new(), SystemFonts::Load);
+        for (family, files) in [
+            ("Inter", &bezel_render::SHIPPED_FONTS[..4]),
+            ("JetBrains Mono", &bezel_render::SHIPPED_FONTS[4..]),
+        ] {
+            let (log, pixels) = render_in(family, &mut app);
+            let log = String::from_utf8(log).unwrap();
+            assert!(!log.contains("font family"), "{family}: {log}");
+            let only = files.iter().map(|b| b.to_vec()).collect();
+            let mut reference = SkiaRenderer::with_fonts(only, SystemFonts::Skip);
+            let (_, expected) = render_in(family, &mut reference);
+            assert!(
+                pixels == expected,
+                "{family} is drawn with the shipped face"
+            );
+        }
     }
 
     #[test]

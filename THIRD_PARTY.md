@@ -14,6 +14,7 @@ in [Cargo.toml](Cargo.toml). Component licences remain in force.
 | Tabler Icons | MIT | [Licence](apps/bezel-studio/src/assets/tabler/LICENSE) |
 | Material Design Icons (hardware subset) | Apache-2.0 | [Licence](apps/bezel-studio/src/assets/mdi/LICENSE) and [NOTICE](apps/bezel-studio/src/assets/mdi/NOTICE) |
 | IBM Plex Sans / Mono | SIL OFL 1.1 | [Licence](apps/bezel-studio/src/assets/fonts/ibm-plex/LICENSE), [sources and SHA-256 checksums](apps/bezel-studio/src/assets/fonts/ibm-plex/README.md) |
+| Inter, JetBrains Mono (theme fonts, embedded in `bezel` and `bezel-studio`) | SIL OFL 1.1 | [Inter licence](themes/fonts/Inter-OFL.txt), [JetBrains Mono licence](themes/fonts/JetBrainsMono-OFL.txt) |
 | Tauri Windows installer template | MIT | [Packaging notes](packaging/windows/README.md); the licence is included in Windows packages |
 
 The bundled sensor helper includes Libre's original MPL licence and notices,
