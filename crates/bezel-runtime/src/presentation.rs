@@ -210,9 +210,14 @@ impl Presenter {
                                         let start = Instant::now();
                                         link.present(frame.as_ref())?;
                                         let stats = link.last_transfer().unwrap_or(TransferStats {
-                                            kind: "full",
+                                            kind: "unknown",
                                             ..TransferStats::default()
                                         });
+                                        bezel_power::diagnostics::present_reason(
+                                            id,
+                                            stats.kind,
+                                            stats.reason,
+                                        );
                                         light(
                                             LightEvent::Present,
                                             id,
@@ -427,5 +432,85 @@ impl ScreenStorage for Link {
     }
     fn set_options(&mut self, _: PlanB, _: Confirmed) -> Result<()> {
         unsupported()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bezel_core::domain::{
+        device::{ModelId, Transport, UsbId},
+        discovery::{DeviceAddress, Endpoint},
+        frame::Rgba,
+        geometry::Size,
+        theme::Theme,
+    };
+    use bezel_devices::{
+        FakeBus,
+        driver::{RealTime, turing_rev_a::TuringRevA},
+        wire::ScriptedWire,
+    };
+    struct Connector;
+    impl ScreenConnector for Connector {
+        fn connect(&self, _: &Screen) -> Result<Box<dyn ScreenLink>> {
+            let model = bezel_core::domain::catalog::model_by_id(ModelId("turing-3.5")).unwrap();
+            Ok(Box::new(TuringRevA::connect(
+                ScriptedWire::default(),
+                &RealTime,
+                &[model],
+            )?))
+        }
+    }
+    #[test]
+    fn rev_a_worker_keeps_baseline_and_reports_actual_dirty_rectangles() {
+        let bus = Arc::new(FakeBus::new(vec![Endpoint {
+            address: DeviceAddress("COM3".into()),
+            transport: Transport::Serial,
+            usb: UsbId::new(0x1a86, 0x5722),
+            serial_number: None,
+            manufacturer: None,
+            product: None,
+            location: None,
+        }]));
+        let presenter = Presenter::start(
+            1,
+            "COM3".into(),
+            bus,
+            Arc::new(Connector),
+            None,
+            Theme::blank("test", Size::new(320, 480), Orientation::Portrait),
+            crate::Wake::default(),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut link = loop {
+            if let Some((_, link)) = presenter.poll().opened {
+                break link;
+            }
+            assert!(Instant::now() < deadline);
+            thread::sleep(Duration::from_millis(2));
+        };
+        let mut frame = Frame::filled(Size::new(320, 480), Rgba::BLACK);
+        for expected in ["full", "unchanged", "partial"] {
+            link.set_orientation(Orientation::Portrait).unwrap();
+            if expected == "partial" {
+                frame.fill_rect(
+                    bezel_core::domain::frame::Rect::new(10, 10, 1, 1),
+                    Rgba::WHITE,
+                );
+            }
+            presenter.frame(Arc::new(frame.clone()));
+            loop {
+                let state = presenter.shared.state.lock().unwrap();
+                if state.completed > 0 {
+                    assert_eq!(state.completion.unwrap().kind, expected);
+                    break;
+                }
+                drop(state);
+                assert!(Instant::now() < deadline);
+                thread::sleep(Duration::from_millis(2));
+            }
+            presenter.poll();
+        }
     }
 }
