@@ -71,7 +71,7 @@ const CUT = '\u0001';
  * @param {{scope?: string|null, axis?: string}|null} [deps.themeFilter] the Themes tab's filter as remembered
  * @param {object|null} [deps.bridge] the backend, for what the panels read themselves
  */
-export function createLibrary({ store, canvas, stage, t, locale = () => 'en', themeFilter = null, actions }) {
+export function createLibrary({ store, canvas, stage, t, pickers, locale = () => 'en', themeFilter = null, actions }) {
   const $ = (id) => document.getElementById(id);
   let catalog = [];
   let readings = {};
@@ -808,7 +808,7 @@ export function createLibrary({ store, canvas, stage, t, locale = () => 'en', th
 
   // "This theme" | "Collection" (D-2026-10-01-gif-sticker-search-5): the
   // collection is where GIFs and stickers are searched on KLIPY.
-  const iconPicker = createIconPicker({ store, canvas, stage, t, add: actions.addIcon });
+  const iconPicker = createIconPicker({ store, canvas, stage, t, pickers, add: actions.addIcon });
   wireSubtabs($('panel-media').querySelector('.subtabs'), (name) => {
     if (name === 'icons') void iconPicker.show();
     actions.mediaSubtab?.(name);

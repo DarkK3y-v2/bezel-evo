@@ -24,6 +24,7 @@ use bezel_core::ports::{
     DesktopModeHid, DeviceBus, HandoffStore, ScreenConnector, ScreenLink, SensorSource,
     ThemeLocation, ThemeStore,
 };
+use bezel_render::{FontCatalog, FontFace};
 use bezel_sensors::SensorOptions;
 use bezel_themes::dto::{BackgroundDto, ThemeDto};
 use bezel_themes::import::import_path;
@@ -31,9 +32,9 @@ use bezel_themes::native::{is_native, native_location};
 
 use crate::diag::{self, DiagCode};
 use crate::dto::{
-    ActivityDto, AddedDto, AssetDto, DevicesDto, ImportedDto, LiveVideoDto, MonitorModeDto,
-    PreferencesDto, ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto,
-    ThemeEntryDto, ThemeFilterDto, VideoAutoDto,
+    ActivityDto, AddedDto, AssetDto, DevicesDto, FontCatalogDto, ImportedDto, LiveVideoDto,
+    MonitorModeDto, PreferencesDto, ReconnectingDto, RestartedDto, SampleDto, SavedDto, SensorDto,
+    SessionDto, ThemeEntryDto, ThemeFilterDto, VideoAutoDto,
 };
 use crate::element_preview::{fit_within, side_of};
 use crate::library::ThemeLibrary;
@@ -76,8 +77,8 @@ pub struct Backend {
     pub make_sensors: SensorFactory,
     /// On Linux, the udev rule that fixes a denied port (`None` elsewhere).
     pub udev: Option<UdevHelp>,
-    /// Font families themes can use.
-    pub fonts: Vec<String>,
+    /// The font families themes can use, from the renderer's font database.
+    pub fonts: FontCatalog,
     /// The editing session.
     pub studio: Session,
     /// The screen's files: the media converter and the running operation.
@@ -279,6 +280,21 @@ pub(crate) fn read_limited(path: &Path, limit: u64) -> UiResult<Vec<u8>> {
 }
 
 impl Backend {
+    /// The font picker's families and the fallback for a missing one.
+    pub fn font_catalog(&self) -> FontCatalogDto {
+        FontCatalogDto::from(&self.fonts)
+    }
+
+    /// The file of a face shipped with Bezel, so the UI can show a bundled
+    /// family in its own letters on a machine where it is not installed;
+    /// empty for anything else (installed families are the system's).
+    pub fn font_face(&self, family: &str, weight: u16, italic: bool) -> Vec<u8> {
+        self.fonts
+            .bundled_face(family, FontFace { weight, italic })
+            .map(<[u8]>::to_vec)
+            .unwrap_or_default()
+    }
+
     /// The editing session, even after a panic in another command.
     pub fn studio(&self) -> MutexGuard<'_, Studio> {
         self.studio.lock()
@@ -1440,6 +1456,47 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::mpsc;
 
+    /// JetBrains Mono NL Regular, the renderer's test font (SIL OFL 1.1).
+    const TEST_FONT: &[u8] =
+        include_bytes!("../../../../crates/bezel-render/tests/fonts/JetBrainsMonoNL-Regular.ttf");
+
+    #[test]
+    fn the_font_catalog_lists_the_renderers_families_and_hands_out_only_bundled_faces() {
+        let f = fixture("font-catalog");
+        let catalog = f.backend.font_catalog();
+        assert_eq!(catalog.fallback.as_deref(), Some("JetBrains Mono NL"));
+        assert_eq!(catalog.families.len(), 1);
+        let family = &catalog.families[0];
+        assert_eq!(family.name, "JetBrains Mono NL");
+        assert_eq!(
+            family.faces,
+            vec![crate::dto::FontFaceDto {
+                weight: 400,
+                italic: false
+            }]
+        );
+        assert_eq!(
+            (family.category, family.monospace, family.bundled),
+            ("mono", true, true)
+        );
+        let json = serde_json::to_value(&catalog).unwrap();
+        assert_eq!(json["families"][0]["faces"][0]["weight"], 400);
+        assert!(
+            json["families"][0].get("aliases").is_none(),
+            "no aliases, not written"
+        );
+        assert_eq!(
+            f.backend.font_face("jetbrains mono nl", 400, false),
+            TEST_FONT
+        );
+        assert!(
+            f.backend
+                .font_face("JetBrains Mono NL", 400, true)
+                .is_empty()
+        );
+        assert!(f.backend.font_face("Arial", 400, false).is_empty());
+    }
+
     const TIME: LocalTime = LocalTime {
         year: 2026,
         month: 9,
@@ -1485,7 +1542,8 @@ mod tests {
             system_language: Language::English,
             make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
             udev: Some(UdevHelp::new(root.join("cache").join("60-bezel.rules"))),
-            fonts: vec!["Inter".into()],
+            fonts: SkiaRenderer::with_fonts(vec![TEST_FONT.to_vec()], SystemFonts::Skip)
+                .font_catalog(),
             studio: Session::new(studio),
             storage: StorageState::new(
                 Box::new(crate::storage::tests::FakeMedia::ready()),
@@ -3389,7 +3447,6 @@ static_text:
                 .unwrap()
                 .starts_with("data:image/png;base64,")
         );
-        assert_eq!(f.backend.fonts, vec!["Inter".to_string()]);
         // An animated GIF is an image that can be a video background: it
         // comes with its poster.
         let gif = f.root.join("Ondas.gif");

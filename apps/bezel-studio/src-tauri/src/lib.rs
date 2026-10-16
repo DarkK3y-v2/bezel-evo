@@ -357,7 +357,8 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::add_media,
             commands::list_assets,
             commands::video_preview,
-            commands::list_fonts,
+            commands::font_catalog,
+            commands::font_face,
             commands::get_autostart,
             commands::set_autostart,
             commands::storage_overview,
@@ -687,7 +688,7 @@ fn compose(folders: &Folders, adapters: Adapters, simulate: bool) -> Backend {
         .flat_map(|dir| font_files(&dir.join("fonts")))
         .collect();
     let renderer = SkiaRenderer::with_fonts(bundled_fonts, SystemFonts::Load);
-    let fonts = renderer.font_families();
+    let fonts = renderer.font_catalog();
     let settings = SettingsFile::new(folders.config.join("settings.json"));
     let system_language = clock::language();
     let ffmpeg = settings.load().ffmpeg_path.map(PathBuf::from);

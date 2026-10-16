@@ -5,7 +5,7 @@
 //! Fonts come from the theme's bundled font assets first, then the installed
 //! family, then a default sans.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use bezel_core::domain::theme::{AssetRef, BoxF, FontSpec, HAlign, TextStyle, VAlign};
@@ -15,6 +15,7 @@ use cosmic_text::{
 };
 use tiny_skia::{IntSize, Mask, Pixmap, Rect};
 
+use crate::catalog::FontCatalog;
 use crate::composite::premultiply;
 use crate::diagnostics::{Diagnostics, Stamp};
 use crate::layer::Layer;
@@ -71,6 +72,8 @@ pub(crate) struct TextEngine {
     default_family: Option<String>,
     installed: HashMap<String, Option<String>>,
     asset_fonts: HashMap<AssetRef, AssetFont>,
+    /// The faces shipped with Bezel (the `fonts` given to [`TextEngine::new`]).
+    bundled: HashSet<fontdb::ID>,
 }
 
 fn has_family(db: &fontdb::Database, name: &str) -> Option<String> {
@@ -87,8 +90,9 @@ impl TextEngine {
         if system == SystemFonts::Load {
             db.load_system_fonts();
         }
+        let mut bundled = HashSet::new();
         for bytes in fonts {
-            db.load_font_source(fontdb::Source::Binary(Arc::new(bytes)));
+            bundled.extend(db.load_font_source(fontdb::Source::Binary(Arc::new(bytes))));
         }
         let default_family = DEFAULT_FAMILIES
             .iter()
@@ -106,6 +110,7 @@ impl TextEngine {
             default_family,
             installed: HashMap::new(),
             asset_fonts: HashMap::new(),
+            bundled,
         }
     }
 
@@ -185,17 +190,10 @@ impl TextEngine {
         self.default_family.clone()
     }
 
-    /// Family names of every loaded font, sorted without duplicates.
-    pub fn families(&self) -> Vec<String> {
-        let mut names: Vec<String> = self
-            .fonts
-            .db()
-            .faces()
-            .filter_map(|face| face.families.first().map(|(name, _)| name.clone()))
-            .collect();
-        names.sort_by_key(|n| n.to_lowercase());
-        names.dedup();
-        names
+    /// Every family of the font database, with its faces, and the family
+    /// drawn for a missing one.
+    pub fn catalog(&self) -> FontCatalog {
+        crate::catalog::catalog(self.fonts.db(), &self.bundled, self.default_family.clone())
     }
 
     /// Draws `job` into `layer`.

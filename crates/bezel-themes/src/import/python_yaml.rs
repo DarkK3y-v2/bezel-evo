@@ -106,6 +106,7 @@ pub fn import_file(file: &Path, dir: &Path) -> Result<Imported, String> {
             .unwrap_or(Background::Color(Rgba::BLACK)),
         elements: im.b.elements,
         refresh_seconds: refresh as f32,
+        palette: Vec::new(),
     };
     Ok((theme, im.b.assets, im.b.report))
 }

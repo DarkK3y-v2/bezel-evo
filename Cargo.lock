@@ -451,6 +451,7 @@ dependencies = [
  "resvg",
  "tiny-skia",
  "tracing",
+ "ttf-parser",
 ]
 
 [[package]]

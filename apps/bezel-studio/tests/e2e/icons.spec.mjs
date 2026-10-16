@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { test, expect, watchErrors, expectAccessible, dragTo } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, dragTo, colorButton, setColor } from './helpers.mjs';
 
 test('offline icons search, insert as SVG and undo in one step', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -18,7 +18,8 @@ test('offline icons search, insert as SVG and undo in one step', async ({ page, 
   await search.fill('ventola');
   await expect(page.locator('#icon-grid .icon-choice')).not.toHaveCount(0);
   await search.fill('cpu');
-  await page.locator('#media-icons').getByLabel(t('inspector.color'), { exact: true }).fill('#38bdf8');
+  await setColor(page, t, page.locator('#media-icons'), t('inspector.color'), '#38bdf8');
+  await expect(colorButton(page.locator('#media-icons'), t('inspector.color'))).toHaveAttribute('data-color', '#38bdf8ff');
   await page.getByLabel(t('inspector.size'), { exact: true }).fill('96');
   await page.getByLabel(t('inspector.size'), { exact: true }).press('Tab');
   await page.locator('[data-icon="cpu"]').click();
@@ -29,10 +30,9 @@ test('offline icons search, insert as SVG and undo in one step', async ({ page, 
   await expect(page.getByRole('spinbutton', { name: t('inspector.width'), exact: true })).toHaveValue('96');
   const original = await asset.inputValue();
   await detail.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
-  await detail.locator('input[type="color"]').first().fill('#ff0000');
-  await detail.locator('input[type="color"]').first().press('Tab');
+  await setColor(page, t, detail, t('inspector.color'), '#ff0000');
   await expect(asset).not.toHaveValue(original);
-  await expect(detail.locator('input[type="color"]').first()).toHaveValue('#ff0000');
+  await expect(colorButton(detail, t('inspector.color'))).toHaveAttribute('data-color', /^#ff0000/);
   const red = await asset.inputValue();
   await detail.getByLabel(t('inspector.strokeWidth'), { exact: true }).fill('3');
   await detail.getByLabel(t('inspector.strokeWidth'), { exact: true }).press('Tab');
@@ -44,8 +44,7 @@ test('offline icons search, insert as SVG and undo in one step', async ({ page, 
   await expect(asset).not.toHaveValue(thick);
   await expect(detail.getByLabel(t('icons.shadow'), { exact: true })).toHaveValue('2');
   const shadowed = await asset.inputValue();
-  await detail.locator('input[type="color"]').last().fill('#38bdf8');
-  await detail.locator('input[type="color"]').last().press('Tab');
+  await setColor(page, t, detail, t('icons.shadowColor'), '#38bdf8');
   await expect(asset).not.toHaveValue(shadowed);
   for (const ref of [shadowed, thick, red, original]) {
     await page.getByRole('button', { name: t('top.undo'), exact: true }).click();
@@ -85,8 +84,7 @@ test('electrical aliases and hardware pump icons remain editable and undoable', 
   await expect(asset).toHaveValue(/mdi-water-pump.*\.svg$/);
   const original = await asset.inputValue();
   await detail.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
-  await detail.locator('input[type="color"]').first().fill('#ff0000');
-  await detail.locator('input[type="color"]').first().press('Tab');
+  await setColor(page, t, detail, t('inspector.color'), '#ff0000');
   await expect(asset).not.toHaveValue(original);
   await expect(detail.getByLabel(t('inspector.strokeWidth'), { exact: true })).toHaveCount(0);
   await detail.getByLabel(t('icons.shadow'), { exact: true }).fill('2');

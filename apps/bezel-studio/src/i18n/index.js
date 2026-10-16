@@ -9,6 +9,7 @@ import inspector, { PREFIXES as INSPECTOR } from './areas/inspector.js';
 import card, { PREFIXES as CARD } from './areas/card.js';
 import screen, { PREFIXES as SCREEN } from './areas/screen.js';
 import connect, { PREFIXES as CONNECT } from './areas/connect.js';
+import pickers, { PREFIXES as PICKERS } from './areas/pickers.js';
 
 // Labels derived from enum values (widget kinds, storage stages, etc.)
 // resolve to the same canonical text as static callers. Only the canonical
@@ -55,6 +56,7 @@ export const AREAS = Object.freeze({
   card: { prefixes: CARD, tables: card },
   screen: { prefixes: SCREEN, tables: screen },
   connect: { prefixes: CONNECT, tables: connect },
+  pickers: { prefixes: PICKERS, tables: pickers },
 });
 
 /**

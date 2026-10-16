@@ -557,6 +557,25 @@ pub struct Theme {
     pub elements: Vec<Element>,
     /// Seconds between refreshes (sensor sampling and frames).
     pub refresh_seconds: f32,
+    /// Colours saved with the theme for reuse, in the user's order
+    /// (D-2026-10-16-studio-redesign-fidelity-29). Picking one copies its
+    /// colour: nothing drawn refers to a swatch, so changing the palette
+    /// never repaints an element. At most [`PALETTE_MAX`].
+    pub palette: Vec<Swatch>,
+}
+
+/// Most swatches a theme keeps.
+pub const PALETTE_MAX: usize = 64;
+/// Longest swatch name, in characters.
+pub const SWATCH_NAME_MAX: usize = 40;
+
+/// A colour of a theme's palette, optionally named ("Brand", "Alert").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Swatch {
+    /// A short name; `None` shows the colour's hex.
+    pub name: Option<String>,
+    /// The colour, with its opacity.
+    pub color: Rgba,
 }
 
 /// Fastest refresh, in seconds: a theme (or a watch of the sensors) never
@@ -587,6 +606,7 @@ impl Theme {
             background: Background::Color(Rgba::opaque(12, 14, 22)),
             elements: Vec::new(),
             refresh_seconds: 1.0,
+            palette: Vec::new(),
         }
     }
 

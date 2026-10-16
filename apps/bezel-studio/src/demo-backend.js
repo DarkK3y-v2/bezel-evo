@@ -9,6 +9,7 @@ import { isShown } from './editor/cards.js';
 // themes, media and an approximate renderer. Nothing here reaches hardware.
 import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
 import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank, demoSameFile } from './demo-manager.js';
+import { DEMO_FONT_CATALOG } from './demo-fonts.js';
 import { DEMO_THEME } from './demo-theme.js';
 import { createDemoGifs } from './demo-gifs.js';
 import { createDemoStandby } from './demo-standby.js';
@@ -1579,7 +1580,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       if (source) dropped.set(source, file.size);
       return source;
     },
-    fonts: () => Promise.resolve(['Inter', 'JetBrains Mono']),
+    fontCatalog: () => Promise.resolve(structuredClone(DEMO_FONT_CATALOG)),
+    // The demo has no font files: names of bundled families fall back like a missing face.
+    fontFace: () => Promise.resolve(null),
     getAutostart: () => Promise.resolve(autostart),
     setAutostart: (on) => {
       autostart = on;

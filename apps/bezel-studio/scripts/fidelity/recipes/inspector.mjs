@@ -120,5 +120,16 @@ export default {
       await standalone(app, 'player');
       await app.page.locator('#inspector').getByRole('radio', { name: new RegExp(t('insp.stoppedHide')) }).check();
     } },
-  ].map(state => ({ ...state, capture: '#inspector' })),
+    // The shared pickers (D-2026-10-16-studio-redesign-fidelity-28, -29), open: the detail is the popover.
+    { name: 'font-picker', capture: '.picker-popover', run: async (app) => {
+      await standalone(app, 'text');
+      await app.inspectorTab(1);
+      await inspector(app).getByRole('button', { name: t('inspector.fontFamily'), exact: true }).click();
+    } },
+    { name: 'color-picker', capture: '.picker-popover', run: async (app) => {
+      await standalone(app, 'shape');
+      await inspector(app).getByRole('button', { name: t('inspector.fill'), exact: true }).click();
+      await app.page.locator('.picker-popover [data-section="theme"]').getByRole('button', { name: t('common.save'), exact: true }).click();
+    } },
+  ].map(state => ({ ...state, capture: state.capture ?? '#inspector' })),
 };

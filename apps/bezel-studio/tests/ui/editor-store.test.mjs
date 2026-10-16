@@ -5,6 +5,23 @@ import { DEMO_THEME } from '../../src/demo-theme.js';
 
 const frame = (s, id) => s.getState().theme.elements.find((e) => e.id === id).frame;
 
+test('the palette is one undo step, never repaints elements, and an empty one leaves no key', () => {
+  const s = createStore(DEMO_THEME);
+  const elements = s.getState().theme.elements;
+  s.dispatch('setPalette', { palette: [{ name: 'Brand', color: '#ff8800ff' }] });
+  assert.deepEqual(s.getState().theme.palette, [{ name: 'Brand', color: '#ff8800ff' }]);
+  assert.equal(s.getState().theme.elements, elements);
+  const before = s.getState();
+  assert.equal(s.dispatch('setPalette', { palette: [{ name: 'Brand', color: '#ff8800ff' }] }), before, 'the same palette is no step');
+  s.dispatch('setPalette', { palette: [] });
+  assert.ok(!('palette' in s.getState().theme));
+  s.undo();
+  assert.deepEqual(s.getState().theme.palette, [{ name: 'Brand', color: '#ff8800ff' }]);
+  s.undo();
+  assert.ok(!('palette' in s.getState().theme));
+  assert.deepEqual(commands.setPalette({ name: 'x' }, { palette: [] }), { theme: { name: 'x' } });
+});
+
 test('add creates a centered, named, selected element with the next id', () => {
   const s = createStore(DEMO_THEME);
   s.dispatch('add', { widget: 'bar', x: 240, y: 1000, sensor: { key: 'gpu.usage', quantity: 'percent', label: 'GPU usage' } });

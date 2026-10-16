@@ -380,8 +380,11 @@ export const DEMO_PANELS = Object.freeze([
   { id: 'turing-usb-5.2', diagonalHundredths: 520, width: 720, height: 1280 },
 ]);
 
-/** A small dark theme of `canvas` for the demo's library: a clock, a CPU ring, a card and a bar. */
-function libraryTheme(name, canvas, orientation) {
+/**
+ * A small dark theme of `canvas` for the demo's library: a clock, a CPU ring, a card and a bar.
+ * `family`: the clock's font (an imported theme may name one the machine lacks).
+ */
+function libraryTheme(name, canvas, orientation, family = 'Inter') {
   const { width: w, height: h } = canvas;
   const unit = Math.min(w, h);
   const at = (x, y, width, height) => ({ x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) });
@@ -398,7 +401,7 @@ function libraryTheme(name, canvas, orientation) {
       element(2, 'Clock', at(w * 0.08, h * 0.08, w * 0.5, unit * 0.22), {
         type: 'text',
         content: { type: 'clock', pattern: '%H:%M' },
-        style: { font: { family: 'Inter', weight: 700, italic: false }, size: Math.round(unit * 0.18), paint: '#e2e8f0ff', align: 'left', valign: 'middle', letterSpacing: 0 },
+        style: { font: { family, weight: 700, italic: false }, size: Math.round(unit * 0.18), paint: '#e2e8f0ff', align: 'left', valign: 'middle', letterSpacing: 0 },
       }),
       element(3, 'CPU', at(w * 0.1, h * 0.5, unit * 0.36, unit * 0.36), { type: 'ring', binding: { key: 'cpu.usage', min: 0, max: 100 }, startAngle: -135, sweep: 270, thickness: Math.round(unit * 0.05), clockwise: true, fill: '#38bdf8ff', track: '#ffffff26', roundCaps: true }),
       element(4, 'GPU', at(w * 0.55, h * 0.62, w * 0.36, unit * 0.06), { type: 'bar', binding: { key: 'gpu.usage', min: 0, max: 100 }, direction: 'leftToRight', fill: '#a78bfaff', track: '#ffffff1a', radius: 4 }),
@@ -415,7 +418,8 @@ export const DEMO_LIBRARY = Object.freeze([
   { theme: libraryTheme('Midnight 3.5" vertical', { width: 320, height: 480 }, 'portrait'), bundled: true },
   { theme: libraryTheme('Midnight 5" horizontal', { width: 800, height: 480 }, 'landscape'), bundled: true },
   { theme: libraryTheme('Midnight 2.1" round', { width: 480, height: 480 }, 'portrait'), bundled: true },
-  { theme: libraryTheme('TURZX 3.5"', { width: 480, height: 320 }, 'landscape'), bundled: false, drawable: false },
+  // Imported from TURZX: its clock names the vendor's Digital-7, not installed here.
+  { theme: libraryTheme('TURZX 3.5"', { width: 480, height: 320 }, 'landscape', 'Digital-7'), bundled: false, drawable: false },
 ]);
 
 /** The command the app shows to install its udev rule (Linux). */

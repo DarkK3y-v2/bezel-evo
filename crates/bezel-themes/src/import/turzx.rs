@@ -305,6 +305,7 @@ pub fn import(
         background,
         elements: im.b.elements,
         refresh_seconds: 1.0,
+        palette: Vec::new(),
     };
     Ok((theme, im.b.assets, im.b.report))
 }

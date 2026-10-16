@@ -30,9 +30,9 @@ use crate::backend::{Backend, guide_url, link_url};
 use crate::clock::now;
 use crate::dto::{
     AddedDto, AddedMediaDto, AlbumAddedDto, AssetDto, CollectedDto, CollectedUsersDto, DevicesDto,
-    GifPageDto, ImportedDto, JobDto, KeyDto, MediaToolsDto, MonitorModeDto, PreferencesDto,
-    PrepareDto, ProgressDto, RestartedDto, SampleDto, SavedDto, SensorDto, SessionDto, StandbyDto,
-    StorageDto, ThemeEntryDto, VideoAutoDto, parse_orientation,
+    FontCatalogDto, GifPageDto, ImportedDto, JobDto, KeyDto, MediaToolsDto, MonitorModeDto,
+    PreferencesDto, PrepareDto, ProgressDto, RestartedDto, SampleDto, SavedDto, SensorDto,
+    SessionDto, StandbyDto, StorageDto, ThemeEntryDto, VideoAutoDto, parse_orientation,
 };
 use crate::emit_progress;
 use crate::gifs::{Gifs, KlipyKey, SharedGifs, Target, UserAsked};
@@ -495,10 +495,18 @@ pub async fn video_preview(
     .await
 }
 
-/// Font families themes can use.
+/// The font families themes can use, with their faces, and the family drawn
+/// for a missing one (D-2026-10-16-studio-redesign-fidelity-28).
 #[tauri::command]
-pub fn list_fonts(state: State<'_, Shared>) -> Vec<String> {
-    state.fonts.clone()
+pub fn font_catalog(state: State<'_, Shared>) -> FontCatalogDto {
+    state.font_catalog()
+}
+
+/// The file of a face shipped with Bezel (raw bytes; empty for any other
+/// family), so the font picker draws a bundled family's name in it.
+#[tauri::command]
+pub fn font_face(state: State<'_, Shared>, family: String, weight: u16, italic: bool) -> Response {
+    Response::new(state.font_face(&family, weight, italic))
 }
 
 /// Whether the UI holds edits that are not saved: closing the window asks

@@ -2,7 +2,7 @@
 // title, artist and time turn on and off like cover, progress and app
 // name, the fit measures only what shows, and the bar's look (colours,
 // thickness, ends, knob, pattern, where the times go) is set in Look.
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, clickAddWidget as add, openInspectorTab as tab, colorButton, setColor } from './helpers.mjs';
 
 /** Whether the preview has a strong red pixel. */
 const hasRed = (preview) => preview.evaluate((canvas) => {
@@ -76,11 +76,9 @@ test('the progress bar has its colours, thickness, ends, knob, pattern and times
   // Fill colour: the preview turns red.
   const name = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   const preview = inspector.getByRole('img', { name: t('inspector.previewOf', { name }), exact: true });
-  const fill = section.locator('input[type="text"]').and(section.getByLabel(t('inspector.fill'), { exact: true }));
-  await fill.fill('#ff0000');
-  await fill.press('Tab');
+  await setColor(page, t, section, t('inspector.fill'), '#ff0000');
   await expect.poll(() => hasRed(preview)).toBe(true);
-  await expect(section.locator('input[type="text"]').and(section.getByLabel(t('inspector.track'), { exact: true }))).toHaveValue(/^#646464/);
+  await expect(colorButton(section, t('inspector.track'))).toHaveAttribute('data-color', /^#646464/);
 
   // Thickness by keyboard, ends and knob as switches.
   const thickness = section.getByRole('slider', { name: t('insp.thickness'), exact: true });

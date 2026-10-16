@@ -16,6 +16,9 @@ cosmic-text = "0.19"
 # Named directly to build the font database (bundled fonts, no system scan in
 # tests); the same version cosmic-text uses, so no second copy is compiled.
 fontdb = "0.23"
+# Reads the PANOSE class of a face (serif or sans) for the font catalogue;
+# the version fontdb uses, so no second copy is compiled.
+ttf-parser = { version = "0.25", default-features = false, features = ["std"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif"] }
 resvg = { version = "0.48.1", default-features = false }
 

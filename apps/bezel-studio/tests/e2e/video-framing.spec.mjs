@@ -9,7 +9,7 @@
 // video and stops with reduced motion; without ffmpeg it shows the poster and
 // the guide is one click away. No console errors, no serious or critical
 // accessibility violations.
-import { test, expect, watchErrors, expectAccessible } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, colorButton, setColor } from './helpers.mjs';
 
 const inspector = (page) => page.locator('#inspector');
 const framing = (page, t) => inspector(page).getByRole('group', { name: t('framing.title') });
@@ -71,9 +71,7 @@ test('video framing: Auto turns the pre-turned video upright and the inspector f
   await fit.getByRole('button', { name: t('framing.contain') }).click();
   await pressed(fit.getByRole('button', { name: t('framing.contain') }));
   await expect.poll(() => pixel(page, 5, 240).then(isBlack)).toBe(true);
-  const pad = group.getByRole('textbox', { name: t('framing.padHex') });
-  await pad.fill('#ff0000');
-  await pad.press('Enter');
+  await setColor(page, t, group, t('framing.padColor'), '#ff0000');
   await expect.poll(() => pixel(page, 5, 240).then(isRed)).toBe(true);
   await expectAccessible(page);
 
@@ -99,7 +97,7 @@ test('video framing: Auto turns the pre-turned video upright and the inspector f
   await pressed(auto);
   await pressed(fit.getByRole('button', { name: t('framing.cover') }));
   await expect(group.getByRole('spinbutton', { name: t('framing.zoomNumber') })).toHaveValue('100');
-  await expect(group.getByRole('textbox', { name: t('framing.padHex') })).toHaveCount(0);
+  await expect(colorButton(group, t('framing.padColor'))).toHaveCount(0);
   await expect(group.getByRole('button', { name: t('framing.reset') })).toBeDisabled();
   await expect.poll(() => pixel(page, 960, 470).then(isGreen)).toBe(true);
   await page.getByRole('button', { name: t('top.undo') }).click();

@@ -126,8 +126,59 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 .field-row, .icon-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .field-row.four { grid-template-columns: repeat(4, 1fr); }
 .check { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-.color-field { display: grid; grid-template-columns: 40px 1fr 70px; gap: 6px; align-items: center; }
-.color-field input[type="color"] { width: 40px; height: 32px; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; }
+
+/* -------------------------------------------------------------- pickers -- */
+/* The font picker and the colour picker (fields.js fontPicker/colorPicker,
+   D-2026-10-16-studio-redesign-fidelity-28/-29) and their popover
+   (ui/popover.js). Tokens dress the chrome; the colours being edited (the
+   area, the bars, the swatches) are the picker's own data. */
+.picker-popover { position: fixed; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: 320px; max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.font-picker { display: grid; gap: 8px; }
+.font-picker > .field, .color-field { margin: 0; }
+.font-picker > .field > label, .color-field > label { font-size: 0.85rem; color: var(--muted); }
+.font-button, .color-button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); color: var(--text); text-align: left; cursor: pointer; }
+.font-button:hover, .color-button:hover { border-color: var(--faint); }
+.font-button[aria-expanded="true"], .color-button[aria-expanded="true"] { border-color: var(--accent); }
+.font-button-name, .font-option-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-heading); }
+.font-button > .ic { flex: none; color: var(--dim); }
+.font-missing { display: flex; align-items: flex-start; gap: 6px; margin: 0; color: var(--warn); font-size: var(--fs-compact); line-height: 1.4; }
+.font-missing .ic { flex: none; margin-top: 2px; }
+.font-list { display: grid; align-content: start; gap: 1px; height: 280px; overflow: auto; overscroll-behavior: contain; }
+.font-section { display: grid; gap: 1px; }
+.font-section-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 6px 4px 4px; background: var(--surface); }
+.font-option { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+.font-option.is-active { background: var(--surface-3); }
+.font-option[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--accent); }
+.font-option-meta { flex: none; color: var(--muted); font-family: var(--font-mono); font-size: var(--fs-meta); }
+.font-more { min-height: 1px; }
+.font-more[hidden] { display: none; }
+.font-sample { margin: 0; padding: 10px 12px; overflow: hidden; border-radius: 8px; background: var(--well); font-size: 1.6rem; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.swatch { --swatch: transparent; display: inline-block; flex: none; box-sizing: border-box; width: 20px; height: 20px; border: 1px solid var(--border); border-radius: 5px; background: linear-gradient(var(--swatch), var(--swatch)), repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 0 0 / 8px 8px; }
+.color-button-value { display: flex; flex: 1; gap: 8px; min-width: 0; font-size: var(--fs-compact); }
+.color-button-alpha { margin-left: auto; color: var(--dim); }
+.cp-area { position: relative; height: 150px; border-radius: 8px; background: linear-gradient(to top, rgb(0 0 0), transparent), linear-gradient(to right, rgb(255 255 255), var(--cp-hue)); cursor: crosshair; touch-action: none; }
+.cp-hue, .cp-alpha { position: relative; height: 14px; border-radius: 7px; cursor: pointer; touch-action: none; }
+.cp-hue { background: linear-gradient(to right, rgb(255 0 0), rgb(255 255 0), rgb(0 255 0), rgb(0 255 255), rgb(0 0 255), rgb(255 0 255), rgb(255 0 0)); }
+.cp-alpha { background: linear-gradient(to right, transparent, var(--cp-opaque)), repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 0 0 / 8px 8px; }
+.cp-thumb { position: absolute; box-sizing: border-box; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--handle); border-radius: 50%; box-shadow: 0 0 0 1px var(--menu-shadow); pointer-events: none; }
+.cp-hue .cp-thumb, .cp-alpha .cp-thumb { top: 50%; }
+.cp-area:focus-visible, .cp-hue:focus-visible, .cp-alpha:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.cp-inputs { display: flex; align-items: center; gap: 6px; }
+.cp-preview { width: 30px; height: 30px; border-radius: 8px; }
+.cp-hex { flex: 1; min-width: 0; height: 32px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); color: var(--text); }
+.cp-percent-field { flex: none; width: 76px; }
+.cp-sections { display: grid; gap: 12px; }
+.cp-section .section-head { margin: 0 0 6px; }
+.cp-section .section-head .text-button { min-height: 24px; padding: 2px 6px; font-size: var(--fs-compact); }
+.cp-section .section-head .text-button:first-of-type { margin-left: auto; }
+.cp-section .hint { margin: 0; font-size: var(--fs-small); color: var(--muted); line-height: 1.45; }
+.swatch-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch-button { display: inline-flex; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
+.swatch-button .swatch { width: 24px; height: 24px; border-radius: 6px; }
+.swatch-button[aria-pressed="true"] .swatch { outline: 2px solid var(--accent); outline-offset: 1px; }
+.swatch-rows { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.swatch-row { display: flex; align-items: center; gap: 6px; }
+.swatch-name { flex: 1; min-width: 0; height: 28px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--well); color: var(--text); }
 .field-error { margin: 0; color: var(--danger); font-size: 0.85rem; font-weight: 600; }
 .field-error::before { content: "⚠ "; }
 input[aria-invalid="true"] { border-color: var(--danger) !important; }

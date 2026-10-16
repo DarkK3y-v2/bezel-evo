@@ -476,7 +476,7 @@ pub(crate) fn fixture_on(
         system_language: Language::English,
         make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
         udev: None,
-        fonts: Vec::new(),
+        fonts: bezel_render::FontCatalog::default(),
         studio: crate::backend::Session::new(studio),
         storage,
         thumbnails: crate::thumbnails::tests::thumbnails(root.join("thumbnails")),

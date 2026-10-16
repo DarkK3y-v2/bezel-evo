@@ -15,6 +15,7 @@
 #![warn(missing_docs)]
 
 mod cards;
+mod catalog;
 mod composite;
 mod diagnostics;
 mod fonts;
@@ -37,6 +38,7 @@ mod player_tests;
 #[cfg(test)]
 mod testkit;
 
+pub use catalog::{FontCatalog, FontCategory, FontFace, FontFamily, FontOrigin, category};
 pub use fonts::font_files;
 pub use renderer::SkiaRenderer;
 pub use svg::{svg_size, svg_thumbnail};

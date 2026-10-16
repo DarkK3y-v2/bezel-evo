@@ -34,6 +34,7 @@ import { deviceLabel, liveScreenIn } from './live-screen.js';
 import { libreStatus } from './libre-status.js';
 import { timeAgo } from './relative-time.js';
 import { wirePanelResizers } from './ui/panel-resizer.js';
+import { createPickers } from './ui/pickers.js';
 
 const bridge = createBridge(window);
 const $ = (id) => document.getElementById(id);
@@ -62,7 +63,6 @@ const state = {
   live: false,
   autostart: false,
   catalog: [],
-  fonts: ['Inter', 'JetBrains Mono', 'Roboto', 'Roboto Mono'],
   assets: [],
   location: null,
   // How the theme's video background reaches the live screen.
@@ -180,8 +180,12 @@ function reportShownSensors(keys = librarySensorKeys) {
   });
 }
 
+// The font and colour pickers' data (D-2026-10-16-studio-redesign-fidelity-28, -29).
+const pickers = createPickers({ store, t, bridge, onCatalog: () => inspector.render(state.assets) });
+
 const library = createLibrary({
   store,
+  pickers,
   canvas: canvasView,
   stage: $('stage'),
   t,
@@ -326,7 +330,8 @@ const inspector = createInspector({
   editIcon: (id, asset, paint) => editIcon(id, asset, paint),
   store,
   t,
-  sensors: { catalog: () => labelledCatalog(), fonts: () => state.fonts },
+  sensors: { catalog: () => labelledCatalog() },
+  pickers,
   minRefresh,
   video: {
     context: () => ({
@@ -1294,7 +1299,7 @@ if (state.screen) {
   } catch (e) { fail(e); }
 }
 bridge.getAutostart().then((on) => { state.autostart = on; renderScreenSelect(); }).catch(() => {});
-bridge.fonts().then((f) => { if (f?.length) state.fonts = f; }).catch(() => {});
+void pickers.load();
 inspector.render(state.assets);
 sampleLoop();
 memoryLoop();

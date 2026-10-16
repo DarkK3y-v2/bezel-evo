@@ -59,7 +59,7 @@ test('the studio speaks Portuguese (Brazil), English and Italian', () => {
 // tables) uses; index.js merges them and refuses a key defined twice.
 
 test('the texts are split by area: shell, library, inspector, card, screen and connect', () => {
-  assert.deepEqual(Object.keys(AREAS), ['shell', 'library', 'inspector', 'card', 'screen', 'connect']);
+  assert.deepEqual(Object.keys(AREAS), ['shell', 'library', 'inspector', 'card', 'screen', 'connect', 'pickers']);
   for (const [name, area] of Object.entries(AREAS)) assert.deepEqual(Object.keys(area.tables).sort(), ['en', 'it', 'pt-BR'], name);
 });
 
@@ -342,9 +342,6 @@ function proseLiterals(code) {
  * that no longer is fails the test too, so the list cannot go stale.
  */
 const NOT_PROSE = new Set([
-  // Font families the font picker lists: their own names in every language.
-  'app.js: JetBrains Mono',
-  'app.js: Roboto Mono',
   // An Error's message for a malformed frame from the renderer: a detail for
   // the log, which the user reads inside the translated `error.unknown`.
   'bridge.js: frame too short',

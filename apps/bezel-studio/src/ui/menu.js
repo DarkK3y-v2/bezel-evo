@@ -3,6 +3,7 @@
 // operable from the keyboard (arrows, Home/End, Escape, Tab). The look is
 // `.object-menu` in shell.css.
 import { el } from './dom.js';
+import { keepOnScreen } from './popover.js';
 
 /** A rule between groups of items. */
 export const SEPARATOR = 'separator';
@@ -41,8 +42,7 @@ export function openMenu({ label, items, x, y, anchor = null, onClose = () => {}
     : el('button', { type: 'button', role: 'menuitem', disabled: Boolean(item.disabled), text: item.label, onclick: () => { close(null); item.run(); onClose('item'); } })));
   closeOpen = close;
   document.body.append(menu);
-  menu.style.left = `${Math.max(4, Math.min(x, innerWidth - menu.offsetWidth - 4))}px`;
-  menu.style.top = `${Math.max(4, Math.min(y, innerHeight - menu.offsetHeight - 4))}px`;
+  keepOnScreen(menu, x, y);
   menu.querySelector('button:not(:disabled)')?.focus();
   menu.addEventListener('keydown', (evt) => {
     const buttons = [...menu.querySelectorAll('button:not(:disabled)')];

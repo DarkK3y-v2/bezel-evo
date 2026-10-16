@@ -107,3 +107,22 @@ export const backgroundCard = (page, t, key) => themeInspector(page).getByRole('
 export const changeBackgroundButton = (page, t) => themeInspector(page).getByRole('button', { name: t('insp.bgChange'), exact: true });
 export const backgroundChooser = (page, t) => themeInspector(page).getByRole('region', { name: t('insp.bgChooserTitle'), exact: true });
 export const backgroundSourceButton = (page, t, key) => backgroundChooser(page, t).locator('.bg-source-head').filter({ hasText: t(key) });
+
+/** The colour picker's button named `label` (D-2026-10-16-studio-redesign-fidelity-29) in `scope`; its `data-color` is the colour. */
+export const colorButton = (scope, label) => scope.getByRole('button', { name: label, exact: true });
+
+/** The open colour panel. */
+export const colorPanel = (page) => page.locator('.picker-popover:has(.cp-area)');
+
+/**
+ * Sets the colour picker named `label` in `scope` to `hex` through the
+ * panel's hex field, then closes the panel with Escape.
+ */
+export async function setColor(page, t, scope, label, hex) {
+  await colorButton(scope, label).click();
+  const field = colorPanel(page).getByRole('textbox', { name: t('colorPicker.hex'), exact: true });
+  await field.fill(hex);
+  await field.press('Enter');
+  await page.keyboard.press('Escape');
+  await expect(colorPanel(page)).toHaveCount(0);
+}
