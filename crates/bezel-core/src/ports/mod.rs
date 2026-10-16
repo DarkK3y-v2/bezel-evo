@@ -63,6 +63,10 @@ pub trait DesktopModeHid {
 /// Driven port: opens a discovered screen (waking it when needed) and
 /// performs the handshake.
 pub trait ScreenConnector {
+    /// The persistent owner handles automatic session shutdown for its links.
+    fn manages_shutdown(&self) -> bool {
+        false
+    }
     /// A live link to `screen`.
     fn connect(&self, screen: &Screen) -> Result<Box<dyn ScreenLink>>;
 
@@ -95,12 +99,23 @@ pub struct TransferStats {
     pub reply_ms: f64,
     /// Full, partial or unchanged/keepalive frame.
     pub kind: &'static str,
+    /// Fixed adapter reason for a full transfer; never user-controlled text.
+    pub reason: &'static str,
 }
 
 /// Driven port: one connected screen. Frames go in the orientation the user
 /// looks at; the adapter rotates and encodes them for the panel and decides
 /// between a full frame and a partial update.
 pub trait ScreenLink: Send {
+    /// Automatic shutdown is handled by the persistent owner, once per link.
+    fn manages_shutdown(&self) -> bool {
+        false
+    }
+    /// True while another local runtime supplies frames through this owner.
+    /// A saved-theme runtime should wait without rendering or touching media.
+    fn presentation_paused(&self) -> bool {
+        false
+    }
     /// Measurements when the adapter supports them; unavailable otherwise.
     fn last_transfer(&self) -> Option<TransferStats> {
         None
@@ -222,6 +237,13 @@ pub trait ScreenStorage {
     /// take it as the video of
     /// [`StartMode::Video`](crate::domain::storage::StartMode::Video).
     fn play_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()>;
+
+    /// Ensures a runtime background is playing. Persistent owners may keep
+    /// an already selected video across clients; explicit play_video still
+    /// restarts playback when the user asks. Default for direct links: play.
+    fn resume_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
+        self.play_video(path, repeat)
+    }
 
     /// Stops whatever the screen plays and shows the stored image at `path`
     /// (rev C: PLAY_IMAGE, waiting for `play_img_ok`). The firmware may also
@@ -557,4 +579,59 @@ pub trait ThemeStore {
         theme: &Theme,
         assets: &BTreeMap<AssetRef, Vec<u8>>,
     ) -> Result<()>;
+}
+
+/// Driven port: a bounded request/reply channel to the local screen owner.
+/// Metadata and binary payload are separate so frames never need text encoding.
+/// The adapter authenticates the peer and validates lengths before allocating.
+pub trait ScreenChannel: Send {
+    /// Binary responses used by canvas/inspector images, without text encoding.
+    fn exchange_binary(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.exchange(metadata, payload, None)
+            .map(|reply| (reply, Vec::new()))
+    }
+
+    /// Whether the transport is still connected, independently of device errors.
+    fn connected(&self) -> bool {
+        true
+    }
+    /// One request, including streamed progress and cooperative cancellation.
+    /// A transport failure must never transparently replay a device write.
+    fn exchange(
+        &mut self,
+        metadata: &[u8],
+        payload: &[u8],
+        job: Option<&mut Job<'_>>,
+    ) -> Result<Vec<u8>>;
+}
+
+/// Driving port for the single authoritative theme engine. Transport metadata
+/// and binary data are bounded and decoded by an adapter outside the core.
+pub trait RuntimeImages: Send + Sync {
+    /// Read immutable canvas metadata/pixels without accessing the engine lock.
+    fn image(&self, metadata: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+}
+
+/// Stateful requests to the authoritative runtime.
+pub trait RuntimeEndpoint: Send {
+    /// Separate readonly snapshot endpoint, retained by the transport.
+    fn images(&self) -> Option<std::sync::Arc<dyn RuntimeImages>> {
+        None
+    }
+    /// One idempotent scene/preview request. Device writes use their own ports.
+    fn request(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+    /// The editor disappeared: restore saved documents without replacing runtimes.
+    fn disconnected(&mut self) -> Result<()>;
+}
+
+/// Client port for the per-user runtime, with lock-protected direct recovery.
+pub trait RuntimeConnection: Send + Sync {
+    /// A request is never silently replayed after an uncertain transport failure.
+    fn request(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+    /// Claim the legacy device lock before constructing an in-process engine.
+    fn take_direct_ownership(&self) -> Result<()>;
+    /// True while the authenticated owner still answers; request errors do not grant ownership.
+    fn reachable(&self) -> bool {
+        false
+    }
 }

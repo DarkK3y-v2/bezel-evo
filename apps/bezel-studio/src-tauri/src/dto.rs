@@ -298,7 +298,7 @@ pub struct SampleDto {
 
 /// The applications and media sessions of a sample, for the inspector (the
 /// Player's sources, the card triggers' applications).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityDto {
     /// Whether the running applications were read (the process scan
@@ -313,7 +313,7 @@ pub struct ActivityDto {
 }
 
 /// A media session as the inspector lists it.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaSessionDto {
     /// The application playing it.

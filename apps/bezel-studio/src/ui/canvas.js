@@ -135,8 +135,18 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
 
   /** Draws a rendered frame (`{width, height, rgba}`). */
   function drawFrame(frame) {
-    if (frame.width !== canvas.width || frame.height !== canvas.height) setCanvasSize(frame);
-    ctx.putImageData(new ImageData(frame.rgba, frame.width, frame.height), 0, 0);
+    if (!frame.width || !frame.height) return;
+    const logical = { width: frame.logicalWidth || frame.width, height: frame.logicalHeight || frame.height };
+    setCanvasSize(logical);
+    const pixels = new ImageData(frame.rgba, frame.width, frame.height);
+    if (frame.width === logical.width && frame.height === logical.height) ctx.putImageData(pixels, 0, 0);
+    else {
+      const small = document.createElement('canvas');
+      small.width = frame.width; small.height = frame.height;
+      small.getContext('2d').putImageData(pixels, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(small, 0, 0, canvas.width, canvas.height);
+    }
   }
 
   /** Canvas coordinates of a client point. */

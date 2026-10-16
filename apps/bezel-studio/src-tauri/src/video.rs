@@ -234,6 +234,7 @@ mod tests {
         )
         .with_host_decoding(storage.shared_media(), root.join("playing"));
         let backend = Backend {
+            engine: None,
             bus: Arc::new(FakeBus::turing_88()),
             connector: Arc::new(FakeConnector::default()),
             hid: Arc::new(bezel_devices::FakeHid::default()),

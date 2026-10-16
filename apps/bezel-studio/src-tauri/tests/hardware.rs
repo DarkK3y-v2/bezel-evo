@@ -41,6 +41,7 @@ fn backend(scratch: &Path) -> Backend {
         Orientation::Landscape,
     );
     Backend {
+        engine: None,
         bus: Arc::new(SystemBus),
         connector: Arc::new(SystemConnector),
         hid: Arc::new(bezel_devices::SystemHid),

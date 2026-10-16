@@ -5,13 +5,13 @@
 //! rectangle: the whole screen for the first frame, then the core's dirty
 //! rectangles. Nothing is ever acknowledged.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bezel_core::domain::device::DeviceModel;
 use bezel_core::domain::frame::{Frame, Rect, dirty_rects};
 use bezel_core::domain::geometry::Orientation;
 use bezel_core::domain::screen::{Brightness, ScreenIdentity};
-use bezel_core::ports::ScreenLink;
+use bezel_core::ports::{ScreenLink, TransferStats};
 use bezel_core::{BezelError, Result};
 
 use crate::driver::{Pause, check_frame, io_err};
@@ -33,6 +33,8 @@ pub struct TuringRevA<W: Wire> {
     needs_screen_on: bool,
     /// The frame the panel shows; `None` forces the next frame to be full.
     last: Option<Frame>,
+    transfer: TransferStats,
+    invalidated: &'static str,
 }
 
 impl<W: Wire> TuringRevA<W> {
@@ -72,6 +74,8 @@ impl<W: Wire> TuringRevA<W> {
             device_orientation: None,
             needs_screen_on: true,
             last: None,
+            transfer: TransferStats::default(),
+            invalidated: "connection",
         })
     }
 
@@ -86,7 +90,13 @@ impl<W: Wire> TuringRevA<W> {
     }
 
     fn send(&mut self, bytes: &[u8]) -> Result<()> {
-        self.wire.send(bytes).map_err(io_err)
+        let started = Instant::now();
+        let result = self.wire.send(bytes).map_err(io_err);
+        self.transfer.write_ms += started.elapsed().as_secs_f64() * 1000.0;
+        if result.is_ok() {
+            self.transfer.bytes += bytes.len() as u64;
+        }
+        result
     }
 
     fn send_orientation(&mut self) -> Result<()> {
@@ -138,10 +148,15 @@ impl<W: Wire> ScreenLink for TuringRevA<W> {
         }
         self.orientation = orientation;
         self.last = None;
+        self.invalidated = "orientation";
         self.send_orientation()
     }
 
     fn present(&mut self, frame: &Frame) -> Result<()> {
+        self.transfer = TransferStats {
+            kind: "unchanged",
+            ..TransferStats::default()
+        };
         self.check_size(frame)?;
         if self.needs_screen_on {
             self.send(&proto::screen_on())?;
@@ -150,10 +165,25 @@ impl<W: Wire> ScreenLink for TuringRevA<W> {
         if self.device_orientation != Some(self.orientation) {
             self.send_orientation()?;
         }
+        let started = Instant::now();
+        let reason = self.invalidated;
+        let had_baseline = self.last.is_some();
         let rects = match self.last.take() {
             None => vec![Rect::of(frame.size())],
             Some(previous) => dirty_rects(&previous, frame),
         };
+        self.transfer.diff_ms = started.elapsed().as_secs_f64() * 1000.0;
+        if rects == [Rect::of(frame.size())] {
+            self.transfer.kind = "full";
+            self.transfer.reason = if had_baseline {
+                "dirty_full_canvas"
+            } else {
+                reason
+            };
+        } else if !rects.is_empty() {
+            self.transfer.kind = "partial";
+        }
+        self.invalidated = "previous_write_failed";
         for rect in rects {
             self.bitmap(frame, rect)?;
         }
@@ -161,8 +191,13 @@ impl<W: Wire> ScreenLink for TuringRevA<W> {
         Ok(())
     }
 
+    fn last_transfer(&self) -> Option<TransferStats> {
+        Some(self.transfer)
+    }
+
     fn screen_off(&mut self) -> Result<()> {
         self.last = None;
+        self.invalidated = "screen_off";
         self.needs_screen_on = true;
         self.send(&proto::screen_off())
     }
@@ -172,6 +207,7 @@ impl<W: Wire> ScreenLink for TuringRevA<W> {
     /// writes. Nothing is sent; the next frame, if any, is full.
     fn release(&mut self) -> Result<()> {
         self.last = None;
+        self.invalidated = "release";
         Ok(())
     }
 }
@@ -233,6 +269,39 @@ mod tests {
 
     fn sent(s: &TuringRevA<ScriptedWire>) -> &[Vec<u8>] {
         &s.wire().sent
+    }
+
+    #[test]
+    fn transfer_metrics_follow_wire_rectangles_and_baseline_invalidation() {
+        let mut screen = connected(&[]);
+        let mut frame = Frame::filled(Size::new(320, 480), Rgba::BLACK);
+        screen.present(&frame).unwrap();
+        let stats = screen.last_transfer().unwrap();
+        assert_eq!((stats.kind, stats.reason), ("full", "connection"));
+        assert!(stats.bytes > 320 * 480 * 2);
+        screen.set_orientation(Orientation::Portrait).unwrap();
+        screen.present(&frame).unwrap();
+        assert_eq!(screen.last_transfer().unwrap().kind, "unchanged");
+        assert_eq!(screen.last_transfer().unwrap().bytes, 0);
+        frame.fill_rect(Rect::new(20, 20, 1, 1), Rgba::WHITE);
+        screen.present(&frame).unwrap();
+        let stats = screen.last_transfer().unwrap();
+        assert_eq!(stats.kind, "partial");
+        assert!(stats.bytes < 320 * 480 * 2);
+        screen.screen_off().unwrap();
+        screen.present(&frame).unwrap();
+        assert_eq!(screen.last_transfer().unwrap().reason, "screen_off");
+        screen.release().unwrap();
+        screen.present(&frame).unwrap();
+        assert_eq!(screen.last_transfer().unwrap().reason, "release");
+        screen
+            .set_orientation(Orientation::ReversePortrait)
+            .unwrap();
+        screen.present(&frame).unwrap();
+        assert_eq!(screen.last_transfer().unwrap().reason, "orientation");
+        frame.fill_rect(Rect::of(frame.size()), Rgba::WHITE);
+        screen.present(&frame).unwrap();
+        assert_eq!(screen.last_transfer().unwrap().reason, "dirty_full_canvas");
     }
 
     #[test]

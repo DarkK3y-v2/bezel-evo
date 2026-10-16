@@ -18,6 +18,7 @@ mod deliveries;
 pub mod diag;
 pub mod dto;
 pub mod element_preview;
+mod engine;
 pub mod gifs;
 pub mod library;
 pub mod manager;
@@ -116,7 +117,7 @@ pub fn on_close_for_runtime(live: bool, unsaved: bool, return_to_light: bool) ->
 pub(crate) fn returns_to_light<R: Runtime>(manager: &impl Manager<R>) -> bool {
     #[cfg(windows)]
     return manager
-        .try_state::<bezel_power::handoff::StudioSession>()
+        .try_state::<bezel_power::owner_client::LightConnector>()
         .is_some()
         && manager
             .try_state::<Shared>()
@@ -160,11 +161,10 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
                 args.extend([option.into(), value.into()]);
             }
         }
-        let executable = std::env::current_exe()?.with_file_name("bezel.exe");
-        if let Some(session) = manager.try_state::<bezel_power::handoff::StudioSession>() {
-            session.start_light(&executable, &args)?;
-            // Light waits for this session to end; meanwhile the screens
-            // keep the frame left for it, and nothing else reaches them.
+        if let Some(session) = manager.try_state::<bezel_power::owner_client::LightConnector>() {
+            session.prepare_close(&args)?;
+            // The pipe path retains the physical baseline in Light. In
+            // direct fallback this also leaves the compatibility A baseline.
             let store = bezel_power::handoff::FileHandoffStore::new(session.directory());
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -180,7 +180,7 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
 /// Explicit Quit stops both runtimes; closing the editor hands control to Light.
 pub(crate) fn exit_bezel<R: Runtime>(app: &AppHandle<R>) -> std::io::Result<()> {
     #[cfg(windows)]
-    if let Some(session) = app.try_state::<bezel_power::handoff::StudioSession>() {
+    if let Some(session) = app.try_state::<bezel_power::owner_client::LightConnector>() {
         session.stop_light()?;
     }
     app.exit(0);
@@ -343,6 +343,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::measure_element,
             commands::video_auto,
             commands::open_guide,
+            commands::open_logs_folder,
             commands::push_theme,
             commands::set_live,
             commands::set_brightness,
@@ -509,21 +510,77 @@ struct Start<R: Runtime> {
 /// and says nothing else (`tests::the_app_setup_sends_nothing_at_start`
 /// watches that bus).
 fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::error::Error>> {
+    let adapters = start.adapters;
     #[cfg(windows)]
-    if !start.simulate {
-        let executable = std::env::current_exe()?;
-        if executable.parent().is_some() {
-            let directory = bezel_power::handoff::runtime_directory(&executable)?;
-            let session =
-                bezel_power::handoff::enter_studio(&directory, std::time::Duration::from_secs(30))
-                    .inspect_err(|_| diag::report(DiagCode::LightNotReleased))?;
-            app.manage(session);
+    let adapters = {
+        let mut adapters = adapters;
+        if !start.simulate {
+            let executable = std::env::current_exe()?;
+            let client = bezel_power::owner_client::LightConnector::new(
+                &executable,
+                Arc::clone(&adapters.connector),
+            )?;
+            adapters.connector = Arc::new(client.clone());
+            app.manage(client);
         }
-    }
+        adapters
+    };
     // Each part that fails says so, before the app says it did not start.
     let folders =
         (start.folders)(app.handle()).inspect_err(|_| diag::report(DiagCode::FoldersNotFound))?;
-    let backend: Shared = Arc::new(compose(&folders, start.adapters, start.simulate));
+    let mut backend = compose(&folders, adapters, start.simulate);
+    #[cfg(windows)]
+    if let Some(client) = app.try_state::<bezel_power::owner_client::LightConnector>() {
+        let connection: Arc<dyn bezel_core::ports::RuntimeConnection> =
+            Arc::new(client.inner().clone());
+        let bus = Arc::clone(&backend.bus);
+        let connector = Arc::clone(&backend.connector);
+        let sensors = Arc::clone(&backend.make_sensors);
+        let options = backend.settings.load().sensor_options();
+        let ffmpeg = backend.settings.load().ffmpeg_path.map(PathBuf::from);
+        let cache = folders.cache.join("runtime-fallback");
+        let font_dirs: Vec<_> = bundled_theme_dirs(&folders)
+            .iter()
+            .map(|p| p.join("fonts"))
+            .collect();
+        backend.engine = Some(Arc::new(engine::EngineBridge::new(
+            connection,
+            Box::new(move || {
+                let fonts = font_dirs.iter().flat_map(|p| font_files(p)).collect();
+                bezel_runtime::Engine::new(
+                    Box::new(SkiaRenderer::with_fonts(fonts, SystemFonts::Load)),
+                    sensors(options.clone()),
+                    Box::new(FfmpegTranscoder::new(ffmpeg.clone())),
+                    Arc::clone(&bus),
+                    Arc::clone(&connector),
+                    clock::language(),
+                    cache.clone(),
+                    clock::now,
+                )
+                .map(|engine| {
+                    let sensors = Arc::clone(&sensors);
+                    engine.with_adapters(
+                        Box::new(move |options| {
+                            Ok((
+                                sensors(bezel_sensors::SensorOptions {
+                                    ping_host: options.ping_host.clone(),
+                                    mangohud_dir: options.mangohud_dir.as_ref().map(PathBuf::from),
+                                }),
+                                Box::new(FfmpegTranscoder::new(
+                                    options.ffmpeg.as_ref().map(PathBuf::from),
+                                )),
+                            ))
+                        }),
+                        Box::new(FakeSensors::demo()),
+                    )
+                })
+            }),
+        )));
+    }
+    if let Some(engine) = &backend.engine {
+        backend.thumbnails.use_runtime(Arc::clone(engine));
+    }
+    let backend: Shared = Arc::new(backend);
     // Before the window asks for it: the last theme, or a blank one for the
     // connected screen.
     backend.restore_debug();
@@ -713,6 +770,7 @@ fn compose(folders: &Folders, adapters: Adapters, simulate: bool) -> Backend {
     )
     .with_host_decoding(storage.shared_media(), cache.join("playing"));
     Backend {
+        engine: None,
         bus,
         connector,
         hid,
@@ -1891,7 +1949,7 @@ mod tests {
 
     /// The `#[tauri::command]`s that call [`OPEN_HELPER`]: a page opens
     /// only when the window invokes one, on the user's click.
-    const OPEN_COMMANDS: [&str; 2] = ["open_link", "open_guide"];
+    const OPEN_COMMANDS: [&str; 3] = ["open_link", "open_guide", "open_logs_folder"];
 
     /// What no literal of the studio holds, tests included: the window's
     /// IPC object, then KLIPY's API and file hosts (they are
@@ -3899,7 +3957,11 @@ mod tests {
         );
         assert_eq!(
             helpers,
-            ["commands.rs: open_guide", "commands.rs: open_link"],
+            [
+                "commands.rs: open_guide",
+                "commands.rs: open_link",
+                "commands.rs: open_logs_folder"
+            ],
             "the helper, called by the commands that open a page"
         );
         // The one module that prints is built, and its functions were read.

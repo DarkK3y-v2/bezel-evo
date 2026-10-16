@@ -20,6 +20,34 @@ use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEv
 #[path = "../../../apps/bezel-studio/src-tauri/src/tray_icon.rs"]
 mod tray_picture;
 
+static OWNER_CONNECTOR: std::sync::OnceLock<bezel_power::owner::OwnerConnector> =
+    std::sync::OnceLock::new();
+
+pub(super) fn connector() -> Option<bezel_power::owner::OwnerConnector> {
+    OWNER_CONNECTOR.get().cloned()
+}
+
+/// On-demand server, including a fresh Studio installation with no saved theme.
+pub(super) fn run_owner() -> anyhow::Result<String> {
+    let config = std::env::var_os("APPDATA").context("no user config directory")?;
+    let settings = Path::new(&config).join("io.github.slipalison.bezel/settings.json");
+    let mut args = vec![
+        std::env::current_exe()?.into_os_string(),
+        "run".into(),
+        "__owner_idle__".into(),
+        "--tray".into(),
+        "--screens-config".into(),
+        settings.into_os_string(),
+    ];
+    // follow_saved_theme below selects the configured theme when one exists.
+    let mut cli = Cli::try_parse_from(&args)?;
+    follow_saved_theme(&mut cli);
+    if let Command::Run { theme, .. } = cli.command {
+        args[2] = theme.into_os_string();
+    }
+    run(args)
+}
+
 enum Action {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
@@ -71,12 +99,57 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let Some(_instance) = handoff::light_instance(&runtime_directory)? else {
         return Ok(String::new());
     };
+    let initial = Cli::try_parse_from(&arguments)?;
+    let settings = match &initial.command {
+        Command::Run {
+            screens_config: Some(path),
+            ..
+        } => path.clone(),
+        _ => Path::new(&std::env::var_os("APPDATA").unwrap_or_default())
+            .join("io.github.slipalison.bezel/settings.json"),
+    };
+    let _log = bezel_power::diagnostics::LightLog::start(settings)
+        .map_err(|_| eprintln!("bezel light: diagnostic log unavailable"))
+        .ok();
+    let physical: Arc<dyn bezel_core::ports::ScreenConnector + Send + Sync> = if initial.fake {
+        Arc::new(crate::fake_connector())
+    } else {
+        Arc::new(bezel_devices::SystemConnector)
+    };
+    let bus: Arc<dyn bezel_core::ports::DeviceBus + Send + Sync> = if initial.fake {
+        Arc::new(crate::fake_bus())
+    } else {
+        Arc::new(bezel_devices::SystemBus)
+    };
+    let owner = bezel_power::owner::Owner::new(physical);
+    let _ = OWNER_CONNECTOR.set(owner.client(true));
+    let mut screen_guard = handoff::light_screen(&runtime_directory)?;
+    owner.set_enabled(screen_guard.is_some());
+    let engine = Arc::new(std::sync::Mutex::new(make_engine(
+        &initial,
+        Arc::clone(&bus),
+        &owner,
+        &runtime_directory,
+    )?));
+    let pipe_engine: Arc<std::sync::Mutex<dyn bezel_core::ports::RuntimeEndpoint>> = engine.clone();
+    let server = bezel_power::owner_pipe::Server::bind(&runtime_directory)?;
+    let pipe_owner = owner.clone();
+    let server_stop = Arc::new(AtomicBool::new(false));
+    let pipe_stop = Arc::clone(&server_stop);
+    let _server = std::thread::Builder::new()
+        .name("bezel-light-pipe".into())
+        .spawn(move || {
+            if let Err(error) = server.serve_runtime(pipe_owner, bus, pipe_stop, Some(pipe_engine))
+            {
+                bezel_power::diagnostics::failure("server", &error);
+                eprintln!("bezel light: screen owner stopped: {error}");
+            }
+        })?;
     let quit_file = runtime_directory.join("bezel-light-quit");
     // Only the instance owning the lock clears requests left from earlier runs.
     if quit_file.exists() {
         std::fs::remove_file(&quit_file)?;
     }
-    let initial = Cli::try_parse_from(&arguments)?;
     let finite = matches!(
         initial.command,
         Command::Run {
@@ -140,6 +213,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let mut visible = true;
     let mut retry_at = Instant::now();
     let mut reload_saved = false;
+    let mut reopen_after_pause = false;
     let studio_exe = directory.join("bezel-studio.exe");
     let mut fatal = None;
     let mut pause_watch = bezel_cli::light_recovery::PauseWatch::new(std::time::SystemTime::now());
@@ -166,13 +240,19 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     Err(_) => eprintln!("bezel light: shutdown worker panicked"),
                 }
             }
+            server_stop.store(true, Ordering::SeqCst);
+            if let Err(error) = owner.finish_until(deadline, &mut bezel_cli::finish_shutdown) {
+                eprintln!("bezel light: owner shutdown failed: {error}");
+            }
             return;
         }
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(100));
         if pause_watch.poll(std::time::SystemTime::now()) && !simulate && !finite
             && !quit_requested.load(Ordering::SeqCst)
         {
+            bezel_power::diagnostics::light(bezel_power::diagnostics::LightEvent::SensorRestart,0,0.0,"resume");
             eprintln!("bezel light: long pause detected; reopening screens and hardware sensors");
+            reopen_after_pause = true;
             stop.store(true, Ordering::SeqCst);
             reload_saved = true;
             if sensor_recovery.is_none() && directory.join("sensors/bezel-sensors-helper.exe").is_file() {
@@ -225,10 +305,26 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 true
             }
         };
+        if studio_active && !reload_saved {bezel_power::diagnostics::observed_fallback(&runtime_directory);}
         if studio_active {
             reload_saved = true;
+            stop.store(true, Ordering::SeqCst);
         }
-        if studio_active || pending_open || quit_requested.load(Ordering::SeqCst) {
+        if studio_active && worker.is_none() && screen_guard.is_some() {
+            owner.set_enabled(false);
+            if let Ok(mut engine)=engine.lock() { engine.disconnect_links(); }
+            match owner.clear() {
+                Ok(()) => screen_guard = None,
+                Err(error) => {
+                    fatal = Some(anyhow::Error::from(error));
+                    quit_requested.store(true, Ordering::SeqCst);
+                }
+            }
+        } else if !studio_active && screen_guard.is_none() {
+            screen_guard = handoff::light_screen(&runtime_directory).ok().flatten();
+            owner.set_enabled(screen_guard.is_some());
+        }
+        if studio_active || quit_requested.load(Ordering::SeqCst) {
             stop.store(true, Ordering::SeqCst);
         }
         if worker.as_ref().is_some_and(|thread| thread.is_finished()) {
@@ -245,12 +341,20 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     }
                 }
             }
-            retry_at = Instant::now() + Duration::from_secs(3);
+            retry_at = Instant::now() + if reload_saved { Duration::ZERO } else { Duration::from_secs(3) };
             if finite {
                 quit_requested.store(true, Ordering::SeqCst);
             }
         }
-        if pending_open && worker.is_none() && !quit_requested.load(Ordering::SeqCst) {
+        if reopen_after_pause && worker.is_none() {
+            if let Ok(mut engine)=engine.lock() { engine.disconnect_links(); }
+            if let Err(error) = owner.clear() {
+                fatal = Some(anyhow::Error::from(error));
+                quit_requested.store(true, Ordering::SeqCst);
+            }
+            reopen_after_pause = false;
+        }
+        if pending_open && !quit_requested.load(Ordering::SeqCst) {
             match std::process::Command::new(&studio_exe)
                 .current_dir(&directory)
                 .spawn()
@@ -267,47 +371,50 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         {
             opening = None;
         }
-        if visible == studio_active {
-            let _ = tray.set_visible(!studio_active);
-            visible = !studio_active;
+        if visible == (studio_active || owner.editing()) {
+            let _ = tray.set_visible(!(studio_active || owner.editing()));
+            visible = !(studio_active || owner.editing());
         }
         if quit_requested.load(Ordering::SeqCst) {
             if worker.is_none() {
                 *flow = ControlFlow::Exit;
             }
         } else if !studio_active
+            && screen_guard.is_some()
             && !pending_open
             && opening.is_none()
             && worker.is_none()
             && sensor_recovery.is_none()
             && Instant::now() >= retry_at
         {
-            let mut cli = match Cli::try_parse_from(&arguments) {
-                Ok(cli) => cli,
-                Err(error) => {
-                    fatal = Some(anyhow::Error::from(error));
-                    quit_requested.store(true, Ordering::SeqCst);
-                    return;
-                }
-            };
-            if reload_saved && !simulate {
-                follow_saved_theme(&mut cli);
+            if reload_saved {
+                let reload=(|| -> anyhow::Result<()> {
+                    let mut cli=Cli::try_parse_from(&arguments)?;
+                    if !simulate { follow_saved_theme(&mut cli); }
+                    let mut engine=engine.lock().map_err(|_|anyhow::anyhow!("runtime lock poisoned"))?;
+                    load_saved_documents(&mut engine,&cli)
+                })();
+                if let Err(error)=reload { eprintln!("bezel light: saved document recovery: {error}"); }
             }
             reload_saved = false;
+            owner.saved_ready();
             stop = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&stop);
             let ending = Arc::clone(&shutdown);
-            let folder = runtime_directory.clone();
+            let engine = Arc::clone(&engine);
+            let wake=engine.lock().map(|engine|engine.wake()).unwrap_or_default();
             match std::thread::Builder::new()
                 .name("bezel-light-render".into())
                 .spawn(move || {
-                    let Some(_screen) = handoff::light_screen(&folder)? else {
-                        return Ok(String::new());
-                    };
-                    if handoff::studio_active(&folder)? {
-                        return Ok(String::new());
+                    while !flag.load(Ordering::SeqCst) && !ending.load(Ordering::SeqCst) {
+                        let version=wake.version();
+                        let delay = engine.lock().map_err(|_| anyhow::anyhow!("runtime lock poisoned"))?.tick();
+                        match delay {
+                            Ok(delay) => wake.wait(version,delay.min(Duration::from_millis(50))),
+                            Err(_) => { eprintln!("bezel light: runtime update failed"); std::thread::sleep(Duration::from_millis(50)); }
+                        }
                     }
-                    crate::themes_with_shutdown(&cli, flag, ending, Some(&folder))
+                    Ok(String::new())
                 }) {
                 Ok(thread) => worker = Some(thread),
                 Err(error) => {
@@ -317,10 +424,138 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             }
         }
     });
+    server_stop.store(true, Ordering::SeqCst);
+    if !shutdown.load(Ordering::SeqCst) {
+        owner.finish_until(Instant::now() + Duration::from_secs(5), &mut |link| {
+            link.release()
+        })?;
+        owner.clear()?;
+    }
     MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
     TrayIconEvent::set_event_handler(None::<fn(TrayIconEvent)>);
     if let Some(error) = fatal {
         return Err(error);
     }
     Ok(String::new())
+}
+
+fn make_engine(
+    cli: &Cli,
+    bus: Arc<dyn bezel_core::ports::DeviceBus + Send + Sync>,
+    owner: &bezel_power::owner::Owner,
+    cache: &Path,
+) -> anyhow::Result<bezel_runtime::Engine> {
+    let settings = match &cli.command {
+        Command::Run { settings, .. } => Some(settings),
+        _ => None,
+    };
+    let mut engine = bezel_runtime::Engine::new(
+        Box::new(crate::renderer_for(cli, crate::bundled_dir().as_deref())),
+        crate::sensor_source(cli.fake, settings),
+        Box::new(crate::FfmpegTranscoder::new(
+            cli.command.ffmpeg().map(Path::to_path_buf),
+        )),
+        bus,
+        Arc::new(owner.client(true)),
+        bezel_cli::clock::language(),
+        cache.join("engine-video"),
+        bezel_cli::clock::now,
+    )?;
+    let fake = cli.fake;
+    engine = engine.with_handoff(
+        Arc::new(bezel_power::handoff::FileHandoffStore::new(cache)),
+        || {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+        },
+    );
+    engine = engine.with_adapters(
+        Box::new(move |options| {
+            let sensors: Box<dyn bezel_core::ports::SensorSource> = if fake {
+                Box::new(bezel_sensors::FakeSensors::demo())
+            } else {
+                Box::new(bezel_sensors::SystemSensors::with_options(
+                    bezel_sensors::SensorOptions {
+                        ping_host: options.ping_host.clone(),
+                        mangohud_dir: options.mangohud_dir.as_ref().map(std::path::PathBuf::from),
+                    },
+                ))
+            };
+            Ok((
+                sensors,
+                Box::new(crate::FfmpegTranscoder::new(
+                    options.ffmpeg.as_ref().map(std::path::PathBuf::from),
+                )),
+            ))
+        }),
+        Box::new(bezel_sensors::FakeSensors::demo()),
+    );
+    load_saved_documents(&mut engine, cli)?;
+    Ok(engine)
+}
+
+// Only startup and lock-protected legacy recovery read files again. Pipe editor
+// leases restore documents inside the existing scenes and never enter this path.
+fn load_saved_documents(engine: &mut bezel_runtime::Engine, cli: &Cli) -> anyhow::Result<()> {
+    if let Command::Run {
+        theme,
+        target,
+        screens_config,
+        ..
+    } = &cli.command
+    {
+        let settings = screens_config
+            .as_ref()
+            .and_then(|p| std::fs::read(p).ok())
+            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok());
+        let mut themes = Vec::new();
+        if let Some(settings) = settings.as_ref()
+            && let Some(keys) = settings["liveScreens"].as_array()
+        {
+            for key in keys.iter().filter_map(serde_json::Value::as_str) {
+                if let Some(path) = settings["screenThemes"][key]
+                    .as_str()
+                    .or_else(|| settings["lastTheme"].as_str())
+                {
+                    themes.push((key.to_owned(), std::path::PathBuf::from(path)));
+                }
+            }
+        }
+        if themes.is_empty()
+            && settings
+                .as_ref()
+                .is_none_or(|s| s["liveScreens"].as_array().is_none())
+            && theme.as_os_str() != "__owner_idle__"
+            && let Some(key) = &target.screen
+        {
+            themes.push((key.clone(), theme.clone()));
+        }
+        engine.follow_saved_live(
+            &themes
+                .iter()
+                .map(|(key, _)| key.clone())
+                .collect::<Vec<_>>(),
+        );
+        for (key, path) in themes {
+            match bezel_cli::theme::load(&bezel_themes::FsThemeStore, &path) {
+                Ok(loaded) => {
+                    engine.document(
+                        &key,
+                        0,
+                        bezel_runtime::Document {
+                            theme: loaded.theme,
+                            assets: loaded.assets,
+                        },
+                        true,
+                    )?;
+                    if let Err(error) = engine.live(&key, true) {
+                        eprintln!("bezel light: {key}: {error}");
+                    }
+                }
+                Err(error) => eprintln!("bezel light: saved theme: {error}"),
+            }
+        }
+    }
+    Ok(())
 }

@@ -7,7 +7,8 @@ use bezel_core::ports::{ArchiveStore, ScreenLink};
 use bezel_core::{BezelError, Result};
 use bezel_media::archive::{DiskArchive, storage_dir};
 
-pub(crate) fn finish(link: &mut dyn ScreenLink) -> Result<()> {
+/// Apply the recorded shutdown choice through a link already owned by Light.
+pub fn finish(link: &mut dyn ScreenLink) -> Result<()> {
     if !supports(link.identity().model) {
         return link.turn_off_now();
     }

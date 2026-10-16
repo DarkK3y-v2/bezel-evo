@@ -15,9 +15,13 @@ authors.workspace = true
 fake = []
 
 [dependencies]
+tracing.workspace = true
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
 # The handoff store implements a port of the core (`HandoffStore`).
 bezel-core = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # logind over D-Bus through libdbus, already in the tree through tao
@@ -27,7 +31,10 @@ dbus = { version = "0.9.12", features = ["stdfd"] }
 
 [target.'cfg(windows)'.dependencies]
 # GetSystemMetrics(SM_SHUTTINGDOWN): whether the session is ending.
-windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Pipes", "Win32_Storage_FileSystem", "Win32_System_Threading", "Win32_System_IO", "Win32_System_Memory"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+bezel-devices = { workspace = true }

@@ -34,6 +34,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 pub use live::{Pace, RunRequest, SleepPace};
 pub use sensors::{WatchStyle, run as run_sensors};
+pub use shutdown::finish as finish_shutdown;
 pub use standby::{StandbyArgs, StandbyKit, run as run_standby_command};
 pub use storage::{ProgressStyle, StorageArgs, StorageKit, run as run_storage_command};
 

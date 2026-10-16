@@ -27,7 +27,7 @@
 - **Go beyond gauges.** Add clocks, weather, now-playing information and history graphs.
 - **Make layouts react.** Cards switch faces with fade, slide or flip transitions, on a timer or in response to apps and media.
 - **Run multiple screens.** Give each display its own theme and orientation.
-- **Keep it running with Light.** Your saved themes stay on the screens while Studio is closed, with controls in the Windows tray.
+- **Keep it running with Light.** On Windows, Light keeps the screen connections open. Studio feeds it frames and controls over a local channel restricted to your user; closing Studio resumes the saved themes without reconnecting or restarting an unchanged device video. If Light cannot run, Studio can take over directly.
 - **Start from a theme.** Use bundled layouts, import supported themes, or save your own as a `.bezeltheme` file.
 
 ## Gallery

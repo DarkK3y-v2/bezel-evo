@@ -20,6 +20,7 @@ const COMMANDS: &[&str] = &[
     "measure_element",
     "video_auto",
     "open_guide",
+    "open_logs_folder",
     "push_theme",
     "set_live",
     "set_brightness",

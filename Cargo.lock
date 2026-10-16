@@ -362,6 +362,7 @@ dependencies = [
  "bezel-media",
  "bezel-power",
  "bezel-render",
+ "bezel-runtime",
  "bezel-sensors",
  "bezel-themes",
  "chrono",
@@ -432,8 +433,13 @@ name = "bezel-power"
 version = "0.0.0"
 dependencies = [
  "bezel-core",
+ "bezel-devices",
+ "chrono",
  "dbus",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
+ "tracing",
  "windows-sys 0.61.2",
 ]
 
@@ -449,6 +455,21 @@ dependencies = [
  "tiny-skia",
  "tracing",
  "ttf-parser",
+]
+
+[[package]]
+name = "bezel-runtime"
+version = "0.0.0"
+dependencies = [
+ "bezel-core",
+ "bezel-devices",
+ "bezel-media",
+ "bezel-power",
+ "bezel-sensors",
+ "bezel-themes",
+ "image",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -483,6 +504,7 @@ dependencies = [
  "bezel-media",
  "bezel-power",
  "bezel-render",
+ "bezel-runtime",
  "bezel-sensors",
  "bezel-themes",
  "chrono",

@@ -58,6 +58,8 @@ pub type SensorFactory = Arc<dyn Fn(SensorOptions) -> Box<dyn SensorSource> + Se
 
 /// The ports and state behind the window.
 pub struct Backend {
+    /// Authoritative Light runtime, with the same engine on recovery.
+    pub engine: Option<Arc<crate::engine::EngineBridge>>,
     /// Where screens are discovered.
     pub bus: Arc<dyn DeviceBus + Send + Sync>,
     /// How screens are opened.
@@ -280,6 +282,36 @@ pub(crate) fn read_limited(path: &Path, limit: u64) -> UiResult<Vec<u8>> {
 }
 
 impl Backend {
+    pub(crate) fn sync_engine_options(&self) -> bezel_core::Result<()> {
+        if let Some(engine) = &self.engine {
+            let settings = self.settings.load();
+            let options = settings.sensor_options();
+            engine.options(bezel_runtime::wire::Options {
+                ping_host: options.ping_host,
+                mangohud_dir: settings.mangohud_dir,
+                ffmpeg: settings.ffmpeg_path,
+            })?;
+        }
+        Ok(())
+    }
+    fn sync_engine(&self, saved: bool) -> bezel_core::Result<String> {
+        let studio = self.studio();
+        let key = studio.selected_screen().unwrap_or("__editor__").to_owned();
+        if let Some(engine) = &self.engine {
+            let revision = studio.document_revision();
+            if !engine.needs_sync(&key, revision, saved) {
+                return Ok(key);
+            }
+            let document = bezel_runtime::Document {
+                theme: studio.theme().clone(),
+                assets: studio.assets().clone(),
+            };
+            drop(studio);
+            engine.sync(&key, revision, document, saved)?;
+        }
+        Ok(key)
+    }
+
     /// The font picker's families and the fallback for a missing one.
     pub fn font_catalog(&self) -> FontCatalogDto {
         FontCatalogDto::from(&self.fonts)
@@ -367,6 +399,10 @@ impl Backend {
     /// Shows the edited theme on the live screen now (its video probed
     /// first when the screen is to start it).
     pub(crate) fn show_now(&self, time: LocalTime) -> bezel_core::Result<()> {
+        if let Some(engine) = &self.engine {
+            let key = self.sync_engine(false)?;
+            return engine.live(&key, self.studio().is_live(&key));
+        }
         let probes = self.studio().live_videos_to_probe();
         for probe in probes {
             self.learn_video(Some(probe), Wait::No);
@@ -436,7 +472,7 @@ impl Backend {
         corner: crate::performance::Corner,
     ) -> std::io::Result<()> {
         crate::debug::configure(
-            &self.settings.path().with_file_name("debug.log"),
+            &bezel_power::diagnostics::logs_directory().join("studio.log"),
             on,
             show_readings,
             corner,
@@ -452,7 +488,7 @@ impl Backend {
     pub fn restore_debug(&self) {
         let settings = self.settings.load();
         let _ = crate::debug::configure(
-            &self.settings.path().with_file_name("debug.log"),
+            &bezel_power::diagnostics::logs_directory().join("studio.log"),
             settings.debug,
             settings.debug_show_readings,
             settings.debug_corner,
@@ -465,10 +501,8 @@ impl Backend {
             debug: settings.debug,
             debug_show_readings: settings.debug_show_readings,
             debug_corner: settings.debug_corner,
-            debug_log_path: self
-                .settings
-                .path()
-                .with_file_name("debug.log")
+            debug_log_path: bezel_power::diagnostics::logs_directory()
+                .join("studio.log")
                 .display()
                 .to_string(),
             light_on_close: settings.light_on_close.unwrap_or(true),
@@ -506,6 +540,10 @@ impl Backend {
             s.ping_host = host;
             s.mangohud_dir = folder;
         });
+        if self.engine.is_some() {
+            self.sync_engine_options()?;
+            return Ok(());
+        }
         let sensors = (self.make_sensors)(self.settings.load().sensor_options());
         self.studio().replace_sensors(sensors)?;
         Ok(())
@@ -621,6 +659,10 @@ impl Backend {
         };
         drop(previous);
         if !on {
+            if let Some(engine) = &self.engine {
+                let key = self.sync_engine(false)?;
+                engine.live(&key, false)?;
+            }
             let selected = self.studio().selected_screen().map(str::to_owned);
             self.settings.update(|s| {
                 if let Some(key) = selected {
@@ -662,6 +704,11 @@ impl Backend {
     /// after.
     pub fn toggle_live(&self, time: LocalTime) -> UiResult<bool> {
         if self.studio().any_live() {
+            if let Some(engine) = &self.engine {
+                for key in self.settings.load().live_screens {
+                    engine.live(&key, false)?;
+                }
+            }
             self.idle_studio().stop_all();
             self.settings.update(|s| {
                 s.live_screens.clear();
@@ -708,6 +755,12 @@ impl Backend {
     /// difference. How many frames were left; one that cannot be left only
     /// means a full first frame from Light.
     pub fn hand_over_live(&self, store: &dyn HandoffStore, now: Duration) -> usize {
+        if let Some(engine) = &self.engine {
+            engine.suspend(true);
+            if !engine.wait_idle(Instant::now() + Duration::from_secs(5)) {
+                return 0;
+            }
+        }
         let links = self.idle_studio().take_all_live();
         let mut left = 0;
         for (address, link) in links {
@@ -724,6 +777,10 @@ impl Backend {
     /// its ports) stops live mode and is released through its live link.
     /// Under the claim on the screens.
     pub fn release(&self, screen: &str) -> UiResult<()> {
+        if let Some(engine) = &self.engine {
+            let key = self.sync_engine(false)?;
+            engine.live(&key, false)?;
+        }
         let _claim = self.storage.claim()?;
         let live = {
             let mut studio = self.idle_studio();
@@ -747,6 +804,17 @@ impl Backend {
 
     /// The sensor catalog, re-read.
     pub fn catalog(&self) -> UiResult<Vec<SensorDto>> {
+        if let Some(engine) = &self.engine {
+            let key = self.sync_engine(false)?;
+            let (value, _) = engine.request(
+                &key,
+                bezel_runtime::wire::RuntimeOp::Sensors { listed: None },
+            )?;
+            return Ok(bezel_runtime::wire::catalog(&value)
+                .iter()
+                .map(SensorDto::from)
+                .collect());
+        }
         let mut studio = self.studio();
         Ok(studio
             .refresh_catalog()?
@@ -760,6 +828,17 @@ impl Backend {
     /// (D-2026-09-30-release-polish-11). Keys that are not sensor keys are
     /// left out.
     pub fn show_sensors(&self, keys: &[String]) {
+        if let Some(engine) = &self.engine {
+            if let Ok(key) = self.sync_engine(false) {
+                let _ = engine.request(
+                    &key,
+                    bezel_runtime::wire::RuntimeOp::Sensors {
+                        listed: Some(keys.to_vec()),
+                    },
+                );
+            }
+            return;
+        }
         let listed: Wanted = keys
             .iter()
             .filter_map(|k| SensorKey::new(k.as_str()))
@@ -770,6 +849,59 @@ impl Backend {
     /// The latest readings (sampled by the refresh loop), with the live
     /// screen's frame rate and the applications and media sessions.
     pub fn sample(&self) -> SampleDto {
+        if let Some(engine) = &self.engine {
+            let key = self
+                .studio()
+                .selected_screen()
+                .unwrap_or("__editor__")
+                .to_owned();
+            let status = engine.request(
+                &key,
+                bezel_runtime::wire::RuntimeOp::Sensors { listed: None },
+            );
+            let value = status
+                .as_ref()
+                .map(|s| s.0.clone())
+                .unwrap_or(serde_json::Value::Null);
+            let catalog = bezel_runtime::wire::catalog(&value);
+            let snapshot = bezel_runtime::wire::snapshot(&value);
+            let video = value["video"]["state"]
+                .as_str()
+                .and_then(|s| {
+                    [
+                        "notStarted",
+                        "onDevice",
+                        "storedMissing",
+                        "missing",
+                        "host",
+                        "noConverter",
+                        "noPlayback",
+                    ]
+                    .into_iter()
+                    .find(|slug| *slug == s)
+                })
+                .map(|state| LiveVideoDto {
+                    state,
+                    path: value["video"]["path"].as_str().map(str::to_owned),
+                });
+            return SampleDto {
+                live_fps: value["fps"].as_f64(),
+                activity: serde_json::from_value(value["activity"].clone()).ok(),
+                sample_millis: 0.0,
+                readings: SampleDto::readings(
+                    &snapshot,
+                    &bezel_core::domain::sensor::Quantities::from_catalog(&catalog),
+                ),
+                live: self.studio().live_key().map(str::to_owned),
+                live_error: status.err().map(UiError::from).or_else(|| {
+                    value["error"]
+                        .as_str()
+                        .map(|e| UiError::from(bezel_core::BezelError::Transport(e.into())))
+                }),
+                video,
+                reconnecting: None,
+            };
+        }
         let studio = self.studio();
         let (snapshot, millis) = studio.readings();
         SampleDto {
@@ -854,6 +986,23 @@ impl Backend {
     }
 
     /// Render with the editor's transient card-playback policy.
+    /// Canvas transfer bounded by the displayed viewport.
+    pub fn render_canvas(
+        &self,
+        theme: &ThemeDto,
+        time: LocalTime,
+        now: Instant,
+        motion: Motion,
+        cards: bool,
+        max: Option<u32>,
+    ) -> UiResult<Vec<u8>> {
+        if let Some(engine) = &self.engine {
+            self.studio().set_theme(theme_of(theme)?);
+            let key = self.sync_engine(false)?;
+            return Ok(engine.canvas(&key, max.unwrap_or(2320).clamp(16, 2320), cards)?);
+        }
+        self.render_cards(theme, time, now, motion, cards)
+    }
     pub fn render_cards(
         &self,
         theme: &ThemeDto,
@@ -862,6 +1011,11 @@ impl Backend {
         motion: Motion,
         card_rotation: bool,
     ) -> UiResult<Vec<u8>> {
+        if let Some(engine) = &self.engine {
+            self.studio().set_theme(theme_of(theme)?);
+            let key = self.sync_engine(false)?;
+            return Ok(engine.canvas(&key, 2320, card_rotation)?);
+        }
         let started = Instant::now();
         let theme = theme_of(theme)?;
         let waiting = Instant::now();
@@ -897,6 +1051,14 @@ impl Backend {
         time: LocalTime,
         now: Instant,
     ) -> UiResult<Option<bezel_themes::dto::BoxDto>> {
+        if let Some(engine) = &self.engine {
+            self.studio().set_theme(theme_of(theme)?);
+            let key = self.sync_engine(false)?;
+            let (value, _) =
+                engine.request(&key, bezel_runtime::wire::RuntimeOp::Measure { element })?;
+            return serde_json::from_value(value)
+                .map_err(|e| UiError::from(bezel_core::BezelError::InvalidInput(e.to_string())));
+        }
         let theme = theme_of(theme)?;
         let mut studio = self.studio();
         studio.set_theme(theme);
@@ -926,6 +1088,20 @@ impl Backend {
         now: Instant,
         motion: Motion,
     ) -> UiResult<Vec<u8>> {
+        if let Some(engine) = &self.engine {
+            self.studio().set_theme(theme_of(theme)?);
+            let key = self.sync_engine(false)?;
+            let (value, pixels) = engine.request(
+                &key,
+                bezel_runtime::wire::RuntimeOp::Inspect {
+                    element,
+                    max: side_of(max),
+                    motion: motion == Motion::Allowed,
+                },
+            )?;
+            bezel_runtime::wire::frame(&value, pixels.clone())?;
+            return Ok(crate::engine::bytes(&value, pixels));
+        }
         let theme = theme_of(theme)?;
         let mut studio = self.studio();
         studio.set_theme(theme);
@@ -1030,6 +1206,7 @@ impl Backend {
         let theme = ThemeDto::from(studio.theme());
         drop(studio);
         self.remember_document(&location);
+        self.sync_engine(true)?;
         Ok(theme)
     }
 
@@ -1055,6 +1232,7 @@ impl Backend {
         // Its gallery card shows it as saved.
         self.thumbnails.forget(&location);
         self.remember_document(&location);
+        self.sync_engine(true)?;
         Ok(SavedDto {
             location: location.0,
         })
@@ -1363,6 +1541,9 @@ impl Backend {
     /// probe outside the session's lock). Returns when the next refresh is
     /// due.
     pub fn tick(&self, time: LocalTime, now: Instant) -> Instant {
+        if let Some(engine) = &self.engine {
+            return now + engine.drive().unwrap_or(Duration::from_millis(100));
+        }
         let started = Instant::now();
         self.reconnect(now);
         let probes = self.studio().live_videos_to_probe();
@@ -1533,6 +1714,7 @@ mod tests {
             theme,
         );
         let backend = Backend {
+            engine: None,
             bus: Arc::new(FakeBus::turing_88()),
             connector: Arc::new(connector.clone()),
             hid: Arc::new(FakeHid::answering(0x88)),

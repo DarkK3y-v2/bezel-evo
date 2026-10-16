@@ -23,6 +23,7 @@
 //! (Windows only), allowed in the smallest scope with its `// SAFETY:` line.
 #![deny(unsafe_code)]
 
+pub mod diagnostics;
 #[cfg(all(target_os = "linux", any(test, feature = "fake")))]
 pub mod fake;
 pub mod handoff;
@@ -63,3 +64,11 @@ pub enum PowerError {
     #[error("logind exists only on Linux")]
     Unsupported,
 }
+pub mod owner;
+
+#[cfg(windows)]
+pub mod owner_pipe;
+pub mod owner_protocol;
+
+#[cfg(windows)]
+pub mod owner_client;

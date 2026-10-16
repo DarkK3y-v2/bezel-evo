@@ -17,6 +17,7 @@ name = "bezel"
 path = "src/main.rs"
 
 [dependencies]
+bezel-runtime.workspace = true
 bezel-core = { workspace = true }
 bezel-devices = { workspace = true }
 bezel-sensors = { workspace = true }

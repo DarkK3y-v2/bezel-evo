@@ -300,18 +300,29 @@ fn themes_with_source(
     };
     let result = if cli.fake {
         let (bus, connector) = (fake_bus(), fake_connector());
+        #[cfg(windows)]
+        let local = light_tray::connector();
+        #[cfg(windows)]
+        let connector: &dyn bezel_core::ports::ScreenConnector = local
+            .as_ref()
+            .map_or(&connector as &dyn bezel_core::ports::ScreenConnector, |c| c);
+        #[cfg(not(windows))]
+        let connector: &dyn bezel_core::ports::ScreenConnector = &connector;
         run_theme_command(
-            cli, &bus, &connector, &mut kit, &mut media, &mut pace, &mut log,
+            cli, &bus, connector, &mut kit, &mut media, &mut pace, &mut log,
         )
     } else {
+        #[cfg(windows)]
+        let local = light_tray::connector();
+        #[cfg(windows)]
+        let connector: &dyn bezel_core::ports::ScreenConnector = local.as_ref().map_or(
+            &SystemConnector as &dyn bezel_core::ports::ScreenConnector,
+            |c| c,
+        );
+        #[cfg(not(windows))]
+        let connector: &dyn bezel_core::ports::ScreenConnector = &SystemConnector;
         run_theme_command(
-            cli,
-            &SystemBus,
-            &SystemConnector,
-            &mut kit,
-            &mut media,
-            &mut pace,
-            &mut log,
+            cli, &SystemBus, connector, &mut kit, &mut media, &mut pace, &mut log,
         )
     };
     for problem in renderer.problems() {
@@ -465,8 +476,21 @@ fn print_udev_rules() -> anyhow::Result<String> {
 }
 
 fn main() -> ExitCode {
+    #[cfg(windows)]
+    if std::env::args_os()
+        .nth(1)
+        .is_some_and(|arg| arg == "--light-owner")
+    {
+        return match light_tray::run_owner() {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("bezel light: {error:#}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let cli = Cli::parse();
-    if cli.verbose {
+    if cli.verbose && !matches!(cli.command, Command::Run { tray: true, .. }) {
         tracing_subscriber::fmt()
             .with_env_filter(
                 "bezel=debug,bezel_cli=debug,bezel_devices=debug,bezel_core=debug,bezel_sensors=debug,bezel_render=debug,bezel_themes=debug,bezel_media=debug",

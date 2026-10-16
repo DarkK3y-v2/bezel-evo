@@ -634,6 +634,14 @@ where
         let origin = pace.now();
         let mut frames = 0u64;
         while !pace.stopped() {
+            if self
+                .link
+                .as_ref()
+                .is_some_and(|link| link.presentation_paused())
+            {
+                pace.wait(SLICE);
+                continue;
+            }
             let now = since(pace, origin);
             let drawn = self
                 .runtime
@@ -676,6 +684,14 @@ where
         let origin = pace.now();
         let mut frames = 0u64;
         while !pace.stopped() {
+            if self
+                .link
+                .as_ref()
+                .is_some_and(|link| link.presentation_paused())
+            {
+                pace.wait(SLICE);
+                continue;
+            }
             let now = since(pace, origin);
             let runtime = &mut self.runtime;
             let drawn = runtime
@@ -783,7 +799,11 @@ where
     // releasing afterwards could undo a saved video/album/keep choice.
     let released = link.map(|mut link| {
         if pace.shutting_down() {
-            crate::shutdown::finish(link.as_mut())
+            if link.manages_shutdown() {
+                Ok(())
+            } else {
+                crate::shutdown::finish(link.as_mut())
+            }
         } else {
             link.release()
         }

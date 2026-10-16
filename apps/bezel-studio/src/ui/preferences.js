@@ -102,6 +102,7 @@ export function createPreferences({ t, bridge, onLanguage, notify }) {
       ]),
       el('p', { class: 'hint', text: t('prefs.debugHint') }),
       el('p', { class: 'hint', style: { overflowWrap: 'anywhere' }, text: prefs.debugLogPath }),
+      el('button', { type: 'button', class: 'text-button', text: t('prefs.openLogs'), onclick: () => bridge.openLogsFolder().catch(e => notify(errorText(t, e))) }),
     ]);
   }
 

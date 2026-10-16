@@ -340,8 +340,9 @@ impl<W: Wire, P: Pause, C: Monotonic> TuringRevC<W, P, C> {
         Ok(rgba_to_bgra(frame.rotated(turns).as_rgba()))
     }
 
-    fn full_frame(&mut self, bgra: Vec<u8>) -> Result<()> {
+    fn full_frame(&mut self, bgra: Vec<u8>, reason: &'static str) -> Result<()> {
         self.transfer.kind = "full";
+        self.transfer.reason = reason;
         if !self.streaming {
             self.enter_streaming()?;
         }
@@ -398,7 +399,7 @@ impl<W: Wire, P: Pause, C: Monotonic> TuringRevC<W, P, C> {
             return Ok(());
         };
         tracing::info!("the screen asked for a full frame over the seeded baseline");
-        self.full_frame(bgra)
+        self.full_frame(bgra, "device_requested")
     }
 
     /// An unchanged frame: nothing, unless nothing went out for
@@ -572,13 +573,13 @@ impl<W: Wire, P: Pause, C: Monotonic> ScreenLink for TuringRevC<W, P, C> {
         self.transfer.conversion_ms = started.elapsed().as_secs_f64() * 1000.0;
         let seeded = std::mem::take(&mut self.seeded);
         let Some(last) = self.last.take() else {
-            return self.full_frame(bgra);
+            return self.full_frame(bgra, "no_baseline");
         };
         let started = Instant::now();
         let diff = proto::diff_runs(&last, &bgra, self.format);
         self.transfer.diff_ms = started.elapsed().as_secs_f64() * 1000.0;
         match diff {
-            None => self.full_frame(bgra),
+            None => self.full_frame(bgra, "diff_larger_than_full"),
             Some(list) if seeded => self.seeded_partial(list, bgra),
             Some(list) if list.is_empty() => self.keep_awake(bgra),
             Some(list) => self.stream_partial(list, bgra),

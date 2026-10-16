@@ -286,6 +286,9 @@ impl Backend {
     /// session draws no frame, lends no link, connects nothing again and
     /// puts no screen live ([`crate::studio::Studio::enter_final_state`]).
     pub fn enter_final_state(&self) {
+        if let Some(engine) = &self.engine {
+            engine.suspend(true);
+        }
         self.storage.enter_final_state();
         self.studio().enter_final_state();
     }
@@ -293,6 +296,9 @@ impl Backend {
     /// The shutdown was cancelled: the final state ends. The caller shows
     /// the theme live again ([`Self::restore_live`]).
     pub fn leave_final_state(&self) {
+        if let Some(engine) = &self.engine {
+            engine.suspend(false);
+        }
         let unwanted = self.studio().leave_final_state();
         drop(unwanted);
         self.storage.leave_final_state();
@@ -304,8 +310,20 @@ impl Backend {
     /// awake rev C screens opened for it). A job that does not stop in time
     /// leaves every screen as it is.
     fn apply_choices(&self, deadline: Instant) {
+        if self
+            .engine
+            .as_ref()
+            .is_some_and(|engine| !engine.wait_idle(deadline))
+        {
+            return;
+        }
         if !self.storage.wait_until_idle(deadline) {
             diag::report(DiagCode::ShutdownJobNotStopped);
+            return;
+        }
+        // Light receives WM_ENDSESSION itself and finishes each retained link
+        // once. Direct fallback keeps today's shutdown behavior.
+        if self.connector.manages_shutdown() {
             return;
         }
         let mut live_links = Vec::new();
