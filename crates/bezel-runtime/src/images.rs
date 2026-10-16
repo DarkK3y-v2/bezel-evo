@@ -10,6 +10,7 @@ pub(crate) struct Snapshot {
     pub frame: Arc<Frame>,
     pub sequence: u64,
     pub next_ms: u32,
+    pub render_millis: f64,
 }
 #[derive(Default)]
 pub struct Images(RwLock<BTreeMap<String, Arc<Snapshot>>>);
@@ -33,12 +34,14 @@ impl Images {
         light(LightEvent::Canvas, 0, 0.0, "request");
         let Some(snapshot) = snapshot else {
             return Ok(wire::Image {
+                render_millis: 0.0,
                 sequence: 0,
                 next_ms: 16,
                 frame: None,
             });
         };
         Ok(wire::Image {
+            render_millis: snapshot.render_millis,
             sequence: snapshot.sequence,
             next_ms: snapshot.next_ms.min(33),
             frame: if after == snapshot.sequence {
@@ -70,7 +73,8 @@ impl RuntimeImages for Images {
         })();
         let (reply, pixels) = match answer {
             Ok(image) => {
-                let (value, pixels) = wire::image(image.frame, image.sequence, image.next_ms);
+                let (mut value, pixels) = wire::image(image.frame, image.sequence, image.next_ms);
+                value["renderMillis"] = serde_json::json!(image.render_millis);
                 (wire::Reply { value, error: None }, pixels)
             }
             Err(e) => (
@@ -85,5 +89,40 @@ impl RuntimeImages for Images {
             serde_json::to_vec(&reply).map_err(|_| invalid("image response"))?,
             pixels,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bezel_core::domain::{frame::Rgba, geometry::Size};
+    #[test]
+    fn render_time_is_the_snapshot_measurement_even_when_pixels_are_unchanged() {
+        let images = Images::default();
+        images.publish(
+            "screen",
+            Snapshot {
+                frame: Arc::new(Frame::filled(Size::new(2, 2), Rgba::BLACK)),
+                sequence: 1,
+                next_ms: 33,
+                render_millis: 12.5,
+            },
+        );
+        for after in [0, 1] {
+            let request = wire::request(
+                "screen",
+                wire::RuntimeOp::Image {
+                    after,
+                    max: 32,
+                    cards: true,
+                },
+            )
+            .unwrap();
+            let (metadata, pixels) = images.image(&request).unwrap();
+            let value = wire::response(&metadata).unwrap();
+            assert_eq!(value["renderMillis"], 12.5);
+            assert_eq!(pixels.is_empty(), after == 1);
+        }
+        assert_eq!(images.latest("unknown", 0, 32).unwrap().render_millis, 0.0);
     }
 }

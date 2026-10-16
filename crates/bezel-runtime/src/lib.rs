@@ -548,12 +548,14 @@ impl Engine {
                 }
                 self.renderer.set_scene(scene.id);
                 self.renderer.set_motion(true);
+                let render_started = Instant::now();
                 let frame = scene.runtime.render_at(
                     self.renderer.as_mut(),
                     time,
                     now,
                     now.saturating_sub(scene.video_started),
                 )?;
+                let render_millis = render_started.elapsed().as_secs_f64() * 1000.0;
                 if scene
                     .frame
                     .as_ref()
@@ -582,6 +584,7 @@ impl Engine {
                 self.images.publish(
                     key,
                     images::Snapshot {
+                        render_millis,
                         frame,
                         sequence: scene.sequence,
                         next_ms: delay.as_millis().clamp(5, 1000) as u32,

@@ -4,13 +4,14 @@ import { DEMO_CLOSE_EVENT, DEMO_LET_GO_EVENT, DEMO_QUIT_EVENT, STILL, createBrid
 
 const page = (search = '', hostname = 'localhost') => ({ location: { hostname, search } });
 
-function frameBytes(width, height, next = STILL) {
-  const bytes = new Uint8Array(12 + width * height * 4);
+function frameBytes(width, height, next = STILL, renderMillis) {
+  const bytes = new Uint8Array(12 + width * height * 4 + (renderMillis === undefined ? 0 : 8));
   const view = new DataView(bytes.buffer);
   view.setUint32(0, width, true);
   view.setUint32(4, height, true);
   view.setUint32(8, next, true);
   bytes[12] = 0xab;
+  if (renderMillis !== undefined) view.setFloat64(12 + width * height * 4, renderMillis, true);
   return bytes;
 }
 
@@ -423,4 +424,28 @@ test('opening diagnostics uses a fixed folder command without a user-supplied pa
   const bridge=createBridge({ ...page(), __TAURI__: { core:{ invoke:async (...args)=>{calls.push(args);} } } });
   await bridge.openLogsFolder();
   assert.deepEqual(calls,[['open_logs_folder']]);
+});
+
+
+test('canvas reports scene render time instead of IPC wait, including unchanged and zero-time frames', async () => {
+  for (const [size, millis] of [[1, 7.25], [0, 7.25], [0, 0]]) {
+    const bridge = createBridge({ ...page(), __TAURI__: { core: { invoke: async () => {
+      await new Promise(resolve => setTimeout(resolve, 25));
+      return frameBytes(size, size, 33, millis).buffer;
+    } } } });
+    const frame = await bridge.render({ canvas: { width: 1, height: 1 } });
+    assert.equal(frame.millis, millis);
+    assert.equal(frame.unchanged, size === 0);
+    assert.equal(frame.rgba.length, size * size * 4);
+  }
+});
+
+test('render timing trailer supports offset views and rejects invalid timings', () => {
+  const frame = frameBytes(1, 1, STILL, 3.5);
+  const outer = new Uint8Array(frame.length + 4);
+  outer.set(frame, 4);
+  assert.equal(parseFrame(outer.subarray(4)).renderMillis, 3.5);
+  for (const millis of [-1, NaN, Infinity]) {
+    assert.throws(() => parseFrame(frameBytes(1, 1, STILL, millis)), /invalid render time/);
+  }
 });

@@ -281,6 +281,10 @@ pub fn bytes(value: &Value, pixels: Vec<u8>) -> Vec<u8> {
         bytes.extend_from_slice(&(value[key].as_u64().unwrap_or(0) as u32).to_le_bytes());
     }
     bytes.extend(pixels);
+    // Optional f64 LE trailer: measured render time, including unchanged images.
+    if let Some(millis) = value["renderMillis"].as_f64() {
+        bytes.extend_from_slice(&millis.to_le_bytes());
+    }
     bytes
 }
 
@@ -445,8 +449,19 @@ mod tests {
         connection.server.lock().unwrap().tick().unwrap();
         let frame = bridge.canvas("editor", 320, true).unwrap();
         assert_eq!(u32::from_le_bytes(frame[..4].try_into().unwrap()), 320);
-        assert_eq!(frame.len(), 12 + 320 * 80 * 4);
-        assert_eq!(bridge.canvas("editor", 320, true).unwrap().len(), 12);
+        assert_eq!(frame.len(), 20 + 320 * 80 * 4);
+        let measured = connection
+            .server
+            .lock()
+            .unwrap()
+            .image("editor", 0, 320)
+            .unwrap()
+            .render_millis;
+        assert_eq!(
+            f64::from_le_bytes(frame[frame.len() - 8..].try_into().unwrap()),
+            measured
+        );
+        assert_eq!(bridge.canvas("editor", 320, true).unwrap().len(), 20);
         assert!(!bridge.needs_sync("editor", (1, 1), false));
         let before = connection.calls.load(Ordering::SeqCst);
         bridge.sync("editor", (1, 1), document(), false).unwrap();
@@ -466,13 +481,26 @@ mod tests {
         let pending = bridge.canvas("editor", 320, true).unwrap();
         assert_eq!(
             pending.len(),
-            12,
+            20,
             "cold recovery is a readonly pending snapshot"
         );
         bridge.drive().unwrap();
         let frame = bridge.canvas("editor", 320, true).unwrap();
+        let measured = bridge
+            .lock()
+            .unwrap()
+            .local
+            .as_ref()
+            .unwrap()
+            .image("editor", 0, 320)
+            .unwrap()
+            .render_millis;
+        assert_eq!(
+            f64::from_le_bytes(frame[frame.len() - 8..].try_into().unwrap()),
+            measured
+        );
         assert!(
-            frame.len() > 12,
+            frame.len() > 20,
             "old sequence must not suppress the recovered image"
         );
         assert!(connection.claimed.load(Ordering::SeqCst));

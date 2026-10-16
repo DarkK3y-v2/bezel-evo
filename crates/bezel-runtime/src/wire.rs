@@ -63,6 +63,7 @@ pub struct Reply {
     pub error: Option<String>,
 }
 pub struct Image {
+    pub render_millis: f64,
     pub sequence: u64,
     pub next_ms: u32,
     pub frame: Option<Frame>,
@@ -279,7 +280,9 @@ fn dispatch_inner(
         }
         RuntimeOp::Image { after, max, .. } => {
             let next = engine.image(key, after, max)?;
-            Ok(image(next.frame, next.sequence, next.next_ms))
+            let (mut value, pixels) = image(next.frame, next.sequence, next.next_ms);
+            value["renderMillis"] = json!(next.render_millis);
+            Ok((value, pixels))
         }
         RuntimeOp::Inspect {
             element,

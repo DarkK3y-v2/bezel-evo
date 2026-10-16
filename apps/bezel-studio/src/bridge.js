@@ -17,7 +17,8 @@ export const STILL = 0xffffffff;
  * Parses the renderer's frame: u32 LE width, u32 LE height, u32 LE
  * milliseconds until its next picture is due — its animated GIFs change or
  * its video background shows the next picture (`STILL`: nothing moves) —
- * then RGBA8. `nextMs` is `null` for a still frame.
+ * then RGBA8, optionally followed by the last scene render time (f64 LE ms).
+ * `nextMs` is `null` for a still frame.
  */
 export function parseFrame(buffer) {
   const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
@@ -26,9 +27,13 @@ export function parseFrame(buffer) {
   const width = view.getUint32(0, true);
   const height = view.getUint32(4, true);
   const next = view.getUint32(8, true);
-  const rgba = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset + 12, bytes.length - 12);
-  if (rgba.length !== width * height * 4) throw new Error(`frame is ${rgba.length} bytes, expected ${width * height * 4}`);
-  return { width, height, rgba, nextMs: next === STILL ? null : next };
+  const pixelBytes = width * height * 4;
+  const payloadBytes = bytes.length - 12;
+  if (payloadBytes !== pixelBytes && payloadBytes !== pixelBytes + 8) throw new Error(`frame is ${payloadBytes} bytes, expected ${pixelBytes}`);
+  const rgba = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset + 12, pixelBytes);
+  const renderMillis = payloadBytes === pixelBytes + 8 ? new DataView(bytes.buffer, bytes.byteOffset + 12 + pixelBytes, 8).getFloat64(0, true) : undefined;
+  if (renderMillis !== undefined && (!Number.isFinite(renderMillis) || renderMillis < 0)) throw new Error('invalid render time');
+  return { width, height, rgba, nextMs: next === STILL ? null : next, renderMillis };
 }
 
 /**
@@ -204,8 +209,9 @@ export const PROGRESS_EVENT = 'storage-progress';
  *   8.8"'s for a 1920x480 canvas); without one, `rotation` is 0. The
  *   preview's Auto is resolved the same way. A theme without a video
  *   background answers `{rotation: 0, size: null}`.
- * @typedef {{width: number, height: number, rgba: Uint8ClampedArray, nextMs: number|null, millis: number}} PreviewFrameDto
+ * @typedef {{width: number, height: number, rgba: Uint8ClampedArray, nextMs: number|null, renderMillis?: number, millis: number}} PreviewFrameDto
  *   A preview frame (`parseFrame`) and how long the render took, ms.
+ *   Native snapshots use the engine measurement; legacy local previews use elapsed time.
  */
 
 // ------------------------------------------- GIF and sticker search --
@@ -378,7 +384,7 @@ function tauriBridge(invoke, tauri = {}) {
       const args = { theme, motion, cardRotation };
       if (maxSide !== undefined) args.max = maxSide;
       const frame = parseFrame(await invoke('render_preview', args));
-      return { ...frame, unchanged: frame.width === 0 && frame.height === 0, logicalWidth: theme.canvas?.width, logicalHeight: theme.canvas?.height, millis: performance.now() - started };
+      return { ...frame, unchanged: frame.width === 0 && frame.height === 0, logicalWidth: theme.canvas?.width, logicalHeight: theme.canvas?.height, millis: frame.renderMillis ?? performance.now() - started };
     },
     /**
      * One element of the theme on its own, for the inspector's preview
