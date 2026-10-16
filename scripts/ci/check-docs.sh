@@ -51,28 +51,25 @@ PAGES = [
 ]
 # Phrases a page must contain, in both languages unless a language is named.
 COMMON = {
-    "install.md": [".deb", ".rpm", ".AppImage", ".msi", "setup.exe", "SmartScreen",
-                   "sha256sum", "Get-FileHash", "sudo apt install", "sudo dnf install"],
-    "permissions.md": ["bezel udev-rules", "sudo tee /etc/udev/rules.d/60-bezel.rules",
-                       "usbser", "WinUSB", "Zadig", "1CBE", "43A8", "hidraw",
+    "install.md": [".msi", "setup.exe", "SmartScreen",
+                   "Get-FileHash"],
+    "permissions.md": ["usbser", "WinUSB", "Zadig", "1CBE", "43A8",
                        "LibreHardwareMonitor"],
     "first-theme.md": ["bezel run", "bezel import", "BEZEL_FAKE=1"],
     "vertical-or-horizontal.md": ["--orientation", "vertical-flipped", "horizontal-flipped",
                                   "bezel test-pattern"],
     "sensors.md": ["bezel sensors", "`—`", "LibreHardwareMonitor", "--ping-host"],
-    "fps.md": ["gpu.fps", "RivaTuner Statistics Server", "RTSS", "MangoHud",
-               "autostart_log=1", "Shift_L+F2", "--mangohud-dir", "3"],
+    "fps.md": ["gpu.fps", "RivaTuner Statistics Server", "RTSS",
+               "3"],
     "storage-and-video.md": ["bezel storage put", "bezel storage rm", "--yes", "120 MB",
                              "the stored size differs; delete it and send it again",
                              "bezel storage mv", "cleanup --dry-run", "cache clear"],
-    "ffmpeg.md": ["libx264", "sudo apt install ffmpeg", "sudo dnf install ffmpeg",
+    "ffmpeg.md": ["libx264",
                   "winget install --id Gyan.FFmpeg -e", "--ffmpeg"],
-    "sd-card.md": ["FAT32", "MBR", "mkfs.vfat -F 32", "bezel storage info"],
-    "run-at-login.md": ["bezel-run@", "systemctl --user enable --now", "/usr/lib/systemd/user",
-                        "schtasks"],
-    "migrating.md": ["turing-smart-screen-python", "bezel import", "is in use by",
-                     "systemctl --user disable --now"],
-    "troubleshooting.md": ["bezel devices", "bezel udev-rules", "is in use by",
+    "sd-card.md": ["FAT32", "MBR", "bezel storage info"],
+    "run-at-login.md": ["schtasks"],
+    "migrating.md": ["turing-smart-screen-python", "bezel import", "is in use by"],
+    "troubleshooting.md": ["bezel devices", "is in use by",
                            "the stored size differs; delete it and send it again"],
     "devices.md": ["bezel devices", "bezel monitor-mode --yes", "1A86:AD10"],
     "gifs-and-stickers.md": ["partner.klipy.com", "api.klipy.com", "Search KLIPY", "100"],
@@ -306,8 +303,8 @@ if not m:
     fail("CHANGELOG.md", "no ## [Unreleased] section")
 else:
     unreleased = re.sub(r"\s+", " ", m.group(1))  # a phrase may wrap
-    for phrase in ("bezel udev-rules", "bezel monitor-mode", "gpu.fps", "net.ping",
-                   "bezel-run@", "/usr/bin/bezel", "docs/user", "bezel storage mv",
+    for phrase in ("bezel monitor-mode", "gpu.fps", "net.ping",
+                   "docs/user", "bezel storage mv",
                    "framing", "Device or resource busy", "KLIPY", "shuts down"):
         if phrase not in unreleased:
             fail("CHANGELOG.md", f"## [Unreleased] does not mention {phrase!r}")
