@@ -238,7 +238,11 @@ impl Engine {
         {
             return Err(invalid("option bounds"));
         }
-        if let Some(configure) = &self.configure {
+        // Audio consent alone never restarts the sensor reader.
+        let sources_changed = self.options.as_ref().is_none_or(|old| {
+            old.ping_host != options.ping_host || old.ffmpeg != options.ffmpeg
+        });
+        if sources_changed && let Some(configure) = &self.configure {
             let (sensors, media) = configure(&options)?;
             self.sensors.replace(sensors);
             self.media = media;

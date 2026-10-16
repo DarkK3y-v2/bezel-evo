@@ -633,6 +633,20 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
         .unwrap();
     }
     assert_eq!(configured.load(Ordering::SeqCst), 1);
+    // Granting audio consent leaves the sensor reader running.
+    send(
+        &mut f.engine,
+        "editor",
+        RuntimeOp::Options {
+            options: wire::Options {
+                audio_capture: true,
+                ..options.clone()
+            },
+        },
+        &[],
+    )
+    .unwrap();
+    assert_eq!(configured.load(Ordering::SeqCst), 1);
     advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     let (status, _) = send(
         &mut f.engine,
