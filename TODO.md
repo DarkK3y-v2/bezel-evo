@@ -32,22 +32,26 @@ Checked items are implemented; unchecked items are design notes for future work.
 
 ## Card widget with a base and multiple faces
 
-Face transitions, timed rotation and Windows application/media state rules are implemented. Cards move and resize their
-objects together, including inactive faces. Objects retain their own appearance
-settings and are not clipped to the card bounds. Entry/exit animations and sensor-threshold triggers below remain planned.
+Faces, one transition per card, timed face changes and Windows application/media
+state rules are implemented. Cards move and resize their objects together,
+including inactive faces. Objects retain their own appearance settings and are
+not clipped to the card bounds. Entry/exit animations and sensor-threshold
+triggers below remain planned.
 
 - [x] Create a dedicated Card container with a shared base and one initial face.
-- [x] Add, duplicate, rename and reorder faces; edit the base or a selected face.
+- [x] Add, duplicate, rename and reorder faces in a simple vertical list; edit the
+      shared background ("common background") or a selected face, shown and labelled on the canvas.
 - [x] Group text, indicators, icons, images and shapes within each face.
 - [x] Create a card from selected objects; preserve layers, Undo and clipboard.
-- [x] Configure face-transition animations: none, fade, slide and flip, with
-      duration, direction and smooth acceleration/deceleration.
+- [x] Configure the card's face transition: none, fade, slide and flip, with
+      duration, direction and smooth acceleration/deceleration (one transition per card).
 - [ ] Configure entry and exit animations independently.
 - [x] Choose whether the shared base participates in the transition.
 - [x] Add editor controls to animate the next face. Respect reduced motion in the preview.
-- [ ] Support timed face changes and event-driven face selection, with priority,
-      minimum display time and sensor threshold hysteresis. Timers, rule priority
-      and return delay are implemented.
+- [x] Timed face changes as a trigger ("every N s → next face | face X"); themes
+      that used the old automatic rotation are migrated.
+- [x] Event-driven face selection with rule priority and return delay.
+- [ ] Sensor-threshold face triggers with minimum display time and hysteresis.
 - [x] Measure host frame-delivery rate, rendering and serial costs on the real
       8.8-inch screen; keep panel refresh distinct from host completion.
 - [x] Deliver independent per-display Studio workers; keep face caching optional after measurement.
@@ -77,9 +81,9 @@ The existing themes remain usable without cards, states or automatic triggers.
 - [x] Layers: show each card face as a container, with its objects indented below
       it. Show the shared base separately; keep selection, visibility, ordering
       and card membership understandable when switching faces.
-- [x] Card timers: configure automatic face rotation (5–3600 seconds), using
-      the existing transition. Pause while editing a card/member in Studio;
-      keep runtime playback outside saved themes and Undo.
+- [x] Card timers: change faces on a timed trigger, using the card's transition.
+      Pause while editing a card/member in Studio; keep runtime playback outside
+      saved themes and Undo.
 - [x] Coordinate timers with event priorities, explicit overrides and return
       behavior when software/media triggers are introduced.
 - [x] Software events: assess process start/stop, foreground application and media
@@ -100,6 +104,44 @@ The existing themes remain usable without cards, states or automatic triggers.
 - [x] Weather: add colored and 3D-style icon collections selectable per widget.
       Choose redistributable free assets, bundle licenses/credits and preserve
       existing monochrome styles and condition mappings.
+
+## Redesigned Studio
+
+- [x] Redesigned shell with resizable, persisted panels (Library, Inspector) and
+      dark/light themes.
+- [x] Inspector with an isolated live preview of the selected object, drawn by the
+      same renderer as the screen.
+- [x] Smooth value transitions for rings, bars, needles and counting values,
+      per object, with a frame-rate cap and reduced-motion support.
+- [x] Colour by value: stepped thresholds for text, fill, needle/line and shape/icon colours.
+- [x] Double-click a frame to fit it to its drawn content (text, value, clock,
+      image, icon, weather, player), as one Undo step.
+- [x] Canvas zoom with the mouse wheel and touchpad pinch, centred on the cursor.
+- [x] Graph window written as a sentence ("show the last N …, one point every N …")
+      with a time ruler, independent of the theme refresh.
+- [x] One corner-radius control with a four-corner drawing everywhere objects have corners.
+- [x] Theme background card (colour, from the PC, from the screen) with a chooser
+      that changes nothing until confirmed.
+- [x] Composable media player: cover, title, artist, time, app name and a styled
+      progress bar can each be shown or hidden.
+- [x] Shared font picker (search, categories, real weights, missing-font warning)
+      and colour picker (theme colours, used colours, recents, eyedropper where available).
+- [x] Bundled fonts (Inter, JetBrains Mono) always available to Studio and Light.
+- [ ] User font folder ("My fonts") and fonts embedded in a theme, with a licence notice.
+- [x] Memory chip in the status bar with the total for Studio, WebView2, Light and
+      the sensor reader; Light's tray menu shows it too.
+
+## Light and the screens
+
+- [x] Light always owns the screens and runs the only theme engine; Studio edits a
+      draft and shows the image Light renders. Opening and closing Studio keeps the
+      screen, graphs, clocks and on-screen video running without a redraw.
+- [x] Closing Studio without saving returns the screen to the saved theme without
+      resetting graph history or clocks; Studio falls back to a direct connection
+      only if Light cannot run.
+- [x] Shared diagnostic logs (Preferences → debug, "Open log folder").
+- [ ] Installer with a clean install that replaces the old portable folder.
+- [ ] Audio spectrum widget (Windows loopback levels only, nothing recorded).
 
 ## UX: first interface cleanup
 
