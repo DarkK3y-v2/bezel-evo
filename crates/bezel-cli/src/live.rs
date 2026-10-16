@@ -35,10 +35,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use bezel_core::BezelError;
+use bezel_core::app::handoff::{TakeOver, take_over};
 use bezel_core::app::{
     HostVideo, MissingVideo, ThemeRuntime, VideoState, choose_screen, discover_screens,
     reopen_screen,
@@ -46,10 +47,13 @@ use bezel_core::app::{
 use bezel_core::domain::device::DeviceModel;
 use bezel_core::domain::discovery::Screen;
 use bezel_core::domain::frame::Frame;
+use bezel_core::domain::geometry::Orientation;
 use bezel_core::domain::media::MediaInfo;
 use bezel_core::domain::reconnect::{Reconnect, worth_reconnecting};
 use bezel_core::domain::theme::{AssetRef, Background, Theme, refresh_interval};
-use bezel_core::ports::{DeviceBus, MediaLocation, MediaTranscoder, ScreenConnector, ScreenLink};
+use bezel_core::ports::{
+    DeviceBus, HandoffStore, MediaLocation, MediaTranscoder, ScreenConnector, ScreenLink,
+};
 use bezel_themes::native::{MANIFEST, safe_asset_path};
 
 use crate::messages::Messages;
@@ -404,6 +408,62 @@ fn start_video(
     }
 }
 
+/// A screen taken over from Bezel Studio with the frame it left
+/// ([`take_over_from`]), until the first frame says how it went.
+struct Handoff {
+    /// How old the frame was when it was taken over.
+    age: Duration,
+    /// When it was taken over, on the run's clock.
+    at: Instant,
+}
+
+/// The wall-clock time the handoff files are dated with.
+fn wall_clock() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+}
+
+/// Seeds `link` with the frame Bezel Studio left for `screen` when it handed
+/// the screens over ([`take_over`]): Light's first frame is then a
+/// difference, not a visible redraw. What happened is said in `log`; any
+/// failure only means a full first frame.
+fn take_over_from(
+    store: Option<&dyn HandoffStore>,
+    screen: &Screen,
+    link: &mut dyn ScreenLink,
+    orientation: Orientation,
+    log: &mut Messages<'_>,
+    at: Instant,
+) -> Option<Handoff> {
+    let (store, address) = (store?, screen.address()?);
+    match take_over(link, address, orientation, store, wall_clock()) {
+        Ok(TakeOver::Seeded { age }) => {
+            let ms = age.as_millis();
+            writeln!(
+                log,
+                "taking over from Bezel Studio: the frame it left {ms} ms ago is the baseline"
+            );
+            Some(Handoff { age, at })
+        }
+        Ok(TakeOver::Refused(why)) => {
+            writeln!(
+                log,
+                "the frame Bezel Studio left is not used ({why}); the first frame is a full one"
+            );
+            None
+        }
+        Ok(TakeOver::Nothing | TakeOver::NotTaken) => None,
+        Err(e) => {
+            writeln!(
+                log,
+                "warning: the frame Bezel Studio left cannot be read ({e}); the first frame is a full one"
+            );
+            None
+        }
+    }
+}
+
 /// What became of a frame sent to the screen.
 enum Sent {
     /// The screen shows it.
@@ -428,6 +488,8 @@ struct Show<'a, B: ?Sized, C: ?Sized> {
     media: &'a mut dyn MediaTranscoder,
     source: Option<VideoFile>,
     theme: &'a Path,
+    /// Taken over from Bezel Studio, until the first frame is shown.
+    handoff: Option<Handoff>,
 }
 
 /// How long `pace`'s clock ran since `origin`.
@@ -453,6 +515,26 @@ where
             source,
             self.theme,
             log,
+        );
+    }
+
+    /// Says how the first frame after a handoff went out (a partial update
+    /// when the screen kept Studio's picture) and how long after Studio let
+    /// go of the screen.
+    fn note_handoff(&mut self, pace: &dyn Pace, log: &mut Messages<'_>) {
+        let Some(handoff) = self.handoff.take() else {
+            return;
+        };
+        let gap = handoff.age + since(pace, handoff.at);
+        let sent = self.link.as_ref().and_then(|l| l.last_transfer());
+        let what = sent.map_or_else(
+            || "shown".to_string(),
+            |t| format!("{} ({} bytes)", t.kind, t.bytes),
+        );
+        let ms = gap.as_millis();
+        writeln!(
+            log,
+            "first frame after the handoff: {what}, {ms} ms after Bezel Studio let go"
         );
     }
 
@@ -487,6 +569,7 @@ where
         log: &mut Messages<'_>,
     ) -> anyhow::Result<Sent> {
         self.link = None;
+        self.handoff = None;
         self.runtime.forget_screen();
         let mut attempts = Reconnect::new();
         let mut last = error.clone();
@@ -562,6 +645,7 @@ where
             match sent {
                 Ok(Sent::Shown) => {
                     frames += 1;
+                    self.note_handoff(pace, log);
                     // How long it took to show: value transitions keep that pace.
                     let shown = since(pace, origin);
                     self.runtime.screen_pace(shown.saturating_sub(now));
@@ -602,7 +686,10 @@ where
                 Err(e) => Err(e.into()),
             };
             match sent {
-                Ok(Sent::Shown) => frames += 1,
+                Ok(Sent::Shown) => {
+                    frames += 1;
+                    self.note_handoff(pace, log);
+                }
                 Ok(Sent::Back) => continue,
                 Ok(Sent::Stopped) => break,
                 Err(e) => return (frames, Err(e)),
@@ -646,7 +733,16 @@ where
     // and start what the theme shows (`net.ping` only when it shows it).
     kit.sensors.want(&shown_by(&loaded.theme));
     kit.sensors.sample().context("cannot read the sensors")?;
-    let (screen, link) = open_for(bus, connector, request.target, &loaded.theme)?;
+    let (screen, mut link) = open_for(bus, connector, request.target, &loaded.theme)?;
+    let orientation = loaded.theme.orientation;
+    let handoff = take_over_from(
+        kit.handoff,
+        &screen,
+        link.as_mut(),
+        orientation,
+        &mut log,
+        pace.now(),
+    );
     let name = link.identity().model.name;
     let every = interval(loaded.theme.refresh_seconds);
     let line = describe(&loaded.theme);
@@ -670,6 +766,7 @@ where
         media,
         source,
         theme: request.theme,
+        handoff,
     };
     show.start_video(&mut log);
     let started = pace.now();
@@ -719,6 +816,7 @@ mod tests {
 
     use bezel_core::domain::clock::{Language, LocalTime};
     use bezel_core::domain::geometry::{Orientation, Size};
+    use bezel_core::domain::handoff::{Baseline, HandedFrame, HandoffKey};
     use bezel_core::domain::sensor::{
         DisplayFormat, SensorInfo, SensorKey, Snapshot, Wanted, keys,
     };
@@ -966,6 +1064,7 @@ mod tests {
             clock: &now,
             language: Language::English,
             bundled: None,
+            handoff: None,
         };
         let target = Target { screen: None };
         let request = RunRequest {
@@ -1058,6 +1157,7 @@ mod tests {
             clock: &now,
             language: Language::English,
             bundled: None,
+            handoff: None,
         };
         let target = Target { screen: None };
         let request = RunRequest {
@@ -1575,6 +1675,7 @@ mod tests {
             clock: &now,
             language: Language::English,
             bundled: None,
+            handoff: None,
         };
         let target = Target { screen: None };
         let request = RunRequest {
@@ -1694,6 +1795,207 @@ mod tests {
         ));
         let seen = connector.log();
         assert_eq!((seen.connects, seen.releases), (1, 0));
+    }
+
+    /// Frames Studio left, by screen address, in memory.
+    #[derive(Default)]
+    struct LeftFrames(RefCell<BTreeMap<DeviceAddress, HandedFrame>>);
+
+    impl HandoffStore for LeftFrames {
+        fn save(&self, handed: &HandedFrame) -> Result<()> {
+            let address = handed.key.address.clone();
+            self.0.borrow_mut().insert(address, handed.clone());
+            Ok(())
+        }
+        fn take(&self, address: &DeviceAddress) -> Result<Option<HandedFrame>> {
+            Ok(self.0.borrow_mut().remove(address))
+        }
+    }
+
+    /// What Studio leaves for the fake 8.8" (its SoC at `/dev/ttyACM1`),
+    /// `age` ago, in `orientation`.
+    fn left_by_studio(age: Duration, orientation: Orientation) -> (LeftFrames, Frame) {
+        let size = Size::new(480, 1920).in_orientation(orientation);
+        let frame = Frame::filled(size, bezel_core::domain::frame::Rgba::WHITE);
+        let handed = HandedFrame {
+            key: HandoffKey {
+                address: DeviceAddress("/dev/ttyACM1".into()),
+                model: "turing-8.8".into(),
+                firmware: Some("simulated".into()),
+            },
+            saved_at: wall_clock().saturating_sub(age),
+            baseline: Baseline {
+                orientation,
+                frame: frame.clone(),
+            },
+        };
+        let store = LeftFrames::default();
+        store.save(&handed).unwrap();
+        (store, frame)
+    }
+
+    /// Runs a portrait theme for the 8.8" as Light does, with `store`.
+    fn run_handed(
+        connector: &FakeConnector,
+        store: &LeftFrames,
+        max_frames: u64,
+    ) -> (anyhow::Result<String>, String) {
+        let path = theme_file("handoff", Size::new(480, 1920), Orientation::Portrait, 1.0);
+        let mut renderer = SkiaRenderer::with_fonts(Vec::new(), SystemFonts::Skip);
+        let mut kit = Rendering {
+            store: &FsThemeStore,
+            renderer: &mut renderer,
+            sensors: &mut FakeSensors::demo(),
+            clock: &now,
+            language: Language::English,
+            bundled: None,
+            handoff: Some(store),
+        };
+        let target = Target { screen: None };
+        let request = RunRequest {
+            target: &target,
+            theme: &path,
+            max_frames: Some(max_frames),
+        };
+        let mut log = Vec::new();
+        let mut pace = scripted(usize::MAX);
+        let out = run(
+            &FakeBus::turing_88(),
+            connector,
+            &mut kit,
+            request,
+            &mut StubMedia::ready(),
+            &mut pace,
+            &mut log,
+        );
+        std::fs::remove_dir_all(path).unwrap();
+        (out, String::from_utf8(log).unwrap())
+    }
+
+    #[test]
+    fn light_takes_over_the_frame_studio_left_once() {
+        let (store, frame) = left_by_studio(Duration::from_millis(800), Orientation::Portrait);
+        let connector = FakeConnector::default();
+        let (out, log) = run_handed(&connector, &store, 2);
+        out.unwrap();
+        assert_eq!(
+            connector.log().seeds,
+            vec![frame],
+            "seeded before the first frame"
+        );
+        assert!(
+            log.contains("taking over from Bezel Studio: the frame it left"),
+            "{log}"
+        );
+        assert_eq!(
+            log.matches("first frame after the handoff: shown").count(),
+            1,
+            "{log}"
+        );
+        assert!(store.0.borrow().is_empty(), "taken once");
+        // The next run (a reconnect, a restart) finds nothing.
+        let again = FakeConnector::default();
+        let (out, log) = run_handed(&again, &store, 1);
+        out.unwrap();
+        assert!(again.log().seeds.is_empty());
+        assert!(!log.contains("Bezel Studio"), "{log}");
+    }
+
+    #[test]
+    fn light_refuses_a_stale_or_mismatched_frame() {
+        let stale = Duration::from_secs(60);
+        for (age, orientation, why) in [
+            (stale, Orientation::Portrait, "it is too old"),
+            (
+                Duration::ZERO,
+                Orientation::Landscape,
+                "another orientation",
+            ),
+        ] {
+            let (store, _) = left_by_studio(age, orientation);
+            let connector = FakeConnector::default();
+            let (out, log) = run_handed(&connector, &store, 1);
+            out.unwrap();
+            assert!(connector.log().seeds.is_empty(), "{why}");
+            assert!(
+                log.contains("the frame Bezel Studio left is not used"),
+                "{log}"
+            );
+            assert!(log.contains(why), "{log}");
+            assert!(store.0.borrow().is_empty(), "removed all the same");
+        }
+    }
+
+    #[test]
+    fn a_screen_that_comes_back_is_not_seeded_again() {
+        let (store, frame) = left_by_studio(Duration::ZERO, Orientation::Portrait);
+        let connector = FakeConnector::default().breaking_after(1, stalled());
+        let (out, log) = run_handed(&connector, &store, 2);
+        out.unwrap();
+        let seen = connector.log();
+        assert_eq!((seen.connects, seen.seeds), (2, vec![frame]));
+        assert_eq!(
+            log.matches("first frame after the handoff").count(),
+            1,
+            "{log}"
+        );
+    }
+
+    /// A store that cannot be read.
+    struct Unreadable;
+
+    impl HandoffStore for Unreadable {
+        fn save(&self, _: &HandedFrame) -> Result<()> {
+            Ok(())
+        }
+        fn take(&self, _: &DeviceAddress) -> Result<Option<HandedFrame>> {
+            Err(BezelError::Transport("access denied".into()))
+        }
+    }
+
+    #[test]
+    fn an_unreadable_frame_only_means_a_full_first_frame() {
+        let path = theme_file(
+            "unreadable",
+            Size::new(480, 1920),
+            Orientation::Portrait,
+            1.0,
+        );
+        let mut renderer = SkiaRenderer::with_fonts(Vec::new(), SystemFonts::Skip);
+        let mut kit = Rendering {
+            store: &FsThemeStore,
+            renderer: &mut renderer,
+            sensors: &mut FakeSensors::demo(),
+            clock: &now,
+            language: Language::English,
+            bundled: None,
+            handoff: Some(&Unreadable),
+        };
+        let target = Target { screen: None };
+        let request = RunRequest {
+            target: &target,
+            theme: &path,
+            max_frames: Some(1),
+        };
+        let mut log = Vec::new();
+        let connector = FakeConnector::default();
+        let out = run(
+            &FakeBus::turing_88(),
+            &connector,
+            &mut kit,
+            request,
+            &mut StubMedia::ready(),
+            &mut scripted(usize::MAX),
+            &mut log,
+        );
+        out.unwrap();
+        let log = String::from_utf8(log).unwrap();
+        assert!(
+            log.contains("warning: the frame Bezel Studio left cannot be read"),
+            "{log}"
+        );
+        assert_eq!(connector.log().frames.len(), 1);
+        std::fs::remove_dir_all(path).unwrap();
     }
 
     #[test]
