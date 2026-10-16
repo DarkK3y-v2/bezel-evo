@@ -32,7 +32,7 @@ impl LightConnector {
         direct: Arc<dyn ScreenConnector + Send + Sync>,
     ) -> std::io::Result<Self> {
         Ok(Self {
-            direct,
+            direct: Arc::new(crate::owner::Owner::new(direct).client(true)),
             executable: executable.with_file_name("bezel.exe"),
             directory: handoff::runtime_directory(executable)?,
             state: Arc::default(),
@@ -138,8 +138,15 @@ impl ScreenConnector for LightConnector {
     }
     fn connect(&self, screen: &Screen) -> Result<Box<dyn ScreenLink>> {
         let inner = self.with_connector(|c| c.connect(screen))?;
+        let fallback = self
+            .state
+            .lock()
+            .is_ok_and(|state| state.fallback.is_some());
         Ok(Box::new(SessionLink {
             inner,
+            direct: Arc::clone(&self.direct),
+            screen: screen.clone(),
+            fallback,
             _state: Arc::clone(&self.state),
         }))
     }
@@ -151,8 +158,25 @@ impl ScreenConnector for LightConnector {
 // The legacy screen lock outlives every direct link, including a link
 // temporarily lent to a delivery/storage job when Tauri state is dropping.
 struct SessionLink {
+    direct: Arc<dyn ScreenConnector + Send + Sync>,
+    screen: Screen,
+    fallback: bool,
     inner: Box<dyn ScreenLink>,
     _state: Arc<Mutex<State>>,
+}
+impl SessionLink {
+    fn current(&mut self) -> Result<&mut dyn ScreenLink> {
+        if !self.fallback
+            && self
+                ._state
+                .lock()
+                .is_ok_and(|state| state.fallback.is_some())
+        {
+            self.inner = self.direct.connect(&self.screen)?;
+            self.fallback = true;
+        }
+        Ok(self.inner.as_mut())
+    }
 }
 impl ScreenLink for SessionLink {
     fn manages_shutdown(&self) -> bool {
@@ -168,31 +192,68 @@ impl ScreenLink for SessionLink {
         self.inner.last_transfer()
     }
     fn set_brightness(&mut self, value: bezel_core::domain::screen::Brightness) -> Result<()> {
-        self.inner.set_brightness(value)
+        self.current()?.set_brightness(value)
     }
     fn set_orientation(&mut self, value: bezel_core::domain::geometry::Orientation) -> Result<()> {
-        self.inner.set_orientation(value)
+        self.current()?.set_orientation(value)
     }
     fn present(&mut self, frame: &bezel_core::domain::frame::Frame) -> Result<()> {
-        self.inner.present(frame)
+        self.current()?.present(frame)
     }
     fn screen_off(&mut self) -> Result<()> {
-        self.inner.screen_off()
+        self.current()?.screen_off()
     }
     fn turn_off_now(&mut self) -> Result<()> {
-        self.inner.turn_off_now()
+        self.current()?.turn_off_now()
     }
     fn release(&mut self) -> Result<()> {
-        self.inner.release()
+        self.current()?.release()
     }
     fn baseline(&self) -> Option<bezel_core::domain::handoff::Baseline> {
+        if !self.fallback
+            && self
+                ._state
+                .lock()
+                .is_ok_and(|state| state.fallback.is_some())
+        {
+            return self.direct.connect(&self.screen).ok()?.baseline();
+        }
         self.inner.baseline()
     }
     fn seed_baseline(&mut self, baseline: &bezel_core::domain::handoff::Baseline) -> bool {
         self.inner.seed_baseline(baseline)
     }
     fn storage(&mut self) -> Option<&mut dyn bezel_core::ports::ScreenStorage> {
-        self.inner.storage()
+        self.current().ok()?.storage()
+    }
+}
+
+impl bezel_core::ports::RuntimeConnection for LightConnector {
+    fn request(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.with_connector(|_| Ok(()))?;
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| BezelError::Transport("Light lock poisoned".into()))?;
+        state
+            .remote
+            .as_ref()
+            .ok_or_else(|| BezelError::Transport("Light unavailable".into()))?
+            .runtime(metadata, payload)
+    }
+    fn take_direct_ownership(&self) -> Result<()> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| BezelError::Transport("Light lock poisoned".into()))?;
+        state.remote = None;
+        if state.fallback.is_none() {
+            state.fallback = Some(
+                handoff::enter_studio(&self.directory, Duration::from_secs(10))
+                    .map_err(|e| BezelError::Transport(e.to_string()))?,
+            );
+        }
+        Ok(())
     }
 }
 

@@ -121,7 +121,7 @@ pub fn name(directory: &Path) -> io::Result<String> {
         .ok_or_else(|| io::Error::other("no installation key"))?
         .to_string_lossy();
     Ok(format!(
-        r"\\.\pipe\bezel-light-v1-{}-{install}",
+        r"\\.\pipe\bezel-light-v2-{}-{install}",
         current_sid()?
     ))
 }
@@ -245,6 +245,16 @@ impl PipeChannel {
     }
 }
 impl ScreenChannel for PipeChannel {
+    fn exchange_binary(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        let result = (|| {
+            owner_protocol::write_packet(&mut self.stream, metadata, payload)?;
+            owner_protocol::read_packet(&mut self.stream)
+        })();
+        if result.is_err() {
+            self.connected = false;
+        }
+        result.map_err(|e| bezel_core::BezelError::Transport(e.to_string()))
+    }
     fn connected(&self) -> bool {
         self.connected
     }
@@ -307,6 +317,16 @@ impl Server {
         bus: Arc<dyn DeviceBus + Send + Sync>,
         stop: Arc<AtomicBool>,
     ) -> io::Result<()> {
+        self.serve_runtime(owner, bus, stop, None)
+    }
+    /// Serve the persistent runtime alongside device control operations.
+    pub fn serve_runtime(
+        self,
+        owner: Owner,
+        bus: Arc<dyn DeviceBus + Send + Sync>,
+        stop: Arc<AtomicBool>,
+        runtime: Option<Arc<std::sync::Mutex<dyn bezel_core::ports::RuntimeEndpoint>>>,
+    ) -> io::Result<()> {
         let mut stream = TimedFile {
             file: self.file,
             timeout: Duration::from_secs(15),
@@ -358,6 +378,24 @@ impl Server {
                     let Ok((metadata, payload)) = owner_protocol::read_packet(&mut stream) else {
                         break;
                     };
+                    if let Some(runtime) = &runtime
+                        && serde_json::from_slice::<serde_json::Value>(&metadata)
+                            .is_ok_and(|v| v["runtime"] == 2)
+                    {
+                        let answer = runtime
+                            .lock()
+                            .map_err(|_| io::Error::other("runtime lock poisoned"))?
+                            .request(&metadata, &payload)
+                            .map_err(|e| io::Error::other(e.to_string()))?;
+                        if owner_protocol::write_packet(&mut stream, &answer.0, &answer.1).is_err()
+                        {
+                            break;
+                        }
+                        continue;
+                    }
+                    if runtime.is_some() && owner_protocol::supplies_frame(&metadata) {
+                        break;
+                    }
                     if screens.is_empty() || owner_protocol::needs_discovery(&metadata) {
                         let Ok(found) = bezel_core::app::discover_screens(bus.as_ref()) else {
                             break;
@@ -376,7 +414,15 @@ impl Server {
                         break;
                     }
                 }
+                if let Some(runtime) = &runtime
+                    && let Ok(mut runtime) = runtime.lock()
+                {
+                    let _ = runtime.disconnected();
+                }
                 owner.set_editing(false);
+                if runtime.is_some() {
+                    owner.saved_ready();
+                }
             }
             // SAFETY: disconnect does not close the server instance; pending
             // client requests fail and the next client gets a fresh session.
@@ -416,6 +462,52 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
     }
+    #[test]
+    fn binary_runtime_disconnect_releases_lease_without_touching_device() {
+        struct Endpoint(Arc<std::sync::atomic::AtomicUsize>);
+        impl bezel_core::ports::RuntimeEndpoint for Endpoint {
+            fn request(&mut self, _: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                Ok((b"image".to_vec(), payload.to_vec()))
+            }
+            fn disconnected(&mut self) -> Result<()> {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            }
+        }
+        let directory = directory();
+        let server = Server::bind(&directory).unwrap();
+        let physical = FakeConnector::default();
+        let owner = Owner::new(Arc::new(physical.clone()));
+        let state = owner.clone();
+        let detached = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = detached.clone();
+        let runtime = Arc::new(std::sync::Mutex::new(Endpoint(count)));
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
+        let worker = std::thread::spawn(move || {
+            server
+                .serve_runtime(state, Arc::new(FakeBus::turing_88()), flag, Some(runtime))
+                .unwrap()
+        });
+        for round in 0..2 {
+            let mut client = PipeChannel::connect(&directory, Duration::from_secs(1)).unwrap();
+            let pixels = vec![255; 128 * 32 * 4];
+            let (meta, reply) = client
+                .exchange_binary(br#"{"runtime":2}"#, &pixels)
+                .unwrap();
+            assert_eq!(meta, b"image");
+            assert_eq!(reply, pixels);
+            if round == 1 {
+                stop.store(true, Ordering::SeqCst);
+            }
+            drop(client);
+            until(|| detached.load(Ordering::SeqCst) == round + 1);
+        }
+        worker.join().unwrap();
+        assert_eq!(physical.log().connects, 0);
+        assert!(!owner.reload_pending());
+    }
+
     #[test]
     fn real_pipe_drop_recovers_without_reopening_device() {
         let directory = directory();

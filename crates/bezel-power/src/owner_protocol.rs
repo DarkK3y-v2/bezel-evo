@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex};
 pub const MAX_METADATA: usize = 64 * 1024;
 /// Absolute payload ceiling; upload additionally checks the device's profile.
 pub const MAX_PAYLOAD: usize = 120_000_000;
-const MAGIC: &[u8; 8] = b"BZLO\x01\0\0\0";
+const MAGIC: &[u8; 8] = b"BZLO\x02\0\0\0";
 
 /// Encodes a packet with checked lengths. RGBA/media remain binary.
 pub fn write_packet(writer: &mut impl Write, metadata: &[u8], payload: &[u8]) -> io::Result<()> {
@@ -57,8 +57,16 @@ pub fn read_packet(reader: &mut impl Read) -> io::Result<(Vec<u8>, Vec<u8>)> {
     let payload = u32::from_le_bytes(header[12..16].try_into().map_err(io::Error::other)?) as usize;
     limits(metadata, payload)?;
     let mut text = vec![0; metadata];
-    let mut bytes = vec![0; payload];
     reader.read_exact(&mut text)?;
+    if payload > 64 * 1024 * 1024
+        && serde_json::from_slice::<serde_json::Value>(&text).is_ok_and(|v| v["runtime"] == 2)
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "runtime payload exceeds limits",
+        ));
+    }
+    let mut bytes = vec![0; payload];
     reader.read_exact(&mut bytes)?;
     Ok((text, bytes))
 }
@@ -168,6 +176,11 @@ fn decode<T: for<'a> Deserialize<'a>>(bytes: &[u8]) -> Result<T> {
 }
 
 /// Discovery is never needed for a frame on an already identified screen.
+pub(crate) fn supplies_frame(metadata: &[u8]) -> bool {
+    serde_json::from_slice::<Request>(metadata).is_ok_and(|r| matches!(r.op, Op::Present { .. }))
+}
+
+/// Whether the operation needs a fresh enumeration.
 pub fn needs_discovery(metadata: &[u8]) -> bool {
     !matches!(
         decode::<Request>(metadata),
@@ -367,6 +380,13 @@ impl RemoteConnector {
     /// Transport health, used to distinguish an owner crash from a device error.
     pub fn connected(&self) -> bool {
         self.channel.lock().is_ok_and(|channel| channel.connected())
+    }
+    /// Binary runtime request over the same authenticated editor session.
+    pub fn runtime(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.channel
+            .lock()
+            .map_err(|_| transport("client lock poisoned"))?
+            .exchange_binary(metadata, payload)
     }
     fn call(
         &self,

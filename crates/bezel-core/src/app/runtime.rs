@@ -693,9 +693,8 @@ impl ThemeRuntime {
         if video_bytes(&theme, &assets) != video_bytes(&self.scene.theme, &self.scene.assets) {
             self.info = None;
         }
-        self.timelines
-            .retain(|key, _| self.scene.assets.get(key) == assets.get(key));
         self.scene.assets = assets;
+        self.timelines.clear();
         self.swap_theme(theme);
         self.look_again_unless(before);
     }

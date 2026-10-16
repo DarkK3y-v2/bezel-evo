@@ -48,32 +48,6 @@ pub(super) fn run_owner() -> anyhow::Result<String> {
     run(args)
 }
 
-fn saved_theme_enabled(cli: &Cli) -> bool {
-    let Command::Run {
-        theme,
-        screens_config,
-        ..
-    } = &cli.command
-    else {
-        return false;
-    };
-    if let Some(path) = screens_config {
-        let Ok(bytes) = std::fs::read(path) else {
-            return false;
-        };
-        let Ok(settings) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-            return false;
-        };
-        if settings["liveScreens"]
-            .as_array()
-            .is_some_and(Vec::is_empty)
-        {
-            return false;
-        }
-    }
-    theme.as_os_str() != "__owner_idle__"
-}
-
 enum Action {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
@@ -137,9 +111,16 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         Arc::new(bezel_devices::SystemBus)
     };
     let owner = bezel_power::owner::Owner::new(physical);
-    let _ = OWNER_CONNECTOR.set(owner.client(false));
+    let _ = OWNER_CONNECTOR.set(owner.client(true));
     let mut screen_guard = handoff::light_screen(&runtime_directory)?;
     owner.set_enabled(screen_guard.is_some());
+    let engine = Arc::new(std::sync::Mutex::new(make_engine(
+        &initial,
+        Arc::clone(&bus),
+        &owner,
+        &runtime_directory,
+    )?));
+    let pipe_engine: Arc<std::sync::Mutex<dyn bezel_core::ports::RuntimeEndpoint>> = engine.clone();
     let server = bezel_power::owner_pipe::Server::bind(&runtime_directory)?;
     let pipe_owner = owner.clone();
     let server_stop = Arc::new(AtomicBool::new(false));
@@ -147,7 +128,8 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let _server = std::thread::Builder::new()
         .name("bezel-light-pipe".into())
         .spawn(move || {
-            if let Err(error) = server.serve(pipe_owner, bus, pipe_stop) {
+            if let Err(error) = server.serve_runtime(pipe_owner, bus, pipe_stop, Some(pipe_engine))
+            {
                 eprintln!("bezel light: screen owner stopped: {error}");
             }
         })?;
@@ -310,12 +292,13 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 true
             }
         };
-        if studio_active || owner.reload_pending() {
+        if studio_active {
             reload_saved = true;
             stop.store(true, Ordering::SeqCst);
         }
         if studio_active && worker.is_none() && screen_guard.is_some() {
             owner.set_enabled(false);
+            if let Ok(mut engine)=engine.lock() { engine.disconnect_links(); }
             match owner.clear() {
                 Ok(()) => screen_guard = None,
                 Err(error) => {
@@ -350,6 +333,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             }
         }
         if reopen_after_pause && worker.is_none() {
+            if let Ok(mut engine)=engine.lock() { engine.disconnect_links(); }
             if let Err(error) = owner.clear() {
                 fatal = Some(anyhow::Error::from(error));
                 quit_requested.store(true, Ordering::SeqCst);
@@ -383,41 +367,29 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             }
         } else if !studio_active
             && screen_guard.is_some()
-            && !owner.editing()
             && !pending_open
             && opening.is_none()
             && worker.is_none()
             && sensor_recovery.is_none()
             && Instant::now() >= retry_at
         {
-            let mut cli = match Cli::try_parse_from(&arguments) {
-                Ok(cli) => cli,
-                Err(error) => {
-                    fatal = Some(anyhow::Error::from(error));
-                    quit_requested.store(true, Ordering::SeqCst);
-                    return;
-                }
-            };
-            if !simulate {
-                follow_saved_theme(&mut cli);
-            }
             reload_saved = false;
             owner.saved_ready();
-            if !simulate && !saved_theme_enabled(&cli) {
-                retry_at = Instant::now() + Duration::from_secs(1);
-                return;
-            }
             stop = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&stop);
             let ending = Arc::clone(&shutdown);
-            let folder = runtime_directory.clone();
+            let engine = Arc::clone(&engine);
             match std::thread::Builder::new()
                 .name("bezel-light-render".into())
                 .spawn(move || {
-                    if handoff::studio_active(&folder)? {
-                        return Ok(String::new());
+                    while !flag.load(Ordering::SeqCst) && !ending.load(Ordering::SeqCst) {
+                        let delay = engine.lock().map_err(|_| anyhow::anyhow!("runtime lock poisoned"))?.tick();
+                        match delay {
+                            Ok(delay) => std::thread::sleep(delay.min(Duration::from_millis(50))),
+                            Err(error) => { eprintln!("bezel light: runtime: {error}"); std::thread::sleep(Duration::from_millis(50)); }
+                        }
                     }
-                    crate::themes_with_shutdown(&cli, flag, ending, Some(&folder))
+                    Ok(String::new())
                 }) {
                 Ok(thread) => worker = Some(thread),
                 Err(error) => {
@@ -440,4 +412,112 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         return Err(error);
     }
     Ok(String::new())
+}
+
+fn make_engine(
+    cli: &Cli,
+    bus: Arc<dyn bezel_core::ports::DeviceBus + Send + Sync>,
+    owner: &bezel_power::owner::Owner,
+    cache: &Path,
+) -> anyhow::Result<bezel_runtime::Engine> {
+    let settings = match &cli.command {
+        Command::Run { settings, .. } => Some(settings),
+        _ => None,
+    };
+    let mut engine = bezel_runtime::Engine::new(
+        Box::new(crate::renderer_for(cli, crate::bundled_dir().as_deref())),
+        crate::sensor_source(cli.fake, settings),
+        Box::new(crate::FfmpegTranscoder::new(
+            cli.command.ffmpeg().map(Path::to_path_buf),
+        )),
+        bus,
+        Arc::new(owner.client(true)),
+        bezel_cli::clock::language(),
+        cache.join("engine-video"),
+        bezel_cli::clock::now,
+    )?;
+    let fake = cli.fake;
+    engine = engine.with_handoff(
+        Arc::new(bezel_power::handoff::FileHandoffStore::new(cache)),
+        || {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+        },
+    );
+    engine = engine.with_adapters(
+        Box::new(move |options| {
+            let sensors: Box<dyn bezel_core::ports::SensorSource> = if fake {
+                Box::new(bezel_sensors::FakeSensors::demo())
+            } else {
+                Box::new(bezel_sensors::SystemSensors::with_options(
+                    bezel_sensors::SensorOptions {
+                        ping_host: options.ping_host.clone(),
+                        mangohud_dir: options.mangohud_dir.as_ref().map(std::path::PathBuf::from),
+                    },
+                ))
+            };
+            Ok((
+                sensors,
+                Box::new(crate::FfmpegTranscoder::new(
+                    options.ffmpeg.as_ref().map(std::path::PathBuf::from),
+                )),
+            ))
+        }),
+        Box::new(bezel_sensors::FakeSensors::demo()),
+    );
+    if let Command::Run {
+        theme,
+        target,
+        screens_config,
+        ..
+    } = &cli.command
+    {
+        let settings = screens_config
+            .as_ref()
+            .and_then(|p| std::fs::read(p).ok())
+            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok());
+        let mut themes = Vec::new();
+        if let Some(settings) = settings.as_ref()
+            && let Some(keys) = settings["liveScreens"].as_array()
+        {
+            for key in keys.iter().filter_map(serde_json::Value::as_str) {
+                if let Some(path) = settings["screenThemes"][key]
+                    .as_str()
+                    .or_else(|| settings["lastTheme"].as_str())
+                {
+                    themes.push((key.to_owned(), std::path::PathBuf::from(path)));
+                }
+            }
+        }
+        if themes.is_empty()
+            && settings
+                .as_ref()
+                .is_none_or(|s| s["liveScreens"].as_array().is_none())
+            && theme.as_os_str() != "__owner_idle__"
+            && let Some(key) = &target.screen
+        {
+            themes.push((key.clone(), theme.clone()));
+        }
+        for (key, path) in themes {
+            match bezel_cli::theme::load(&bezel_themes::FsThemeStore, &path) {
+                Ok(loaded) => {
+                    engine.document(
+                        &key,
+                        0,
+                        bezel_runtime::Document {
+                            theme: loaded.theme,
+                            assets: loaded.assets,
+                        },
+                        true,
+                    )?;
+                    if let Err(error) = engine.live(&key, true) {
+                        eprintln!("bezel light: {key}: {error}");
+                    }
+                }
+                Err(error) => eprintln!("bezel light: saved theme: {error}"),
+            }
+        }
+    }
+    Ok(engine)
 }

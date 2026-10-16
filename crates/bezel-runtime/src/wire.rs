@@ -5,18 +5,29 @@ use bezel_themes::dto::ThemeDto;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Options {
+    pub ping_host: String,
+    pub mangohud_dir: Option<String>,
+    pub ffmpeg: Option<String>,
+}
+
 pub const MAX_JSON: usize = 4 * 1024 * 1024;
 pub const MAX_METADATA: usize = 65536;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Request {
+pub struct RuntimeMessage {
     pub runtime: u8,
     pub scene: String,
-    pub op: Command,
+    pub op: RuntimeOp,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "command", deny_unknown_fields)]
-pub enum Command {
+pub enum RuntimeOp {
+    Options {
+        options: Options,
+    },
     Draft {
         revision: u64,
         saved: bool,
@@ -58,8 +69,8 @@ struct Manifest {
     theme: ThemeDto,
     assets: Option<Vec<(String, u32)>>,
 }
-pub fn request(scene: &str, op: Command) -> Result<Vec<u8>> {
-    serde_json::to_vec(&Request {
+pub fn request(scene: &str, op: RuntimeOp) -> Result<Vec<u8>> {
+    serde_json::to_vec(&RuntimeMessage {
         runtime: 2,
         scene: scene.into(),
         op,
@@ -68,7 +79,7 @@ pub fn request(scene: &str, op: Command) -> Result<Vec<u8>> {
 }
 pub fn is_request(bytes: &[u8]) -> bool {
     bytes.len() <= MAX_METADATA
-        && serde_json::from_slice::<Request>(bytes).is_ok_and(|r| r.runtime == 2)
+        && serde_json::from_slice::<RuntimeMessage>(bytes).is_ok_and(|r| r.runtime == 2)
 }
 /// Assets are included only when their content revision changes.
 pub fn document(theme: &Theme, assets: Option<&BTreeMap<AssetRef, Vec<u8>>>) -> Result<Vec<u8>> {
@@ -207,24 +218,29 @@ pub fn frame(metadata: &Value, pixels: Vec<u8>) -> Result<Option<Frame>> {
 }
 fn dispatch_inner(
     engine: &mut Engine,
-    request: Request,
+    request: RuntimeMessage,
     payload: &[u8],
 ) -> Result<(Value, Vec<u8>)> {
     let key = &request.scene;
-    if !matches!(request.op, Command::Draft { .. } | Command::Thumbnail) && !payload.is_empty() {
+    if !matches!(request.op, RuntimeOp::Draft { .. } | RuntimeOp::Thumbnail) && !payload.is_empty()
+    {
         return Err(invalid("unexpected runtime payload"));
     }
     match request.op {
-        Command::Draft { revision, saved } => {
+        RuntimeOp::Options { options } => {
+            engine.options(options)?;
+            Ok((Value::Null, Vec::new()))
+        }
+        RuntimeOp::Draft { revision, saved } => {
             let doc = read_document(engine, key, payload)?;
             engine.document(key, revision, doc, saved)?;
             Ok((Value::Null, Vec::new()))
         }
-        Command::Live { on } => {
+        RuntimeOp::Live { on } => {
             engine.live(key, on)?;
             Ok((Value::Null, Vec::new()))
         }
-        Command::Image { after, max, cards } => {
+        RuntimeOp::Image { after, max, cards } => {
             let scene = engine
                 .scenes
                 .get_mut(key)
@@ -237,7 +253,7 @@ fn dispatch_inner(
             let next = engine.image(key, after, max)?;
             Ok(image(next.frame, next.sequence, next.next_ms))
         }
-        Command::Inspect {
+        RuntimeOp::Inspect {
             element,
             max,
             motion,
@@ -246,16 +262,31 @@ fn dispatch_inner(
             0,
             50,
         )),
-        Command::Measure { element } => {
+        RuntimeOp::Measure { element } => {
             let value = engine
                 .measure(key, ElementId(element))?
                 .map(|b| json!({"x":b.x,"y":b.y,"width":b.width,"height":b.height}));
             Ok((json!(value), Vec::new()))
         }
-        Command::Thumbnail => {
+        RuntimeOp::Thumbnail => {
             let doc = read_document(engine, key, payload)?;
             let mut runtime = ThemeRuntime::new(doc.theme, doc.assets, engine.language);
-            runtime.use_catalog(&engine.catalog);
+            if let Some(sensors) = &mut engine.thumbnail_sensors {
+                runtime.use_catalog(&sensors.catalog()?);
+                let count = runtime
+                    .theme()
+                    .history_lengths()
+                    .iter()
+                    .map(|(_, n)| *n)
+                    .max()
+                    .unwrap_or(2)
+                    .clamp(2, 600);
+                for _ in 0..count {
+                    runtime.sample(sensors.as_mut())?;
+                }
+            } else {
+                runtime.use_catalog(&engine.catalog);
+            }
             // Thumbnail snapshots are isolated and never sample hardware or alter a live graph.
             engine.renderer.set_scene(u64::MAX);
             engine.renderer.set_motion(false);
@@ -267,7 +298,7 @@ fn dispatch_inner(
                 u32::MAX,
             ))
         }
-        Command::Sensors { listed } => {
+        RuntimeOp::Sensors { listed } => {
             if let Some(keys) = listed {
                 let wanted = keys
                     .iter()
@@ -325,7 +356,7 @@ pub fn dispatch(
         if metadata.len() > MAX_METADATA || payload.len() > MAX_DOCUMENT {
             return Err(invalid("runtime message too large"));
         }
-        let request: Request =
+        let request: RuntimeMessage =
             serde_json::from_slice(metadata).map_err(|e| invalid(&e.to_string()))?;
         if request.runtime != 2 {
             return Err(invalid("unsupported runtime version"));

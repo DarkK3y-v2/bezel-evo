@@ -74,6 +74,7 @@ struct Scene {
     orientation: Option<bezel_core::domain::geometry::Orientation>,
     source: Option<MediaLocation>,
     video_started: Duration,
+    video_dirty: bool,
     retry: Duration,
     rendered_at: Duration,
     frames: u64,
@@ -89,6 +90,7 @@ impl Scene {
             Background::Video { asset, .. } => Some(asset.clone()),
             _ => None,
         };
+        let playback_before = self.runtime.video().clone();
         let before = asset(self.runtime.theme());
         let after = asset(&document.theme);
         let changed_video = before != after
@@ -100,12 +102,27 @@ impl Scene {
         } else {
             self.runtime.replace(document.theme, document.assets);
         }
+        if self.runtime.video() != &playback_before {
+            self.video_dirty = true;
+        }
         if changed_video {
             self.source = None;
         }
         self.dirty = true;
     }
 }
+/// Sensor/media adapter replacement for explicit configuration changes.
+pub type Configure = Box<
+    dyn Fn(&wire::Options) -> Result<(Box<dyn SensorSource>, Box<dyn MediaTranscoder>)>
+        + Send
+        + Sync,
+>;
+
+type Handoff = (
+    Arc<dyn bezel_core::ports::HandoffStore + Send + Sync>,
+    fn() -> Duration,
+);
+
 /// Persistent service. Scene lifetimes do not depend on an editor connection.
 pub struct Engine {
     scenes: BTreeMap<String, Scene>,
@@ -118,6 +135,11 @@ pub struct Engine {
     clock: fn() -> LocalTime,
     language: Language,
     cache: PathBuf,
+    handoff: Option<Handoff>,
+    thumbnail_sensors: Option<Box<dyn SensorSource>>,
+    configure: Option<Configure>,
+    options: Option<wire::Options>,
+    suspended: bool,
     catalog: Vec<SensorInfo>,
     next_id: u64,
 }
@@ -147,9 +169,61 @@ impl Engine {
             clock,
             language,
             cache,
+            handoff: None,
+            thumbnail_sensors: None,
+            configure: None,
+            options: None,
+            suspended: false,
             catalog,
             next_id: 1,
         })
+    }
+    /// Compatibility baseline used only when a physical connection is actually opened.
+    pub fn with_handoff(
+        mut self,
+        store: Arc<dyn bezel_core::ports::HandoffStore + Send + Sync>,
+        wall: fn() -> Duration,
+    ) -> Self {
+        self.handoff = Some((store, wall));
+        self
+    }
+    /// Configure adapter factories; thumbnails use an isolated demo source.
+    pub fn with_adapters(
+        mut self,
+        configure: Configure,
+        thumbnails: Box<dyn SensorSource>,
+    ) -> Self {
+        self.configure = Some(configure);
+        self.thumbnail_sensors = Some(thumbnails);
+        self
+    }
+    /// Change sources in place without replacing scene runtimes or histories.
+    pub fn options(&mut self, options: wire::Options) -> Result<()> {
+        if self.options.as_ref() == Some(&options) {
+            return Ok(());
+        }
+        if options.ping_host.len() > 253
+            || options.ffmpeg.as_ref().is_some_and(|p| p.len() > 32768)
+            || options
+                .mangohud_dir
+                .as_ref()
+                .is_some_and(|p| p.len() > 32768)
+        {
+            return Err(invalid("option bounds"));
+        }
+        if let Some(configure) = &self.configure {
+            let (mut sensors, media) = configure(&options)?;
+            let catalog = sensors.catalog()?;
+            self.sensors = sensors;
+            self.media = media;
+            self.catalog = catalog;
+            for scene in self.scenes.values_mut() {
+                scene.runtime.use_catalog(&self.catalog);
+                scene.dirty = true;
+            }
+        }
+        self.options = Some(options);
+        Ok(())
     }
     /// Register/update a draft, or commit the document only after Studio saved it.
     /// Revisions are scoped to the connected editor and reset on disconnect.
@@ -212,6 +286,7 @@ impl Engine {
                     orientation: None,
                     source: None,
                     video_started: Duration::ZERO,
+                    video_dirty: true,
                     retry: Duration::ZERO,
                     rendered_at: Duration::ZERO,
                     frames: 0,
@@ -237,7 +312,15 @@ impl Engine {
                 bezel_core::app::discover_screens(self.bus.as_ref())?,
                 Some(key),
             )?;
-            let link = self.connector.connect(&screen)?;
+            scene.screen = Some(screen.clone());
+            let mut link = match self.connector.connect(&screen) {
+                Ok(link) => link,
+                Err(error) => {
+                    scene.live = true;
+                    scene.retry = Duration::ZERO;
+                    return Err(error);
+                }
+            };
             if scene
                 .runtime
                 .theme()
@@ -245,6 +328,17 @@ impl Engine {
                 .is_some()
             {
                 return Err(invalid("theme does not fit screen"));
+            }
+            if let Some((store, wall)) = &self.handoff
+                && let Some(address) = screen.address()
+            {
+                let _ = bezel_core::app::handoff::take_over(
+                    link.as_mut(),
+                    address,
+                    scene.runtime.theme().orientation,
+                    store.as_ref(),
+                    wall(),
+                );
             }
             scene.runtime.forget_screen();
             scene.link = Some(link);
@@ -281,105 +375,136 @@ impl Engine {
         }
         Ok(())
     }
+    /// Stop scheduling writes during final shutdown; links remain available to finish.
+    pub fn suspend(&mut self, on: bool) {
+        self.suspended = on;
+    }
+    /// Physical link loss/legacy takeover preserves document state, not handles.
+    pub fn disconnect_links(&mut self) {
+        for scene in self.scenes.values_mut() {
+            scene.link = None;
+            scene.runtime.forget_screen();
+            scene.orientation = None;
+            scene.dirty = true;
+        }
+    }
     /// Run at the engine's own monotonic time, independent of canvas requests.
     pub fn tick(&mut self) -> Result<Duration> {
         self.tick_at(self.origin.elapsed(), (self.clock)())
     }
     /// Deterministic clock entry for tests and the same loop's scheduling.
     pub fn tick_at(&mut self, now: Duration, time: LocalTime) -> Result<Duration> {
+        if self.suspended {
+            return Ok(Duration::from_millis(50));
+        }
         let mut next = Duration::from_millis(50);
         for scene in self.scenes.values_mut() {
-            if scene.live
-                && scene.link.is_none()
-                && now >= scene.retry
-                && let Some(screen) = &scene.screen
-            {
-                match bezel_core::app::reopen_screen(
-                    self.bus.as_ref(),
-                    self.connector.as_ref(),
-                    screen,
-                ) {
-                    Ok((screen, link)) => {
-                        scene.screen = Some(screen);
-                        scene.link = Some(link);
-                        scene.orientation = None;
-                        scene.runtime.forget_screen();
-                        scene.dirty = true;
-                    }
-                    Err(error) => {
-                        scene.error = Some(error.to_string());
-                        scene.retry = now + Duration::from_secs(2);
-                    }
-                }
-            }
-            let mut due = scene.runtime.next_due();
-            if matches!(scene.runtime.video(), VideoState::Host) {
-                due = due.min(scene.rendered_at + Duration::from_secs(1) / HOST_VIDEO_FPS);
-            }
-            if !scene.dirty && now < due {
-                next = next.min(due - now);
+            if scene.error.is_some() && now < scene.retry {
                 continue;
             }
-            Self::source(scene, self.media.as_mut(), &self.cache)?;
-            if let Some(link) = scene.link.as_mut() {
-                let orientation = scene.runtime.theme().orientation;
-                if scene.orientation != Some(orientation) {
-                    link.set_orientation(orientation)?;
-                    scene.orientation = Some(orientation);
+            let result = (|| -> Result<Duration> {
+                if scene.live
+                    && scene.link.is_none()
+                    && now >= scene.retry
+                    && let Some(screen) = &scene.screen
+                {
+                    match bezel_core::app::reopen_screen(
+                        self.bus.as_ref(),
+                        self.connector.as_ref(),
+                        screen,
+                    ) {
+                        Ok((screen, link)) => {
+                            scene.screen = Some(screen);
+                            scene.link = Some(link);
+                            scene.orientation = None;
+                            scene.runtime.forget_screen();
+                            scene.dirty = true;
+                        }
+                        Err(error) => {
+                            scene.error = Some(error.to_string());
+                            scene.retry = now + Duration::from_secs(2);
+                        }
+                    }
                 }
-                if matches!(scene.runtime.video(), VideoState::NotStarted) {
-                    let host = scene.source.as_ref().map(|source| HostVideo {
+                let mut due = scene.runtime.next_due();
+                if matches!(scene.runtime.video(), VideoState::Host) {
+                    due = due.min(scene.rendered_at + Duration::from_secs(1) / HOST_VIDEO_FPS);
+                }
+                if !scene.dirty && now < due {
+                    return Ok(due - now);
+                }
+                Self::source(scene, self.media.as_mut(), &self.cache)?;
+                if let Some(link) = scene.link.as_mut() {
+                    let orientation = scene.runtime.theme().orientation;
+                    if scene.orientation != Some(orientation) {
+                        link.set_orientation(orientation)?;
+                        scene.orientation = Some(orientation);
+                    }
+                    if scene.video_dirty || matches!(scene.runtime.video(), VideoState::NotStarted)
+                    {
+                        let host = scene.source.as_ref().map(|source| HostVideo {
+                            media: self.media.as_mut(),
+                            source: source.clone(),
+                            fps: HOST_VIDEO_FPS,
+                        });
+                        scene.runtime.start_video(link.as_mut(), host)?;
+                        scene.video_started = now;
+                        scene.video_dirty = false;
+                    }
+                }
+                if scene.link.is_none()
+                    && !scene.live
+                    && matches!(scene.runtime.video(), VideoState::NotStarted)
+                    && let Some(source) = &scene.source
+                {
+                    scene.runtime.start_host_video(HostVideo {
                         media: self.media.as_mut(),
                         source: source.clone(),
                         fps: HOST_VIDEO_FPS,
-                    });
-                    scene.runtime.start_video(link.as_mut(), host)?;
+                    })?;
                     scene.video_started = now;
                 }
-            }
-            if scene.link.is_none()
-                && !scene.live
-                && matches!(scene.runtime.video(), VideoState::NotStarted)
-                && let Some(source) = &scene.source
-            {
-                scene.runtime.start_host_video(HostVideo {
-                    media: self.media.as_mut(),
-                    source: source.clone(),
-                    fps: HOST_VIDEO_FPS,
-                })?;
-                scene.video_started = now;
-            }
-            self.renderer.set_scene(scene.id);
-            self.renderer.set_motion(true);
-            scene.runtime.sample_on_time(self.sensors.as_mut(), now)?;
-            let frame = scene.runtime.render_at(
-                self.renderer.as_mut(),
-                time,
-                now,
-                now.saturating_sub(scene.video_started),
-            )?;
-            if scene.frame.as_ref() != Some(&frame) {
-                scene.sequence = scene.sequence.saturating_add(1);
-                scene.frame = Some(frame.clone());
-            }
-            if let Some(link) = scene.link.as_mut() {
-                if let Err(error) = link.present(&frame) {
+                self.renderer.set_scene(scene.id);
+                self.renderer.set_motion(true);
+                scene.runtime.sample_on_time(self.sensors.as_mut(), now)?;
+                let frame = scene.runtime.render_at(
+                    self.renderer.as_mut(),
+                    time,
+                    now,
+                    now.saturating_sub(scene.video_started),
+                )?;
+                if scene.frame.as_ref() != Some(&frame) {
+                    scene.sequence = scene.sequence.saturating_add(1);
+                    scene.frame = Some(frame.clone());
+                }
+                if let Some(link) = scene.link.as_mut() {
+                    if let Err(error) = link.present(&frame) {
+                        scene.error = Some(error.to_string());
+                        scene.link = None;
+                        scene.runtime.forget_screen();
+                        scene.retry = now + Duration::from_secs(2);
+                    } else {
+                        scene.frames += 1;
+                        scene.error = None;
+                    }
+                }
+                scene.rendered_at = now;
+                scene.dirty = false;
+                let mut delay = scene.runtime.next_due().saturating_sub(now);
+                if matches!(scene.runtime.video(), VideoState::Host) {
+                    delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
+                }
+                Ok(delay)
+            })();
+            match result {
+                Ok(delay) => next = next.min(delay),
+                Err(error) => {
                     scene.error = Some(error.to_string());
                     scene.link = None;
                     scene.runtime.forget_screen();
                     scene.retry = now + Duration::from_secs(2);
-                } else {
-                    scene.frames += 1;
-                    scene.error = None;
                 }
             }
-            scene.rendered_at = now;
-            scene.dirty = false;
-            let mut delay = scene.runtime.next_due().saturating_sub(now);
-            if matches!(scene.runtime.video(), VideoState::Host) {
-                delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
-            }
-            next = next.min(delay);
         }
         Ok(next.max(Duration::from_millis(5)))
     }
@@ -397,12 +522,15 @@ impl Engine {
             .frame
             .as_ref()
             .ok_or_else(|| invalid("scene has no image"))?;
-        let next = scene
+        let mut next = scene
             .runtime
             .next_due()
             .saturating_sub(self.origin.elapsed())
             .as_millis()
             .clamp(5, 1000) as u32;
+        if matches!(scene.runtime.video(), VideoState::Host) {
+            next = next.min(1000 / HOST_VIDEO_FPS);
+        }
         if scene.sequence == after {
             return Ok(wire::Image {
                 sequence: scene.sequence,
@@ -456,7 +584,11 @@ impl Engine {
         for scene in self.scenes.values_mut() {
             scene.update(scene.saved.clone());
             scene.revision = 0;
-            scene.runtime.automatic_cards(true);
+            if !scene.cards {
+                scene.cards = true;
+                scene.runtime.automatic_cards(true);
+                scene.dirty = true;
+            }
         }
         Ok(())
     }

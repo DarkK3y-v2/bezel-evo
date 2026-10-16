@@ -207,7 +207,7 @@ fn channel_crash_never_replays_a_write() {
 #[test]
 fn bounded_framing_rejects_oversize_versions_truncation_before_allocation() {
     for (meta, data) in [(65537, 0), (0, 120_000_001), (u32::MAX, u32::MAX)] {
-        let mut header = b"BZLO\x01\0\0\0".to_vec();
+        let mut header = b"BZLO\x02\0\0\0".to_vec();
         header.extend_from_slice(&meta.to_le_bytes());
         header.extend_from_slice(&data.to_le_bytes());
         assert!(owner_protocol::read_packet(&mut Cursor::new(header)).is_err());
@@ -218,7 +218,7 @@ fn bounded_framing_rejects_oversize_versions_truncation_before_allocation() {
         owner_protocol::read_packet(&mut Cursor::new(&packet)).unwrap(),
         (b"metadata".to_vec(), vec![1, 2, 3])
     );
-    packet[4] = 2;
+    packet[4] = 99;
     assert!(owner_protocol::read_packet(&mut Cursor::new(&packet)).is_err());
     assert!(owner_protocol::read_packet(&mut Cursor::new(vec![0; 4])).is_err());
 }
@@ -332,4 +332,18 @@ fn legacy_baseline_cannot_replace_a_retained_connection_baseline() {
     assert!(!original.seed_baseline(&stale));
     assert!(f.physical.log().seeds.is_empty());
     assert_eq!(f.physical.log().connects, 1);
+}
+
+#[test]
+fn runtime_payload_limit_is_checked_before_reading_or_allocating_it() {
+    let metadata = br#"{"runtime":2}"#;
+    let mut packet = Vec::new();
+    owner_protocol::write_packet(&mut packet, metadata, &[]).unwrap();
+    packet[12..16].copy_from_slice(&(64u32 * 1024 * 1024 + 1).to_le_bytes());
+    assert_eq!(
+        owner_protocol::read_packet(&mut Cursor::new(packet))
+            .unwrap_err()
+            .kind(),
+        std::io::ErrorKind::InvalidData
+    );
 }

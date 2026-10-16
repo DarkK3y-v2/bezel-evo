@@ -20,7 +20,7 @@ use std::sync::{
     Mutex,
     atomic::{AtomicU64, Ordering},
 };
-use wire::{Command, document, request, response};
+use wire::{RuntimeOp, document, request, response};
 fn time() -> LocalTime {
     LocalTime {
         year: 2026,
@@ -168,7 +168,7 @@ fn fixture() -> Fixture {
 fn send(
     engine: &mut Engine,
     key: &str,
-    op: Command,
+    op: RuntimeOp,
     payload: &[u8],
 ) -> Result<(serde_json::Value, Vec<u8>)> {
     let (meta, pixels) = engine.request(&request(key, op)?, payload)?;
@@ -190,14 +190,14 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         send(
             &mut f.engine,
             &f.key,
-            Command::Draft {
+            RuntimeOp::Draft {
                 revision: 1,
                 saved: false,
             },
             &document(&saved.theme, Some(&saved.assets)).unwrap(),
         )
         .unwrap();
-        send(&mut f.engine, &f.key, Command::Live { on: true }, &[]).unwrap();
+        send(&mut f.engine, &f.key, RuntimeOp::Live { on: true }, &[]).unwrap();
         f.engine
             .tick_at(Duration::from_millis(3100), time())
             .unwrap();
@@ -244,7 +244,7 @@ fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
     send(
         &mut f.engine,
         &f.key,
-        Command::Draft {
+        RuntimeOp::Draft {
             revision: 1,
             saved: false,
         },
@@ -273,7 +273,7 @@ fn saved_commit_survives_client_crash_and_revisions_are_checked() {
     send(
         &mut f.engine,
         &f.key,
-        Command::Draft {
+        RuntimeOp::Draft {
             revision: 2,
             saved: true,
         },
@@ -284,7 +284,7 @@ fn saved_commit_survives_client_crash_and_revisions_are_checked() {
         send(
             &mut f.engine,
             &f.key,
-            Command::Draft {
+            RuntimeOp::Draft {
                 revision: 2,
                 saved: false
             },
@@ -297,7 +297,7 @@ fn saved_commit_survives_client_crash_and_revisions_are_checked() {
     send(
         &mut f.engine,
         &f.key,
-        Command::Draft {
+        RuntimeOp::Draft {
             revision: 1,
             saved: false,
         },
@@ -312,7 +312,7 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
     let (value, pixels) = send(
         &mut f.engine,
         &f.key,
-        Command::Image {
+        RuntimeOp::Image {
             after: 0,
             max: 320,
             cards: true,
@@ -326,7 +326,7 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
     let (_, pixels) = send(
         &mut f.engine,
         &f.key,
-        Command::Image {
+        RuntimeOp::Image {
             after: seq,
             max: 320,
             cards: true,
@@ -338,7 +338,7 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
     let (value, pixels) = send(
         &mut f.engine,
         &f.key,
-        Command::Inspect {
+        RuntimeOp::Inspect {
             element: 1,
             max: 64,
             motion: false,
@@ -348,13 +348,19 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
     .unwrap();
     assert!(value["width"].as_u64().unwrap() <= 64);
     assert!(!pixels.is_empty());
-    let (value, _) = send(&mut f.engine, &f.key, Command::Measure { element: 1 }, &[]).unwrap();
+    let (value, _) = send(
+        &mut f.engine,
+        &f.key,
+        RuntimeOp::Measure { element: 1 },
+        &[],
+    )
+    .unwrap();
     assert_eq!(value["width"], 3.0);
     assert!(
         send(
             &mut f.engine,
             &f.key,
-            Command::Image {
+            RuntimeOp::Image {
                 after: 0,
                 max: 2321,
                 cards: true
@@ -367,7 +373,7 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
         send(
             &mut f.engine,
             &f.key,
-            Command::Inspect {
+            RuntimeOp::Inspect {
                 element: 999,
                 max: 64,
                 motion: true
@@ -376,7 +382,7 @@ fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
         )
         .is_err()
     );
-    assert!(send(&mut f.engine, &f.key, Command::Live { on: false }, &[1]).is_err());
+    assert!(send(&mut f.engine, &f.key, RuntimeOp::Live { on: false }, &[1]).is_err());
 }
 #[test]
 fn untrusted_document_lengths_paths_dimensions_and_versions_are_rejected() {
@@ -387,7 +393,7 @@ fn untrusted_document_lengths_paths_dimensions_and_versions_are_rejected() {
             send(
                 &mut f.engine,
                 &key,
-                Command::Draft {
+                RuntimeOp::Draft {
                     revision: 1,
                     saved: false
                 },
@@ -406,7 +412,7 @@ fn untrusted_document_lengths_paths_dimensions_and_versions_are_rejected() {
         send(
             &mut f.engine,
             &key,
-            Command::Draft {
+            RuntimeOp::Draft {
                 revision: 1,
                 saved: false
             },
@@ -423,4 +429,153 @@ fn untrusted_document_lengths_paths_dimensions_and_versions_are_rejected() {
         .unwrap();
     assert!(response(&meta).is_err());
     assert!(wire::frame(&serde_json::json!({"width":u32::MAX,"height":2}), vec![]).is_err());
+}
+
+#[test]
+fn changing_background_stops_video_but_closing_same_document_does_not() {
+    let mut f = fixture();
+    let saved = doc();
+    f.engine.document(&f.key, 0, saved.clone(), true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let mut draft = saved;
+    draft.theme.background = Background::Color(Rgba::BLACK);
+    f.engine.document(&f.key, 1, draft, false).unwrap();
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    assert_eq!(
+        f.physical
+            .log()
+            .storage
+            .calls
+            .iter()
+            .filter(|c| matches!(c, StorageCall::Stop))
+            .count(),
+        1
+    );
+    f.engine.detach().unwrap();
+    f.engine.tick_at(Duration::from_secs(2), time()).unwrap();
+    assert_eq!(
+        f.physical
+            .log()
+            .storage
+            .calls
+            .iter()
+            .filter(|c| matches!(c, StorageCall::PlayVideo(..)))
+            .count(),
+        2
+    );
+}
+#[test]
+fn host_decoder_clock_and_instance_survive_drafts_and_client_crash() {
+    use bezel_core::{
+        domain::{
+            job::Job,
+            media::{MediaInfo, MediaTools, StreamSpec, TranscodeTarget},
+        },
+        ports::VideoFrames,
+    };
+    struct Media {
+        opened: Arc<AtomicU64>,
+        times: Arc<Mutex<Vec<Duration>>>,
+    }
+    struct Clip {
+        frame: Frame,
+        times: Arc<Mutex<Vec<Duration>>>,
+    }
+    impl VideoFrames for Clip {
+        fn frame_at(&mut self, at: Duration) -> Result<&Frame> {
+            self.times.lock().unwrap().push(at);
+            Ok(&self.frame)
+        }
+    }
+    impl MediaTranscoder for Media {
+        fn tools(&mut self) -> MediaTools {
+            MediaTools::Ready {
+                version: "fake".into(),
+            }
+        }
+        fn probe(&mut self, _: &MediaLocation) -> Result<MediaInfo> {
+            Err(invalid("no probe in this test"))
+        }
+        fn transcode(
+            &mut self,
+            _: &MediaLocation,
+            _: &TranscodeTarget,
+            _: &mut Job<'_>,
+        ) -> Result<MediaLocation> {
+            Err(invalid("no conversion"))
+        }
+        fn load(&mut self, _: &MediaLocation) -> Result<Vec<u8>> {
+            Err(invalid("no load"))
+        }
+        fn stream(&mut self, _: &MediaLocation, spec: StreamSpec) -> Result<Box<dyn VideoFrames>> {
+            self.opened.fetch_add(1, Ordering::SeqCst);
+            Ok(Box::new(Clip {
+                frame: Frame::filled(spec.size, Rgba::BLACK),
+                times: self.times.clone(),
+            }))
+        }
+    }
+    let mut f = fixture();
+    let opened = Arc::new(AtomicU64::new(0));
+    let times = Arc::new(Mutex::new(Vec::new()));
+    f.engine.media = Box::new(Media {
+        opened: opened.clone(),
+        times: times.clone(),
+    });
+    let mut d = doc();
+    let asset = AssetRef("assets/clip.mp4".into());
+    d.theme.background = Background::Video {
+        asset: asset.clone(),
+        poster: None,
+        framing: None,
+    };
+    d.assets.insert(asset, vec![1, 2, 3]);
+    f.engine.document("offline", 0, d.clone(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine
+        .tick_at(Duration::from_millis(100), time())
+        .unwrap();
+    d.theme.elements[0].frame.x = 20.0;
+    f.engine.document("offline", 1, d, false).unwrap();
+    f.engine
+        .tick_at(Duration::from_millis(200), time())
+        .unwrap();
+    f.engine.detach().unwrap();
+    f.engine
+        .tick_at(Duration::from_millis(300), time())
+        .unwrap();
+    assert_eq!(opened.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        *times.lock().unwrap(),
+        [
+            Duration::ZERO,
+            Duration::from_millis(100),
+            Duration::from_millis(200),
+            Duration::from_millis(300)
+        ]
+    );
+}
+#[test]
+fn independent_scenes_and_demo_thumbnail_leave_live_histories_untouched() {
+    let mut f = fixture();
+    f.engine.thumbnail_sensors = Some(Box::new(FakeSensors::demo()));
+    let d = doc();
+    f.engine.document("one", 0, d.clone(), true).unwrap();
+    f.engine.document("two", 0, d.clone(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let (meta, pixels) = send(
+        &mut f.engine,
+        "thumbnail",
+        RuntimeOp::Thumbnail,
+        &document(&d.theme, Some(&d.assets)).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(meta["width"], 360);
+    assert!(!pixels.is_empty());
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    let last = &seen[seen.len() - 2..];
+    assert_eq!(last[0].history.len(), 2);
+    assert_eq!(last[1].history.len(), 2);
 }
