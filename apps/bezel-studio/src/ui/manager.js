@@ -169,7 +169,7 @@ export function createManagerView({ t, locale, bridge, host }) {
 
   // ------------------------------------------------------------- toolbar --
   function actionLabel(name, medium) {
-    if (name === 'preview') return t('videoPreview.open');
+    if (name === 'preview') return t('common.preview');
     if (name === 'move' || name === 'copy') return t(`storage.action.${name}To.${otherMedium(medium)}`);
     return t(`storage.action.${name}`);
   }

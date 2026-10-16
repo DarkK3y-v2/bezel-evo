@@ -750,7 +750,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
         details ? el('small', { text: details }) : null,
       ]),
       el('div', { class: 'actions' }, [
-        moving && action(t('videoPreview.open'), ICONS.play, () => actions.previewVideo(a)),
+        moving && action(t('common.preview'), ICONS.play, () => actions.previewVideo(a)),
         action(t('collection.useBackground'), ICONS.background, () => store.dispatch('setTheme', { patch: { background: backgroundOf(a) } })),
         a.kind === 'image' && action(t('media.addImage'), ICONS.place, () => {
           const { x, y } = center();

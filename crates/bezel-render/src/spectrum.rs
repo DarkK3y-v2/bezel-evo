@@ -66,19 +66,19 @@ pub(crate) fn label(state: AudioState, language: Language) -> &'static str {
     match (state, language) {
         (Live, _) => "",
         (Demo, Italian) => "Demo",
-        (Demo, PortugueseBr) => "Demonstra??o",
+        (Demo, PortugueseBr) => "Demonstração",
         (Demo, English) => "Demo",
         (Disabled, Italian) => "Cattura audio disabilitata",
-        (Disabled, PortugueseBr) => "Captura de ?udio desativada",
+        (Disabled, PortugueseBr) => "Captura de áudio desativada",
         (Disabled, English) => "Audio capture disabled",
         (PlayerMissing, Italian) => "Player mancante",
         (PlayerMissing, PortugueseBr) => "Player ausente",
         (PlayerMissing, English) => "Player missing",
         (Unavailable, Italian) => "Sorgente non disponibile",
-        (Unavailable, PortugueseBr) => "Fonte indispon?vel",
+        (Unavailable, PortugueseBr) => "Fonte indisponível",
         (Unavailable, English) => "Source unavailable",
         (Unsupported, Italian) => "Non supportato su questa versione di Windows",
-        (Unsupported, PortugueseBr) => "N?o compat?vel com esta vers?o do Windows",
+        (Unsupported, PortugueseBr) => "Não compatível com esta versão do Windows",
         (Unsupported, English) => "Unsupported on this version of Windows",
     }
 }

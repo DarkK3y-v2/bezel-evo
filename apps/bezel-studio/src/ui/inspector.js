@@ -546,7 +546,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
         !selected && el('p', { class: 'hint', role: 'status', text: t('spectrum.playerMissing') }),
         el('p', { class: 'hint', text: t('spectrum.browser') }),
-        segmented(t('spectrum.preview'), c.demo ? 'demo' : 'live', [['live',t('spectrum.live')],['demo',t('spectrum.demo')]], v => set({ demo: v === 'demo' })),
+        segmented(t('common.preview'), c.demo ? 'demo' : 'live', [['live',t('spectrum.live')],['demo',t('spectrum.demo')]], v => set({ demo: v === 'demo' })),
         c.demo && el('p', { class: 'hint', role: 'status', text: t('spectrum.demoHint') }),
         el('p', { class: 'hint', text: t('spectrum.enableHint') }),
       ]), section('spectrum-bands', t('spectrum.bands'), [
