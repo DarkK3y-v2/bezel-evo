@@ -69,3 +69,5 @@ pub mod owner;
 pub mod owner_pipe;
 pub mod owner_protocol;
 
+#[cfg(windows)]
+pub mod owner_client;

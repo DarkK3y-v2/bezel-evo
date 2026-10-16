@@ -20,6 +20,60 @@ use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEv
 #[path = "../../../apps/bezel-studio/src-tauri/src/tray_icon.rs"]
 mod tray_picture;
 
+static OWNER_CONNECTOR: std::sync::OnceLock<bezel_power::owner::OwnerConnector> =
+    std::sync::OnceLock::new();
+
+pub(super) fn connector() -> Option<bezel_power::owner::OwnerConnector> {
+    OWNER_CONNECTOR.get().cloned()
+}
+
+/// On-demand server, including a fresh Studio installation with no saved theme.
+pub(super) fn run_owner() -> anyhow::Result<String> {
+    let config = std::env::var_os("APPDATA").context("no user config directory")?;
+    let settings = Path::new(&config).join("io.github.slipalison.bezel/settings.json");
+    let mut args = vec![
+        std::env::current_exe()?.into_os_string(),
+        "run".into(),
+        "__owner_idle__".into(),
+        "--tray".into(),
+        "--screens-config".into(),
+        settings.into_os_string(),
+    ];
+    // follow_saved_theme below selects the configured theme when one exists.
+    let mut cli = Cli::try_parse_from(&args)?;
+    follow_saved_theme(&mut cli);
+    if let Command::Run { theme, .. } = cli.command {
+        args[2] = theme.into_os_string();
+    }
+    run(args)
+}
+
+fn saved_theme_enabled(cli: &Cli) -> bool {
+    let Command::Run {
+        theme,
+        screens_config,
+        ..
+    } = &cli.command
+    else {
+        return false;
+    };
+    if let Some(path) = screens_config {
+        let Ok(bytes) = std::fs::read(path) else {
+            return false;
+        };
+        let Ok(settings) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+            return false;
+        };
+        if settings["liveScreens"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+        {
+            return false;
+        }
+    }
+    theme.as_os_str() != "__owner_idle__"
+}
+
 enum Action {
     Menu(MenuEvent),
     Tray(TrayIconEvent),
@@ -71,12 +125,37 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let Some(_instance) = handoff::light_instance(&runtime_directory)? else {
         return Ok(String::new());
     };
+    let initial = Cli::try_parse_from(&arguments)?;
+    let physical: Arc<dyn bezel_core::ports::ScreenConnector + Send + Sync> = if initial.fake {
+        Arc::new(crate::fake_connector())
+    } else {
+        Arc::new(bezel_devices::SystemConnector)
+    };
+    let bus: Arc<dyn bezel_core::ports::DeviceBus + Send + Sync> = if initial.fake {
+        Arc::new(crate::fake_bus())
+    } else {
+        Arc::new(bezel_devices::SystemBus)
+    };
+    let owner = bezel_power::owner::Owner::new(physical);
+    let _ = OWNER_CONNECTOR.set(owner.client(false));
+    let mut screen_guard = handoff::light_screen(&runtime_directory)?;
+    owner.set_enabled(screen_guard.is_some());
+    let server = bezel_power::owner_pipe::Server::bind(&runtime_directory)?;
+    let pipe_owner = owner.clone();
+    let server_stop = Arc::new(AtomicBool::new(false));
+    let pipe_stop = Arc::clone(&server_stop);
+    let _server = std::thread::Builder::new()
+        .name("bezel-light-pipe".into())
+        .spawn(move || {
+            if let Err(error) = server.serve(pipe_owner, bus, pipe_stop) {
+                eprintln!("bezel light: screen owner stopped: {error}");
+            }
+        })?;
     let quit_file = runtime_directory.join("bezel-light-quit");
     // Only the instance owning the lock clears requests left from earlier runs.
     if quit_file.exists() {
         std::fs::remove_file(&quit_file)?;
     }
-    let initial = Cli::try_parse_from(&arguments)?;
     let finite = matches!(
         initial.command,
         Command::Run {
@@ -140,6 +219,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let mut visible = true;
     let mut retry_at = Instant::now();
     let mut reload_saved = false;
+    let mut reopen_after_pause = false;
     let studio_exe = directory.join("bezel-studio.exe");
     let mut fatal = None;
     let mut pause_watch = bezel_cli::light_recovery::PauseWatch::new(std::time::SystemTime::now());
@@ -166,6 +246,10 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     Err(_) => eprintln!("bezel light: shutdown worker panicked"),
                 }
             }
+            server_stop.store(true, Ordering::SeqCst);
+            if let Err(error) = owner.finish_until(deadline, &mut bezel_cli::finish_shutdown) {
+                eprintln!("bezel light: owner shutdown failed: {error}");
+            }
             return;
         }
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(100));
@@ -173,6 +257,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             && !quit_requested.load(Ordering::SeqCst)
         {
             eprintln!("bezel light: long pause detected; reopening screens and hardware sensors");
+            reopen_after_pause = true;
             stop.store(true, Ordering::SeqCst);
             reload_saved = true;
             if sensor_recovery.is_none() && directory.join("sensors/bezel-sensors-helper.exe").is_file() {
@@ -225,10 +310,24 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 true
             }
         };
-        if studio_active {
+        if studio_active || owner.reload_pending() {
             reload_saved = true;
+            stop.store(true, Ordering::SeqCst);
         }
-        if studio_active || pending_open || quit_requested.load(Ordering::SeqCst) {
+        if studio_active && worker.is_none() && screen_guard.is_some() {
+            owner.set_enabled(false);
+            match owner.clear() {
+                Ok(()) => screen_guard = None,
+                Err(error) => {
+                    fatal = Some(anyhow::Error::from(error));
+                    quit_requested.store(true, Ordering::SeqCst);
+                }
+            }
+        } else if !studio_active && screen_guard.is_none() {
+            screen_guard = handoff::light_screen(&runtime_directory).ok().flatten();
+            owner.set_enabled(screen_guard.is_some());
+        }
+        if studio_active || quit_requested.load(Ordering::SeqCst) {
             stop.store(true, Ordering::SeqCst);
         }
         if worker.as_ref().is_some_and(|thread| thread.is_finished()) {
@@ -245,12 +344,19 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     }
                 }
             }
-            retry_at = Instant::now() + Duration::from_secs(3);
+            retry_at = Instant::now() + if reload_saved { Duration::ZERO } else { Duration::from_secs(3) };
             if finite {
                 quit_requested.store(true, Ordering::SeqCst);
             }
         }
-        if pending_open && worker.is_none() && !quit_requested.load(Ordering::SeqCst) {
+        if reopen_after_pause && worker.is_none() {
+            if let Err(error) = owner.clear() {
+                fatal = Some(anyhow::Error::from(error));
+                quit_requested.store(true, Ordering::SeqCst);
+            }
+            reopen_after_pause = false;
+        }
+        if pending_open && !quit_requested.load(Ordering::SeqCst) {
             match std::process::Command::new(&studio_exe)
                 .current_dir(&directory)
                 .spawn()
@@ -267,15 +373,17 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         {
             opening = None;
         }
-        if visible == studio_active {
-            let _ = tray.set_visible(!studio_active);
-            visible = !studio_active;
+        if visible == (studio_active || owner.editing()) {
+            let _ = tray.set_visible(!(studio_active || owner.editing()));
+            visible = !(studio_active || owner.editing());
         }
         if quit_requested.load(Ordering::SeqCst) {
             if worker.is_none() {
                 *flow = ControlFlow::Exit;
             }
         } else if !studio_active
+            && screen_guard.is_some()
+            && !owner.editing()
             && !pending_open
             && opening.is_none()
             && worker.is_none()
@@ -290,10 +398,15 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                     return;
                 }
             };
-            if reload_saved && !simulate {
+            if !simulate {
                 follow_saved_theme(&mut cli);
             }
             reload_saved = false;
+            owner.saved_ready();
+            if !simulate && !saved_theme_enabled(&cli) {
+                retry_at = Instant::now() + Duration::from_secs(1);
+                return;
+            }
             stop = Arc::new(AtomicBool::new(false));
             let flag = Arc::clone(&stop);
             let ending = Arc::clone(&shutdown);
@@ -301,9 +414,6 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             match std::thread::Builder::new()
                 .name("bezel-light-render".into())
                 .spawn(move || {
-                    let Some(_screen) = handoff::light_screen(&folder)? else {
-                        return Ok(String::new());
-                    };
                     if handoff::studio_active(&folder)? {
                         return Ok(String::new());
                     }
@@ -317,6 +427,13 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             }
         }
     });
+    server_stop.store(true, Ordering::SeqCst);
+    if !shutdown.load(Ordering::SeqCst) {
+        owner.finish_until(Instant::now() + Duration::from_secs(5), &mut |link| {
+            link.release()
+        })?;
+        owner.clear()?;
+    }
     MenuEvent::set_event_handler(None::<fn(MenuEvent)>);
     TrayIconEvent::set_event_handler(None::<fn(TrayIconEvent)>);
     if let Some(error) = fatal {

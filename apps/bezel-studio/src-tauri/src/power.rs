@@ -308,6 +308,11 @@ impl Backend {
             diag::report(DiagCode::ShutdownJobNotStopped);
             return;
         }
+        // Light receives WM_ENDSESSION itself and finishes each retained link
+        // once. Direct fallback keeps today's shutdown behavior.
+        if self.connector.manages_shutdown() {
+            return;
+        }
         let mut live_links = Vec::new();
         while let Some(link) = self.live_link_for_shutdown(deadline) {
             live_links.push(link);

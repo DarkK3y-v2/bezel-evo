@@ -799,7 +799,11 @@ where
     // releasing afterwards could undo a saved video/album/keep choice.
     let released = link.map(|mut link| {
         if pace.shutting_down() {
-            crate::shutdown::finish(link.as_mut())
+            if link.manages_shutdown() {
+                Ok(())
+            } else {
+                crate::shutdown::finish(link.as_mut())
+            }
         } else {
             link.release()
         }

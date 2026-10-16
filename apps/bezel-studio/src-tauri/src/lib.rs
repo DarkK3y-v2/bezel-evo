@@ -116,7 +116,7 @@ pub fn on_close_for_runtime(live: bool, unsaved: bool, return_to_light: bool) ->
 pub(crate) fn returns_to_light<R: Runtime>(manager: &impl Manager<R>) -> bool {
     #[cfg(windows)]
     return manager
-        .try_state::<bezel_power::handoff::StudioSession>()
+        .try_state::<bezel_power::owner_client::LightConnector>()
         .is_some()
         && manager
             .try_state::<Shared>()
@@ -160,11 +160,10 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
                 args.extend([option.into(), value.into()]);
             }
         }
-        let executable = std::env::current_exe()?.with_file_name("bezel.exe");
-        if let Some(session) = manager.try_state::<bezel_power::handoff::StudioSession>() {
-            session.start_light(&executable, &args)?;
-            // Light waits for this session to end; meanwhile the screens
-            // keep the frame left for it, and nothing else reaches them.
+        if let Some(session) = manager.try_state::<bezel_power::owner_client::LightConnector>() {
+            session.prepare_close(&args)?;
+            // The pipe path retains the physical baseline in Light. In
+            // direct fallback this also leaves the compatibility A baseline.
             let store = bezel_power::handoff::FileHandoffStore::new(session.directory());
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -180,7 +179,7 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
 /// Explicit Quit stops both runtimes; closing the editor hands control to Light.
 pub(crate) fn exit_bezel<R: Runtime>(app: &AppHandle<R>) -> std::io::Result<()> {
     #[cfg(windows)]
-    if let Some(session) = app.try_state::<bezel_power::handoff::StudioSession>() {
+    if let Some(session) = app.try_state::<bezel_power::owner_client::LightConnector>() {
         session.stop_light()?;
     }
     app.exit(0);
@@ -508,21 +507,25 @@ struct Start<R: Runtime> {
 /// and says nothing else (`tests::the_app_setup_sends_nothing_at_start`
 /// watches that bus).
 fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::error::Error>> {
+    let adapters = start.adapters;
     #[cfg(windows)]
-    if !start.simulate {
-        let executable = std::env::current_exe()?;
-        if executable.parent().is_some() {
-            let directory = bezel_power::handoff::runtime_directory(&executable)?;
-            let session =
-                bezel_power::handoff::enter_studio(&directory, std::time::Duration::from_secs(30))
-                    .inspect_err(|_| diag::report(DiagCode::LightNotReleased))?;
-            app.manage(session);
+    let adapters = {
+        let mut adapters = adapters;
+        if !start.simulate {
+            let executable = std::env::current_exe()?;
+            let client = bezel_power::owner_client::LightConnector::new(
+                &executable,
+                Arc::clone(&adapters.connector),
+            )?;
+            adapters.connector = Arc::new(client.clone());
+            app.manage(client);
         }
-    }
+        adapters
+    };
     // Each part that fails says so, before the app says it did not start.
     let folders =
         (start.folders)(app.handle()).inspect_err(|_| diag::report(DiagCode::FoldersNotFound))?;
-    let backend: Shared = Arc::new(compose(&folders, start.adapters, start.simulate));
+    let backend: Shared = Arc::new(compose(&folders, adapters, start.simulate));
     // Before the window asks for it: the last theme, or a blank one for the
     // connected screen.
     backend.restore_debug();
