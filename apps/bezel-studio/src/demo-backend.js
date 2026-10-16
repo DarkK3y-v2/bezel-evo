@@ -1346,7 +1346,6 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let debug = false;
   let debugShowReadings = false;
   let debugCorner = "bottom-left";
-  let lightOnClose = true;
   const systemLanguage = pickLocale(hooks.languages ?? []);
   const sensorOptions = { pingHost: null };
   const closeListeners = new Set();
@@ -1602,7 +1601,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       return Promise.resolve();
     },
     closeWindow: () => {
-      windowGoes(live && !lightOnClose ? 'hidden' : 'closed');
+      windowGoes('closed');
       return Promise.resolve();
     },
     onCloseRequested: (cb) => {
@@ -1611,8 +1610,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     },
     /** The window's close button. */
     requestClose: () => {
-      if (live && !lightOnClose) windowGoes('hidden');
-      else if (unsaved) for (const cb of closeListeners) cb();
+      if (unsaved) for (const cb of closeListeners) cb();
       else windowGoes('closed');
     },
     quitApp: () => {
@@ -1635,10 +1633,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     windowState: () => windowState,
     openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
-    setLightOnClose: (on) => { lightOnClose = on; return Promise.resolve(); },
     preferences: () => Promise.resolve({
       debug, debugShowReadings, debugCorner, debugLogPath: "Demo: no file logging",
-      lightOnClose,
       lightRuntime: true,
       language,
       systemLanguage,

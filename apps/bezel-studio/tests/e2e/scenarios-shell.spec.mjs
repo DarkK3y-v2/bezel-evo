@@ -207,20 +207,16 @@ test('quitting from the tray over unsaved edits shows the window and asks', asyn
   await expect(html).toHaveAttribute('data-demo-window', 'quit');
   await expect(dialog).toHaveCount(0);
 
-  // Live and hidden in the tray with unsaved edits: Quit shows the window
-  // and asks; Cancel keeps the app, Discard ends it.
+  // Live with unsaved edits: Quit shows the window and asks; Cancel keeps
+  // the app, Discard ends it.
   await page.goto('/index.html?demo=turing88');
-  await page.getByRole('button', { name: t('prefs.title') }).click();
-  await page.getByRole('switch', { name: t('prefs.lightOnClose') }).uncheck();
-  await page.getByRole('button', { name: t('common.done') }).click();
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await page.getByRole('button', { name: /^CPU/ }).click();
   await page.keyboard.press('Delete');
   await expect(page.locator('#status-main')).toHaveText(t('status.unsaved'));
   await page.getByRole('switch').click({ force: true });
   await expect(page.getByRole('switch')).toBeChecked();
-  await page.evaluate(() => window.dispatchEvent(new Event('bezel-demo-close')));
-  await expect(html).toHaveAttribute('data-demo-window', 'hidden');
   await quit();
   await expect(html).toHaveAttribute('data-demo-window', 'open');
   await expect(dialog).toBeVisible();
@@ -368,19 +364,16 @@ test('the ping target is set in the preferences', async ({ page, t }) => {
   expect(errors).toEqual([]);
 });
 
-test('the Light switch persists and protects unsaved live edits on close', async ({ page, t }) => {
+test('closing always hands over to Light and protects unsaved live edits', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
   await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  // No close preference: Light always keeps the screen once Studio closes.
   await page.getByRole('button', { name: t('prefs.title') }).click();
-  const toggle = page.getByRole('switch', { name: t('prefs.lightOnClose') });
-  await expect(toggle).toBeChecked();
+  const prefs = page.getByRole('dialog', { name: t('prefs.title') });
+  await expect(prefs.getByRole('switch', { name: t('prefs.debugEnable') })).toBeVisible();
+  await expect(prefs.locator('#prefs-light-on-close')).toHaveCount(0);
   await expectAccessible(page);
-  await toggle.uncheck();
-  await page.getByRole('button', { name: t('common.done') }).click();
-  await page.getByRole('button', { name: t('prefs.title') }).click();
-  await expect(toggle).not.toBeChecked();
-  await toggle.check();
   await page.getByRole('button', { name: t('common.done') }).click();
   await page.getByRole('switch').click({ force: true });
   await expect(page.getByRole('switch')).toBeChecked();

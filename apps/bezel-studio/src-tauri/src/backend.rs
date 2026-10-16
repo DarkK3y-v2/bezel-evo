@@ -547,7 +547,6 @@ impl Backend {
                 .join("studio.log")
                 .display()
                 .to_string(),
-            light_on_close: settings.light_on_close.unwrap_or(true),
             light_runtime: cfg!(windows),
             theme_filter: ThemeFilterDto {
                 scope: settings.themes_shown(),

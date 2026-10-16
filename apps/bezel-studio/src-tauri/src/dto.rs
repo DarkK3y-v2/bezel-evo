@@ -510,7 +510,6 @@ pub struct PreferencesDto {
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,
     pub debug_log_path: String,
-    pub light_on_close: bool,
     pub light_runtime: bool,
     /// The language the user chose (`pt-BR` or `en`); `None` follows the
     /// system.

@@ -628,14 +628,6 @@ pub fn set_autostart<R: Runtime>(app: AppHandle<R>, on: bool) -> UiResult<()> {
 
 // --------------------------------------------------------- preferences --
 
-/// Remembers whether closing Studio hands control to the light runtime.
-#[tauri::command]
-pub fn set_light_on_close(state: State<'_, Shared>, on: bool) {
-    state
-        .settings
-        .update(|settings| settings.light_on_close = Some(on));
-}
-
 /// Enables bounded diagnostic logs and the optional physical-screen overlay.
 #[tauri::command]
 pub fn set_debug(

@@ -23,8 +23,6 @@ pub struct Settings {
     pub debug_corner: crate::performance::Corner,
     /// Location of the last theme opened or saved.
     pub last_theme: Option<String>,
-    /// Use the light Windows runtime after closing the editor; absent means enabled.
-    pub light_on_close: Option<bool>,
     /// Key of the screen that was live when the app last changed it.
     pub live_screen: Option<String>,
     pub selected_screen: Option<String>,
@@ -171,14 +169,16 @@ mod tests {
     }
 
     #[test]
-    fn old_settings_enable_light_and_explicit_off_round_trips() {
-        let old: Settings = serde_json::from_str(r#"{"lastTheme":"saved.bezeltheme"}"#).unwrap();
-        assert!(old.light_on_close.unwrap_or(true));
-        let off: Settings = serde_json::from_str(r#"{"lightOnClose":false}"#).unwrap();
-        assert_eq!(off.light_on_close, Some(false));
-        assert_eq!(
-            serde_json::from_str::<Settings>(&serde_json::to_string(&off).unwrap()).unwrap(),
-            off
+    fn legacy_light_on_close_still_loads_and_is_never_written() {
+        // Closing Studio always hands over to Light (D-31): the old choice is ignored.
+        let old: Settings =
+            serde_json::from_str(r#"{"lastTheme":"saved.bezeltheme","lightOnClose":false}"#)
+                .unwrap();
+        assert_eq!(old.last_theme.as_deref(), Some("saved.bezeltheme"));
+        assert!(
+            !serde_json::to_string(&old)
+                .unwrap()
+                .contains("lightOnClose")
         );
     }
 

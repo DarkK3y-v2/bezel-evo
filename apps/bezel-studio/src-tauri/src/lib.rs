@@ -111,13 +111,12 @@ pub fn on_close_for_runtime(live: bool, unsaved: bool, return_to_light: bool) ->
     on_close(live && !return_to_light, unsaved)
 }
 
+/// Light always owns the screens (D-31), so closing Studio hands over to it
+/// whenever the Light runtime is available.
 pub(crate) fn returns_to_light<R: Runtime>(manager: &impl Manager<R>) -> bool {
     manager
         .try_state::<bezel_power::owner_client::LightConnector>()
         .is_some()
-        && manager
-            .try_state::<Shared>()
-            .is_some_and(|backend| backend.settings.load().light_on_close.unwrap_or(true))
 }
 
 /// Start Light while Studio still owns the screen, so it waits for normal cleanup.
@@ -345,7 +344,6 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::set_unsaved,
             commands::close_window,
             commands::preferences,
-            commands::set_light_on_close,
             commands::set_debug,
             commands::set_language,
             commands::set_sensor_options,
