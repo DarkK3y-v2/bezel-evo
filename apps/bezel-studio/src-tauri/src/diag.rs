@@ -62,14 +62,6 @@ pub enum DiagCode {
     TrayNotAdded,
     /// The screen and the sensors are simulated (`BEZEL_FAKE=1`).
     Simulated,
-    /// The process could not restart itself with WebKitGTK's DMA-BUF
-    /// renderer off, for another cause than those below.
-    DmabufRendererOn,
-    /// The process could not restart itself: its program file is gone.
-    DmabufRestartNoFile,
-    /// The process could not restart itself: running its program file was
-    /// not allowed.
-    DmabufRestartDenied,
     /// The thread that refreshes the session did not start, for another
     /// cause than the one below.
     RefreshLoopNotStarted,
@@ -99,8 +91,6 @@ pub enum DiagCode {
     CopiesInMemory,
     /// The settings were not saved.
     SettingsNotSaved,
-    /// The udev rule was not written.
-    UdevRuleNotWritten,
     /// A theme that cannot be read was left out of the library.
     ThemeSkipped,
     /// The last theme did not open again.
@@ -151,20 +141,6 @@ pub enum DiagCode {
     /// The live screen stopped after a storage job.
     LiveStoppedAfterStorageJob,
     // ------------------------------------------- the computer shutting down --
-    /// The system bus was not reached: each screen keeps its plan B when
-    /// the computer shuts down (D-2026-10-03-power-off-standby-3).
-    NoSystemBus,
-    /// logind is not on the system bus: each screen keeps its plan B.
-    NoLogind,
-    /// logind refused the shutdown delay lock: each screen keeps its plan B.
-    ShutdownDelayRefused,
-    /// The system bus was lost: each screen keeps its plan B.
-    SystemBusLost,
-    /// The thread that watches for shutdowns did not start: each screen
-    /// keeps its plan B.
-    ShutdownWatchNotStarted,
-    /// logind's delay was not read: its default is assumed.
-    ShutdownDelayNotRead,
     /// The thread that applies the choices did not start.
     ShutdownNotApplied,
     /// The deadline came before every screen's choice was applied.
@@ -185,7 +161,7 @@ pub enum DiagCode {
 
 impl DiagCode {
     /// Every code, in declaration order.
-    pub const ALL: [Self; 60] = [
+    pub const ALL: [Self; 50] = [
         Self::Panicked,
         Self::NotStarted,
         Self::PluginNotStarted,
@@ -194,9 +170,6 @@ impl DiagCode {
         Self::HandoffFrameNotLeft,
         Self::TrayNotAdded,
         Self::Simulated,
-        Self::DmabufRendererOn,
-        Self::DmabufRestartNoFile,
-        Self::DmabufRestartDenied,
         Self::RefreshLoopNotStarted,
         Self::RefreshLoopNoResources,
         Self::UnsavedEditsNotAsked,
@@ -209,7 +182,6 @@ impl DiagCode {
         Self::TrayMenuNotRelabelled,
         Self::CopiesInMemory,
         Self::SettingsNotSaved,
-        Self::UdevRuleNotWritten,
         Self::ThemeSkipped,
         Self::LastThemeNotReopened,
         Self::NoStartingTheme,
@@ -233,12 +205,6 @@ impl DiagCode {
         Self::LiveScreenBack,
         Self::LiveScreenNotBack,
         Self::LiveStoppedAfterStorageJob,
-        Self::NoSystemBus,
-        Self::NoLogind,
-        Self::ShutdownDelayRefused,
-        Self::SystemBusLost,
-        Self::ShutdownWatchNotStarted,
-        Self::ShutdownDelayNotRead,
         Self::ShutdownNotApplied,
         Self::ShutdownDeadline,
         Self::ShutdownJobNotStopped,
@@ -262,14 +228,7 @@ impl DiagCode {
             }
             Self::TrayNotAdded => "the tray icon was not added",
             Self::Simulated => "BEZEL_FAKE=1, simulated Turing 8.8\" and sensors",
-            Self::DmabufRendererOn => "could not restart with the DMA-BUF renderer off",
-            Self::DmabufRestartNoFile => {
-                "could not restart with the DMA-BUF renderer off: the app's program file is gone"
-            }
-            Self::DmabufRestartDenied => {
-                "could not restart with the DMA-BUF renderer off: running the app's program file \
-                 was not allowed"
-            }
+
             Self::RefreshLoopNotStarted => "refresh loop not started",
             Self::RefreshLoopNoResources => {
                 "refresh loop not started: no thread or memory to spare"
@@ -286,7 +245,7 @@ impl DiagCode {
             Self::TrayMenuNotRelabelled => "tray menu not relabelled",
             Self::CopiesInMemory => "local copies are kept for this run only",
             Self::SettingsNotSaved => "settings not saved",
-            Self::UdevRuleNotWritten => "udev rule not written",
+
             Self::ThemeSkipped => "a theme that cannot be read was skipped",
             Self::LastThemeNotReopened => "last theme not reopened",
             Self::NoStartingTheme => "no starting theme",
@@ -310,20 +269,7 @@ impl DiagCode {
             Self::LiveScreenBack => "the live screen is back",
             Self::LiveScreenNotBack => "the live screen is not back",
             Self::LiveStoppedAfterStorageJob => "live screen stopped after a storage job",
-            Self::NoSystemBus => {
-                "the system bus was not reached: each screen keeps its plan B at shutdown"
-            }
-            Self::NoLogind => "logind was not found: each screen keeps its plan B at shutdown",
-            Self::ShutdownDelayRefused => {
-                "logind refused the shutdown delay: each screen keeps its plan B at shutdown"
-            }
-            Self::SystemBusLost => {
-                "the system bus was lost: each screen keeps its plan B at shutdown"
-            }
-            Self::ShutdownWatchNotStarted => {
-                "the shutdown watch did not start: each screen keeps its plan B at shutdown"
-            }
-            Self::ShutdownDelayNotRead => "logind's shutdown delay was not read: 5 s assumed",
+
             Self::ShutdownNotApplied => "the choices for the shutdown were not applied",
             Self::ShutdownDeadline => {
                 "the shutdown's deadline came before every screen's choice was applied"
@@ -353,9 +299,6 @@ impl DiagCode {
             | Self::FoldersNotFound
             | Self::TrayNotAdded
             | Self::Simulated
-            | Self::DmabufRendererOn
-            | Self::DmabufRestartNoFile
-            | Self::DmabufRestartDenied
             | Self::RefreshLoopNotStarted
             | Self::RefreshLoopNoResources => Channel::Terminal,
             Self::CopiesInMemory => Channel::Error,
@@ -461,9 +404,6 @@ mod tests {
                 DiagCode::FoldersNotFound,
                 DiagCode::TrayNotAdded,
                 DiagCode::Simulated,
-                DiagCode::DmabufRendererOn,
-                DiagCode::DmabufRestartNoFile,
-                DiagCode::DmabufRestartDenied,
                 DiagCode::RefreshLoopNotStarted,
                 DiagCode::RefreshLoopNoResources,
             ]
@@ -471,8 +411,6 @@ mod tests {
         // A cause adds to the sentence said without one.
         for (cause, without) in [
             (DiagCode::PluginNotStarted, DiagCode::NotStarted),
-            (DiagCode::DmabufRestartNoFile, DiagCode::DmabufRendererOn),
-            (DiagCode::DmabufRestartDenied, DiagCode::DmabufRendererOn),
             (
                 DiagCode::RefreshLoopNoResources,
                 DiagCode::RefreshLoopNotStarted,

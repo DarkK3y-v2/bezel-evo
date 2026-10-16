@@ -301,19 +301,7 @@ fn write_closed(path: &Path, bytes: &[u8]) -> io::Result<()> {
     file.sync_all()
 }
 
-/// A new file readable and writable only by the user.
-#[cfg(unix)]
-fn create_private(path: &Path) -> io::Result<File> {
-    use std::os::unix::fs::OpenOptionsExt as _;
-    fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .open(path)
-}
-
 /// A new file, private through the profile folder's ACL.
-#[cfg(not(unix))]
 fn create_private(path: &Path) -> io::Result<File> {
     fs::OpenOptions::new()
         .write(true)

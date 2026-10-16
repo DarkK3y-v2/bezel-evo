@@ -75,11 +75,9 @@ const WRITE_STALL: Duration = Duration::from_secs(10);
 /// Reads remain short even though Windows uses the same timeout for writes.
 const READ_TIMEOUT: Duration = Duration::from_millis(10);
 /// Bound Windows WriteFile requests, without changing the byte stream or
-/// the driver's protocol framing. Unix keeps its existing write path.
-#[cfg(windows)]
+/// the driver's protocol framing.
 const WRITE_CHUNK: usize = 64 * 1024;
-#[cfg(not(windows))]
-const WRITE_CHUNK: usize = usize::MAX;
+
 /// Pause between two looks at the bytes still queued for the device.
 const DRAIN_POLL: Duration = Duration::from_millis(1);
 
@@ -175,19 +173,7 @@ fn settings(path: &str, flow: Flow) -> serialport::SerialPortBuilder {
     )
 }
 
-/// One owner per port: while a wire holds it, a second open of the same
-/// path, from this process or another, is refused as busy. That refusal is
-/// how a port this process already holds is told apart
-/// (D-2026-10-01-live-screen-controls-4). On Unix serialport sets
-/// `TIOCEXCL` and an exclusive `flock`; asked explicitly, not left to the
-/// crate's default.
-#[cfg(unix)]
-fn exclusively(port: serialport::SerialPortBuilder) -> serialport::SerialPortBuilder {
-    port.exclusive(true)
-}
-
 /// One owner per port: Windows opens a COM port exclusively anyway.
-#[cfg(not(unix))]
 fn exclusively(port: serialport::SerialPortBuilder) -> serialport::SerialPortBuilder {
     port
 }
@@ -231,7 +217,7 @@ impl Wire for SerialWire {
         let mut written = 0usize;
         let mut calls = 0usize;
         tracing::debug!(bytes = bytes.len(), "serial send: write started");
-        #[cfg(windows)]
+
         self.port
             .set_timeout(WRITE_STALL)
             .map_err(io::Error::other)?;
@@ -253,7 +239,7 @@ impl Wire for SerialWire {
             result
         });
         // Do not let a write timeout turn subsequent reads into 10 s waits.
-        #[cfg(windows)]
+
         let restored = self
             .port
             .set_timeout(READ_TIMEOUT)
@@ -268,13 +254,13 @@ impl Wire for SerialWire {
                 error = %e,
                 "serial send: write failed"
             );
-            #[cfg(windows)]
+
             if let Err(restore_error) = restored {
                 tracing::warn!(error = %restore_error, "serial read timeout not restored");
             }
             return Err(e);
         }
-        #[cfg(windows)]
+
         restored?;
         tracing::debug!(
             written,
@@ -512,39 +498,6 @@ mod tests {
     fn opening_a_missing_port_fails_cleanly() {
         assert!(SerialWire::open("/dev/bezel-no-such-port", Flow::None).is_err());
         assert!(SerialWire::open("/dev/bezel-no-such-port", Flow::Hardware).is_err());
-    }
-
-    /// serialport's kind for an open refused because the port is held:
-    /// `EBUSY` from `TIOCEXCL`, or the exclusive `flock` taken.
-    #[cfg(unix)]
-    fn busy(e: &serialport::Error) -> bool {
-        e.kind() == serialport::ErrorKind::NoDevice
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_port_the_wire_holds_refuses_a_second_open() {
-        use serialport::SerialPort;
-        // A pseudo terminal stands in for the screen's tty (no device is
-        // touched). The pair stays open throughout: closing either end
-        // would clear the tty's exclusive mark or end the terminal.
-        let (_master, slave) = serialport::TTYPort::pair().unwrap();
-        let path = slave.name().unwrap();
-        // Held through the wire's settings, the port refuses a second open
-        // through them as busy, and so does `SerialWire::open` (which would
-        // otherwise get past the open and fail raising RTS: a pty has no
-        // modem lines). D-2026-10-01-live-screen-controls-4 rests on this.
-        let held = settings(&path, Flow::None).open().unwrap();
-        let again = settings(&path, Flow::None).open().err();
-        assert!(again.as_ref().is_some_and(busy), "{again:?}");
-        let wire = SerialWire::open(&path, Flow::Hardware).err();
-        let inner = wire.as_ref().and_then(|e| e.get_ref());
-        let inner = inner.and_then(|e| e.downcast_ref::<serialport::Error>());
-        assert!(inner.is_some_and(busy), "{wire:?}");
-        // Released, it opens again: the refusal came from the hold.
-        drop(held);
-        let reopened = settings(&path, Flow::None).open();
-        assert!(reopened.is_ok(), "{:?}", reopened.err());
     }
 
     /// A clock that moves one second on every look.

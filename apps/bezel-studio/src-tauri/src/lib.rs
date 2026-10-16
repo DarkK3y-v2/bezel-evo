@@ -34,7 +34,6 @@ pub mod texts;
 pub mod thumbnails;
 mod tray;
 pub mod tray_icon;
-pub mod udev_help;
 pub mod video;
 
 use std::ffi::OsStr;
@@ -53,7 +52,6 @@ use bezel_klipy::KlipyClient;
 use bezel_media::FfmpegTranscoder;
 use bezel_media::archive::{DiskArchive, MemoryArchive, storage_dir};
 use bezel_media::collection::{DiskCollection, collection_dir};
-use bezel_power::BusAddress;
 use bezel_render::{SkiaRenderer, SystemFonts, font_files};
 use bezel_sensors::{FakeSensors, SystemSensors};
 use bezel_themes::FsThemeStore;
@@ -73,7 +71,6 @@ use crate::storage::{MediaSetup, StorageState};
 use crate::studio::Studio;
 use crate::texts::Texts;
 use crate::thumbnails::Thumbnails;
-use crate::udev_help::UdevHelp;
 
 /// Label of the main window in `tauri.conf.json`.
 pub(crate) const MAIN_WINDOW: &str = "main";
@@ -115,18 +112,12 @@ pub fn on_close_for_runtime(live: bool, unsaved: bool, return_to_light: bool) ->
 }
 
 pub(crate) fn returns_to_light<R: Runtime>(manager: &impl Manager<R>) -> bool {
-    #[cfg(windows)]
-    return manager
+    manager
         .try_state::<bezel_power::owner_client::LightConnector>()
         .is_some()
         && manager
             .try_state::<Shared>()
-            .is_some_and(|backend| backend.settings.load().light_on_close.unwrap_or(true));
-    #[cfg(not(windows))]
-    {
-        let _ = manager;
-        false
-    }
+            .is_some_and(|backend| backend.settings.load().light_on_close.unwrap_or(true))
 }
 
 /// Start Light while Studio still owns the screen, so it waits for normal cleanup.
@@ -134,7 +125,6 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
     manager: &impl Manager<R>,
     backend: &Shared,
 ) -> std::io::Result<()> {
-    #[cfg(windows)]
     if returns_to_light(manager) && backend.studio().any_live() {
         let settings = backend.settings.load();
         let theme = settings.last_theme.as_deref().ok_or_else(|| {
@@ -155,7 +145,6 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
         for (option, value) in [
             ("--ffmpeg", settings.ffmpeg_path.as_deref()),
             ("--ping-host", settings.ping_host.as_deref()),
-            ("--mangohud-dir", settings.mangohud_dir.as_deref()),
         ] {
             if let Some(value) = value {
                 args.extend([option.into(), value.into()]);
@@ -172,14 +161,12 @@ pub(crate) fn prepare_light_on_close<R: Runtime>(
             backend.hand_over_live(&store, now);
         }
     }
-    #[cfg(not(windows))]
-    let _ = (manager, backend);
+
     Ok(())
 }
 
 /// Explicit Quit stops both runtimes; closing the editor hands control to Light.
 pub(crate) fn exit_bezel<R: Runtime>(app: &AppHandle<R>) -> std::io::Result<()> {
-    #[cfg(windows)]
     if let Some(session) = app.try_state::<bezel_power::owner_client::LightConnector>() {
         session.stop_light()?;
     }
@@ -210,10 +197,6 @@ pub fn on_quit(unsaved: bool) -> OnQuit {
 /// Argument of the start at login: open in the tray, without the window.
 pub const HIDDEN_ARG: &str = "--hidden";
 
-/// WebKitGTK's switch that turns its DMA-BUF renderer off.
-#[cfg(target_os = "linux")]
-const DMABUF_SWITCH: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
-
 /// What the terminal says when the app did not start: which part failed,
 /// told by the variant of Tauri's `error`, never by its text
 /// (D-2026-10-01-gif-sticker-search-12, review W1 of round 2, iter 4). Only
@@ -240,18 +223,6 @@ fn refresh_loop_failure(error: &io::Error) -> DiagCode {
     }
 }
 
-/// What the terminal says when the process could not restart itself with
-/// the DMA-BUF renderer off, told by the kind of `exec`'s `error`: its
-/// program file gone, running it not allowed, or another cause.
-#[cfg(target_os = "linux")]
-fn restart_failure(error: &io::Error) -> DiagCode {
-    match error.kind() {
-        io::ErrorKind::NotFound => DiagCode::DmabufRestartNoFile,
-        io::ErrorKind::PermissionDenied => DiagCode::DmabufRestartDenied,
-        _ => DiagCode::DmabufRendererOn,
-    }
-}
-
 /// Starts the app and blocks until it exits. The app is built, then run
 /// (`Builder::build` and `App::run`) so that the end of its event loop
 /// ([`on_run_event`]) applies each screen's choice when Windows ends the
@@ -262,9 +233,6 @@ fn restart_failure(error: &io::Error) -> DiagCode {
 /// Tauri's error when the app cannot start; [`start_failure`] says which
 /// part failed.
 pub fn run() -> Result<(), tauri::Error> {
-    #[cfg(target_os = "linux")]
-    restart_without_dmabuf_renderer();
-
     let simulate = switch_on(std::env::var_os(SIMULATION_SWITCH).as_deref());
     let start: Start<tauri::Wry> = Start {
         simulate,
@@ -273,9 +241,6 @@ pub fn run() -> Result<(), tauri::Error> {
         folders: Box::new(|app: &AppHandle| Folders::of(app)),
         gif_source: klipy_source(),
         tray: Box::new(add_tray),
-        // Where logind is (D-2026-10-03-power-off-standby-3): the studio's
-        // one D-Bus connection, to logind only (`bezel-power`).
-        logind: BusAddress::system(),
     };
     let app = tauri::Builder::default()
         // First plugin: a second launch shows this window and exits.
@@ -432,9 +397,7 @@ pub fn run() -> Result<(), tauri::Error> {
 /// (`RunEvent::Exit`) while Windows ends the session (shutting down,
 /// restarting, signing out) applies each screen's choice, waited for
 /// ([`power::at_exit`]); quitting the app (the tray, the window), the
-/// request to exit before it and every other event apply nothing. Off
-/// Windows the session is never said to be ending here: logind tells
-/// Linux's shutdowns ([`power::watch_shutdowns`]).
+/// request to exit before it and every other event apply nothing.
 fn on_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent, session_ending: fn() -> bool) {
     if !matches!(event, RunEvent::Exit) {
         return;
@@ -455,9 +418,7 @@ type FindFolders<R> = Box<dyn FnOnce(&AppHandle<R>) -> tauri::Result<Folders> + 
 type AddTray<R> = Box<dyn FnOnce(&AppHandle<R>, bool, &Texts) -> tauri::Result<LiveSync> + Send>;
 
 /// What [`setup`] gets from [`run`]: the start's switches, the machine's
-/// adapters, where the files are, the GIF provider, the tray and where
-/// logind is. A test of the setup gives fake screens, temporary folders, a
-/// fake GIF source, no tray icon and a private bus.
+/// adapters, where the files are, the GIF provider and the tray.
 struct Start<R: Runtime> {
     /// Simulated screen and sensors ([`SIMULATION_SWITCH`]): the local
     /// copies are kept in memory.
@@ -470,9 +431,6 @@ struct Start<R: Runtime> {
     /// Makes the GIF source for a saved key: KLIPY's client.
     gif_source: SourceFactory,
     tray: AddTray<R>,
-    /// The bus where logind is ([`power::watch_shutdowns`]): the system bus,
-    /// a test's private one.
-    logind: BusAddress,
 }
 
 /// The app's start, once the runtime is up (Tauri's `setup`): the backend
@@ -506,14 +464,9 @@ struct Start<R: Runtime> {
 /// `open_guide` commands call. Code written to get past it otherwise is left
 /// to code review.
 ///
-/// It also starts watching logind on the bus [`Start`] names
-/// ([`power::watch_shutdowns`], D-2026-10-03-power-off-standby-3): the
-/// studio's one D-Bus connection, which takes logind's shutdown delay lock
-/// and says nothing else (`tests::the_app_setup_sends_nothing_at_start`
-/// watches that bus).
 fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::error::Error>> {
     let adapters = start.adapters;
-    #[cfg(windows)]
+
     let adapters = {
         let mut adapters = adapters;
         if !start.simulate {
@@ -531,7 +484,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
     let folders =
         (start.folders)(app.handle()).inspect_err(|_| diag::report(DiagCode::FoldersNotFound))?;
     let mut backend = compose(&folders, adapters, start.simulate);
-    #[cfg(windows)]
+
     if let Some(client) = app.try_state::<bezel_power::owner_client::LightConnector>() {
         let connection: Arc<dyn bezel_core::ports::RuntimeConnection> =
             Arc::new(client.inner().clone());
@@ -566,7 +519,6 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
                             Ok((
                                 sensors(bezel_sensors::SensorOptions {
                                     ping_host: options.ping_host.clone(),
-                                    mangohud_dir: options.mangohud_dir.as_ref().map(PathBuf::from),
                                 }),
                                 Box::new(FfmpegTranscoder::new(
                                     options.ffmpeg.as_ref().map(PathBuf::from),
@@ -598,7 +550,6 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
     let live = backend.studio().any_live();
     let live_item = (start.tray)(app.handle(), live, &backend.texts())
         .inspect_err(|_| diag::report(DiagCode::TrayNotAdded))?;
-    power::watch_shutdowns(Arc::clone(&backend), start.logind);
     start_refresh_loop(backend, live_item);
     if !start.hidden {
         show_main_window(app.handle());
@@ -781,9 +732,6 @@ fn compose(folders: &Folders, adapters: Adapters, simulate: bool) -> Backend {
         settings,
         system_language,
         make_sensors: sensors,
-        // Only Linux grants USB access through udev rules.
-        udev: cfg!(target_os = "linux")
-            .then(|| UdevHelp::new(cache.join(bezel_devices::udev::FILE_NAME))),
         fonts,
         studio: Session::new(studio),
         storage,
@@ -902,58 +850,15 @@ fn switch_on(value: Option<&OsStr>) -> bool {
     value == Some(OsStr::new("1"))
 }
 
-/// WebKitGTK's DMA-BUF renderer kills the app with a Wayland protocol error
-/// on NVIDIA's driver (seen on the dev machine with ddc-control). WebKit reads
-/// the switch once at start and setting it in-process needs `unsafe`, so the
-/// process replaces itself with the switch on, unless the user chose a value.
-/// The studio's one spawned program, its own file
-/// (D-2026-10-01-gif-sticker-search-15): the source guard accepts
-/// `Command` only here, as `std::process::Command::new` of the name bound
-/// once to `std::env::current_exe()`, and no macro here.
-#[cfg(target_os = "linux")]
-fn restart_without_dmabuf_renderer() {
-    use std::os::unix::process::CommandExt;
-
-    if std::env::var_os(DMABUF_SWITCH).is_some() {
-        return;
-    }
-    let Ok(exe) = std::env::current_exe() else {
-        return;
-    };
-    // `exec` returns only when the process could not replace itself.
-    let error = std::process::Command::new(exe)
-        .args(std::env::args_os().skip(1))
-        .env(DMABUF_SWITCH, "1")
-        .exec();
-    diag::report(restart_failure(&error));
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::{BTreeSet, HashMap, HashSet};
     use std::sync::mpsc;
-    #[cfg(not(windows))]
-    use std::time::Duration;
 
     use super::*;
     use bezel_core::app::discover_screens;
-    #[cfg(not(windows))]
-    use bezel_core::domain::gifs::{GifItem, GifKind, GifPage, Rendition, RenditionFormat, Tier};
+
     use bezel_media::collection::FakeGifSource;
-    #[cfg(not(windows))]
-    use bezel_media::collection::GifCall;
-    #[cfg(not(windows))]
-    use serde_json::{Value, json};
-    #[cfg(not(windows))]
-    use tauri::ipc::{CallbackFn, InvokeBody};
-    #[cfg(not(windows))]
-    use tauri::test::{
-        INVOKE_KEY, MockRuntime, get_ipc_response, mock_builder, mock_context, noop_assets,
-    };
-    #[cfg(not(windows))]
-    use tauri::utils::config::WindowConfig;
-    #[cfg(not(windows))]
-    use tauri::webview::{InvokeRequest, WebviewWindow};
 
     use proc_macro2::{Delimiter, Ident, Spacing, TokenStream, TokenTree};
     use syn::ext::IdentExt as _;
@@ -967,18 +872,6 @@ mod tests {
         PatIdent, QSelf, ReturnType, Signature, Stmt, TraitItemFn, Type, UseName, UseRename,
         UseTree,
     };
-
-    #[cfg(not(windows))]
-    use crate::gifs::SavedKey;
-
-    /// An obvious fake KLIPY key.
-    #[cfg(not(windows))]
-    const KEY: &str = "fake-KLIPY_key-0123456789abcdef";
-
-    /// How long the started app idles, after its refresh loop's first
-    /// round, for anything it started to ask KLIPY.
-    #[cfg(not(windows))]
-    const IDLE: Duration = Duration::from_millis(1500);
 
     /// An empty temporary folder for the test `name`.
     pub(crate) fn temp_root(name: &str) -> PathBuf {
@@ -1012,412 +905,6 @@ mod tests {
         )
     }
 
-    /// D-2026-10-01-gif-sticker-search-3 (DoD critic, row 3): the app's own
-    /// setup, run by Tauri's runtime (the mock one) with a KLIPY key saved,
-    /// asks nothing of KLIPY. The GIF source is never made, so never asked,
-    /// while the app idles: its refresh loop goes round once, then a while
-    /// more. Only the folders (temporary), the GIF source (counted), the
-    /// screen (simulated), the tray (none: it needs the desktop's) and the
-    /// bus logind is on are the test's.
-    ///
-    /// D-2026-10-03-power-off-standby-3 and -6: the setup's one D-Bus
-    /// connection goes to the bus [`Start`] names (on Linux, a private
-    /// `dbus-daemon` with a fake logind; never the machine's system bus),
-    /// and a monitor of that whole bus sees it say exactly `Hello` and the
-    /// `AddMatch` of `PrepareForShutdown` to the bus, and `Inhibit` of a
-    /// shutdown delay to logind: nothing else, to anyone else.
-    ///
-    /// Not built on Windows (D-2026-10-01-gif-sticker-search-8): the mock
-    /// runtime's `test` feature makes the Windows test binary fail to load
-    /// without the Common Controls v6 manifest; what it proves does not
-    /// depend on the platform.
-    #[cfg(not(windows))]
-    #[test]
-    fn the_app_setup_sends_nothing_at_start() {
-        let root = temp_root("setup");
-        let folders = Folders::under(&root);
-        let saved = SavedKey::new(KlipyKey::parse(KEY).unwrap(), "customer-0001");
-        KeyFile::new(folders.config.join(KEY_FILE))
-            .save(&saved)
-            .unwrap();
-        let source = FakeGifSource::new();
-        let (made, made_rx) = mpsc::channel();
-        let (round, rounds) = mpsc::channel();
-        #[cfg(target_os = "linux")]
-        let logind = crate::power::tests::LogindBus::start(Some(Duration::from_secs(5)));
-        #[cfg(target_os = "linux")]
-        let bus = logind.address();
-        #[cfg(not(target_os = "linux"))]
-        let bus = no_bus();
-        let start = Start {
-            simulate: true,
-            adapters: adapters(true),
-            hidden: false,
-            folders: Box::new(move |_: &AppHandle<MockRuntime>| Ok(folders)),
-            gif_source: counting(&source, made),
-            tray: Box::new(move |_: &AppHandle<MockRuntime>, _, _: &Texts| {
-                // The refresh loop syncs the live item after each round.
-                let synced: LiveSync = Box::new(move |_| {
-                    let _ = round.send(());
-                });
-                Ok(synced)
-            }),
-            logind: bus,
-        };
-        let app = mock_builder()
-            .setup(move |app| setup(app, start))
-            .build(context_with_the_window())
-            .unwrap();
-
-        let (seen, seen_rx) = mpsc::channel();
-        app.run_return(move |app, event| {
-            if !matches!(event, RunEvent::Ready) {
-                return;
-            }
-            let went_round = rounds.recv_timeout(Duration::from_secs(60)).is_ok();
-            let asked = made_rx.recv_timeout(IDLE).is_ok();
-            let composed =
-                app.try_state::<Shared>().is_some() && app.try_state::<Unsaved>().is_some();
-            let key_saved = app
-                .try_state::<SharedGifs>()
-                .is_some_and(|gifs| gifs.key_status().is_ok_and(|key| key.configured));
-            seen.send((went_round, asked, composed, key_saved)).unwrap();
-            // The window closes: the app ends.
-            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-                window.destroy().unwrap();
-            }
-        });
-        let (went_round, asked, composed, key_saved) = seen_rx.recv().unwrap();
-        let _ = std::fs::remove_dir_all(&root);
-        assert!(
-            composed,
-            "the setup kept the backend and the session's state"
-        );
-        assert!(key_saved, "the app's GIF state has the saved key");
-        assert!(went_round, "the setup started the refresh loop");
-        assert!(!asked, "a GIF source was made at start");
-        assert!(source.calls().is_empty(), "KLIPY was asked at start");
-        #[cfg(target_os = "linux")]
-        logind.saw_the_studio_take_the_lock_and_say_nothing_else();
-    }
-
-    /// D-2026-10-03-power-off-standby-3 (2), DoD row 3: the handler
-    /// `App::run` gets ([`on_run_event`]), driven by Tauri's runtime (the
-    /// mock one) after the app's real setup put the fake 8.8" live with
-    /// `off` recorded. The window closes, so the runtime sends
-    /// `ExitRequested`, then `Exit`. Only `Exit`, and only while the session
-    /// is ending, applies the choice (TURNOFF through the live screen's
-    /// link), and after it the final state holds; the request to exit
-    /// before it, and the same `Exit` when the session is not ending (the
-    /// app quit), send nothing. The session's end is the only thing the
-    /// test gives the handler instead of Windows' answer.
-    ///
-    /// Not built on Windows (D-2026-10-01-gif-sticker-search-8): the mock
-    /// runtime cannot load there; `power::tests::a_session_end_applies_the_
-    /// choice_and_a_quit_does_not` runs what `Exit` does on Windows too.
-    #[cfg(not(windows))]
-    #[test]
-    fn only_the_exit_event_of_an_ending_session_applies_the_choice() {
-        use crate::power::tests::{DISPLAY, adapters_over, folders_for, off};
-        use bezel_devices::fake::StorageCall;
-
-        let ended = |session_ending: fn() -> bool, name: &str| {
-            let (_root, folders) = folders_for(name, off());
-            let fake = FakeConnector::with_storage(FakeStorage::default());
-            let (made, _) = mpsc::channel();
-            let start = Start {
-                simulate: false,
-                adapters: adapters_over(FakeBus::turing_88(), fake.clone()),
-                hidden: true,
-                folders: Box::new(move |_: &AppHandle<MockRuntime>| Ok(folders)),
-                gif_source: counting(&FakeGifSource::new(), made),
-                tray: Box::new(|_: &AppHandle<MockRuntime>, _, _: &Texts| {
-                    let synced: LiveSync = Box::new(|_| {});
-                    Ok(synced)
-                }),
-                logind: no_bus(),
-            };
-            let app = mock_builder()
-                .setup(move |app| setup(app, start))
-                .build(context_with_the_window())
-                .unwrap();
-            let screen = fake.clone();
-            let turned_off = move || {
-                let calls = screen.log().storage.calls;
-                calls
-                    .iter()
-                    .filter(|c| **c == StorageCall::TurnOffNow)
-                    .count()
-            };
-            let (seen, seen_rx) = mpsc::channel();
-            app.run_return(move |app, event| {
-                let kind = match &event {
-                    RunEvent::Ready => "Ready",
-                    RunEvent::ExitRequested { .. } => "ExitRequested",
-                    RunEvent::Exit => "Exit",
-                    // The loop's other events go through the handler too.
-                    _ => "",
-                };
-                if kind == "Ready" {
-                    let backend = Arc::clone(app.state::<Shared>().inner());
-                    let until = Instant::now() + Duration::from_secs(10);
-                    while backend.studio().live_key() != Some(DISPLAY)
-                        || fake.log().frames.is_empty()
-                    {
-                        assert!(Instant::now() < until, "the screen never went live");
-                        std::thread::sleep(Duration::from_millis(10));
-                    }
-                }
-                on_run_event(app, &event, session_ending);
-                if kind.is_empty() {
-                    return;
-                }
-                let final_state = app
-                    .try_state::<Shared>()
-                    .is_some_and(|b| b.studio().shutting_down());
-                seen.send((kind, turned_off(), final_state)).unwrap();
-                if kind == "Ready"
-                    && let Some(window) = app.get_webview_window(MAIN_WINDOW)
-                {
-                    window.destroy().unwrap();
-                }
-            });
-            seen_rx.try_iter().collect::<Vec<_>>()
-        };
-
-        assert_eq!(
-            ended(|| true, "run-event-session-end"),
-            [
-                ("Ready", 0, false),
-                ("ExitRequested", 0, false),
-                ("Exit", 1, true)
-            ],
-            "the session ends"
-        );
-        assert_eq!(
-            ended(|| false, "run-event-quit"),
-            [
-                ("Ready", 0, false),
-                ("ExitRequested", 0, false),
-                ("Exit", 0, false)
-            ],
-            "the app quits"
-        );
-    }
-
-    /// A bus address where nothing listens: the start of a test that does
-    /// not watch logind says so and goes on, never reaching the machine's
-    /// system bus.
-    #[cfg(not(windows))]
-    pub(crate) fn no_bus() -> BusAddress {
-        BusAddress::new("unix:path=/nonexistent/bezel-studio-test/bus")
-    }
-
-    /// A mock context with the window as `tauri.conf.json` has it, made
-    /// before the setup.
-    #[cfg(not(windows))]
-    pub(crate) fn context_with_the_window() -> tauri::Context<MockRuntime> {
-        let mut context = mock_context(noop_assets());
-        context.config_mut().app.windows.push(WindowConfig {
-            label: MAIN_WINDOW.into(),
-            visible: false,
-            ..WindowConfig::default()
-        });
-        context
-    }
-
-    /// The window invokes `command` with `args` through Tauri's IPC, as
-    /// `bridge.js` does: its answer, or the error it was rejected with.
-    #[cfg(not(windows))]
-    fn invoke(
-        window: &WebviewWindow<MockRuntime>,
-        command: &str,
-        args: Value,
-    ) -> Result<Value, Value> {
-        let request = InvokeRequest {
-            cmd: command.into(),
-            callback: CallbackFn(0),
-            error: CallbackFn(1),
-            url: "tauri://localhost".parse().unwrap(),
-            body: InvokeBody::from(args),
-            headers: tauri::http::HeaderMap::default(),
-            invoke_key: INVOKE_KEY.into(),
-        };
-        get_ipc_response(window, request).map(|body| body.deserialize().unwrap())
-    }
-
-    /// D-2026-10-01-gif-sticker-search-3: what lets the GIF state ask KLIPY
-    /// is a command the window invoked. Through Tauri's IPC (the mock
-    /// runtime's), with the arguments the UI sends (`bridge.js`, unchanged),
-    /// `search_gifs`, `gif_preview` and `collect_gif` reach the source,
-    /// made on the first of them and not by the setup.
-    #[cfg(not(windows))]
-    #[test]
-    fn the_windows_gif_commands_reach_the_source() {
-        let root = temp_root("ipc");
-        let folders = Folders::under(&root);
-        KeyFile::new(folders.config.join(KEY_FILE))
-            .save(&SavedKey::new(
-                KlipyKey::parse(KEY).unwrap(),
-                "customer-0001",
-            ))
-            .unwrap();
-        let cat = GifItem {
-            id: "a1".into(),
-            title: "Cat".into(),
-            kind: GifKind::Gif,
-            page_url: None,
-            renditions: vec![Rendition {
-                tier: Tier::Small,
-                format: RenditionFormat::Gif,
-                location: "f/a1.gif".into(),
-                width: 2,
-                height: 2,
-                bytes: None,
-            }],
-        };
-        let page = GifPage {
-            items: vec![cat],
-            has_next: false,
-        };
-        let source = FakeGifSource::new()
-            .with_page(GifKind::Gif, "cat", 1, page)
-            .with_file("f/a1.gif", crate::media::tests::gif(2));
-        let (made, made_rx) = mpsc::channel();
-        let start = Start {
-            simulate: true,
-            adapters: adapters(true),
-            hidden: true,
-            folders: Box::new(move |_: &AppHandle<MockRuntime>| Ok(folders)),
-            gif_source: counting(&source, made),
-            tray: Box::new(|_: &AppHandle<MockRuntime>, _, _: &Texts| {
-                let synced: LiveSync = Box::new(|_| {});
-                Ok(synced)
-            }),
-            logind: no_bus(),
-        };
-        let app = mock_builder()
-            .setup(move |app| setup(app, start))
-            .invoke_handler(tauri::generate_handler![
-                commands::search_gifs,
-                commands::gif_preview,
-                commands::collect_gif,
-            ])
-            .build(context_with_the_window())
-            .unwrap();
-
-        let (seen, seen_rx) = mpsc::channel();
-        app.run_return(move |app, event| {
-            if !matches!(event, RunEvent::Ready) {
-                return;
-            }
-            let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
-                return;
-            };
-            let at_start = made_rx.try_iter().count();
-            let search = json!({"kind": "gif", "text": "cat", "page": 1, "explicit": false});
-            let answers = [
-                invoke(&window, "search_gifs", search),
-                invoke(&window, "gif_preview", json!({"id": "a1", "still": false})),
-                invoke(&window, "collect_gif", json!({"id": "a1"})),
-            ];
-            let made = made_rx.try_iter().count();
-            seen.send((at_start, answers, made)).unwrap();
-            // The window closes: the app ends.
-            window.destroy().unwrap();
-        });
-        let (at_start, [found, preview, collected], made) = seen_rx.recv().unwrap();
-        let _ = std::fs::remove_dir_all(&root);
-
-        assert_eq!(at_start, 0, "a GIF source was made at start");
-        let found = found.unwrap();
-        assert_eq!(found["items"][0]["id"], "a1", "{found}");
-        let preview = preview.unwrap();
-        let preview = preview.as_str().unwrap_or_default();
-        assert!(preview.starts_with("data:image/gif;base64,"), "{preview}");
-        let collected = collected.unwrap();
-        assert_eq!(collected["source"]["id"], "a1", "{collected}");
-        assert_eq!(made, 1, "one source, made for the first command");
-        // The search, the preview's file, the collected file.
-        let calls = source.calls();
-        let asked = match &calls[..] {
-            [
-                GifCall::Page(query),
-                GifCall::Download {
-                    location: shown, ..
-                },
-                GifCall::Download { location: kept, .. },
-            ] => Some((query.text.as_str(), shown.as_str(), kept.as_str())),
-            _ => None,
-        };
-        assert_eq!(asked, Some(("cat", "f/a1.gif", "f/a1.gif")), "{calls:?}");
-    }
-
-    /// D-2026-10-01-gif-sticker-search-10: through Tauri's IPC (the mock
-    /// runtime's), with the argument the UI sends (`bridge.js`, unchanged:
-    /// `{key}`, a string), `save_klipy_key` reads the key straight into a
-    /// [`KlipyKey`]: one that cannot be a key rejects with `invalidInput`,
-    /// as before and never quoting it, so the window still says which
-    /// characters a key has; a key saves, and the window sees its last 4.
-    #[cfg(not(windows))]
-    #[test]
-    fn the_window_sends_the_key_as_before() {
-        let root = temp_root("ipc-key");
-        let folders = Folders::under(&root);
-        let key_file = KeyFile::new(folders.config.join(KEY_FILE));
-        let (made, made_rx) = mpsc::channel();
-        let start = Start {
-            simulate: true,
-            adapters: adapters(true),
-            hidden: true,
-            folders: Box::new(move |_: &AppHandle<MockRuntime>| Ok(folders)),
-            gif_source: counting(&FakeGifSource::new(), made),
-            tray: Box::new(|_: &AppHandle<MockRuntime>, _, _: &Texts| {
-                let synced: LiveSync = Box::new(|_| {});
-                Ok(synced)
-            }),
-            logind: no_bus(),
-        };
-        let app = mock_builder()
-            .setup(move |app| setup(app, start))
-            .invoke_handler(tauri::generate_handler![
-                commands::klipy_key,
-                commands::save_klipy_key,
-            ])
-            .build(context_with_the_window())
-            .unwrap();
-
-        let (seen, seen_rx) = mpsc::channel();
-        app.run_return(move |app, event| {
-            if !matches!(event, RunEvent::Ready) {
-                return;
-            }
-            let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
-                return;
-            };
-            let answers = [
-                invoke(&window, "save_klipy_key", json!({"key": "not a key!"})),
-                invoke(&window, "save_klipy_key", json!({"key": KEY})),
-                invoke(&window, "klipy_key", json!({})),
-            ];
-            seen.send(answers).unwrap();
-            // The window closes: the app ends.
-            window.destroy().unwrap();
-        });
-        let [refused, saved, status] = seen_rx.recv().unwrap();
-        let on_disk = key_file.load();
-        let _ = std::fs::remove_dir_all(&root);
-
-        let refused = refused.unwrap_err();
-        assert_eq!(refused["code"], "invalidInput", "{refused}");
-        assert!(!refused.to_string().contains("not a key"), "{refused}");
-        let shown = json!({"configured": true, "last4": "cdef"});
-        assert_eq!(saved.unwrap(), shown);
-        assert_eq!(status.unwrap(), shown);
-        assert!(on_disk.unwrap().is_some(), "the key was saved");
-        assert!(made_rx.try_recv().is_err(), "saving a key asks nothing");
-    }
-
     /// Review W1 of round 2, iter 4: a start that failed says which part
     /// failed, by the variant of Tauri's error or the kind of the I/O
     /// error, never by its text. The runtime's and the setup's errors never
@@ -1446,20 +933,6 @@ mod tests {
             (io::ErrorKind::Other, DiagCode::RefreshLoopNotStarted),
         ] {
             assert_eq!(refresh_loop_failure(&io(kind)), code, "{kind:?}");
-        }
-        #[cfg(target_os = "linux")]
-        for (kind, code) in [
-            (io::ErrorKind::NotFound, DiagCode::DmabufRestartNoFile),
-            (
-                io::ErrorKind::PermissionDenied,
-                DiagCode::DmabufRestartDenied,
-            ),
-            (
-                io::ErrorKind::ArgumentListTooLong,
-                DiagCode::DmabufRendererOn,
-            ),
-        ] {
-            assert_eq!(restart_failure(&io(kind)), code, "{kind:?}");
         }
     }
 
@@ -3953,8 +3426,8 @@ mod tests {
         // helper, which the two commands that open a page call.
         assert_eq!(
             spawns,
-            ["lib.rs: restart_without_dmabuf_renderer"],
-            "one program spawned: the studio's own file, by its re-exec"
+            Vec::<String>::new(),
+            "no Linux re-exec remains in production"
         );
         opens.dedup();
         assert_eq!(
@@ -4676,6 +4149,13 @@ mod tests {
     fn loggers_built_in() -> Vec<MetadataCase> {
         let on = |kind: serde_json::Value| -> Box<dyn Fn(&mut serde_json::Value)> {
             Box::new(move |m| {
+                // The removed non-Windows mock runtime is now a hypothetical dependency.
+                if kind == serde_json::json!("dev") {
+                    let mut mock = declared(m, "tauri", &serde_json::Value::Null).clone();
+                    mock["kind"] = kind.clone();
+                    mock["target"] = serde_json::json!("cfg(not(windows))");
+                    declares(mock)(m);
+                }
                 declared(m, "tauri", &kind)["features"]
                     .as_array_mut()
                     .unwrap()

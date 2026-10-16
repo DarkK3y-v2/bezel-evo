@@ -476,7 +476,7 @@ pub(crate) fn fixture_on(
         settings: SettingsFile::new(root.join("settings.json")),
         system_language: Language::English,
         make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
-        udev: None,
+
         fonts: bezel_render::FontCatalog::default(),
         studio: crate::backend::Session::new(studio),
         storage,

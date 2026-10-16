@@ -127,12 +127,11 @@ fn placeholders(text: &'static str) -> Vec<&'static str> {
 
 /// Why a UI command failed: an [`ErrorCode`] and the values of its
 /// arguments. The UI gets `{code, args, message}`, `message` being the
-/// English sentence (`Display`), and `udevCommand` when a command fixes it.
+/// English sentence (`Display`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiError {
     code: ErrorCode,
     args: Vec<(&'static str, String)>,
-    udev_command: Option<String>,
 }
 
 /// Result of a UI command.
@@ -145,21 +144,7 @@ impl UiError {
         Self {
             code,
             args: Vec::new(),
-            udev_command: None,
         }
-    }
-
-    /// Names the command that installs the udev rule, which fixes a denied
-    /// port on Linux (never run by the app).
-    #[must_use]
-    pub fn with_udev_command(mut self, command: String) -> Self {
-        self.udev_command = Some(command);
-        self
-    }
-
-    /// The command that installs the udev rule, when it fixes this error.
-    pub fn udev_command(&self) -> Option<&str> {
-        self.udev_command.as_deref()
     }
 
     /// Sets the argument `name` (one of the code's [`ErrorCode::params`]).
@@ -226,14 +211,12 @@ impl std::error::Error for UiError {}
 impl Serialize for UiError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let args: BTreeMap<&str, &str> = self.args.iter().map(|(n, v)| (*n, v.as_str())).collect();
-        let fields = 3 + usize::from(self.udev_command.is_some());
+        let fields = 3;
         let mut out = serializer.serialize_struct("UiError", fields)?;
         out.serialize_field("code", self.code())?;
         out.serialize_field("args", &args)?;
         out.serialize_field("message", &self.to_string())?;
-        if let Some(command) = &self.udev_command {
-            out.serialize_field("udevCommand", command)?;
-        }
+
         out.end()
     }
 }
@@ -489,11 +472,11 @@ mod tests {
         let denied = UiError::from(BezelError::AccessDenied {
             address: "/dev/ttyACM1".into(),
             reason: "Permission denied".into(),
-        })
-        .with_udev_command("sudo install x".into());
+        });
         let json = serde_json::to_value(&denied).unwrap();
-        assert_eq!(json["udevCommand"], "sudo install x");
-        assert_eq!(denied.udev_command(), Some("sudo install x"));
+        assert_eq!(json.as_object().unwrap().len(), 3);
+        assert_eq!(json["code"], "accessDenied");
+        assert!(json.get("udevCommand").is_none());
         let file = UiError::file("/a.png", "denied");
         assert_eq!(
             (file.code(), file.value("reason")),
