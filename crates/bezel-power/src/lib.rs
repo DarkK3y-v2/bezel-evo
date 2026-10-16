@@ -63,3 +63,4 @@ pub enum PowerError {
     #[error("logind exists only on Linux")]
     Unsupported,
 }
+pub mod owner;

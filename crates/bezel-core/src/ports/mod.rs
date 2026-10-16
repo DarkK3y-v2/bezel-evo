@@ -101,6 +101,11 @@ pub struct TransferStats {
 /// looks at; the adapter rotates and encodes them for the panel and decides
 /// between a full frame and a partial update.
 pub trait ScreenLink: Send {
+    /// True while another local runtime supplies frames through this owner.
+    /// A saved-theme runtime should wait without rendering or touching media.
+    fn presentation_paused(&self) -> bool {
+        false
+    }
     /// Measurements when the adapter supports them; unavailable otherwise.
     fn last_transfer(&self) -> Option<TransferStats> {
         None
@@ -222,6 +227,13 @@ pub trait ScreenStorage {
     /// take it as the video of
     /// [`StartMode::Video`](crate::domain::storage::StartMode::Video).
     fn play_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()>;
+
+    /// Ensures a runtime background is playing. Persistent owners may keep
+    /// an already selected video across clients; explicit play_video still
+    /// restarts playback when the user asks. Default for direct links: play.
+    fn resume_video(&mut self, path: &RemotePath, repeat: Repeat) -> Result<()> {
+        self.play_video(path, repeat)
+    }
 
     /// Stops whatever the screen plays and shows the stored image at `path`
     /// (rev C: PLAY_IMAGE, waiting for `play_img_ok`). The firmware may also
@@ -557,4 +569,22 @@ pub trait ThemeStore {
         theme: &Theme,
         assets: &BTreeMap<AssetRef, Vec<u8>>,
     ) -> Result<()>;
+}
+
+/// Driven port: a bounded request/reply channel to the local screen owner.
+/// Metadata and binary payload are separate so frames never need text encoding.
+/// The adapter authenticates the peer and validates lengths before allocating.
+pub trait ScreenChannel: Send {
+    /// Whether the transport is still connected, independently of device errors.
+    fn connected(&self) -> bool {
+        true
+    }
+    /// One request, including streamed progress and cooperative cancellation.
+    /// A transport failure must never transparently replay a device write.
+    fn exchange(
+        &mut self,
+        metadata: &[u8],
+        payload: &[u8],
+        job: Option<&mut Job<'_>>,
+    ) -> Result<Vec<u8>>;
 }

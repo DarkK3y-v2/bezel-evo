@@ -878,7 +878,7 @@ impl ThemeRuntime {
                 match presence(storage, &path)? {
                     Presence::Absent => VideoState::StoredMissing(path),
                     Presence::Stored(_) => {
-                        storage.play_video(&path, repeat)?;
+                        storage.resume_video(&path, repeat)?;
                         self.playing = Some(path.clone());
                         VideoState::OnDevice(path)
                     }
@@ -919,7 +919,7 @@ impl ThemeRuntime {
     ) -> Result<VideoState> {
         match find_video(storage, device.name, device.expect)? {
             Lookup::Stored(path) => {
-                storage.play_video(&path, Repeat::Loop)?;
+                storage.resume_video(&path, Repeat::Loop)?;
                 self.playing = Some(path.clone());
                 Ok(VideoState::OnDevice(path))
             }
