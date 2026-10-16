@@ -241,7 +241,7 @@ pub fn dispatch(
                 match link.last_transfer() {
                     Some(stats) => {
                         serde_json::json!({"bytes":stats.bytes,"conversion_ms":stats.conversion_ms,
-                        "diff_ms":stats.diff_ms,"write_ms":stats.write_ms,"reply_ms":stats.reply_ms,"kind":stats.kind})
+                        "diff_ms":stats.diff_ms,"write_ms":stats.write_ms,"reply_ms":stats.reply_ms,"kind":stats.kind,"reason":stats.reason})
                     }
                     None => serde_json::Value::Null,
                 }
@@ -513,6 +513,18 @@ impl ScreenLink for RemoteLink {
                 write_ms: value["write_ms"].as_f64().ok_or_else(invalid)?,
                 reply_ms: value["reply_ms"].as_f64().ok_or_else(invalid)?,
                 kind,
+                reason: match value["reason"].as_str().unwrap_or("") {
+                    "connection" => "connection",
+                    "orientation" => "orientation",
+                    "screen_off" => "screen_off",
+                    "release" => "release",
+                    "previous_write_failed" => "previous_write_failed",
+                    "dirty_full_canvas" => "dirty_full_canvas",
+                    "device_requested" => "device_requested",
+                    "no_baseline" => "no_baseline",
+                    "diff_larger_than_full" => "diff_larger_than_full",
+                    _ => "remote",
+                },
             });
         }
         Ok(())

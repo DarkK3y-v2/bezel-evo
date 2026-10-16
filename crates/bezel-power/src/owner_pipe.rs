@@ -186,7 +186,7 @@ impl Write for TimedFile {
 
 /// Connected editor session. EOF on drop resumes the saved-theme runtime.
 pub struct PipeChannel {
-    stream: TimedFile,
+    stream: Option<TimedFile>,
     connected: bool,
 }
 impl PipeChannel {
@@ -233,25 +233,44 @@ impl PipeChannel {
             timeout: Duration::from_secs(15),
         };
         // A compatible authenticated server must answer before any device write.
-        owner_protocol::write_packet(&mut stream, b"hello", &[])?;
-        let (reply, payload) = owner_protocol::read_packet(&mut stream)?;
+        owner_protocol::write_packet(&mut stream, b"hello", &[])
+            .inspect_err(|e| crate::diagnostics::failure("handshake", e))?;
+        let (reply, payload) = owner_protocol::read_packet(&mut stream)
+            .inspect_err(|e| crate::diagnostics::failure("handshake", e))?;
         if reply != b"ready" || !payload.is_empty() {
-            return Err(io::Error::other("incompatible Light server"));
+            let error = io::Error::other("incompatible Light server");
+            crate::diagnostics::failure("handshake", &error);
+            return Err(error);
         }
         Ok(Self {
-            stream,
+            stream: Some(stream),
             connected: true,
         })
     }
 }
 impl ScreenChannel for PipeChannel {
     fn exchange_binary(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        if metadata.len() > owner_protocol::MAX_METADATA
+            || payload.len() > owner_protocol::MAX_PAYLOAD
+        {
+            return Err(bezel_core::BezelError::InvalidInput(
+                "owner message exceeds limits".into(),
+            ));
+        }
+        let stream = self
+            .stream
+            .as_mut()
+            .ok_or_else(|| bezel_core::BezelError::Transport("Light session closed".into()))?;
         let result = (|| {
-            owner_protocol::write_packet(&mut self.stream, metadata, payload)?;
-            owner_protocol::read_packet(&mut self.stream)
+            owner_protocol::write_packet(stream, metadata, payload)
+                .inspect_err(|e| crate::diagnostics::failure("request_write", e))?;
+            owner_protocol::read_packet(stream)
+                .inspect_err(|e| crate::diagnostics::failure("reply_read", e))
         })();
         if result.is_err() {
             self.connected = false;
+            // Release a failed endpoint before probing/reconnecting the owner.
+            self.stream = None;
         }
         result.map_err(|e| bezel_core::BezelError::Transport(e.to_string()))
     }
@@ -264,9 +283,22 @@ impl ScreenChannel for PipeChannel {
         payload: &[u8],
         job: Option<&mut Job<'_>>,
     ) -> Result<Vec<u8>> {
-        let result = owner_protocol::exchange(&mut self.stream, metadata, payload, job);
+        if metadata.len() > owner_protocol::MAX_METADATA
+            || payload.len() > owner_protocol::MAX_PAYLOAD
+        {
+            return Err(bezel_core::BezelError::InvalidInput(
+                "owner message exceeds limits".into(),
+            ));
+        }
+        let stream = self
+            .stream
+            .as_mut()
+            .ok_or_else(|| bezel_core::BezelError::Transport("Light session closed".into()))?;
+        let result = owner_protocol::exchange(stream, metadata, payload, job);
         if result.is_err() {
             self.connected = false;
+            // Release a failed endpoint before probing/reconnecting the owner.
+            self.stream = None;
         }
         result
     }
@@ -384,28 +416,56 @@ impl Server {
                         std::thread::sleep(Duration::from_millis(5));
                         continue;
                     }
-                    let Ok((metadata, payload)) = owner_protocol::read_packet(&mut stream) else {
-                        break;
+                    let (metadata, payload) = match owner_protocol::read_packet(&mut stream) {
+                        Ok(packet) => packet,
+                        Err(error) => {
+                            crate::diagnostics::failure("packet_read", &error);
+                            break;
+                        }
                     };
                     if let Some(runtime) = &runtime
                         && serde_json::from_slice::<serde_json::Value>(&metadata)
                             .is_ok_and(|v| v["runtime"] == 2)
                     {
+                        crate::diagnostics::runtime_request(&metadata);
                         let readonly = payload.is_empty()
                             && serde_json::from_slice::<serde_json::Value>(&metadata)
                                 .is_ok_and(|v| v["op"]["command"] == "Image");
                         let answer = if readonly && let Some(images) = &images {
-                            images
-                                .image(&metadata)
-                                .map_err(|e| io::Error::other(e.to_string()))?
+                            images.image(&metadata)
                         } else {
                             runtime
                                 .lock()
                                 .map_err(|_| io::Error::other("runtime lock poisoned"))?
                                 .request(&metadata, &payload)
-                                .map_err(|e| io::Error::other(e.to_string()))?
                         };
-                        if owner_protocol::write_packet(&mut stream, &answer.0, &answer.1).is_err()
+                        match &answer {
+                            Ok((meta, binary)) => {
+                                crate::diagnostics::runtime_reply(meta.len(), binary.len(), false)
+                            }
+                            Err(_) => crate::diagnostics::runtime_reply(0, 0, true),
+                        }
+                        let answer = match answer {
+                            Ok(answer)
+                                if answer.0.len() <= owner_protocol::MAX_METADATA
+                                    && answer.1.len() <= 64 * 1024 * 1024 =>
+                            {
+                                answer
+                            }
+                            _ => {
+                                crate::diagnostics::failure(
+                                    "request_rejected",
+                                    &io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        "invalid runtime response",
+                                    ),
+                                );
+                                (br#"{"value":null,"error":"Light request rejected or response exceeds limits"}"#.to_vec(), Vec::new())
+                            }
+                        };
+                        if owner_protocol::write_packet(&mut stream, &answer.0, &answer.1)
+                            .inspect_err(|e| crate::diagnostics::failure("reply_write", e))
+                            .is_err()
                         {
                             break;
                         }
@@ -524,6 +584,58 @@ mod tests {
         worker.join().unwrap();
         assert_eq!(physical.log().connects, 0);
         assert!(!owner.reload_pending());
+    }
+
+    #[test]
+    fn rejected_or_oversized_runtime_response_does_not_disconnect_the_owner() {
+        struct Endpoint(u8);
+        impl bezel_core::ports::RuntimeEndpoint for Endpoint {
+            fn request(&mut self, _: &[u8], _: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                self.0 += 1;
+                match self.0 {
+                    1 => Err(bezel_core::BezelError::InvalidInput("rejected".into())),
+                    2 => Ok((vec![0; owner_protocol::MAX_METADATA + 1], Vec::new())),
+                    _ => Ok((br#"{"value":true,"error":null}"#.to_vec(), Vec::new())),
+                }
+            }
+            fn disconnected(&mut self) -> Result<()> {
+                Ok(())
+            }
+        }
+        let directory = directory();
+        let server = Server::bind(&directory).unwrap();
+        let owner = Owner::new(Arc::new(FakeConnector::default()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
+        let worker = std::thread::spawn(move || {
+            server
+                .serve_runtime(
+                    owner,
+                    Arc::new(FakeBus::turing_88()),
+                    flag,
+                    Some(Arc::new(std::sync::Mutex::new(Endpoint(0)))),
+                )
+                .unwrap()
+        });
+        let mut client = PipeChannel::connect(&directory, Duration::from_secs(1)).unwrap();
+        assert!(
+            client
+                .exchange_binary(&vec![0; owner_protocol::MAX_METADATA + 1], &[])
+                .is_err()
+        );
+        assert!(
+            client.connected(),
+            "local bounds rejection leaves the owner session healthy"
+        );
+        for round in 0..3 {
+            let (metadata, _) = client.exchange_binary(br#"{"runtime":2}"#, &[]).unwrap();
+            let reply: serde_json::Value = serde_json::from_slice(&metadata).unwrap();
+            assert_eq!(reply["error"].is_string(), round < 2);
+            assert!(client.connected());
+        }
+        stop.store(true, Ordering::SeqCst);
+        drop(client);
+        worker.join().unwrap();
     }
 
     #[test]

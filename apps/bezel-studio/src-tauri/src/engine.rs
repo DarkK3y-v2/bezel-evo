@@ -70,7 +70,14 @@ impl EngineBridge {
         } else {
             match self.connection.request(&metadata, binary) {
                 Ok(reply) => reply,
-                Err(_) => {
+                Err(error) => {
+                    if self.connection.reachable() {
+                        // A fresh authenticated session must receive editor state,
+                        // but never replay the uncertain operation itself.
+                        self.restore_remote(state)?;
+                        state.cursor = None;
+                        return Err(error);
+                    }
                     self.connection.take_direct_ownership()?;
                     let mut local = (self.factory)()?;
                     local.suspend(state.suspended);
@@ -101,7 +108,45 @@ impl EngineBridge {
                 }
             }
         };
+        let reply = wire::unpack_reply(reply)?;
         Ok((wire::response(&reply.0)?, reply.1))
+    }
+    fn restore_remote(&self, state: &mut State) -> Result<()> {
+        let send = |key: &str, op: RuntimeOp, binary: &[u8]| -> Result<()> {
+            let reply = self.connection.request(&wire::request(key, op)?, binary)?;
+            let reply = wire::unpack_reply(reply)?;
+            wire::response(&reply.0)?;
+            Ok(())
+        };
+        if let Some(options) = &state.options {
+            send(
+                "__options__",
+                RuntimeOp::Options {
+                    options: options.clone(),
+                },
+                &[],
+            )?;
+        }
+        for (key, draft) in &state.drafts {
+            for (document, saved) in [(&draft.saved, true), (&draft.document, false)] {
+                state.revision = state.revision.saturating_add(1);
+                send(
+                    key,
+                    RuntimeOp::Draft {
+                        revision: state.revision,
+                        saved,
+                    },
+                    &wire::document(&document.theme, Some(&document.assets))?,
+                )?;
+            }
+            if let Some(on) = state.live.get(key) {
+                send(key, RuntimeOp::Live { on: *on }, &[])?;
+            }
+            if let Some(on) = state.cards.get(key) {
+                send(key, RuntimeOp::Cards { on: *on }, &[])?;
+            }
+        }
+        Ok(())
     }
     pub fn needs_sync(&self, key: &str, revision: (u64, u64), saved: bool) -> bool {
         saved
@@ -333,6 +378,66 @@ mod tests {
             assets: BTreeMap::new(),
         }
     }
+    #[test]
+    fn a_reachable_new_session_restores_documents_without_a_duplicate_engine() {
+        struct Recover {
+            server: Mutex<Engine>,
+            fail: AtomicBool,
+        }
+        impl RuntimeConnection for Recover {
+            fn request(&self, meta: &[u8], pixels: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                if self.fail.swap(false, Ordering::SeqCst) {
+                    self.server.lock().unwrap().detach()?;
+                    return Err(BezelError::Transport("session closed".into()));
+                }
+                self.server.lock().unwrap().request(meta, pixels)
+            }
+            fn reachable(&self) -> bool {
+                true
+            }
+            fn take_direct_ownership(&self) -> Result<()> {
+                panic!("owner is alive")
+            }
+        }
+        let connection = Arc::new(Recover {
+            server: Mutex::new(engine()),
+            fail: AtomicBool::new(false),
+        });
+        let bridge = EngineBridge::new(connection.clone(), Box::new(|| panic!("no second engine")));
+        bridge.sync("editor", (1, 1), document(), true).unwrap();
+        let mut draft = document();
+        draft.theme.canvas = Size::new(320, 480);
+        draft.theme.orientation = Orientation::Portrait;
+        bridge.sync("editor", (2, 1), draft, false).unwrap();
+        connection.fail.store(true, Ordering::SeqCst);
+        assert!(bridge.canvas("editor", 320, true).is_err());
+        connection.server.lock().unwrap().tick().unwrap();
+        let image = bridge.canvas("editor", 320, true).unwrap();
+        assert_eq!(u32::from_le_bytes(image[..4].try_into().unwrap()), 213);
+        assert_eq!(u32::from_le_bytes(image[4..8].try_into().unwrap()), 320);
+        assert!(bridge.lock().unwrap().local.is_none());
+    }
+
+    #[test]
+    fn reachable_owner_request_error_never_builds_a_fallback() {
+        struct Reject;
+        impl RuntimeConnection for Reject {
+            fn request(&self, _: &[u8], _: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                Err(BezelError::Transport("request rejected".into()))
+            }
+            fn reachable(&self) -> bool {
+                true
+            }
+            fn take_direct_ownership(&self) -> Result<()> {
+                panic!("reachable owner must keep ownership")
+            }
+        }
+        let bridge =
+            EngineBridge::new(Arc::new(Reject), Box::new(|| panic!("no duplicate engine")));
+        assert!(bridge.canvas("editor", 320, true).is_err());
+        assert!(bridge.lock().unwrap().local.is_none());
+    }
+
     #[test]
     fn remote_canvas_is_binary_scaled_and_unchanged_until_document_edit() {
         let (bridge, connection, built) = setup();

@@ -81,6 +81,22 @@ pub fn request(scene: &str, op: RuntimeOp) -> Result<Vec<u8>> {
     })
     .map_err(|e| invalid(&e.to_string()))
 }
+/// Expand a bounded JSON reply carried outside the small metadata envelope.
+pub fn unpack_reply(reply: (Vec<u8>, Vec<u8>)) -> Result<(Vec<u8>, Vec<u8>)> {
+    if reply.0.len() > MAX_METADATA {
+        return Err(invalid("reply metadata size"));
+    }
+    let envelope: Value =
+        serde_json::from_slice(&reply.0).map_err(|_| invalid("invalid runtime reply"))?;
+    if envelope["encoding"] == "json" {
+        if reply.1.len() > MAX_JSON {
+            return Err(invalid("runtime reply exceeds limits"));
+        }
+        Ok((reply.1, Vec::new()))
+    } else {
+        Ok(reply)
+    }
+}
 pub fn is_request(bytes: &[u8]) -> bool {
     bytes.len() <= MAX_METADATA
         && serde_json::from_slice::<RuntimeMessage>(bytes).is_ok_and(|r| r.runtime == 2)
@@ -173,7 +189,7 @@ fn read_document(engine: &Engine, key: &str, bytes: &[u8]) -> Result<Document> {
 }
 /// Reply decoding is shared by Studio's remote and in-process transports.
 pub fn response(metadata: &[u8]) -> Result<Value> {
-    if metadata.len() > MAX_METADATA {
+    if metadata.len() > MAX_JSON {
         return Err(invalid("reply metadata size"));
     }
     let reply: Reply = serde_json::from_slice(metadata).map_err(|e| invalid(&e.to_string()))?;
@@ -388,7 +404,18 @@ pub fn dispatch(
     };
     let metadata = serde_json::to_vec(&reply).map_err(|e| invalid(&e.to_string()))?;
     if metadata.len() > MAX_METADATA {
-        return Err(invalid("runtime reply too large"));
+        // Large catalogs are bounded binary JSON, not pipe metadata.
+        // A value beyond that ceiling is a request error, not a broken channel.
+        if metadata.len() <= MAX_JSON && pixels.is_empty() {
+            return Ok((
+                br#"{"value":null,"error":null,"encoding":"json"}"#.to_vec(),
+                metadata,
+            ));
+        }
+        return Ok((
+            br#"{"value":null,"error":"runtime reply exceeds limits"}"#.to_vec(),
+            Vec::new(),
+        ));
     }
     Ok((metadata, pixels))
 }

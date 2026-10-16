@@ -99,6 +99,8 @@ pub struct TransferStats {
     pub reply_ms: f64,
     /// Full, partial or unchanged/keepalive frame.
     pub kind: &'static str,
+    /// Fixed adapter reason for a full transfer; never user-controlled text.
+    pub reason: &'static str,
 }
 
 /// Driven port: one connected screen. Frames go in the orientation the user
@@ -628,4 +630,8 @@ pub trait RuntimeConnection: Send + Sync {
     fn request(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
     /// Claim the legacy device lock before constructing an in-process engine.
     fn take_direct_ownership(&self) -> Result<()>;
+    /// True while the authenticated owner still answers; request errors do not grant ownership.
+    fn reachable(&self) -> bool {
+        false
+    }
 }

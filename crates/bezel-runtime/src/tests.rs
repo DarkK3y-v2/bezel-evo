@@ -989,3 +989,89 @@ fn slow_screen_does_not_delay_shared_samples_fast_screen_or_readonly_images() {
         "D-16 graph cadence changed with presentation speed"
     );
 }
+
+#[test]
+fn large_sensor_catalog_uses_bounded_binary_json_instead_of_breaking_the_pipe() {
+    let mut engine = fixture().engine;
+    let info = bezel_core::domain::sensor::SensorInfo {
+        key: SensorKey::new("cpu.usage").unwrap(),
+        category: bezel_core::domain::sensor::Category::Cpu,
+        quantity: bezel_core::domain::sensor::Quantity::Percent,
+        label: "CPU utilization".into(),
+        source: "test".into(),
+    };
+    engine.catalog = vec![info; 1000];
+    let metadata = request("__sensors__", RuntimeOp::Sensors { listed: None }).unwrap();
+    let reply = engine.request(&metadata, &[]).unwrap();
+    assert!(reply.0.len() <= wire::MAX_METADATA);
+    assert!(reply.1.len() > wire::MAX_METADATA);
+    assert!(reply.1.len() <= wire::MAX_JSON);
+    let reply = wire::unpack_reply(reply).unwrap();
+    assert_eq!(
+        response(&reply.0).unwrap()["catalog"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1000
+    );
+    assert!(reply.1.is_empty());
+    assert!(
+        wire::unpack_reply((
+            br#"{"encoding":"json"}"#.to_vec(),
+            vec![0; wire::MAX_JSON + 1]
+        ))
+        .is_err()
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
+    use bezel_core::ports::ScreenChannel;
+    use bezel_power::owner_pipe::{PipeChannel, Server};
+    use std::sync::atomic::AtomicBool;
+    let mut engine = fixture().engine;
+    // Deterministic catalog size; no real sensor or device reads in this test.
+    let info = bezel_core::domain::sensor::SensorInfo {
+        key: SensorKey::new("cpu.usage").unwrap(),
+        category: bezel_core::domain::sensor::Category::Cpu,
+        quantity: bezel_core::domain::sensor::Quantity::Percent,
+        label: "CPU utilization".into(),
+        source: "test".into(),
+    };
+    engine.catalog = vec![info; 1000];
+    let directory = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../target/catalog-pipe-{}", std::process::id()));
+    let server = Server::bind(&directory).unwrap();
+    let stop = Arc::new(AtomicBool::new(false));
+    let flag = stop.clone();
+    let thread = std::thread::spawn(move || {
+        server.serve_runtime(
+            Owner::new(Arc::new(FakeConnector::default())),
+            Arc::new(FakeBus::turing_88()),
+            flag,
+            Some(Arc::new(Mutex::new(engine))),
+        )
+    });
+    let mut client = PipeChannel::connect(&directory, Duration::from_secs(1)).unwrap();
+    for _ in 0..2 {
+        let reply = client
+            .exchange_binary(
+                &request("__sensors__", RuntimeOp::Sensors { listed: None }).unwrap(),
+                &[],
+            )
+            .unwrap();
+        let reply = wire::unpack_reply(reply).unwrap();
+        assert_eq!(
+            response(&reply.0).unwrap()["catalog"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1000
+        );
+        assert!(client.connected());
+    }
+    stop.store(true, Ordering::SeqCst);
+    drop(client);
+    thread.join().unwrap().unwrap();
+}

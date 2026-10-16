@@ -141,6 +141,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         .spawn(move || {
             if let Err(error) = server.serve_runtime(pipe_owner, bus, pipe_stop, Some(pipe_engine))
             {
+                bezel_power::diagnostics::failure("server", &error);
                 eprintln!("bezel light: screen owner stopped: {error}");
             }
         })?;
@@ -304,7 +305,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 true
             }
         };
-        if studio_active && !reload_saved {bezel_power::diagnostics::light(bezel_power::diagnostics::LightEvent::Fallback,0,0.0,"direct");}
+        if studio_active && !reload_saved {bezel_power::diagnostics::observed_fallback(&runtime_directory);}
         if studio_active {
             reload_saved = true;
             stop.store(true, Ordering::SeqCst);

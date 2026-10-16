@@ -77,8 +77,16 @@ impl LightConnector {
             .as_ref()
             .is_some_and(|remote| !remote.connected())
         {
-            // A new server would have lost the acknowledged draft and sequence.
-            // Recover in-process rather than attaching cached editor state to it.
+            // A request failure is not proof that the owner process has died.
+            if let Ok(channel) = PipeChannel::connect(&self.directory, Duration::from_millis(500)) {
+                let remote = RemoteConnector::new(Box::new(channel));
+                state.remote = Some(remote);
+                return op(state
+                    .remote
+                    .as_ref()
+                    .ok_or_else(|| BezelError::Transport("Light session missing".into()))?);
+            }
+            crate::diagnostics::fallback(&self.directory, "session_lost");
             state.remote = None;
             state.fallback = Some(
                 handoff::enter_studio(&self.directory, Duration::from_secs(10)).map_err(|e| {
@@ -90,7 +98,9 @@ impl LightConnector {
         if state.remote.is_none() {
             match self.remote() {
                 Ok(remote) => state.remote = Some(remote),
-                Err(_) => {
+                Err(error) => {
+                    crate::diagnostics::failure("connect", &error);
+                    crate::diagnostics::fallback(&self.directory, "connect_failed");
                     // No device operation is replayed. The current connect or
                     // explicit restart has not been sent to any owner yet.
                     state.fallback = Some(
@@ -238,6 +248,14 @@ impl ScreenLink for SessionLink {
 
 impl bezel_core::ports::RuntimeConnection for LightConnector {
     fn request(&self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+        // Leave a failed session intact until the bridge checks owner health.
+        if self
+            .state
+            .lock()
+            .is_ok_and(|s| s.remote.as_ref().is_some_and(|r| !r.connected()))
+        {
+            return Err(BezelError::Transport("Light session lost".into()));
+        }
         self.with_connector(|_| Ok(()))?;
         let state = self
             .state
@@ -249,13 +267,45 @@ impl bezel_core::ports::RuntimeConnection for LightConnector {
             .ok_or_else(|| BezelError::Transport("Light unavailable".into()))?
             .runtime(metadata, payload)
     }
+    fn reachable(&self) -> bool {
+        let Ok(mut state) = self.state.lock() else {
+            return false;
+        };
+        if state.fallback.is_some() {
+            return false;
+        }
+        if state
+            .remote
+            .as_ref()
+            .is_some_and(RemoteConnector::connected)
+        {
+            return true;
+        }
+        // Probe the existing listener only: never launch a second owner while
+        // deciding whether a crashed established session requires recovery.
+        match PipeChannel::connect(&self.directory, Duration::from_millis(500)) {
+            Ok(channel) => {
+                state.remote = Some(RemoteConnector::new(Box::new(channel)));
+                true
+            }
+            Err(error) => {
+                crate::diagnostics::failure("connect", &error);
+                false
+            }
+        }
+    }
     fn take_direct_ownership(&self) -> Result<()> {
+        if self.reachable() {
+            return Err(BezelError::Transport(
+                "Light is reachable; direct ownership refused".into(),
+            ));
+        }
         let mut state = self
             .state
             .lock()
             .map_err(|_| BezelError::Transport("Light lock poisoned".into()))?;
         state.remote = None;
-        crate::diagnostics::light(crate::diagnostics::LightEvent::Fallback, 0, 0.0, "direct");
+        crate::diagnostics::fallback(&self.directory, "owner_unreachable");
         if state.fallback.is_none() {
             state.fallback = Some(
                 handoff::enter_studio(&self.directory, Duration::from_secs(10))

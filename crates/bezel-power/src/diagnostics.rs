@@ -9,6 +9,7 @@ use tracing::{Event, Metadata, Subscriber};
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static OUTPUT: Mutex<Option<Output>> = Mutex::new(None);
+static CONFIGURED_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 static INSTALLED: OnceLock<()> = OnceLock::new();
 const LIMIT: u64 = 2 * 1024 * 1024;
 static IMPORTANT: AtomicBool = AtomicBool::new(false);
@@ -70,6 +71,9 @@ fn install() {
 /// Configure the common bounded log sink. Light keeps important events when debug is off.
 pub fn configure(path: &Path, on: bool, important: bool) -> io::Result<()> {
     install();
+    *CONFIGURED_PATH
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(path.to_owned());
     let mut output = OUTPUT
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -110,6 +114,12 @@ fn allowed(metadata: &Metadata<'_>) -> bool {
 
 struct Fields(serde_json::Map<String, serde_json::Value>);
 impl tracing::field::Visit for Fields {
+    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+        self.0.insert(field.name().into(), value.into());
+    }
+    fn record_i64(&mut self, field: &tracing::field::Field, value: i64) {
+        self.0.insert(field.name().into(), value.into());
+    }
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
         self.0
             .insert(field.name().into(), format!("{value:?}").into());
@@ -209,6 +219,156 @@ pub fn light(event: LightEvent, screen: u64, millis: f64, kind: &'static str) {
     {
         eprintln!("bezel light: {event:?} screen={screen} ms={millis:.2} {kind}");
     }
+}
+
+/// Fixed labels only: never format an adapter's arbitrary error message.
+static LAST_FAILURE: Mutex<Option<(String, String, i32)>> = Mutex::new(None);
+pub fn failure(stage: &str, error: &io::Error) {
+    let stage = label(stage);
+    let reason = match error.kind() {
+        io::ErrorKind::InvalidData if error.to_string() == "unsupported owner protocol" => {
+            "version_mismatch"
+        }
+        io::ErrorKind::Other if error.to_string() == "incompatible Light server" => {
+            "handshake_mismatch"
+        }
+        io::ErrorKind::TimedOut => "timeout",
+        io::ErrorKind::PermissionDenied => "access_denied",
+        io::ErrorKind::NotFound => "not_found",
+        io::ErrorKind::UnexpectedEof | io::ErrorKind::BrokenPipe => "peer_closed",
+        io::ErrorKind::InvalidData => "protocol_or_bounds",
+        _ => "io_error",
+    };
+    *LAST_FAILURE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((
+        stage.into(),
+        reason.into(),
+        error.raw_os_error().unwrap_or(0),
+    ));
+    tracing::warn!(target:"bezel_light",event="ChannelFailure",stage,reason,os_code=error.raw_os_error().unwrap_or(0),"owner channel failure");
+}
+fn label(value: &str) -> &str {
+    match value {
+        "server" | "connect" | "handshake" | "request_write" | "reply_read" | "packet_read"
+        | "reply_write" | "request_rejected" | "session_lost" | "connect_failed"
+        | "owner_unreachable" | "legacy_takeover" | "runtime_request" => value,
+        _ => "unknown",
+    }
+}
+/// Persist only the fixed reason so Light and Studio report the same takeover.
+pub fn fallback(directory: &Path, reason: &str) {
+    let detail = LAST_FAILURE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .clone();
+    let value = serde_json::json!({"reason":label(reason),"detail":detail});
+    let _ = std::fs::write(
+        directory.join("bezel-light-fallback-reason"),
+        value.to_string(),
+    );
+    log_fallback(&value);
+}
+fn log_fallback(value: &serde_json::Value) {
+    let reason = label(value["reason"].as_str().unwrap_or("unknown"));
+    let stage = label(value["detail"][0].as_str().unwrap_or("unknown"));
+    let cause = match value["detail"][1].as_str().unwrap_or("unknown") {
+        "timeout" => "timeout",
+        "access_denied" => "access_denied",
+        "not_found" => "not_found",
+        "peer_closed" => "peer_closed",
+        "protocol_or_bounds" => "protocol_or_bounds",
+        "io_error" => "io_error",
+        "version_mismatch" => "version_mismatch",
+        "handshake_mismatch" => "handshake_mismatch",
+        _ => "unknown",
+    };
+    let os_code = value["detail"][2].as_i64().unwrap_or(0);
+    tracing::warn!(target:"bezel_light",event="Fallback",reason,stage,cause,os_code,"direct takeover");
+    // Fallback is an important event even when Studio's verbose diagnostics
+    // are off. Use the same bounded sink, without enabling other targets.
+    if !enabled() && !IMPORTANT.load(Ordering::Relaxed) {
+        let path = CONFIGURED_PATH
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        if let Some(path) = path {
+            let record = serde_json::json!({"time":chrono::Utc::now().to_rfc3339(),"level":"WARN","target":"bezel_light",
+                "fields":{"event":"Fallback","reason":reason,"stage":stage,"cause":cause,"os_code":os_code}});
+            if let Ok(mut bytes) = serde_json::to_vec(&record) {
+                bytes.push(b'\n');
+                let mut output = OUTPUT
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if output.is_none() {
+                    if let Some(parent) = path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    *output = Output::open(&path).ok();
+                }
+                if let Some(output) = output.as_mut() {
+                    let _ = output.write_record(&bytes);
+                }
+            }
+        }
+    }
+}
+pub fn observed_fallback(directory: &Path) {
+    let value = std::fs::File::open(directory.join("bezel-light-fallback-reason"))
+        .and_then(|file| {
+            use std::io::Read;
+            let mut text = String::new();
+            file.take(512).read_to_string(&mut text)?;
+            Ok(text)
+        })
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or(serde_json::Value::Null);
+    log_fallback(&value);
+}
+/// Log only protocol operation names, never scene keys or payloads.
+pub fn runtime_request(metadata: &[u8]) {
+    if !enabled() {
+        return;
+    }
+    let value: serde_json::Value = serde_json::from_slice(metadata).unwrap_or_default();
+    let command = match value["op"]["command"].as_str().unwrap_or("") {
+        "Sensors" => "Sensors",
+        "Options" => "Options",
+        "Draft" => "Draft",
+        "Image" => "Image",
+        "Inspect" => "Inspect",
+        "Measure" => "Measure",
+        "Live" => "Live",
+        "Cards" => "Cards",
+        "Thumbnail" => "Thumbnail",
+        "SensorRestarted" => "SensorRestarted",
+        _ => "unknown",
+    };
+    tracing::debug!(target:"bezel_light",event="RuntimeRequest",command,"owner request");
+}
+pub fn runtime_reply(metadata_bytes: usize, payload_bytes: usize, rejected: bool) {
+    if enabled() {
+        tracing::debug!(target:"bezel_light",event="RuntimeReply",metadata_bytes,payload_bytes,rejected,"owner response");
+    }
+}
+pub fn present_reason(screen: u64, kind: &str, reason: &str) {
+    if !enabled() || kind != "full" {
+        return;
+    }
+    let reason = match reason {
+        "connection"
+        | "orientation"
+        | "screen_off"
+        | "release"
+        | "previous_write_failed"
+        | "dirty_full_canvas"
+        | "device_requested"
+        | "no_baseline"
+        | "diff_larger_than_full" => reason,
+        _ => "unreported_by_driver",
+    };
+    tracing::debug!(target:"bezel_light",event="FullFrame",screen,reason,"full frame reason");
 }
 
 /// Name the opened device without admitting arbitrary filesystem strings.
@@ -328,11 +488,27 @@ mod tests {
         );
         tracing::warn!(target:"bezel_media",path=r"C:\Users\secret\private.mp4","private path must not reach Light logs");
         tracing::warn!(target:"bezel_klipy","excluded private network data");
+        failure(
+            "reply_read",
+            &io::Error::new(io::ErrorKind::UnexpectedEof, r"C:\Users\secret\private"),
+        );
+        let directory = path.parent().unwrap();
+        fallback(directory, "owner_unreachable");
+        observed_fallback(directory);
+        present_reason(1, "full", "orientation");
         configure(&path, false, false).unwrap();
+        fallback(directory, "connect_failed");
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("Start"));
         assert!(text.contains("Canvas"));
         assert!(text.contains("partial"));
+        assert!(text.contains("peer_closed"));
+        assert!(text.contains("owner_unreachable"));
+        assert!(
+            text.contains("connect_failed"),
+            "fallback is logged with debug off too"
+        );
+        assert!(text.contains("orientation"));
         assert!(!text.contains("Sample"));
         assert!(!text.contains("secret"));
         assert!(!text.contains("private"));
