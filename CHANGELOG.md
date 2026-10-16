@@ -5,6 +5,23 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.27] - 2026-10-17
+
+### Widgets
+- **Audio spectrum**: a new widget that draws the sound of the app a Player
+  follows (Spotify, a browser, …) as mirrored bars, with a centre line, held
+  peaks, three motion presets, solid or gradient colour, colour by value and
+  rounded bar corners. It listens only to that app, never the microphone or
+  the whole PC, analyses the sound in memory and records nothing. Capture is
+  off until you allow it in **Preferences**; until then, or for a quick look,
+  the widget can show a **demo**. It needs Windows 11 (build 20348 or newer).
+- A spectrum on a Card face that opens when music plays works like any other.
+  When playback stops the bars fall to zero.
+
+### Fixes
+- The **Render** chip in the status bar keeps its width when the time gains a
+  digit, and its text is centred again.
+
 ## [0.1.26] - 2026-10-16
 
 The first published release since 0.1.22 (0.1.23 to 0.1.25 were local builds),
