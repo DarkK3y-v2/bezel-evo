@@ -233,8 +233,6 @@ when saving.
 The sliders icon in the top bar opens **Preferences**:
 
 - **Language** of Studio and of Light's tray menu;
-- **Background operation**: **Use Bezel Light when closing Studio** (on by
-  default). Turned off, closing Studio keeps it in the tray instead;
 - **Debug**: diagnostic logs and on-screen readings, for reporting a problem;
 - **Logs**: where the logs are, with **Open logs folder**
   ([Troubleshooting](troubleshooting.md#logs));

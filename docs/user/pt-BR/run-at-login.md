@@ -35,10 +35,9 @@ de fundo. O Studio é o editor que conversa com ele.
 - Se o Light não conseguir iniciar ou parar de responder, o Studio controla as
   telas sozinho, como nas versões anteriores.
 
-Para manter o Studio na bandeja em vez de passar para o Light, desligue
-**Preferências → Execução em segundo plano → Usar Bezel Light ao fechar o
-Studio**. **Quit** no menu da bandeja fecha o Light; a tela mantém a última
-imagem.
+Fechar o Studio sempre passa as telas para o Light; não há opção para manter
+o Studio na bandeja. **Quit** no menu da bandeja fecha o Light; a tela mantém a
+última imagem.
 
 ## Várias telas
 

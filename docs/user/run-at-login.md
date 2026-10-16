@@ -35,9 +35,9 @@ Studio is the editor that talks to it.
 - If Light cannot start or stops answering, Studio drives the screens itself,
   as earlier versions did.
 
-To keep Studio in the tray instead of handing over to Light, turn off
-**Preferences → Background operation → Use Bezel Light when closing Studio**.
-**Quit** in the tray menu stops Light; the screen keeps its last picture.
+Closing Studio always hands the screens over to Light; there is no option to
+keep Studio in the tray instead. **Quit** in the tray menu stops Light; the
+screen keeps its last picture.
 
 ## Multiple screens
 
