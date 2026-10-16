@@ -23,6 +23,7 @@ struct State {
     local: Option<Engine>,
     drafts: BTreeMap<String, Draft>,
     live: BTreeMap<String, bool>,
+    cards: BTreeMap<String, bool>,
     revision: u64,
     options: Option<wire::Options>,
     suspended: bool,
@@ -43,6 +44,7 @@ impl EngineBridge {
                 local: None,
                 drafts: BTreeMap::new(),
                 live: BTreeMap::new(),
+                cards: BTreeMap::new(),
                 revision: 0,
                 options: None,
                 suspended: false,
@@ -81,6 +83,11 @@ impl EngineBridge {
                         if state.live.get(key) == Some(&true) {
                             local.live(key, true)?;
                         }
+                    }
+                    for (key, on) in &state.cards {
+                        let (reply, _) = local
+                            .request(&wire::request(key, RuntimeOp::Cards { on: *on })?, &[])?;
+                        wire::response(&reply)?;
                     }
                     state.cursor = None;
                     let mut request: wire::RuntimeMessage = serde_json::from_slice(&metadata)
@@ -160,6 +167,10 @@ impl EngineBridge {
     }
     pub fn canvas(&self, key: &str, max: u32, cards: bool) -> Result<Vec<u8>> {
         let mut state = self.lock()?;
+        if state.cards.get(key).copied().unwrap_or(true) != cards {
+            self.call(&mut state, key, RuntimeOp::Cards { on: cards }, &[])?;
+            state.cards.insert(key.into(), cards);
+        }
         let after = state
             .cursor
             .as_ref()
@@ -196,6 +207,20 @@ impl EngineBridge {
             if let Some(local) = &mut state.local {
                 local.suspend(on);
             }
+        }
+    }
+    pub fn wait_idle(&self, deadline: std::time::Instant) -> bool {
+        loop {
+            let idle = self
+                .lock()
+                .is_ok_and(|state| state.local.as_ref().is_none_or(Engine::quiescent));
+            if idle {
+                return true;
+            }
+            if std::time::Instant::now() >= deadline {
+                return false;
+            }
+            std::thread::sleep(Duration::from_millis(5));
         }
     }
     pub fn drive(&self) -> Result<Duration> {
@@ -312,6 +337,7 @@ mod tests {
     fn remote_canvas_is_binary_scaled_and_unchanged_until_document_edit() {
         let (bridge, connection, built) = setup();
         bridge.sync("editor", (1, 1), document(), true).unwrap();
+        connection.server.lock().unwrap().tick().unwrap();
         let frame = bridge.canvas("editor", 320, true).unwrap();
         assert_eq!(u32::from_le_bytes(frame[..4].try_into().unwrap()), 320);
         assert_eq!(frame.len(), 12 + 320 * 80 * 4);
@@ -332,6 +358,13 @@ mod tests {
         bridge.sync("editor", (1, 1), document(), true).unwrap();
         bridge.canvas("editor", 320, true).unwrap();
         connection.dead.store(true, Ordering::SeqCst);
+        let pending = bridge.canvas("editor", 320, true).unwrap();
+        assert_eq!(
+            pending.len(),
+            12,
+            "cold recovery is a readonly pending snapshot"
+        );
+        bridge.drive().unwrap();
         let frame = bridge.canvas("editor", 320, true).unwrap();
         assert!(
             frame.len() > 12,

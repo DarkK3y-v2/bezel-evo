@@ -255,6 +255,7 @@ impl bezel_core::ports::RuntimeConnection for LightConnector {
             .lock()
             .map_err(|_| BezelError::Transport("Light lock poisoned".into()))?;
         state.remote = None;
+        crate::diagnostics::light(crate::diagnostics::LightEvent::Fallback, 0, 0.0, "direct");
         if state.fallback.is_none() {
             state.fallback = Some(
                 handoff::enter_studio(&self.directory, Duration::from_secs(10))

@@ -472,7 +472,7 @@ impl Backend {
         corner: crate::performance::Corner,
     ) -> std::io::Result<()> {
         crate::debug::configure(
-            &self.settings.path().with_file_name("debug.log"),
+            &bezel_power::diagnostics::logs_directory().join("studio.log"),
             on,
             show_readings,
             corner,
@@ -488,7 +488,7 @@ impl Backend {
     pub fn restore_debug(&self) {
         let settings = self.settings.load();
         let _ = crate::debug::configure(
-            &self.settings.path().with_file_name("debug.log"),
+            &bezel_power::diagnostics::logs_directory().join("studio.log"),
             settings.debug,
             settings.debug_show_readings,
             settings.debug_corner,
@@ -501,10 +501,8 @@ impl Backend {
             debug: settings.debug,
             debug_show_readings: settings.debug_show_readings,
             debug_corner: settings.debug_corner,
-            debug_log_path: self
-                .settings
-                .path()
-                .with_file_name("debug.log")
+            debug_log_path: bezel_power::diagnostics::logs_directory()
+                .join("studio.log")
                 .display()
                 .to_string(),
             light_on_close: settings.light_on_close.unwrap_or(true),
@@ -759,6 +757,9 @@ impl Backend {
     pub fn hand_over_live(&self, store: &dyn HandoffStore, now: Duration) -> usize {
         if let Some(engine) = &self.engine {
             engine.suspend(true);
+            if !engine.wait_idle(Instant::now() + Duration::from_secs(5)) {
+                return 0;
+            }
         }
         let links = self.idle_studio().take_all_live();
         let mut left = 0;

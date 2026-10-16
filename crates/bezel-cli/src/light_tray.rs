@@ -100,6 +100,17 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         return Ok(String::new());
     };
     let initial = Cli::try_parse_from(&arguments)?;
+    let settings = match &initial.command {
+        Command::Run {
+            screens_config: Some(path),
+            ..
+        } => path.clone(),
+        _ => Path::new(&std::env::var_os("APPDATA").unwrap_or_default())
+            .join("io.github.slipalison.bezel/settings.json"),
+    };
+    let _log = bezel_power::diagnostics::LightLog::start(settings)
+        .map_err(|_| eprintln!("bezel light: diagnostic log unavailable"))
+        .ok();
     let physical: Arc<dyn bezel_core::ports::ScreenConnector + Send + Sync> = if initial.fake {
         Arc::new(crate::fake_connector())
     } else {
@@ -238,6 +249,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         if pause_watch.poll(std::time::SystemTime::now()) && !simulate && !finite
             && !quit_requested.load(Ordering::SeqCst)
         {
+            bezel_power::diagnostics::light(bezel_power::diagnostics::LightEvent::SensorRestart,0,0.0,"resume");
             eprintln!("bezel light: long pause detected; reopening screens and hardware sensors");
             reopen_after_pause = true;
             stop.store(true, Ordering::SeqCst);
@@ -292,6 +304,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 true
             }
         };
+        if studio_active && !reload_saved {bezel_power::diagnostics::light(bezel_power::diagnostics::LightEvent::Fallback,0,0.0,"direct");}
         if studio_active {
             reload_saved = true;
             stop.store(true, Ordering::SeqCst);
@@ -388,14 +401,16 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             let flag = Arc::clone(&stop);
             let ending = Arc::clone(&shutdown);
             let engine = Arc::clone(&engine);
+            let wake=engine.lock().map(|engine|engine.wake()).unwrap_or_default();
             match std::thread::Builder::new()
                 .name("bezel-light-render".into())
                 .spawn(move || {
                     while !flag.load(Ordering::SeqCst) && !ending.load(Ordering::SeqCst) {
+                        let version=wake.version();
                         let delay = engine.lock().map_err(|_| anyhow::anyhow!("runtime lock poisoned"))?.tick();
                         match delay {
-                            Ok(delay) => std::thread::sleep(delay.min(Duration::from_millis(50))),
-                            Err(error) => { eprintln!("bezel light: runtime: {error}"); std::thread::sleep(Duration::from_millis(50)); }
+                            Ok(delay) => wake.wait(version,delay.min(Duration::from_millis(50))),
+                            Err(_) => { eprintln!("bezel light: runtime update failed"); std::thread::sleep(Duration::from_millis(50)); }
                         }
                     }
                     Ok(String::new())

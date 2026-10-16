@@ -25,12 +25,16 @@ pub struct RuntimeMessage {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "command", deny_unknown_fields)]
 pub enum RuntimeOp {
+    SensorRestarted,
     Options {
         options: Options,
     },
     Draft {
         revision: u64,
         saved: bool,
+    },
+    Cards {
+        on: bool,
     },
     Live {
         on: bool,
@@ -178,7 +182,7 @@ pub fn response(metadata: &[u8]) -> Result<Value> {
     }
     Ok(reply.value)
 }
-fn image(frame: Option<Frame>, sequence: u64, next_ms: u32) -> (Value, Vec<u8>) {
+pub(crate) fn image(frame: Option<Frame>, sequence: u64, next_ms: u32) -> (Value, Vec<u8>) {
     match frame {
         Some(frame) => (
             json!({"width":frame.size().width,"height":frame.size().height,"sequence":sequence,"nextMs":next_ms}),
@@ -227,6 +231,23 @@ fn dispatch_inner(
         return Err(invalid("unexpected runtime payload"));
     }
     match request.op {
+        RuntimeOp::SensorRestarted => {
+            light(LightEvent::SensorRestart, 0, 0.0, "reader");
+            Ok((Value::Null, Vec::new()))
+        }
+        RuntimeOp::Cards { on } => {
+            let scene = engine
+                .scenes
+                .get_mut(key)
+                .ok_or_else(|| invalid("unknown scene"))?;
+            if scene.cards != on {
+                scene.cards = on;
+                scene.runtime.automatic_cards(on);
+                scene.dirty = true;
+                engine.wake.notify();
+            }
+            Ok((Value::Null, Vec::new()))
+        }
         RuntimeOp::Options { options } => {
             engine.options(options)?;
             Ok((Value::Null, Vec::new()))
@@ -240,16 +261,7 @@ fn dispatch_inner(
             engine.live(key, on)?;
             Ok((Value::Null, Vec::new()))
         }
-        RuntimeOp::Image { after, max, cards } => {
-            let scene = engine
-                .scenes
-                .get_mut(key)
-                .ok_or_else(|| invalid("unknown scene"))?;
-            if scene.cards != cards {
-                scene.cards = cards;
-                scene.runtime.automatic_cards(cards);
-                scene.dirty = true;
-            }
+        RuntimeOp::Image { after, max, .. } => {
             let next = engine.image(key, after, max)?;
             Ok(image(next.frame, next.sequence, next.next_ms))
         }
@@ -307,6 +319,7 @@ fn dispatch_inner(
                 if let Some(scene) = engine.scenes.get_mut(key) {
                     scene.runtime.want_also(wanted);
                 }
+                engine.schedule_sensors();
             }
             let scene = engine.scenes.get(key);
             let activity=scene.map(|s|s.runtime.snapshot()).filter(|s|s.activity_available || s.media_available).map(|s| {
@@ -341,7 +354,7 @@ fn dispatch_inner(
                 }
             }
             Ok((
-                json!({"catalog":catalog,"readings":readings,"fps":scene.map(|s|s.frames as f64/engine.origin.elapsed().as_secs_f64().max(0.001)),"error":scene.and_then(|s|s.error.clone()),"video":video,"activity":activity}),
+                json!({"sampleAtMs":engine.sensors.latest().at.as_millis() as u64,"catalog":catalog,"readings":readings,"fps":scene.map(|s|s.frames as f64/engine.origin.elapsed().as_secs_f64().max(0.001)),"error":scene.and_then(|s|s.error.clone()),"video":video,"activity":activity}),
                 Vec::new(),
             ))
         }

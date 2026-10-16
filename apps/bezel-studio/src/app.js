@@ -434,7 +434,8 @@ async function refreshAuto() {
 const animation = createPreviewAnimation({
   perSecond: 30,
   request: () => renderNow(),
-  enabled: motionAllowed,
+  // Native images are readonly snapshots of the screen; polling does not render.
+  enabled: () => !document.hidden && (bridge.mode === 'tauri' || motionAllowed()),
 });
 
 async function drawPreview() {

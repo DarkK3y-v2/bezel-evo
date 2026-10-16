@@ -327,6 +327,9 @@ impl Server {
         stop: Arc<AtomicBool>,
         runtime: Option<Arc<std::sync::Mutex<dyn bezel_core::ports::RuntimeEndpoint>>>,
     ) -> io::Result<()> {
+        let images = runtime
+            .as_ref()
+            .and_then(|runtime| runtime.lock().ok()?.images());
         let mut stream = TimedFile {
             file: self.file,
             timeout: Duration::from_secs(15),
@@ -347,6 +350,12 @@ impl Server {
                 && payload.is_empty()
                 && owner_protocol::write_packet(&mut stream, b"ready", &[]).is_ok()
             {
+                crate::diagnostics::light(
+                    crate::diagnostics::LightEvent::SessionOpened,
+                    0,
+                    0.0,
+                    "client",
+                );
                 owner.set_editing(true);
                 let connector = owner.client(true);
                 let mut screens = Vec::new();
@@ -382,11 +391,20 @@ impl Server {
                         && serde_json::from_slice::<serde_json::Value>(&metadata)
                             .is_ok_and(|v| v["runtime"] == 2)
                     {
-                        let answer = runtime
-                            .lock()
-                            .map_err(|_| io::Error::other("runtime lock poisoned"))?
-                            .request(&metadata, &payload)
-                            .map_err(|e| io::Error::other(e.to_string()))?;
+                        let readonly = payload.is_empty()
+                            && serde_json::from_slice::<serde_json::Value>(&metadata)
+                                .is_ok_and(|v| v["op"]["command"] == "Image");
+                        let answer = if readonly && let Some(images) = &images {
+                            images
+                                .image(&metadata)
+                                .map_err(|e| io::Error::other(e.to_string()))?
+                        } else {
+                            runtime
+                                .lock()
+                                .map_err(|_| io::Error::other("runtime lock poisoned"))?
+                                .request(&metadata, &payload)
+                                .map_err(|e| io::Error::other(e.to_string()))?
+                        };
                         if owner_protocol::write_packet(&mut stream, &answer.0, &answer.1).is_err()
                         {
                             break;
@@ -506,6 +524,60 @@ mod tests {
         worker.join().unwrap();
         assert_eq!(physical.log().connects, 0);
         assert!(!owner.reload_pending());
+    }
+
+    #[test]
+    fn canvas_snapshot_bypasses_the_engine_mutex_over_the_real_pipe() {
+        struct Images;
+        impl bezel_core::ports::RuntimeImages for Images {
+            fn image(&self, _: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                Ok((b"snapshot".to_vec(), vec![7; 16]))
+            }
+        }
+        struct Endpoint;
+        impl bezel_core::ports::RuntimeEndpoint for Endpoint {
+            fn images(&self) -> Option<Arc<dyn bezel_core::ports::RuntimeImages>> {
+                Some(Arc::new(Images))
+            }
+            fn request(&mut self, _: &[u8], _: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
+                panic!("snapshot must not enter the engine");
+            }
+            fn disconnected(&mut self) -> Result<()> {
+                Ok(())
+            }
+        }
+        let directory = directory();
+        let server = Server::bind(&directory).unwrap();
+        let owner = Owner::new(Arc::new(FakeConnector::default()));
+        let runtime = Arc::new(std::sync::Mutex::new(Endpoint));
+        let engine = runtime.clone();
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
+        let worker = std::thread::spawn(move || {
+            server
+                .serve_runtime(owner, Arc::new(FakeBus::turing_88()), flag, Some(runtime))
+                .unwrap()
+        });
+        // The handshake happens after the server acquires the immutable image port.
+        let mut client = PipeChannel::connect(&directory, Duration::from_secs(1)).unwrap();
+        let guard = engine.lock().unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let request = std::thread::spawn(move || {
+            let reply = client.exchange_binary(br#"{"runtime":2,"op":{"command":"Image"}}"#, &[]);
+            sent.send(reply).unwrap();
+            client
+        });
+        let answer = received.recv_timeout(Duration::from_millis(500));
+        // Release even on failure, so a regression cannot deadlock the test suite.
+        stop.store(true, Ordering::SeqCst);
+        drop(guard);
+        let client = request.join().unwrap();
+        drop(client);
+        worker.join().unwrap();
+        assert_eq!(
+            answer.unwrap().unwrap(),
+            (b"snapshot".to_vec(), vec![7; 16])
+        );
     }
 
     #[test]

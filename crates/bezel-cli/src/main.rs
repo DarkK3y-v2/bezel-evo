@@ -490,7 +490,7 @@ fn main() -> ExitCode {
         };
     }
     let cli = Cli::parse();
-    if cli.verbose {
+    if cli.verbose && !matches!(cli.command, Command::Run { tray: true, .. }) {
         tracing_subscriber::fmt()
             .with_env_filter(
                 "bezel=debug,bezel_cli=debug,bezel_devices=debug,bezel_core=debug,bezel_sensors=debug,bezel_render=debug,bezel_themes=debug,bezel_media=debug",

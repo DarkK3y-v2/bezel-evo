@@ -43,3 +43,15 @@ Regressioni con canale e dispositivo finti: serie dei grafici e origine temporal
 Controlli completi: cargo test --workspace, cargo clippy --workspace --all-targets -- -D warnings, cargo fmt --check, cargo llvm-cov >= 80%; npm ci se necessario, npm run test:unit e npm test su tutti i quattro progetti con axe. Nessuna modifica di VERSION o installazione di eseguibili.
 
 Rischi da misurare: latenza del canale sincrono con molti schermi, primo trasferimento di asset grandi, decodifica host e resa durante drag. Verifica manuale finale: Turing 8.8 Rev C COM6, earth.mp4 sul dispositivo e grafici; aprire/chiudere Studio ripetutamente, osservare grafici continui e assenza di ridisegno; ripetere con bozza non salvata, due schermi e crash Light.
+
+## Correzione cadenza: worker indipendenti
+
+Il campionatore possiede la sorgente su un thread separato: un solo snapshot con timestamp e sequenza, consumato da tutte le scene. Il campionatore segue l'unione delle scadenze dei refresh e degli intervalli D-16; gli storici delle scene mantengono le proprie scadenze. Nessuna lettura hardware nel loop di rendering.
+
+Ogni schermo possiede un worker I/O, un frame in volo e un solo frame pendente sostituibile. Connessione, riconnessione, orientamento, size query e resume_video passano da questo worker; il motore usa risposte memorizzate e riprova le query ancora pendenti senza attendere. Errori e completamenti sono notificati al motore. Il runtime e il renderer restano unici, con gli stessi clock D-31.
+
+Il canvas legge un archivio di snapshot separato dal mutex del motore, senza tick, campionamento o scritture sul dispositivo. La riduzione avviene fuori dal lock dell'archivio. Le politiche delle carte sono comandi separati dalle letture immagine.
+
+La diagnostica riusa il writer/subscriber estratto da Studio: log JSON con timestamp, limite 2 MiB per file e tre file al massimo. Light legge debug dalle impostazioni condivise o BEZEL_DEBUG=1; a debug spento conserva solo eventi importanti ed errori. I campi Light sono tipizzati e non contengono documenti, letture o percorsi utente. BEZEL_PERF_LOG=1 aggiunge sul terminale solo intervalli reali e tempi/tipo di presentazione.
+
+Le notifiche di campionamento, completamento I/O e modifica documento risvegliano il loop tramite una generazione condivisa, senza attese sotto il mutex del motore. Il timestamp reale misura gli intervalli; quello pianificato mantiene le cadenze dei grafici senza accumulare il ritardo dello scheduler. Il polling del canvas nativo ha un limite di 33 ms per osservare prontamente le modifiche asincrone, anche con movimento ridotto. Stop e standby attendono la sola scrittura eventualmente in volo fuori dal mutex, prima dei comandi di spegnimento.

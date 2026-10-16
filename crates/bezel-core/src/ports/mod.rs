@@ -605,7 +605,17 @@ pub trait ScreenChannel: Send {
 
 /// Driving port for the single authoritative theme engine. Transport metadata
 /// and binary data are bounded and decoded by an adapter outside the core.
+pub trait RuntimeImages: Send + Sync {
+    /// Read immutable canvas metadata/pixels without accessing the engine lock.
+    fn image(&self, metadata: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
+}
+
+/// Stateful requests to the authoritative runtime.
 pub trait RuntimeEndpoint: Send {
+    /// Separate readonly snapshot endpoint, retained by the transport.
+    fn images(&self) -> Option<std::sync::Arc<dyn RuntimeImages>> {
+        None
+    }
     /// One idempotent scene/preview request. Device writes use their own ports.
     fn request(&mut self, metadata: &[u8], payload: &[u8]) -> Result<(Vec<u8>, Vec<u8>)>;
     /// The editor disappeared: restore saved documents without replacing runtimes.

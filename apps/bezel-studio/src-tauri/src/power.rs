@@ -310,6 +310,13 @@ impl Backend {
     /// awake rev C screens opened for it). A job that does not stop in time
     /// leaves every screen as it is.
     fn apply_choices(&self, deadline: Instant) {
+        if self
+            .engine
+            .as_ref()
+            .is_some_and(|engine| !engine.wait_idle(deadline))
+        {
+            return;
+        }
         if !self.storage.wait_until_idle(deadline) {
             diag::report(DiagCode::ShutdownJobNotStopped);
             return;

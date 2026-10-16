@@ -142,9 +142,9 @@ fn fixture() -> Fixture {
             })
             .collect(),
     );
-    let engine = Engine::new(
+    let mut engine = Engine::new(
         Box::new(Renderer(seen.clone())),
-        Box::new(sensors),
+        Box::new(sensors.clone()),
         Box::new(bezel_media::FfmpegTranscoder::new(None)),
         bus,
         Arc::new(owner.client(true)),
@@ -157,12 +157,32 @@ fn fixture() -> Fixture {
         time,
     )
     .unwrap();
+    engine.sensors = sampling::Sampler::manual(Box::new(sensors));
     Fixture {
         engine,
         physical,
         owner,
         seen,
         key,
+    }
+}
+fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
+    if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
+        engine.sensors.advance(at);
+    }
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        let next = engine.tick_at(at, time)?;
+        let ready = engine.scenes.values().all(|s| {
+            s.presenter
+                .as_ref()
+                .is_none_or(|p| s.link.is_some() && !s.video_dirty && p.idle())
+        });
+        if ready {
+            return Ok(next);
+        }
+        assert!(Instant::now() < deadline, "presentation did not settle");
+        std::thread::sleep(Duration::from_millis(2));
     }
 }
 fn send(
@@ -181,7 +201,7 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
     f.engine.document(&f.key, 0, saved.clone(), true).unwrap();
     f.engine.live(&f.key, true).unwrap();
     for n in 0..4 {
-        f.engine.tick_at(Duration::from_secs(n), time()).unwrap();
+        advance(&mut f.engine, Duration::from_secs(n), time()).unwrap();
     }
     let before = f.seen.lock().unwrap().last().unwrap().clone();
     let frames = f.physical.log().frames.len();
@@ -198,22 +218,18 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         )
         .unwrap();
         send(&mut f.engine, &f.key, RuntimeOp::Live { on: true }, &[]).unwrap();
-        f.engine
-            .tick_at(Duration::from_millis(3100), time())
-            .unwrap();
+        advance(&mut f.engine, Duration::from_millis(3100), time()).unwrap();
         f.engine.disconnected().unwrap();
         f.owner.set_editing(false);
         f.owner.saved_ready();
-        f.engine
-            .tick_at(Duration::from_millis(3200), time())
-            .unwrap();
+        advance(&mut f.engine, Duration::from_millis(3200), time()).unwrap();
     }
     assert_eq!(
         f.physical.log().frames.len(),
         frames,
         "handover must not schedule a redraw"
     );
-    f.engine.tick_at(Duration::from_secs(4), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(4), time()).unwrap();
     let after = f.seen.lock().unwrap().last().unwrap().clone();
     assert_eq!(&after.history[..before.history.len()], before.history);
     assert_eq!(after.history.len(), 5);
@@ -237,7 +253,7 @@ fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
     let saved = doc();
     f.engine.document(&f.key, 0, saved.clone(), true).unwrap();
     f.engine.live(&f.key, true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let mut draft = saved.clone();
     draft.theme.name = "draft".into();
     draft.theme.elements[0].frame.x = 50.0;
@@ -251,9 +267,9 @@ fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
         &document(&draft.theme, None).unwrap(),
     )
     .unwrap();
-    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     f.engine.disconnected().unwrap();
-    f.engine.tick_at(Duration::from_secs(2), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(2), time()).unwrap();
     let seen = f.seen.lock().unwrap();
     assert_eq!(seen.last().unwrap().theme, "saved");
     assert_eq!(
@@ -309,6 +325,7 @@ fn saved_commit_survives_client_crash_and_revisions_are_checked() {
 fn canvas_backpressure_scaling_inspector_and_measure_are_bounded() {
     let mut f = fixture();
     f.engine.document(&f.key, 0, doc(), true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let (value, pixels) = send(
         &mut f.engine,
         &f.key,
@@ -437,11 +454,11 @@ fn changing_background_stops_video_but_closing_same_document_does_not() {
     let saved = doc();
     f.engine.document(&f.key, 0, saved.clone(), true).unwrap();
     f.engine.live(&f.key, true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let mut draft = saved;
     draft.theme.background = Background::Color(Rgba::BLACK);
     f.engine.document(&f.key, 1, draft, false).unwrap();
-    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     assert_eq!(
         f.physical
             .log()
@@ -453,7 +470,7 @@ fn changing_background_stops_video_but_closing_same_document_does_not() {
         1
     );
     f.engine.detach().unwrap();
-    f.engine.tick_at(Duration::from_secs(2), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(2), time()).unwrap();
     assert_eq!(
         f.physical
             .log()
@@ -532,19 +549,13 @@ fn host_decoder_clock_and_instance_survive_drafts_and_client_crash() {
     };
     d.assets.insert(asset, vec![1, 2, 3]);
     f.engine.document("offline", 0, d.clone(), true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
-    f.engine
-        .tick_at(Duration::from_millis(100), time())
-        .unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
     d.theme.elements[0].frame.x = 20.0;
     f.engine.document("offline", 1, d, false).unwrap();
-    f.engine
-        .tick_at(Duration::from_millis(200), time())
-        .unwrap();
+    advance(&mut f.engine, Duration::from_millis(200), time()).unwrap();
     f.engine.detach().unwrap();
-    f.engine
-        .tick_at(Duration::from_millis(300), time())
-        .unwrap();
+    advance(&mut f.engine, Duration::from_millis(300), time()).unwrap();
     assert_eq!(opened.load(Ordering::SeqCst), 1);
     assert_eq!(
         *times.lock().unwrap(),
@@ -563,7 +574,7 @@ fn independent_scenes_and_demo_thumbnail_leave_live_histories_untouched() {
     let d = doc();
     f.engine.document("one", 0, d.clone(), true).unwrap();
     f.engine.document("two", 0, d.clone(), true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let (meta, pixels) = send(
         &mut f.engine,
         "thumbnail",
@@ -573,7 +584,7 @@ fn independent_scenes_and_demo_thumbnail_leave_live_histories_untouched() {
     .unwrap();
     assert_eq!(meta["width"], 360);
     assert!(!pixels.is_empty());
-    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     let seen = f.seen.lock().unwrap();
     let last = &seen[seen.len() - 2..];
     assert_eq!(last[0].history.len(), 2);
@@ -596,7 +607,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
         Box::new(FakeSensors::demo()),
     );
     f.engine.document("editor", 0, doc(), true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let options = wire::Options {
         ping_host: "127.0.0.1".into(),
         mangohud_dir: None,
@@ -614,7 +625,7 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
         .unwrap();
     }
     assert_eq!(configured.load(Ordering::SeqCst), 1);
-    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     let (status, _) = send(
         &mut f.engine,
         "editor",
@@ -644,15 +655,15 @@ fn suspend_reconnect_and_explicit_live_off_keep_the_same_document_clock() {
     let mut f = fixture();
     f.engine.document(&f.key, 0, doc(), true).unwrap();
     f.engine.live(&f.key, true).unwrap();
-    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let frames = f.physical.log().frames.len();
     f.engine.suspend(true);
-    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     assert_eq!(f.physical.log().frames.len(), frames);
     f.engine.suspend(false);
     f.engine.disconnect_links();
     f.owner.clear().unwrap();
-    f.engine.tick_at(Duration::from_secs(2), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(2), time()).unwrap();
     assert_eq!(f.physical.log().connects, 2);
     assert_eq!(
         f.seen.lock().unwrap().last().unwrap().clock,
@@ -660,7 +671,7 @@ fn suspend_reconnect_and_explicit_live_off_keep_the_same_document_clock() {
     );
     f.engine.live(&f.key, false).unwrap();
     f.engine.follow_saved_live(&[]);
-    f.engine.tick_at(Duration::from_secs(3), time()).unwrap();
+    advance(&mut f.engine, Duration::from_secs(3), time()).unwrap();
     assert_eq!(f.physical.log().connects, 2);
 }
 #[test]
@@ -702,10 +713,279 @@ fn legacy_baseline_is_seeded_after_orientation_and_before_the_first_engine_frame
     f.engine = f.engine.with_handoff(store, || Duration::from_secs(100));
     f.engine.document(&f.key, 0, doc(), true).unwrap();
     f.engine.live(&f.key, true).unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while f.physical.log().seeds.is_empty() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
     assert_eq!(f.physical.log().seeds.len(), 1);
     assert_eq!(
         f.physical.log().frames.len(),
         1,
         "only the old owner has sent a frame"
+    );
+}
+
+#[test]
+fn slow_screen_does_not_delay_shared_samples_fast_screen_or_readonly_images() {
+    use bezel_core::{
+        domain::{device::UsbId, discovery::DeviceAddress},
+        ports::{DeviceBus, TransferStats},
+    };
+    use std::sync::{Condvar, atomic::AtomicBool};
+    struct Gate {
+        entered: AtomicBool,
+        released: Mutex<bool>,
+        wake: Condvar,
+    }
+    impl Gate {
+        fn release(&self) {
+            *self.released.lock().unwrap() = true;
+            self.wake.notify_all();
+        }
+    }
+    struct Release(Arc<Gate>);
+    impl Drop for Release {
+        fn drop(&mut self) {
+            self.0.release();
+        }
+    }
+    struct Source {
+        times: Arc<Mutex<Vec<Instant>>>,
+    }
+    impl SensorSource for Source {
+        fn catalog(&mut self) -> Result<Vec<SensorInfo>> {
+            Ok(Vec::new())
+        }
+        fn sample(&mut self) -> Result<Snapshot> {
+            let mut times = self.times.lock().unwrap();
+            times.push(Instant::now());
+            let mut s = Snapshot::default();
+            s.insert(
+                SensorKey::new("cpu.usage").unwrap(),
+                Reading::Value(times.len() as f64),
+            );
+            Ok(s)
+        }
+    }
+    struct Connector {
+        fake: FakeConnector,
+        gate: Arc<Gate>,
+        fast: Arc<Mutex<Vec<Instant>>>,
+        slow: Arc<Mutex<Vec<Frame>>>,
+    }
+    struct Lag {
+        inner: Box<dyn ScreenLink>,
+        slow: bool,
+        gate: Arc<Gate>,
+        fast: Arc<Mutex<Vec<Instant>>>,
+        frames: Arc<Mutex<Vec<Frame>>>,
+    }
+    impl ScreenConnector for Connector {
+        fn connect(&self, screen: &Screen) -> Result<Box<dyn ScreenLink>> {
+            Ok(Box::new(Lag {
+                inner: self.fake.connect(screen)?,
+                slow: screen.address().unwrap().0 == "COM35",
+                gate: self.gate.clone(),
+                fast: self.fast.clone(),
+                frames: self.slow.clone(),
+            }))
+        }
+    }
+    impl ScreenLink for Lag {
+        fn identity(&self) -> &bezel_core::domain::screen::ScreenIdentity {
+            self.inner.identity()
+        }
+        fn set_orientation(&mut self, o: Orientation) -> Result<()> {
+            self.inner.set_orientation(o)
+        }
+        fn set_brightness(&mut self, b: bezel_core::domain::screen::Brightness) -> Result<()> {
+            self.inner.set_brightness(b)
+        }
+        fn present(&mut self, f: &Frame) -> Result<()> {
+            if self.slow {
+                self.gate.entered.store(true, Ordering::SeqCst);
+                let mut released = self.gate.released.lock().unwrap();
+                while !*released {
+                    released = self.gate.wake.wait(released).unwrap();
+                }
+                self.frames.lock().unwrap().push(f.clone());
+            } else {
+                self.fast.lock().unwrap().push(Instant::now());
+            }
+            self.inner.present(f)
+        }
+        fn last_transfer(&self) -> Option<TransferStats> {
+            Some(TransferStats {
+                kind: "full",
+                ..TransferStats::default()
+            })
+        }
+        fn screen_off(&mut self) -> Result<()> {
+            self.inner.screen_off()
+        }
+        fn release(&mut self) -> Result<()> {
+            self.inner.release()
+        }
+    }
+    struct Draw(Arc<Mutex<Vec<Seen>>>);
+    impl FrameRenderer for Draw {
+        fn render(
+            &mut self,
+            t: &Theme,
+            a: &BTreeMap<AssetRef, Vec<u8>>,
+            c: RenderContext<'_>,
+        ) -> Result<Frame> {
+            Renderer(self.0.clone()).render(t, a, c)?;
+            let value = c
+                .snapshot
+                .get(&SensorKey::new("cpu.usage").unwrap())
+                .value()
+                .unwrap_or(0.0) as u8;
+            Ok(Frame::filled(t.canvas, Rgba::opaque(value, 0, 0)))
+        }
+    }
+    let mut endpoints = FakeBus::turing_88().endpoints().unwrap();
+    let mut small = endpoints[1].clone();
+    small.address = DeviceAddress("COM35".into());
+    small.usb = UsbId::new(0x1a86, 0xfe0c);
+    small.location = None;
+    small.serial_number = None;
+    endpoints.push(small);
+    let bus = Arc::new(FakeBus::new(endpoints));
+    let screens = bezel_core::app::discover_screens(bus.as_ref()).unwrap();
+    let large = screens
+        .iter()
+        .find(|s| s.address().unwrap().0 != "COM35")
+        .unwrap()
+        .address()
+        .unwrap()
+        .0
+        .clone();
+    let gate = Arc::new(Gate {
+        entered: AtomicBool::new(false),
+        released: Mutex::new(false),
+        wake: Condvar::new(),
+    });
+    let _release = Release(gate.clone());
+    let times = Arc::new(Mutex::new(Vec::new()));
+    let fast = Arc::new(Mutex::new(Vec::new()));
+    let slow = Arc::new(Mutex::new(Vec::new()));
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let connector = Arc::new(Connector {
+        fake: FakeConnector::default(),
+        gate: gate.clone(),
+        fast: fast.clone(),
+        slow: slow.clone(),
+    });
+    let mut engine = Engine::new(
+        Box::new(Draw(seen.clone())),
+        Box::new(Source {
+            times: times.clone(),
+        }),
+        Box::new(bezel_media::FfmpegTranscoder::new(None)),
+        bus,
+        connector,
+        Language::English,
+        PathBuf::new(),
+        time,
+    )
+    .unwrap();
+    let mut large_doc = doc();
+    large_doc.theme.background = Background::Color(Rgba::BLACK);
+    large_doc.theme.refresh_seconds = 0.25;
+    engine.document(&large, 0, large_doc.clone(), true).unwrap();
+    let mut small_doc = large_doc;
+    small_doc.theme.name = "small".into();
+    small_doc.theme.canvas = Size::new(320, 480);
+    small_doc.theme.orientation = Orientation::Portrait;
+    if let ElementKind::Graph {
+        interval_seconds, ..
+    } = &mut small_doc.theme.elements[0].kind
+    {
+        *interval_seconds = Some(1);
+    }
+    engine.document("COM35", 0, small_doc, true).unwrap();
+    engine.live(&large, true).unwrap();
+    engine.live("COM35", true).unwrap();
+    let images = engine.images();
+    let engine = Arc::new(Mutex::new(engine));
+    let running = Arc::new(AtomicBool::new(true));
+    let loop_engine = engine.clone();
+    let flag = running.clone();
+    let render = std::thread::spawn(move || {
+        while flag.load(Ordering::SeqCst) {
+            loop_engine.lock().unwrap().tick().unwrap();
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    });
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !gate.entered.load(Ordering::SeqCst) {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    std::thread::sleep(Duration::from_millis(1100));
+    assert!(
+        fast.lock().unwrap().len() >= 4,
+        "fast screen stalled behind slow I/O"
+    );
+    let samples = times.lock().unwrap().clone();
+    assert!(samples.len() >= 5);
+    assert!(
+        samples
+            .windows(2)
+            .all(|w| w[1].duration_since(w[0]) < Duration::from_millis(450)),
+        "sample cadence followed serial I/O"
+    );
+    // Snapshot endpoint works even while somebody else owns the engine mutex.
+    let guard = engine.lock().unwrap();
+    let start = Instant::now();
+    let image = images.latest(&large, 0, 2320).unwrap();
+    assert!(image.frame.is_some());
+    assert!(start.elapsed() < Duration::from_millis(200));
+    drop(guard);
+    assert!(
+        slow.lock().unwrap().is_empty(),
+        "the slow device should still be blocked"
+    );
+    running.store(false, Ordering::SeqCst);
+    render.join().unwrap();
+    let latest = engine.lock().unwrap().scenes["COM35"]
+        .frame
+        .as_ref()
+        .unwrap()
+        .pixel(0, 0);
+    gate.release();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while slow.lock().unwrap().len() < 2 {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    let delivered = slow.lock().unwrap();
+    assert_eq!(
+        delivered.len(),
+        2,
+        "stale frames were queued instead of replaced"
+    );
+    assert_eq!(delivered.last().unwrap().pixel(0, 0), latest);
+    let seen = seen.lock().unwrap();
+    let fast_history = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "saved")
+        .unwrap()
+        .history
+        .len();
+    let slow_history = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "small")
+        .unwrap()
+        .history
+        .len();
+    assert!(fast_history >= 5);
+    assert_eq!(
+        slow_history, 2,
+        "D-16 graph cadence changed with presentation speed"
     );
 }
