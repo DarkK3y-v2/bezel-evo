@@ -78,6 +78,17 @@ export default {
       await app.inspectorTab(1);
       await app.page.locator('#inspector').getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
     } },
+    // The player's parts and its bar's options (D-2026-10-16-studio-redesign-fidelity-26).
+    { name: 'player-progress', run: async (app) => {
+      await standalone(app, 'player');
+      await app.inspectorTab(1);
+      const section = inspector(app).locator('[data-section="progress"]');
+      await inspector(app).getByRole('button', { name: t('insp.partArtist'), exact: true }).click();
+      await section.getByRole('button', { name: t('insp.patternDots'), exact: true }).click();
+      await section.getByRole('switch', { name: t('insp.progressKnob'), exact: true }).click({ force: true });
+      await section.getByRole('button', { name: t('insp.timesSides'), exact: true }).click();
+      await section.scrollIntoViewIfNeeded();
+    } },
     { name: 'shape-corners', run: async (app) => {
       await standalone(app, 'shape');
       await app.page.locator('#inspector').getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();

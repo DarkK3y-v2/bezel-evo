@@ -107,6 +107,8 @@ export const ICONS = Object.freeze({
   warning: ['M12 9v4', 'M12 17h.01', 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z'],
   info: [circle(12, 12, 9), 'M12 8h.01', 'M11 12h1v4h1'],
   history: [circle(12, 12, 9), 'M12 7v5l3 2'],
+  // A person (the player's artist).
+  person: [circle(12, 8, 3.5), 'M5 20a7 7 0 0 1 14 0'],
 
   // ------------------------------------------------- hardware and media --
   chip: [rect(6, 6, 12, 12, 2), 'M9 2v4', 'M15 2v4', 'M9 18v4', 'M15 18v4', 'M2 9h4', 'M2 15h4', 'M18 9h4', 'M18 15h4'],

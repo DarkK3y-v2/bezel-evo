@@ -30,6 +30,7 @@ import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 import { createBackgroundPanel } from './inspector-background.js';
 import { TRANSITION_RANGE, formatMs, transitionOf, transitionPatch } from '../value-transition.js';
+import { PLAYER_PARTS, PROGRESS_DEFAULTS, PROGRESS_PATTERNS, PROGRESS_SEGMENTS, PROGRESS_THICKNESS, TIME_FORMATS, TIME_PLACEMENTS, partPatch, partsOf, progressOf } from '../player-parts.js';
 
 const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
 /** The tallest the preview is drawn, CSS pixels. */
@@ -39,7 +40,7 @@ const ALIGN_EDGES = Object.freeze([['left', 'alignLeft'], ['centerX', 'alignCent
 /** A sensor's category drawn on its source card (ui/icons.js names). */
 const CATEGORY_ICON = Object.freeze({ cpu: 'chip', gpu: 'monitor', memory: 'chip', board: 'chip', network: 'download', disk: 'sdCard' });
 // Illustrations of the option tiles (24-unit paths drawn like every icon):
-// the graph's styles and what the player shows.
+// the graph's styles, what the player shows and how its bar is cut.
 const ART = Object.freeze({
   line: ['M2 17l5-4 4 2 5-8 6 4'],
   area: ['M2 17l5-4 4 2 5-8 6 4v8H2z'],
@@ -47,7 +48,26 @@ const ART = Object.freeze({
   cover: ['M3 6h10v12H3z', 'M16 9h5', 'M16 14h3'],
   progress: ['M3 11h18', 'M3 11h8', 'M3 17h3', 'M18 17h3'],
   source: ['M3 8h18v8H3z', 'M7 12h8'],
+  continuous: ['M3 12h18'],
+  segments: ['M3 12h4', 'M10 12h4', 'M17 12h4'],
+  dots: ['M4 12h.01', 'M9 12h.01', 'M14 12h.01', 'M19 12h.01'],
 });
+/** The player's parts: their name and drawing ("What to show"). */
+const PART_TILES = Object.freeze({
+  cover: ['insp.cover', ART.cover],
+  title: ['insp.partTitle', ICONS.text],
+  artist: ['insp.partArtist', ICONS.person],
+  time: ['insp.partTime', ICONS.clock],
+  progress: ['insp.progress', ART.progress],
+  source: ['insp.appName', ART.source],
+});
+/** Names of the player's time formats, of where its times sit and of its bar's patterns. */
+const TIME_FORMAT_KEYS = Object.freeze({
+  elapsedTotal: 'insp.timeElapsedTotal', elapsedRemaining: 'insp.timeElapsedRemaining', elapsed: 'insp.timeElapsed', remaining: 'insp.timeRemaining', total: 'insp.timeTotal',
+});
+/** In the order of TIME_PLACEMENTS: in the text, at the sides, above. */
+const TIME_PLACEMENT_KEYS = Object.freeze(['insp.timesText', 'insp.timesSides', 'insp.timesAbove']);
+const PATTERN_KEYS = Object.freeze({ continuous: 'insp.patternContinuous', segments: 'insp.patternSegments', dots: 'insp.patternDots' });
 
 /** The video-background actions and what they depend on, when none are given. */
 const NO_VIDEO_ACTIONS = Object.freeze({
@@ -493,6 +513,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
     const c = e.kind.content;
     const s = e.kind.style;
     const set = (patch) => update(e.id, { kind: { content: patch } });
+    const parts = partsOf(c);
     const { group, chips, custom } = appChipGroup(e);
     const data = [
       section('apps', t('insp.apps'), [
@@ -505,12 +526,16 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
         choiceCard(`player-stopped-${e.id}`, !c.hideWhenStopped, t('insp.stoppedText'), t('insp.stoppedTextNote'), () => set({ hideWhenStopped: false }),
           el('div', { class: 'choice-card-extra' }, [textField(t('player.empty'), c.emptyText ?? '', (emptyText) => set({ emptyText: emptyText.slice(0, 512) }))])),
       ])]),
+      parts.time ? section('time', t('insp.partTime'), [
+        selectField(t('insp.timeFormat'), c.timeFormat ?? 'elapsedTotal', TIME_FORMATS.map((f) => [f, t(TIME_FORMAT_KEYS[f])]), (timeFormat) => set({ timeFormat })),
+      ]) : null,
       dashedHint([t('insp.playerHint')], { iconName: 'info' }),
     ];
-    const tile = (field, text, art) => ({ text, art, pressed: Boolean(c[field]), onClick: () => set({ [field]: !c[field] }) });
+    const tiles = PLAYER_PARTS.map((part) => ({ text: t(PART_TILES[part][0]), art: PART_TILES[part][1], pressed: parts[part], onClick: () => set(partPatch(c, part)) }));
     const look = [
-      section('show', t('insp.show'), [optionTiles(t('insp.show'), [tile('showCover', t('insp.cover'), ART.cover), tile('showProgress', t('insp.progress'), ART.progress), tile('showSource', t('insp.appName'), ART.source)])]),
-      c.showCover ? coverCorners(e) : null,
+      section('show', t('insp.show'), [optionTiles(t('insp.show'), tiles)]),
+      parts.cover ? coverCorners(e) : null,
+      parts.progress ? progressSection(e, parts) : null,
       section('spacing', t('insp.spacing'), [
         fieldGrid([
           prefixedField(t('insp.gap'), t('player.coverGap'), c.coverGap ?? s.size * 0.3, (v) => set({ coverGap: Math.max(0, v) }), { min: 0, step: 'any', unit: 'px' }),
@@ -520,7 +545,31 @@ export function createInspector({ root, store, t, sensors, minRefresh, editIcon 
       ]),
       section('font', t('inspector.font'), fontFields(e, { size: false })),
     ];
-    return { data, look };
+    return { data: data.filter(Boolean), look };
+  }
+
+  /**
+   * The player's progress bar (D-2026-10-16-studio-redesign-fidelity-26):
+   * colours, thickness, ends, knob, pattern and, with the times on, where
+   * they sit. Absent fields draw the bar as before it had options.
+   */
+  function progressSection(e, parts) {
+    const c = e.kind.content;
+    const style = progressOf(c);
+    const set = (patch) => update(e.id, { kind: { content: { progressStyle: patch } } });
+    const textColor = typeof e.kind.style.paint === 'string' ? e.kind.style.paint : PROGRESS_DEFAULTS.track;
+    const pattern = (value) => ({ text: t(PATTERN_KEYS[value]), art: ART[value], pressed: style.pattern === value, onClick: () => style.pattern !== value && set({ pattern: value }) });
+    return section('progress', t('insp.progressBar'), [
+      colorField(t('inspector.fill'), style.fill ?? textColor, (fill) => set({ fill })),
+      colorField(t('inspector.track'), style.track, (track) => set({ track })),
+      rangeField(t('insp.thickness'), style.thickness, (thickness) => set({ thickness }), { ...PROGRESS_THICKNESS, format: (v) => t('insp.px', { value: v }) }),
+      switchRow(t('inspector.roundCaps'), style.ends !== 'square', (on) => set({ ends: on ? 'round' : 'square' })),
+      switchRow(t('insp.progressKnob'), style.knob, (knob) => set({ knob })),
+      optionTiles(t('inspector.style'), PROGRESS_PATTERNS.map(pattern)),
+      style.pattern === 'segments' && numberField(t('inspector.count'), style.segments,
+        (v) => set({ segments: Math.min(PROGRESS_SEGMENTS.max, Math.max(PROGRESS_SEGMENTS.min, Math.round(v))) }), PROGRESS_SEGMENTS),
+      parts.time && segmented(t('insp.timesPlace'), style.times, TIME_PLACEMENTS.map((p, i) => [p, t(TIME_PLACEMENT_KEYS[i])]), (times) => times !== style.times && set({ times })),
+    ]);
   }
 
   /**
