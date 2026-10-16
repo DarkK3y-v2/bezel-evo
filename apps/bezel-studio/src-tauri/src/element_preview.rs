@@ -140,6 +140,7 @@ pub fn isolate(theme: &Theme, id: ElementId) -> Option<Theme> {
         background: Background::Color(Rgba::default()),
         elements,
         refresh_seconds: theme.refresh_seconds,
+        palette: Vec::new(),
     })
 }
 

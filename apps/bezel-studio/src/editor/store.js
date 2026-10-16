@@ -226,6 +226,17 @@ export const commands = {
   },
 
   /** Merges theme properties; a new background replaces the old one whole. */
+  /**
+   * The theme's saved colours (D-2026-10-16-studio-redesign-fidelity-29),
+   * written as given; an empty palette leaves the key out, as an old theme
+   * has it. No element changes: swatches are copied, never linked.
+   */
+  setPalette(theme, { palette }) {
+    const { palette: old, ...rest } = theme;
+    if (JSON.stringify(old ?? []) === JSON.stringify(palette)) return { theme };
+    return { theme: palette.length ? { ...rest, palette: palette.map((s) => ({ ...s })) } : rest };
+  },
+
   setTheme(theme, { patch }) {
     const next = merge(theme, patch);
     if (patch.background) next.background = clone(patch.background);

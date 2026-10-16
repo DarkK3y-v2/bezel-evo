@@ -295,6 +295,7 @@ mod tests {
                 framing: None,
             },
             refresh_seconds: 0.5,
+            palette: Vec::new(),
             elements: vec![
                 el(
                     1,
@@ -515,6 +516,84 @@ mod tests {
             .find(|e| matches!(e.kind, ElementKind::Ring { .. }))
             .unwrap()
             .value_transition)
+    }
+
+    #[test]
+    fn a_palette_round_trips_and_a_theme_without_one_saves_unchanged() {
+        use bezel_core::domain::theme::{PALETTE_MAX, Swatch};
+        let (mut theme, _) = every_kind();
+        let legacy = manifest(&theme).unwrap();
+        assert!(
+            !String::from_utf8_lossy(&legacy).contains("palette"),
+            "absent: not written"
+        );
+        assert!(parse_manifest(&legacy).unwrap().palette.is_empty());
+        theme.palette = vec![
+            Swatch {
+                name: Some("Brand".into()),
+                color: Rgba {
+                    r: 255,
+                    g: 136,
+                    b: 0,
+                    a: 204,
+                },
+            },
+            Swatch {
+                name: None,
+                color: Rgba::opaque(12, 14, 22),
+            },
+        ];
+        let bytes = manifest(&theme).unwrap();
+        assert_eq!(parse_manifest(&bytes).unwrap(), theme);
+        let json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        assert_eq!(
+            json["palette"],
+            serde_json::json!([{"name": "Brand", "color": "#ff8800cc"}, {"color": "#0c0e16ff"}])
+        );
+        // A name of spaces is no name; an unknown key of a swatch is ignored.
+        let mut read = json.clone();
+        read["palette"] = serde_json::json!([{"name": "  ", "color": "#ff0000"}, {"color": "#00ff0080", "extra": 1}]);
+        let parsed = parse_manifest(&serde_json::to_vec(&read).unwrap()).unwrap();
+        assert_eq!(
+            parsed.palette[0],
+            Swatch {
+                name: None,
+                color: Rgba::opaque(255, 0, 0)
+            }
+        );
+        assert_eq!(
+            parsed.palette[1].color,
+            Rgba {
+                r: 0,
+                g: 255,
+                b: 0,
+                a: 128
+            }
+        );
+        for invalid in [
+            serde_json::json!([{"color": "bad"}]),
+            serde_json::json!([{"name": "x"}]),
+            serde_json::json!([{"name": "x".repeat(41), "color": "#ffffff"}]),
+            serde_json::json!(vec![
+                serde_json::json!({"color": "#ffffff"});
+                PALETTE_MAX + 1
+            ]),
+            serde_json::json!({"color": "#ffffff"}),
+        ] {
+            let mut bad = json.clone();
+            bad["palette"] = invalid;
+            assert!(parse_manifest(&serde_json::to_vec(&bad).unwrap()).is_err());
+        }
+        let mut full = json.clone();
+        full["palette"] =
+            serde_json::json!(vec![serde_json::json!({"color": "#ffffff"}); PALETTE_MAX]);
+        assert_eq!(
+            parse_manifest(&serde_json::to_vec(&full).unwrap())
+                .unwrap()
+                .palette
+                .len(),
+            PALETTE_MAX
+        );
     }
 
     #[test]

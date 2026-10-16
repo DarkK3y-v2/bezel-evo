@@ -8,8 +8,8 @@ use bezel_core::domain::history::GRAPH_INTERVAL_MAX_SECONDS;
 use bezel_core::domain::sensor::{ByteUnits, DisplayFormat, SensorKey, TemperatureUnit};
 use bezel_core::domain::theme::{
     AssetRef, Background, Binding, BoxF, Cap, Direction, Element, ElementId, ElementKind, Fit,
-    FontSpec, GraphStyle, HAlign, Paint, Segments, ShapeKind, TextContent, TextStyle, Theme,
-    VAlign,
+    FontSpec, GraphStyle, HAlign, PALETTE_MAX, Paint, SWATCH_NAME_MAX, Segments, ShapeKind, Swatch,
+    TextContent, TextStyle, Theme, VAlign,
 };
 use bezel_core::domain::transition::{
     MAX_TRANSITION_MS, MIN_TRANSITION_MS, TransitionMode, ValueTransition,
@@ -60,6 +60,40 @@ pub struct ThemeDto {
     /// Elements, bottom to top.
     #[serde(default)]
     pub elements: Vec<ElementDto>,
+    /// The theme's saved colours (D-2026-10-16-studio-redesign-fidelity-29);
+    /// written only when there is one, so older themes save unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub palette: Vec<SwatchDto>,
+}
+
+/// A saved colour: `{"name": "Brand", "color": "#rrggbbaa"}`, the name optional.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwatchDto {
+    /// A short name (left out when none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// `#rrggbbaa`.
+    pub color: String,
+}
+
+fn swatch(d: &SwatchDto) -> R<Swatch> {
+    let name = d.name.as_deref().map(str::trim).filter(|n| !n.is_empty());
+    if name.is_some_and(|n| n.chars().count() > SWATCH_NAME_MAX) {
+        return err(format!(
+            "swatch name longer than {SWATCH_NAME_MAX} characters"
+        ));
+    }
+    Ok(Swatch {
+        name: name.map(str::to_string),
+        color: color(&d.color)?,
+    })
+}
+
+fn palette(list: &[SwatchDto]) -> R<Vec<Swatch>> {
+    if list.len() > PALETTE_MAX {
+        return err(format!("a palette holds at most {PALETTE_MAX} swatches"));
+    }
+    list.iter().map(swatch).collect()
 }
 
 fn one() -> f32 {
@@ -1749,6 +1783,14 @@ impl From<&Theme> for ThemeDto {
             },
             orientation: orientation_name(t.orientation).to_string(),
             refresh_seconds: t.refresh_seconds,
+            palette: t
+                .palette
+                .iter()
+                .map(|s| SwatchDto {
+                    name: s.name.clone(),
+                    color: to_hex(s.color),
+                })
+                .collect(),
             background: match &t.background {
                 Background::DeviceVideo {
                     path,
@@ -2064,6 +2106,7 @@ impl TryFrom<&ThemeDto> for Theme {
             } else {
                 1.0
             },
+            palette: palette(&d.palette)?,
         })
     }
 }
