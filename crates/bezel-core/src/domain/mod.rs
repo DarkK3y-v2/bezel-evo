@@ -1,8 +1,8 @@
 //! Domain types: device catalog, geometry, discovery, themes, sensors,
 //! stored media, the framing of a video background, the archive of what
 //! Bezel sent, the cleanup assistant, long-running jobs, GIF and sticker
-//! search with the user's collection, and what a screen does when the
-//! computer shuts down.
+//! search with the user's collection, what a screen does when the computer
+//! shuts down, and the frame handed from one Bezel program to another.
 
 pub mod animation;
 pub mod archive;
@@ -16,6 +16,7 @@ pub mod frame;
 pub mod framing;
 pub mod geometry;
 pub mod gifs;
+pub mod handoff;
 pub mod history;
 pub mod job;
 pub mod media;
