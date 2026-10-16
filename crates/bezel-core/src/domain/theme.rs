@@ -227,6 +227,8 @@ pub struct Binding {
 /// What a text element prints.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TextContent {
+    /// Standalone mirrored audio spectrum.
+    Spectrum(super::spectrum::Spectrum),
     /// Operating-system media session display.
     Player(super::playback::Player),
     /// Current weather at a saved location.
@@ -780,7 +782,7 @@ impl Theme {
             if matches!(
                 e.kind,
                 ElementKind::Text {
-                    content: TextContent::Player(_),
+                    content: TextContent::Player(_) | TextContent::Spectrum(_),
                     ..
                 }
             ) {
