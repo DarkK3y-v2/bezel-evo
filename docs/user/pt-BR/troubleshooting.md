@@ -2,36 +2,33 @@
 
 [English](../troubleshooting.md)
 
-Comece pelo `bezel devices`: ele lista as telas conectadas e o estado delas sem
-mandar nada para elas. Acrescente `-v` a qualquer comando para ver o que o Bezel
-envia e recebe. As mensagens da linha de comando são em inglês; abaixo, cada uma
+Comece pelo seletor de telas do Studio, ou pelo `bezel devices` num terminal:
+os dois listam as telas conectadas e o estado delas sem mandar nada para elas.
+Acrescente `-v` a qualquer comando para ver o que o Bezel envia e recebe. Quando
+precisar de mais detalhes, os [logs](#logs) registram o que o Studio e o Light
+fizeram. As mensagens da linha de comando são em inglês; abaixo, cada uma
 aparece como o Bezel a escreve.
 
 ## "No smart screen found"
 
 - Confira o cabo USB (alguns cabos só carregam) e tente outra porta.
-- Linux: o seu usuário talvez ainda não possa abrir a tela: veja o próximo item.
-- Windows: telas Turing USB (`1CBE`) e WCH (`43A8`) precisam do driver WinUSB:
-  [Deixe o Bezel abrir a tela](permissions.md#windows).
+- Telas Turing USB (`1CBE`) e WCH (`43A8`) precisam do driver WinUSB:
+  [Deixe o Bezel abrir a tela](permissions.md).
+- Se o Windows deu uma porta COM nova à tela, escolha-a de novo no seletor de
+  telas do Studio.
 
-## "access denied" / "Permission denied" (Linux)
+## A tela está em uso ("access denied")
 
-Falta a regra udev. Rode `bezel udev-rules`, copie o comando que ele imprime,
-rode-o e depois desconecte e conecte a tela de novo. O aplicativo mostra o mesmo
-comando quando a porta é negada. Detalhes:
-[Deixe o Bezel abrir a tela](permissions.md#linux).
-
-## "… is in use by …"
-
-Outro programa está usando a tela, por exemplo:
+Só um programa pode usar uma tela por vez. O Windows recusa uma tela serial que
+outro programa está usando, e o Bezel avisa, por exemplo:
 
 ```text
-/dev/ttyACM1 is in use by python3 (PID 4242)
+access denied to COM5: …
 ```
 
-Feche esse programa: o turing-smart-screen-python, o app do fabricante, um
-serviço `bezel-run@`, um segundo `bezel run`, ou a própria janela ou bandeja do
-Bezel com o **Ao vivo** ligado. Veja
+Feche esse programa: o turing-smart-screen-python, o app do fabricante, ou um
+segundo `bezel run` num terminal. O Studio e o Light dividem as telas entre si
+sozinhos. Veja
 [Vindo do turing-smart-screen-python](migrating.md#1-pare-o-outro-programa).
 
 ## A tela está apagada, ou aparece como "asleep"
@@ -39,7 +36,7 @@ Bezel com o **Ao vivo** ligado. Veja
 As telas rev C dormem quando outro programa as desliga (o
 turing-smart-screen-python e o app do fabricante fazem isso ao fechar) e depois
 de um `bezel off`. Qualquer coisa que desenhe as acorda: o **Ao vivo** no
-aplicativo, `bezel run`, `bezel show`, `bezel test-pattern`. Acordar leva alguns
+Studio, `bezel run`, `bezel show`, `bezel test-pattern`. Acordar leva alguns
 segundos.
 
 ## A tela travou / parou de responder
@@ -51,21 +48,21 @@ de despertar) pode travar, por exemplo com um envio acima do limite de 25 MiB.
 **Não precisa desconectar o cabo**: o Bezel a reinicia pelo chip de despertar,
 e ela volta em cerca de 10 segundos.
 
-- **Durante o ao vivo**: o `bezel run`, o serviço `bezel-run@` e o **Ao vivo**
-  do aplicativo conectam a tela de novo sozinhos, 2, 5 e 10 segundos depois de
+- **Durante o ao vivo**: o Light, o `bezel run` e o **Ao vivo** do Studio
+  conectam a tela de novo sozinhos, 2, 5 e 10 segundos depois de
   ela parar; conectar reinicia antes uma tela travada, e o tema continua. A
-  barra de status do aplicativo diz *Reconectando à tela (tentativa 1 de 3)…*,
+  barra de status do Studio diz *Reconectando à tela (tentativa 1 de 3)…*,
   depois *A tela voltou e mostra o tema ao vivo de novo.*; o `bezel run`
   escreve o mesmo no terminal. Depois da terceira tentativa o ao vivo para com
   o erro. Desligar o **Ao vivo** (ou Ctrl+C) nesse meio-tempo para na hora.
 - **Sozinho**: o próximo comando, ou ligar o **Ao vivo** de novo, encontra a
   tela travada e a reinicia uma vez antes de conectar. Nada é reiniciado
   enquanto a tela responde.
-- **Linha de comando**: `bezel restart` (ou `bezel restart -s /dev/ttyACM1`
+- **Linha de comando**: `bezel restart` (ou `bezel restart -s COM5`
   para uma tela). Ele diz que vai reiniciar a tela, espera por ela e mostra onde
   ela voltou. O terminal também mostra essa dica depois de um erro que indica
   que a tela travou.
-- **Aplicativo**: **Tela → Ajustes → Reiniciar a tela…**, depois de uma
+- **Studio**: **Tela → Ajustes → Avançado → Reiniciar a tela…**, depois de uma
   confirmação curta. Um erro de armazenamento que indica que a tela travou tem o
   mesmo botão, e o cartão da tela também, quando o ao vivo parou por isso.
 
@@ -76,7 +73,7 @@ USB, espere alguns segundos e conecte de novo.
 
 ## Depois de cancelar um envio
 
-Apague o arquivo incompleto antes de enviar de novo: o aplicativo oferece
+Apague o arquivo incompleto antes de enviar de novo: o Studio oferece
 **Apagar o arquivo incompleto**, e o terminal imprime o comando
 `bezel storage rm … --yes`. Se o envio seguinte terminar com *"the stored size
 differs; delete it and send it again"*, apague esse arquivo e envie mais uma
@@ -86,7 +83,7 @@ vez. Veja [Cancelar um envio](storage-and-video.md#cancelar-um-envio).
 
 As telas Turing rev C aceitam no máximo 25 MiB por arquivo: o firmware guarda o
 envio inteiro na memória e trava com um arquivo maior. O Bezel recusa o arquivo
-antes de enviar qualquer coisa (no aplicativo: *"O arquivo tem … MiB; esta tela
+antes de enviar qualquer coisa (no Studio: *"O arquivo tem … MiB; esta tela
 aceita arquivos de até 25 MiB."*). Envie um trecho mais curto, ou deixe o Bezel
 converter o vídeo com menos quadros por segundo (`--fps 24`): a conversão limita
 a taxa de bits para o resultado caber. Veja
@@ -105,64 +102,86 @@ O cartão não está lá ou não está em FAT32 com tabela de partição MBR:
 
 ## Um sensor mostra `—`
 
-O `bezel sensors` diz por quê. No Windows, rode o LibreHardwareMonitor como
-administrador. Veja [Sensores](sensors.md#quando-falta-um-valor).
+O `bezel sensors` diz por quê. Veja [Sensores](sensors.md#quando-falta-um-valor).
+
+A barra de status do Studio tem um indicador de sensores: verde quando tudo está
+sendo lido, amarelo quando pelo menos um hardware está sem leituras, vermelho
+quando nada é lido. Clique nele para ver qual hardware foi afetado. Sensores
+opcionais ausentes não deixam amarelo um dispositivo saudável. **Reiniciar
+Libre** reinicia o leitor de sensores de hardware incluso; o indicador se
+atualiza quando as leituras voltam. Isso pode recuperar uma fonte Corsair cujas
+leituras por USB pararam, mesmo quando o Total Output calculado ainda mostra
+`0 W`. O reinício precisa da tarefa `Bezel-Sensors` que a opção **Configure
+hardware sensors** do Setup (ou o `setup-evo-sensors.cmd` do ZIP portátil) cria.
+Veja [O estado dos sensores](sensors.md#o-estado-dos-sensores).
 
 ## O FPS de jogos mostra `—`
 
 Nenhuma ferramenta está medindo um jogo, ou o jogo está pausado:
 [FPS de jogos](fps.md).
 
-## Windows: "O Windows protegeu o computador"
+## "O Windows protegeu o computador"
 
 Os instaladores do Bezel não têm assinatura. Clique em **Mais informações** e
 depois em **Executar assim mesmo**:
-[Instalar o Bezel](install.md#instaladores-sem-assinatura).
+[Instalar o Bezel Evo](install.md#instaladores-sem-assinatura).
 
 ## Um painel Turing USB aparece em "desktop mode"
 
 Ele está no modo desktop (segundo monitor) do fabricante:
 [Telas suportadas](devices.md#modo-desktop).
 
-## O aplicativo não abre
+## O Studio não abre
 
-Abra-o por um terminal (`bezel-studio`) e leia o que ele imprime. No Windows o
-aplicativo não abre console: num Prompt de Comando, na pasta onde o Bezel está
-instalado, rode `bezel-studio.exe 2> bezel-studio.txt` e depois abra o
-`bezel-studio.txt`.
+O Studio não abre console. Para ver o que ele imprime, abra um Prompt de Comando
+na pasta onde o Bezel Evo está instalado e rode
+`bezel-studio.exe 2> bezel-studio.txt`; depois abra o `bezel-studio.txt`. Os
+[logs](#logs) podem dizer mais.
 
-As mensagens do aplicativo no terminal (`bezel-studio: …`) são frases fixas de
-uma lista fechada: nenhuma traz o texto do erro por trás dela, nem um arquivo
-ou pasta seus. É de propósito, para que nada que o aplicativo imprime carregue
-um segredo, como a sua chave do KLIPY, ou um caminho pessoal. Quando o
-aplicativo para num erro (um panic), a única linha que ele imprime acrescenta
-onde no código-fonte isso aconteceu: um arquivo do código do Bezel ou de uma
-biblioteca, a partir da pasta do crate (`tao-0.37.1/src/…`), e uma linha e uma
-coluna, nunca a mensagem do erro. Quando o aplicativo não abre, ou abre sem uma
-parte, o terminal diz qual parte falhou:
+As mensagens do Studio (`bezel-studio: …`) são frases fixas de uma lista
+fechada: nenhuma traz o texto do erro por trás dela, nem um arquivo ou pasta
+seus. É de propósito, para que nada que o Studio imprime carregue um segredo,
+como a sua chave do KLIPY, ou um caminho pessoal. Quando o Studio para num erro
+(um panic), a única linha que ele imprime acrescenta onde no código-fonte isso
+aconteceu: um arquivo do código do Bezel ou de uma biblioteca, a partir da pasta
+do crate (`tauri-2.…/src/…`), e uma linha e uma coluna, nunca a mensagem do
+erro. Quando o Studio não abre, ou abre sem uma parte, ele diz qual parte
+falhou:
 
-| O terminal diz | O que falhou |
+| Ele diz | O que falhou |
 | --- | --- |
-| `bezel-studio: the app panicked at tao-…/src/platform_impl/linux/event_loop.rs:…` | Linux: não há sessão gráfica, então o GTK não pôde iniciar. Abra o aplicativo dentro da sua sessão gráfica, não por SSH nem por um serviço do sistema. |
-| `bezel-studio: the app's folders were not found`, depois `bezel-studio: the app panicked at tauri-…/src/app.rs:…` | Onde o aplicativo guarda ajustes, dados e cache (no Linux, achados pelo `HOME` e pelas variáveis `XDG_*_HOME`). |
-| `bezel-studio: the tray icon was not added`, depois `bezel-studio: the app panicked at tauri-…/src/app.rs:…` | O ícone da bandeja. Linux: a biblioteca AppIndicator (`libayatana-appindicator`). |
-| `bezel-studio: the app panicked at tauri-…/src/app.rs:…`, sem linha antes | A janela ou a página dentro dela. Linux: o WebKitGTK; com o AppImage, tente `--appimage-extract-and-run`. Windows: o runtime do WebView2; rode o instalador de novo. |
-| `bezel-studio: the app panicked at …`, outro lugar | Um erro dentro do aplicativo ou de uma biblioteca que ele usa. Relate-o, com a linha inteira. |
+| `bezel-studio: the app's folders were not found`, depois `bezel-studio: the app panicked at tauri-…/src/app.rs:…` | Onde o Studio guarda ajustes, dados e cache (as pastas `AppData` do seu usuário). |
+| `bezel-studio: the tray icon was not added`, depois `bezel-studio: the app panicked at tauri-…/src/app.rs:…` | O ícone da bandeja. |
+| `bezel-studio: the app panicked at tauri-…/src/app.rs:…`, sem linha antes | A janela ou a página dentro dela: o runtime do WebView2. Rode o Setup de novo, ou instale o WebView2 pela Microsoft. |
+| `bezel-studio: the app panicked at …`, outro lugar | Um erro dentro do Studio ou de uma biblioteca que ele usa. Relate-o, com a linha inteira. |
 | `bezel-studio: the app did not start: a plugin did not start` | Um dos plugins dele: janela única, diálogos de arquivo, abrir links, abrir no login. |
 | `bezel-studio: the app did not start` | Outra causa. |
-| `bezel-studio: refresh loop not started: no thread or memory to spare` | O aplicativo abre, mas os sensores e a tela ao vivo não se atualizam: o sistema está sem threads ou sem memória. Feche alguns programas e abra o Bezel de novo. |
+| `bezel-studio: refresh loop not started: no thread or memory to spare` | O Studio abre, mas os sensores e a tela ao vivo não se atualizam: o Windows está sem threads ou sem memória. Feche alguns programas e abra o Studio de novo. |
 | `bezel-studio: refresh loop not started` | O mesmo, por outra causa. |
-| `bezel-studio: could not restart with the DMA-BUF renderer off: the app's program file is gone` | Linux. Ao abrir, o aplicativo se reinicia uma vez com o renderizador DMA-BUF do WebKitGTK desligado (ligado, o driver da NVIDIA fecha o aplicativo); o arquivo do programa foi removido ou trocado nesse meio-tempo. Abra-o de novo. |
-| `bezel-studio: could not restart with the DMA-BUF renderer off: running the app's program file was not allowed` | O mesmo reinício, recusado: o programa está num disco montado com `noexec`, ou uma política de segurança o impede. |
-| `bezel-studio: could not restart with the DMA-BUF renderer off` | O mesmo reinício, por outra causa. Nesses três casos, abra-o com `WEBKIT_DISABLE_DMABUF_RENDERER=1 bezel-studio`. |
 
 Num lugar, o `…` substitui a versão da biblioteca, a linha e a coluna, que
-mudam de uma versão do Bezel para outra.
+mudam de uma versão do Bezel para outra. Ao relatar o problema, copie essas
+linhas como estão.
 
-Ao relatar o problema, copie essas linhas como estão.
+## Logs
+
+O Studio e o Light gravam os logs numa pasta só:
+
+```text
+%LOCALAPPDATA%\io.github.slipalison.bezel\logs
+```
+
+Para abri-la, use **Preferências → Logs → Abrir pasta de logs** no Studio (o
+ícone de controles deslizantes na barra de cima). O log do Light é o
+`light.log`. Os logs são gravados mesmo com o **Debug** desligado; **Preferências
+→ Debug → Ativar logs de diagnóstico** acrescenta detalhes sobre desenho, envios
+e sensores enquanto você reproduz um problema. Os logs giram em 2 MiB e nunca
+registram pedidos de rede. O leitor de sensores de hardware tem os próprios logs
+([guia do leitor de sensores](../../../apps/bezel-sensors-helper/README.md), em
+inglês).
 
 ## Relatar um problema
 
-Inclua a saída de `bezel --version` e de `bezel -v devices`, e o log do que
-falhou (`bezel -v …`, ou `journalctl --user -u bezel-run@<tema>` para o
-serviço). Tire números de série e caminhos pessoais antes de publicar.
+Inclua a versão (mostrada no cabeçalho do Studio e pelo `bezel --version`), a
+saída de `bezel -v devices` e os [logs](#logs) do momento em que falhou. Tire
+números de série e caminhos pessoais antes de publicar.

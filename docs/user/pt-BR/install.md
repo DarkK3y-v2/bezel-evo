@@ -1,107 +1,91 @@
-# Instalar o Bezel
+# Instalar o Bezel Evo
 
 [English](../install.md)
 
-Baixe na [página de releases](https://github.com/slipalison/bezel/releases).
-Cada release traz estes arquivos (`<versão>` é o número da release, como `1.0.0`):
+O Bezel Evo roda no **Windows 10 e 11, x64**. Baixe-o na
+[página de releases](https://github.com/jripper77/bezel-evo/releases):
 
-| Sistema | Arquivo | Conteúdo |
-|---|---|---|
-| Debian 12+, Ubuntu 22.04+, Mint 21+ | `bezel_<versão>_amd64.deb` | aplicativo, comando `bezel`, regra udev, serviço, temas |
-| Fedora, openSUSE | `bezel-<versão>-1.x86_64.rpm` | aplicativo, comando `bezel`, regra udev, serviço, temas |
-| Qualquer Linux | `bezel_<versão>_amd64.AppImage` | só o aplicativo; roda sem instalar |
-| Linux, só o comando | `bezel-x86_64-unknown-linux-gnu.tar.gz` | `bezel` |
-| Windows 10 e 11 | `bezel_<versão>_x64-setup.exe` ou `bezel_<versão>_x64_en-US.msi` | o aplicativo |
-| Windows, só o comando | `bezel-x86_64-pc-windows-msvc.zip` | `bezel.exe` |
+| Arquivo | O que é |
+|---|---|
+| **Setup** (`Bezel-Evo-<versão>-windows-x64-setup.exe`) | Instala o Studio, o Light, os temas inclusos e o leitor de sensores de hardware para o seu usuário do Windows |
+| **ZIP portátil** (`…-windows-x64-portable.zip`) | Os mesmos programas, para extrair numa pasta onde você possa gravar |
+| **Checksums** (`…-SHA256SUMS.txt`) | O SHA-256 de cada arquivo, para conferir um download |
+| **Source** | O código-fonte dessa release |
 
 Antes de instalar, feche qualquer outro programa que controle a tela (o app do
 fabricante, o turing-smart-screen-python): só um programa pode usá-la por vez.
 Veja [Vindo do turing-smart-screen-python](migrating.md).
 
+## Setup
+
+Rode o Setup. Ele instala para o seu usuário do Windows e, na página
+**Startup and hardware sensors** (o Setup é em inglês), oferece duas opções:
+
+- **Start Bezel Evo Light when I sign in** (iniciar o Light ao entrar): os seus temas salvos voltam às telas quando
+  você entra, sem abrir o Studio ([Iniciar com o Windows](run-at-login.md)).
+- **Configure hardware sensors** (configurar os sensores): registra o leitor de sensores incluso, para ler
+  temperaturas da CPU, ventoinhas e potência ([Sensores](sensors.md)). Só esse
+  passo pede aprovação de administrador; aprove com a mesma conta do Windows. O
+  Studio e o Light sempre rodam como o seu usuário normal.
+
+Se o Microsoft Edge WebView2 faltar, o Setup o baixa. Os sensores de hardware
+usam o .NET Framework 4.7.2 ou mais novo, que o Windows 10 e 11 já trazem.
+
+Depois abra o **Bezel Studio** pelo menu Iniciar e
+[crie o seu primeiro tema](first-theme.md).
+
+## ZIP portátil
+
+Extraia o ZIP numa pasta onde você possa gravar e abra `bezel-studio.exe`. A
+versão portátil precisa do WebView2 já instalado.
+
+- Rode `setup-evo-sensors.cmd` uma vez para configurar o leitor de sensores de
+  hardware.
+- Dê dois cliques em `start-light.cmd` para iniciar o Light, depois de salvar um
+  tema e escolher uma tela no Studio.
+
 ## Instaladores sem assinatura
 
-Os instaladores do Bezel saem sem assinatura de código (sem Authenticode no
-Windows, sem GPG no Linux). Para conferir se o download veio íntegro, compare o
-SHA-256 dele com o que a página de releases mostra ao lado de cada arquivo:
+O Setup e os programas do Bezel Evo não têm assinatura digital, então o Windows
+SmartScreen pode parar o Setup com "O Windows protegeu o computador". Confira se
+o arquivo é o que você baixou, clique em **Mais informações** e depois em
+**Executar assim mesmo**.
 
-```bash
-sha256sum bezel_<versão>_amd64.deb
-```
+Para conferir se um download chegou inteiro, compare o SHA-256 dele com a linha
+desse arquivo em `Bezel-Evo-<versão>-SHA256SUMS.txt`, na mesma release
+(maiúsculas ou minúsculas tanto faz):
 
 ```powershell
-Get-FileHash .\bezel_<versão>_x64-setup.exe
+Get-FileHash .\Bezel-Evo-<versão>-windows-x64-setup.exe
 ```
 
-## Linux
+## Atualizar
 
-**Debian, Ubuntu, Mint:**
+Salve o seu tema e feche o Studio, depois feche o Light pelo ícone da bandeja
+(**Quit**). Rode o novo Setup, ou extraia o novo ZIP por cima da pasta antiga. O
+Setup se recusa a atualizar com o Studio ou o Light abertos; ele nunca os fecha
+por você.
 
-```bash
-sudo apt install ./bezel_<versão>_amd64.deb
-```
+As atualizações mantêm os seus temas, preferências, fontes e caches. Uma
+atualização silenciosa (`/S`) mantém as opções escolhidas antes e não liga
+opções novas.
 
-**Fedora:**
+## Desinstalar
 
-```bash
-sudo dnf install ./bezel-<versão>-1.x86_64.rpm
-```
+Use **Configurações → Aplicativos → Aplicativos instalados** no Windows. A
+desinstalação remove os programas, e a tarefa de sensores e a entrada do Light
+na inicialização que pertencem a esta instalação. Os seus temas, preferências e
+caches ficam.
 
-**openSUSE:** `sudo zypper install ./bezel-<versão>-1.x86_64.rpm`
+## O que não vem incluso
 
-O pacote instala:
+- O **ffmpeg**, para converter vídeos: [Instalar o ffmpeg](ffmpeg.md).
+- **Drivers de hardware**: a maioria das telas não precisa de nenhum; a geração
+  Turing USB e os painéis WCH precisam do WinUSB
+  ([Deixe o Bezel abrir a tela](permissions.md)).
 
-- o *Bezel* no menu de aplicativos (`bezel-studio`) e o comando `bezel`;
-- a regra udev que deixa você abrir a tela sem root
-  (`/usr/lib/udev/rules.d/60-bezel.rules`), aplicada durante a instalação;
-- o serviço de usuário `bezel-run@` do systemd
-  ([Iniciar com o computador](run-at-login.md));
-- os temas que vêm com o Bezel.
-
-Se a tela já estava conectada e o Bezel ainda não consegue abri-la, desconecte e
-conecte de novo o cabo USB.
-
-Para remover: `sudo apt remove bezel` ou `sudo dnf remove bezel`.
-
-**AppImage:**
-
-```bash
-chmod +x bezel_<versão>_amd64.AppImage
-./bezel_<versão>_amd64.AppImage
-```
-
-O AppImage não consegue instalar a regra udev: faça isso uma vez, como em
-[Deixe o Bezel abrir a tela](permissions.md). Se o AppImage não abrir, rode-o com
-`--appimage-extract-and-run`.
-
-**Só o comando:** descompacte o arquivo e ponha o `bezel` no seu `PATH`, por
-exemplo em `~/.local/bin`:
-
-```bash
-tar -xzf bezel-x86_64-unknown-linux-gnu.tar.gz bezel
-install -m 755 bezel ~/.local/bin/bezel
-bezel --version
-```
-
-## Windows
-
-Rode o `bezel_<versão>_x64-setup.exe` (instala para o seu usuário) ou o `.msi`
-(instala para todos os usuários do computador e pede permissão de
-administrador). O Bezel aparece no menu Iniciar. Se faltar o Microsoft Edge
-WebView2, o instalador baixa.
-
-Como o instalador não tem assinatura, o SmartScreen do Windows pode barrá-lo
-com "O Windows protegeu o computador". Clique em **Mais informações**, confira se
-o arquivo é o que você baixou e clique em **Executar assim mesmo**.
-
-Para a linha de comando, descompacte o `bezel-x86_64-pc-windows-msvc.zip` numa
-pasta da sua escolha (por exemplo `C:\Tools\bezel`) e rode o `bezel.exe` de lá,
-ou ponha essa pasta no `PATH`.
-
-Depois: [Deixe o Bezel abrir a tela](permissions.md). As telas da geração Turing
-USB e os painéis WCH precisam do driver WinUSB, e as temperaturas da CPU precisam
-do LibreHardwareMonitor.
-
-## Compilando o código-fonte
-
-Veja *Build from source* no [guia de build para Windows](../../build-windows.md) do
-projeto.
+Detalhes para quem mantém o projeto, instalação silenciosa e os scripts da
+versão portátil estão no
+[guia de empacotamento para Windows](../../../packaging/windows/README.md) (em
+inglês). Para compilar o código-fonte, veja
+[Build on Windows](../../build-windows.md).

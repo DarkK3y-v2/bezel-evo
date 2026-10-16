@@ -34,13 +34,12 @@ O Bezel os lista como **desktop mode (not validated on hardware)**, isto é, nã
 validado no hardware, e consegue devolvê-los ao modo monitor USB. Essa troca
 segue o protocolo do fabricante, mas ainda não foi testada num painel real.
 
-```bash
+```powershell
 bezel monitor-mode          # diz o que faria; não envia nada
 bezel monitor-mode --yes    # pergunta o modelo ao painel e depois troca o modo
 ```
 
 O painel reinicia como tela USB, e o `bezel devices` passa a listá-lo
-normalmente. No aplicativo, a aba **Tela** mostra esses painéis em **Painéis em
+normalmente. No Studio, o painel **Tela** mostra esses painéis em **Painéis em
 modo desktop**, e **Voltar ao modo de tela USB…** pede confirmação antes de
-trocar o modo. No Linux, o painel é acessado pelo `hidraw`, que a regra udev
-cobre ([Deixe o Bezel abrir a tela](permissions.md)).
+trocar o modo.
