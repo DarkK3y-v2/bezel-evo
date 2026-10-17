@@ -52,10 +52,12 @@ Studio has been redesigned from the ground up, in dark and light.
 - **A media player you compose.** Choose the parts (cover, title, artist, time,
   progress, app name) and style the progress bar: continuous, segments or dots,
   round or square ends, a knob, times at the sides or above.
-- **An audio spectrum that follows the music.** Mirrored bars that move with the
-  app your Player follows, with held peaks, gradients and colour by value. It
-  listens only to that app, in memory, and can be turned off in Preferences
-  (Windows 11).
+- **An audio spectrum that follows the music.** It moves with the app your
+  Player follows, in five styles: mirrored bars, bars rising from the bottom,
+  LED blocks that light up like a level meter, a smooth line with a soft fill,
+  and radial bars around a ring. Held peaks, gradients and colour by value come
+  with every style. It listens only to that app, in memory, and can be turned
+  off in Preferences (Windows 11).
 - **A clear background chooser.** One card shows the background in use; **Change
   background…** offers a solid colour, a picture or video from this computer, or
   a video already stored on the screen, and nothing changes until you confirm.
@@ -67,6 +69,8 @@ Studio has been redesigned from the ground up, in dark and light.
   logs folder.
 
 ## Gallery
+
+[![The five audio spectrum styles drawn by Bezel's screen renderer: mirrored bars, bars with a blue to purple gradient, green and yellow LED blocks, a line with a soft fill, and radial bars around a ring](docs/images/spectrum-styles.png)](docs/images/spectrum-styles.png)
 
 | Colours from your theme | Fonts with their real weights |
 | :---: | :---: |
