@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-04 (2026-10-18): Decisione dell'utente — ruota tutto il contenuto dell'elemento (testo, grafici, spettro, immagini). Il fit-to-content resta calcolato sul riquadro non ruotato.

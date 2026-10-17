@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-03 (2026-10-18): Decisione dell'utente — allineamento, aggancio e campi X/Y/W/H lavorano sul riquadro NON ruotato (`frame`). Il riquadro che contiene l'oggetto ruotato serve solo per selezione/hit-test, dirty rect e avviso di uscita dallo schermo.
