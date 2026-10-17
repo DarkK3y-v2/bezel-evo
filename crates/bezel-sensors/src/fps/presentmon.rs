@@ -170,6 +170,7 @@ pub(crate) struct PresentMon {
     state: State,
     backoff_duration: Duration,
     lines: Arc<Mutex<VecDeque<String>>>,
+    errors: Arc<Mutex<VecDeque<String>>>,
     running: Arc<AtomicBool>,
     fallback_to_rtss: bool,
     #[cfg(windows)]
@@ -193,6 +194,7 @@ impl PresentMon {
             state: State::Stopped,
             backoff_duration: BACKOFF_INITIAL,
             lines: Arc::new(Mutex::new(VecDeque::new())),
+            errors: Arc::new(Mutex::new(VecDeque::new())),
             running: Arc::new(AtomicBool::new(true)),
             fallback_to_rtss: false,
             #[cfg(windows)]
@@ -278,7 +280,10 @@ impl PresentMon {
         // on us, and an unread stderr pipe would block it once it fills.
         cmd.stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null());
+            // stderr is a pipe read by a thread: PresentMon's exit reason
+            // (rights, unknown flag, leaked session) becomes the sensor's
+            // message instead of dying silently.
+            .stderr(Stdio::piped());
 
         let mut child = cmd.spawn().map_err(|e| {
             #[cfg(windows)]
@@ -307,6 +312,7 @@ impl PresentMon {
             .stdout
             .take()
             .ok_or("Failed to get PresentMon's output")?;
+        let stderr = child.stderr.take();
         // Revive the reader flag: a stopped reader must not kill the next
         // session's reader.
         self.running.store(true, Ordering::Relaxed);
@@ -327,6 +333,29 @@ impl PresentMon {
                 }
             }
         });
+
+        if let Some(stderr) = stderr {
+            let errors = Arc::clone(&self.errors);
+            let running = Arc::clone(&self.running);
+            std::thread::spawn(move || {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    if !running.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    if let Ok(line) = line {
+                        let mut guard = errors
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        guard.push_back(line);
+                        // A few lines are enough to diagnose a death.
+                        while guard.len() > 8 {
+                            guard.pop_front();
+                        }
+                    }
+                }
+            });
+        }
 
         self.child = Some(child);
         self.state = State::Running;
@@ -351,12 +380,19 @@ impl PresentMon {
         self.last_frame_time = None;
         self.state = State::Stopped;
         self.backoff_duration = BACKOFF_INITIAL;
-        // Clear the queue so a restart starts clean.
-        let mut guard = self
-            .lines
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        guard.clear();
+        // Clear the queues so a restart starts clean.
+        {
+            let mut guard = self
+                .lines
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            guard.clear();
+            let mut errors = self
+                .errors
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            errors.clear();
+        }
     }
 
     /// Moves the CSV lines the reader thread queued into `frames`.
@@ -473,10 +509,32 @@ impl FrameRateSource for PresentMon {
                 None => false,
             };
             if exited {
+                // stop() resets the backoff to the initial value; keep the
+                // escalated one so a crash loop backs off 2 s -> 4 s -> 60 s.
+                let wait = self.backoff_duration;
+                let never_measured = self.last_frame_time.is_none();
+                let why = {
+                    let guard = self
+                        .errors
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard
+                        .iter()
+                        .rev()
+                        .find(|l| !l.trim().is_empty())
+                        .cloned()
+                };
                 self.stop();
-                self.state = State::BackingOff(Instant::now() + self.backoff_duration);
-                self.backoff_duration = (self.backoff_duration * 2).min(BACKOFF_MAX);
-                return Err("PresentMon process died unexpectedly".to_string());
+                self.state = State::BackingOff(Instant::now() + wait);
+                self.backoff_duration = (wait * 2).min(BACKOFF_MAX);
+                return Err(match why {
+                    Some(line) if never_measured => format!(
+                        "PresentMon exited before measuring: {}. Its trace session needs an administrator or the 'Performance Log Users' group.",
+                        line.trim()
+                    ),
+                    Some(line) => format!("PresentMon exited: {}", line.trim()),
+                    None => "PresentMon process died unexpectedly".to_string(),
+                });
             }
         }
 
