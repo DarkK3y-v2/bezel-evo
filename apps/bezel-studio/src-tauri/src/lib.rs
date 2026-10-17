@@ -492,6 +492,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
         let sensors = Arc::clone(&backend.make_sensors);
         let options = backend.settings.load().sensor_options();
         let ffmpeg = backend.settings.load().ffmpeg_path.map(PathBuf::from);
+        let audio = backend.settings.load().audio_capture.0;
         let cache = folders.cache.join("runtime-fallback");
         let font_dirs: Vec<_> = bundled_theme_dirs(&folders)
             .iter()
@@ -513,7 +514,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
                 )
                 .map(|engine| {
                     let sensors = Arc::clone(&sensors);
-                    engine.with_adapters(
+                    let mut engine = engine.with_adapters(
                         Box::new(move |options| {
                             Ok((
                                 sensors(bezel_sensors::SensorOptions {
@@ -525,7 +526,10 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
                             ))
                         }),
                         Box::new(FakeSensors::demo()),
-                    )
+                    );
+                    // The Preferences choice, not "disabled", until options sync.
+                    engine.audio_consent(audio);
+                    engine
                 })
             }),
         )));

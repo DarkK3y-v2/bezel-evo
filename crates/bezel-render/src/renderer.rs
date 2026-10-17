@@ -1105,7 +1105,11 @@ impl SkiaRenderer {
                 .spectra
                 .get(&element.id)
                 .cloned()
-                .unwrap_or_default();
+                // No result yet is silence, not a disabled capture.
+                .unwrap_or(bezel_core::domain::spectrum::SpectrumFrame {
+                    state: bezel_core::domain::spectrum::AudioState::Live,
+                    ..Default::default()
+                });
             if s.demo {
                 frame.state = bezel_core::domain::spectrum::AudioState::Demo;
                 frame.levels = (0..s.bands)

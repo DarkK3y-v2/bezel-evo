@@ -554,4 +554,21 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn a_spectrum_without_a_result_is_silent_not_disabled() {
+        let element = testkit::element(
+            WIDGET,
+            ElementKind::Text {
+                content: TextContent::Spectrum(plain(SpectrumStyle::Mirrored)),
+                style: TextStyle::default(),
+            },
+        );
+        let theme = testkit::theme(160, 100, Background::Color(Rgba::BLACK), vec![element]);
+        let f = testkit::render(&mut testkit::renderer(), &theme, &Scene::empty());
+        for y in 0..100 {
+            for x in 0..160 {
+                assert_eq!(f.pixel(x, y), Some(Rgba::BLACK), "{x},{y}");
+            }
+        }
+    }
 }

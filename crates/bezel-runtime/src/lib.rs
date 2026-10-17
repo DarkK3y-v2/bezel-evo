@@ -531,10 +531,11 @@ impl Engine {
                             s.playing,
                             bezel_core::domain::spectrum::AudioState::Live,
                         ),
+                        // No media session is silence: zero bars, no message.
                         Ok(None) => (
                             String::new(),
                             false,
-                            bezel_core::domain::spectrum::AudioState::Unavailable,
+                            bezel_core::domain::spectrum::AudioState::Live,
                         ),
                         Err(state) => (String::new(), false, state),
                     };
@@ -626,11 +627,9 @@ impl Engine {
                                 bezel_core::domain::spectrum::AudioState::Demo
                             } else if !self.audio_enabled {
                                 bezel_core::domain::spectrum::AudioState::Disabled
-                            } else if self.audio.is_none()
-                                && r.state == bezel_core::domain::spectrum::AudioState::Live
-                            {
-                                bezel_core::domain::spectrum::AudioState::Unavailable
                             } else {
+                                // Without a capture worker (Studio's fallback engine) a
+                                // live spectrum is silent bars, never a message.
                                 r.state
                             };
                             let frame = if matches!(
