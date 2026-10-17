@@ -5,9 +5,9 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
-## [0.1.28] - 2026-10-17
+## [0.1.29] - 2026-10-17
 
-0.1.27 was a local build; this entry covers both.
+0.1.27 and 0.1.28 were local builds; this entry covers them too.
 
 ### Widgets
 - **Audio spectrum**: a new widget that draws the sound of the app a Player
@@ -24,6 +24,8 @@ All notable changes to Bezel Evo are documented here. The format follows
 - The **Render** chip in the status bar keeps its width when the time gains a
   digit, and its text is centred again.
 - Light no longer crashes when the audio spectrum starts listening to an app.
+- The audio spectrum hears apps installed from the Microsoft Store, such as
+  Spotify, instead of reporting the source as unavailable.
 
 ## [0.1.26] - 2026-10-16
 
