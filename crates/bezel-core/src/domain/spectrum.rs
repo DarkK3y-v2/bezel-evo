@@ -16,6 +16,21 @@ pub enum Motion {
     /// Fast attack and fall.
     Snappy,
 }
+/// How the bands are drawn (D-AS-11).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpectrumStyle {
+    /// Bars mirrored around a horizontal centre line (D-AS-4).
+    #[default]
+    Mirrored,
+    /// Bars rising from the bottom edge.
+    Bars,
+    /// Bars made of stacked blocks, lit from the bottom.
+    Blocks,
+    /// A smooth curve through the bands, optionally filled below.
+    Line,
+    /// Bars radiating from a ring around the element's centre.
+    Radial,
+}
 /// Standalone spectrum following exactly one theme Player.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Spectrum {
@@ -39,8 +54,18 @@ pub struct Spectrum {
     pub gap: f32,
     /// Shared corner ordering: top-left, top-right, bottom-right, bottom-left.
     pub corners: [f32; 4],
-    /// Draw the horizontal centre line.
+    /// Draw the base line: centre line, bottom edge, or inner ring when radial.
     pub centre: bool,
+    /// How the bands are drawn.
+    pub style: SpectrumStyle,
+    /// Block height in pixels, for `Blocks`.
+    pub block: f32,
+    /// Line width in pixels, for `Line`.
+    pub stroke: f32,
+    /// Fill the area below the curve, for `Line`.
+    pub fill: bool,
+    /// Inner ring radius as a percentage of the outer radius, for `Radial`.
+    pub inner: f32,
 }
 impl Default for Spectrum {
     fn default() -> Self {
@@ -56,6 +81,11 @@ impl Default for Spectrum {
             gap: 3.,
             corners: [2.; 4],
             centre: true,
+            style: SpectrumStyle::Mirrored,
+            block: 6.,
+            stroke: 2.,
+            fill: true,
+            inner: 40.,
         }
     }
 }
@@ -76,6 +106,9 @@ impl Spectrum {
                 .corners
                 .iter()
                 .all(|v| v.is_finite() && (0. ..=256.).contains(v))
+            && (1. ..=64.).contains(&self.block)
+            && (1. ..=32.).contains(&self.stroke)
+            && (0. ..=90.).contains(&self.inner)
     }
     /// The followed session, selected by the Player's own selection function.
     pub fn session<'a>(

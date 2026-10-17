@@ -1,5 +1,7 @@
 // Spectrum configuration shared by the palette, inspector and explicit demo.
-export const SPECTRUM_DEFAULTS = Object.freeze({ player: null, bands: 32, low: 60, high: 16000, motion: 'balanced', peaks: true, demo: false, thickness: 12, gap: 3, corners: Object.freeze([2,2,2,2]), centre: true });
+export const SPECTRUM_DEFAULTS = Object.freeze({ player: null, bands: 32, low: 60, high: 16000, motion: 'balanced', peaks: true, demo: false, thickness: 12, gap: 3, corners: Object.freeze([2,2,2,2]), centre: true, style: 'mirrored', block: 6, stroke: 2, fill: true, inner: 40 });
+/** Drawing styles (D-AS-11); `mirrored` is the original D-AS-4 look. */
+export const SPECTRUM_STYLES = Object.freeze(['mirrored', 'bars', 'blocks', 'line', 'radial']);
 export function spectrumOf(content) { return { ...SPECTRUM_DEFAULTS, ...content }; }
 export function followedPlayer(theme, content) {
   const players = theme.elements.filter(e => e.kind.type === 'text' && e.kind.content.type === 'player');
@@ -12,6 +14,9 @@ export function spectrumPatch(content, patch) {
   c.low = clamp(c.low, 20, 23999, 60); c.high = clamp(c.high, c.low + 1, 24000, 16000);
   c.thickness = clamp(c.thickness, 1, 256, 12); c.gap = clamp(c.gap, 0, 128, 3);
   if (!['smooth','balanced','snappy'].includes(c.motion)) c.motion = 'balanced';
+  if (!SPECTRUM_STYLES.includes(c.style)) c.style = 'mirrored';
+  c.block = clamp(c.block, 1, 64, 6); c.stroke = clamp(c.stroke, 1, 32, 2); c.inner = clamp(c.inner, 0, 90, 40);
+  c.fill = c.fill !== false;
   c.corners = (Array.isArray(c.corners) && c.corners.length === 4 ? c.corners : SPECTRUM_DEFAULTS.corners).map(v => clamp(v, 0, 256, 2));
   return c;
 }

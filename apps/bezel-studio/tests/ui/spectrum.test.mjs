@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPECTRUM_DEFAULTS, followedPlayer, spectrumOf, spectrumPatch, demoSpectrum } from '../../src/spectrum.js';
+import { SPECTRUM_DEFAULTS, SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch, demoSpectrum } from '../../src/spectrum.js';
 import { createWidget, widgetOf } from '../../src/editor/widgets.js';
 import { createStore } from '../../src/editor/store.js';
 import { DEMO_THEME } from '../../src/demo-theme.js';
@@ -24,6 +24,14 @@ test('defaults, range boundaries and non-finite edits cannot escape JSON bounds'
   assert.equal(spectrumPatch({}, { bands: 7 }).bands, 8);
   assert.equal(spectrumPatch({}, { motion: 'smooth' }).motion, 'smooth');
   assert.equal(spectrumPatch({}, { motion: 'snappy' }).motion, 'snappy');
+});
+test('styles default to mirrored; unknown styles and style bounds cannot escape the file format', () => {
+  assert.equal(spectrumOf({}).style, 'mirrored');
+  for (const style of SPECTRUM_STYLES) assert.equal(spectrumPatch({}, { style }).style, style);
+  assert.equal(spectrumPatch({}, { style: 'spiral' }).style, 'mirrored');
+  const c = spectrumPatch({}, { block: 0, stroke: 99, inner: 95, fill: false });
+  assert.deepEqual([c.block, c.stroke, c.inner, c.fill], [1, 32, 90, false]);
+  assert.deepEqual(spectrumPatch({}, { block: NaN, stroke: NaN, inner: NaN }), SPECTRUM_DEFAULTS);
 });
 test('spectrum is standalone, uses band thresholds and remains one Undo step per edit', () => {
   const store = createStore(DEMO_THEME); store.dispatch('add', { widget: 'spectrum' });

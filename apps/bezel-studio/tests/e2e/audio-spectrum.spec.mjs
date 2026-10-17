@@ -43,3 +43,21 @@ test('the bars corners switch between one radius and four, under their own title
   await same.click();await expect(same).toHaveAttribute('aria-pressed','true');await expect(control.getByRole('spinbutton')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+test('each style shows only its own fields, one Undo step per change (D-AS-11)',async({page,t})=>{
+  const errors=watchErrors(page), inspector=await setup(page,t);
+  await inspector.getByRole('button',{name:t('spectrum.demo'),exact:true}).click();
+  await tab(page,t,'inspector.tab.look');
+  const style=inspector.getByRole('combobox',{name:t('spectrum.style'),exact:true});await expect(style).toHaveValue('mirrored');
+  const field=name=>inspector.getByRole('spinbutton',{name:t(name),exact:true});
+  const toggle=name=>inspector.getByRole('switch',{name:t(name),exact:true});
+  await expect(toggle('spectrum.centre')).toBeVisible();await expect(field('spectrum.block')).toHaveCount(0);
+  await style.selectOption('blocks');await expect(field('spectrum.block')).toHaveValue('6');
+  await expect(inspector.getByText(t('spectrum.blockColors'),{exact:true})).toBeVisible();await expect(toggle('spectrum.centre')).toHaveCount(0);
+  await style.selectOption('line');await expect(field('spectrum.stroke')).toHaveValue('2');await expect(toggle('spectrum.fill')).toBeChecked();
+  await expect(field('spectrum.thickness')).toHaveCount(0);await expect(toggle('spectrum.peaks')).toHaveCount(0);
+  await expect(inspector.getByRole('heading',{name:t('insp.cornersTitle'),exact:true})).toHaveCount(0);
+  await style.selectOption('radial');await expect(field('spectrum.inner')).toHaveValue('40');await expect(toggle('spectrum.ring')).toBeVisible();
+  await style.selectOption('bars');await expect(toggle('spectrum.baseline')).toBeVisible();
+  await page.getByRole('button',{name:t('top.undo'),exact:true}).click();await expect(style).toHaveValue('radial');
+  await expectAccessible(page);expect(errors).toEqual([]);
+});

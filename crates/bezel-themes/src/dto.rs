@@ -777,6 +777,36 @@ pub struct SpectrumDto {
     pub gap: f32,
     pub corners: [f32; 4],
     pub centre: bool,
+    // D-AS-11 fields stay out of the file at their defaults, so a mirrored
+    // spectrum still opens in versions that predate the other styles.
+    #[serde(skip_serializing_if = "is_mirrored")]
+    pub style: String,
+    #[serde(skip_serializing_if = "is_default_block")]
+    pub block: f32,
+    #[serde(skip_serializing_if = "is_default_stroke")]
+    pub stroke: f32,
+    #[serde(skip_serializing_if = "is_default_fill")]
+    pub fill: bool,
+    #[serde(skip_serializing_if = "is_default_inner")]
+    pub inner: f32,
+}
+fn is_mirrored(style: &str) -> bool {
+    style == "mirrored"
+}
+fn spectrum_default() -> bezel_core::domain::spectrum::Spectrum {
+    bezel_core::domain::spectrum::Spectrum::default()
+}
+fn is_default_block(v: &f32) -> bool {
+    *v == spectrum_default().block
+}
+fn is_default_stroke(v: &f32) -> bool {
+    *v == spectrum_default().stroke
+}
+fn is_default_fill(v: &bool) -> bool {
+    *v == spectrum_default().fill
+}
+fn is_default_inner(v: &f32) -> bool {
+    *v == spectrum_default().inner
 }
 impl Default for SpectrumDto {
     fn default() -> Self {
@@ -785,7 +815,7 @@ impl Default for SpectrumDto {
 }
 impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
     fn from(s: &bezel_core::domain::spectrum::Spectrum) -> Self {
-        use bezel_core::domain::spectrum::Motion;
+        use bezel_core::domain::spectrum::{Motion, SpectrumStyle};
         Self {
             player: s.player.map(|p| p.0),
             bands: s.bands,
@@ -803,17 +833,37 @@ impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
             gap: s.gap,
             corners: s.corners,
             centre: s.centre,
+            style: match s.style {
+                SpectrumStyle::Mirrored => "mirrored",
+                SpectrumStyle::Bars => "bars",
+                SpectrumStyle::Blocks => "blocks",
+                SpectrumStyle::Line => "line",
+                SpectrumStyle::Radial => "radial",
+            }
+            .into(),
+            block: s.block,
+            stroke: s.stroke,
+            fill: s.fill,
+            inner: s.inner,
         }
     }
 }
 impl SpectrumDto {
     fn domain(&self) -> R<bezel_core::domain::spectrum::Spectrum> {
-        use bezel_core::domain::spectrum::{Motion, Spectrum};
+        use bezel_core::domain::spectrum::{Motion, Spectrum, SpectrumStyle};
         let motion = match self.motion.as_str() {
             "smooth" => Motion::Smooth,
             "balanced" => Motion::Balanced,
             "snappy" => Motion::Snappy,
             _ => return err("unknown spectrum motion"),
+        };
+        let style = match self.style.as_str() {
+            "mirrored" => SpectrumStyle::Mirrored,
+            "bars" => SpectrumStyle::Bars,
+            "blocks" => SpectrumStyle::Blocks,
+            "line" => SpectrumStyle::Line,
+            "radial" => SpectrumStyle::Radial,
+            _ => return err("unknown spectrum style"),
         };
         let s = Spectrum {
             player: self.player.map(ElementId),
@@ -827,6 +877,11 @@ impl SpectrumDto {
             gap: self.gap,
             corners: self.corners,
             centre: self.centre,
+            style,
+            block: self.block,
+            stroke: self.stroke,
+            fill: self.fill,
+            inner: self.inner,
         };
         if !s.valid() {
             return err("invalid spectrum bounds");
@@ -2267,5 +2322,40 @@ mod spectrum_tests {
         s.high = 16000.;
         s.motion = "unknown".into();
         assert!(s.domain().is_err());
+        s.motion = "balanced".into();
+        s.style = "spiral".into();
+        assert!(s.domain().is_err());
+        s.style = "blocks".into();
+        s.block = 0.;
+        assert!(s.domain().is_err());
+        s.block = 6.;
+        s.inner = 95.;
+        assert!(s.domain().is_err());
+    }
+    #[test]
+    fn every_style_round_trips_and_the_default_keeps_the_old_shape() {
+        use bezel_core::domain::spectrum::{Spectrum, SpectrumStyle};
+        let mirrored = serde_json::to_value(SpectrumDto::default()).unwrap();
+        for key in ["style", "block", "stroke", "fill", "inner"] {
+            assert!(mirrored.get(key).is_none(), "{key}");
+        }
+        for style in [
+            SpectrumStyle::Bars,
+            SpectrumStyle::Blocks,
+            SpectrumStyle::Line,
+            SpectrumStyle::Radial,
+        ] {
+            let s = Spectrum {
+                style,
+                block: 4.,
+                stroke: 3.,
+                fill: false,
+                inner: 25.,
+                ..Spectrum::default()
+            };
+            let json = serde_json::to_vec(&SpectrumDto::from(&s)).unwrap();
+            let back: SpectrumDto = serde_json::from_slice(&json).unwrap();
+            assert_eq!(back.domain().unwrap(), s);
+        }
     }
 }

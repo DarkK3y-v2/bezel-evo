@@ -1,4 +1,4 @@
-import { followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
+import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
 import { moveRule } from '../card-rules.js';
 import { canFitContent } from '../editor/fit-content.js';
@@ -543,6 +543,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const start = gradient ? paint.stops?.[0]?.[1] ?? '#38bdf8ff' : paint;
     const end = gradient ? paint.stops?.at(-1)?.[1] ?? '#f97316ff' : '#f97316ff';
     const setPaint = (mode, a = start, b = end) => update(e.id, { kind: { style: { paint: mode === 'gradient' ? { angle: 90, stops: [[0,a],[1,b]] } : a } } });
+    const STYLE_LABELS = { mirrored: 'spectrum.mirrored', bars: 'graph.bars', blocks: 'spectrum.blocks', line: 'graph.line', radial: 'fade.radial' };
+    // Fields that do not apply to the chosen style are hidden, never disabled.
+    const line = c.style === 'line';
+    const baseLabel = { mirrored: 'spectrum.centre', radial: 'spectrum.ring' }[c.style] ?? 'spectrum.baseline';
     return {
       data: [section('spectrum-source', t('spectrum.source'), [
         selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
@@ -561,12 +565,18 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         colorField(t('inspector.color'), start, v => setPaint(gradient ? 'gradient' : 'solid', v)),
         gradient && colorField(t('ring.endColor'), end, v => setPaint('gradient', start, v)),
       ]), section('spectrum-bars', t('graph.bars'), [
-        numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256 }),
-        numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128 }),
-        switchRow(t('spectrum.centre'), c.centre, centre => set({ centre })),
-        switchRow(t('spectrum.peaks'), c.peaks, peaks => set({ peaks })),
+        selectField(t('spectrum.style'), c.style, SPECTRUM_STYLES.map(v => [v, t(STYLE_LABELS[v])]), style => set({ style })),
+        !line && numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256 }),
+        !line && numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128 }),
+        c.style === 'blocks' && numberField(t('spectrum.block'), c.block, block => set({ block }), { min: 1, max: 64 }),
+        c.style === 'blocks' && el('p', { class: 'hint', text: t('spectrum.blockColors') }),
+        line && numberField(t('spectrum.stroke'), c.stroke, stroke => set({ stroke }), { min: 1, max: 32 }),
+        line && switchRow(t('spectrum.fill'), c.fill, fill => set({ fill })),
+        c.style === 'radial' && numberField(t('spectrum.inner'), c.inner, inner => set({ inner }), { min: 0, max: 90 }),
+        c.style !== 'blocks' && switchRow(t(baseLabel), c.centre, centre => set({ centre })),
+        !line && switchRow(t('spectrum.peaks'), c.peaks, peaks => set({ peaks })),
         segmented(t('card.tab.motion'), c.motion, ['smooth','balanced','snappy'].map(v => [v,t(`spectrum.${v}`)]), motion => set({ motion })),
-      ]), barCorners(e.id, c, set, e.frame)],
+      ]), !line && barCorners(e.id, c, set, e.frame)],
     };
   }
 
