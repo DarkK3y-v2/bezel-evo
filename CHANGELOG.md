@@ -5,6 +5,21 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.30] - 2026-10-17
+
+### Widgets
+- **Audio spectrum styles**: next to the mirrored bars, the spectrum can now
+  draw **bars** rising from the bottom, **LED blocks** that take the colour of
+  their own height like a level meter, a smooth **line** with an optional fill
+  below it, and **radial** bars around an inner ring. Choose the style under
+  **Look**; the inspector shows only the settings of that style.
+
+### Fixes
+- The audio spectrum moves evenly on the screen: the bars no longer stall for
+  a moment about once a second, just before the sensors are read.
+- A spectrum on every Card face keeps moving, and sensor readings no longer
+  hold it back.
+
 ## [0.1.29] - 2026-10-17
 
 0.1.27 and 0.1.28 were local builds; this entry covers them too.
