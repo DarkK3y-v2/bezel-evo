@@ -40,6 +40,10 @@ struct Seen {
     theme: String,
 }
 struct Renderer(Arc<Mutex<Vec<Seen>>>);
+thread_local! {
+    /// Each render draws a new frame, as live spectrum bars do.
+    static DISTINCT: std::cell::Cell<Option<u8>> = const { std::cell::Cell::new(None) };
+}
 impl FrameRenderer for Renderer {
     fn render(
         &mut self,
@@ -62,7 +66,12 @@ impl FrameRenderer for Renderer {
             clock: context.animation,
             theme: theme.name.clone(),
         });
-        Ok(Frame::filled(theme.canvas, Rgba::BLACK))
+        let shade = DISTINCT.with(|d| {
+            let next = d.get().map(|n| n.wrapping_add(1));
+            d.set(next);
+            next.unwrap_or(0)
+        });
+        Ok(Frame::filled(theme.canvas, Rgba::opaque(shade, 0, 0)))
     }
     fn measure_element(
         &mut self,
@@ -1346,16 +1355,41 @@ fn a_wake_inside_the_spectrum_window_returns_when_the_window_ends() {
         content: TextContent::Spectrum(Spectrum::default()),
         style: TextStyle::default(),
     };
+    DISTINCT.with(|d| d.set(Some(0)));
     f.engine.document("a", 0, document, false).unwrap();
     f.engine.audio_consent(true);
     advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     f.engine.images.latest("a", 0, 64).unwrap();
     advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
-    // Another wake 20 ms after that frame (a sensor sample, a worker result): the
-    // bars are due again in 30 ms, not after a whole sleep.
+    // Another wake 20 ms after that frame (a worker result): the bars are due
+    // again in 30 ms, not after a whole sleep.
     let wait = f
         .engine
         .tick_at(Duration::from_millis(120), time())
         .unwrap();
     assert!(wait <= Duration::from_millis(30), "{wait:?}");
+}
+
+#[test]
+fn an_identical_frame_does_not_hold_the_next_spectrum_back() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document("a", 0, document, false).unwrap();
+    f.engine.audio_consent(true);
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    let rendered = f.engine.scenes["a"].rendered_at;
+    // A sensor sample redraws nothing visible: the window keeps the last frame
+    // that changed, so the next worker result is drawn as soon as it arrives.
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    assert_eq!(f.engine.scenes["a"].rendered_at, rendered);
 }

@@ -604,10 +604,15 @@ impl Engine {
                 }
                 // Spectra draw at most every SPECTRUM_FRAME, a little under the audio
                 // worker's step, so two equal 50 ms rhythms never beat and drop a result.
-                // A wake inside that window (a sensor sample, a worker result) comes back
-                // when it ends, not a whole interval later.
+                // A wake inside that window (a worker result) comes back when it ends, not a
+                // whole interval later. A render the window cannot hold off (a sensor sample,
+                // a due timer) takes the newest spectra instead of drawing stale bars.
                 let mut audio_wait = None;
-                if now.saturating_sub(scene.rendered_at) < SPECTRUM_FRAME && scene.frame.is_some() {
+                if now.saturating_sub(scene.rendered_at) < SPECTRUM_FRAME
+                    && scene.frame.is_some()
+                    && !scene.dirty
+                    && now < scene.runtime.next_due()
+                {
                     if audible {
                         audio_wait = Some(scene.rendered_at + SPECTRUM_FRAME - now);
                     }
@@ -740,7 +745,11 @@ impl Engine {
                     presenter.frame(frame.clone());
                     scene.queued_sequence = Some(scene.sequence);
                 }
-                scene.rendered_at = now;
+                // An identical frame never reached the screen: it must not restart the
+                // spectrum window and hold the next audio result back a whole frame.
+                if frame_changed || !audible {
+                    scene.rendered_at = now;
+                }
                 scene.dirty = false;
                 let mut delay = scene.runtime.next_due().saturating_sub(now);
                 if matches!(scene.runtime.video(), VideoState::Host) {
