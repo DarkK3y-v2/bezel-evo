@@ -281,7 +281,9 @@ fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
             },
         });
         // Borrowed activation blob: never call PropVariantClear on this non-owning variant.
-        let variant = PROPVARIANT {
+        // windows' PROPVARIANT clears itself on drop, which would free `params`' memory
+        // (a double free that corrupts the heap), so its drop never runs.
+        let variant = std::mem::ManuallyDrop::new(PROPVARIANT {
             Anonymous: PROPVARIANT_0 {
                 Anonymous: std::mem::ManuallyDrop::new(PROPVARIANT_0_0 {
                     vt: VT_BLOB,
@@ -294,7 +296,7 @@ fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
                     ..Default::default()
                 }),
             },
-        };
+        });
         let done = Arc::new((Mutex::new(false), Condvar::new()));
         let handler: IActivateAudioInterfaceCompletionHandler = Completion {
             _params: params.clone(),
@@ -304,7 +306,7 @@ fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
         let operation = ActivateAudioInterfaceAsync(
             VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK,
             &IAudioClient::IID,
-            Some(&variant),
+            Some(&*variant),
             &handler,
         )?;
         let lock = done
