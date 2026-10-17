@@ -1270,7 +1270,7 @@ fn spectrum_switches_source_on_the_same_refresh_that_changes_the_player() {
 }
 
 #[test]
-fn spectrum_on_a_face_reached_by_playback_is_scanned_like_the_renderer_draws_it() {
+fn spectrum_on_any_card_face_keeps_its_state_before_and_after_the_face_shows() {
     use bezel_core::domain::{
         playback::{CardTrigger, TriggerSource},
         spectrum::{AudioState, Spectrum},
@@ -1310,19 +1310,52 @@ fn spectrum_on_a_face_reached_by_playback_is_scanned_like_the_renderer_draws_it(
     f.engine.document("a", 0, document, false).unwrap();
     send(&mut f.engine, "a", RuntimeOp::Cards { on: true }, &[]).unwrap();
     f.engine.audio_consent(true);
-    for ms in [0, 50, 5_000, 5_050, 5_100] {
+    let state = |f: &Fixture| {
+        let seen = f.seen.lock().unwrap();
+        let last = seen
+            .iter()
+            .rev()
+            .find(|s| s.theme == "card-spectrum")
+            .unwrap();
+        last.spectra.values().copied().collect::<Vec<_>>()
+    };
+    for ms in [0, 50, 100] {
         f.engine.tick_at(Duration::from_millis(ms), time()).unwrap();
         f.engine.images.latest("a", 0, 64).unwrap();
     }
-    let seen = f.seen.lock().unwrap();
-    let last = seen
-        .iter()
-        .rev()
-        .find(|s| s.theme == "card-spectrum")
+    // Face 1 is not shown yet, but its spectrum is already live: no default frame
+    // ("audio capture disabled") when the face comes into view.
+    assert_eq!(state(&f), vec![AudioState::PlayerMissing]);
+    for ms in [5_000, 5_050, 5_100] {
+        f.engine.tick_at(Duration::from_millis(ms), time()).unwrap();
+        f.engine.images.latest("a", 0, 64).unwrap();
+    }
+    assert_eq!(state(&f), vec![AudioState::PlayerMissing]);
+}
+
+#[test]
+fn a_wake_inside_the_spectrum_window_returns_when_the_window_ends() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document("a", 0, document, false).unwrap();
+    f.engine.audio_consent(true);
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    // Another wake 20 ms after that frame (a sensor sample, a worker result): the
+    // bars are due again in 30 ms, not after a whole sleep.
+    let wait = f
+        .engine
+        .tick_at(Duration::from_millis(120), time())
         .unwrap();
-    assert_eq!(
-        last.spectra.values().copied().collect::<Vec<_>>(),
-        vec![AudioState::PlayerMissing],
-        "the spectrum on the shown face gets its state, not the default Disabled"
-    );
+    assert!(wait <= Duration::from_millis(30), "{wait:?}");
 }

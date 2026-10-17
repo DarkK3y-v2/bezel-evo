@@ -37,6 +37,8 @@ use std::{
 pub const MAX_SCENES: usize = 16;
 pub const MAX_DOCUMENT: usize = 64 * 1024 * 1024;
 const MAX_ALL_ASSETS: usize = 256 * 1024 * 1024;
+/// Shortest interval between two spectrum frames, under the audio worker's 50 ms step.
+const SPECTRUM_FRAME: Duration = Duration::from_millis(40);
 /// A complete document, with asset bytes outside the wire JSON.
 #[derive(Clone, PartialEq)]
 pub struct Document {
@@ -499,9 +501,14 @@ impl Engine {
             if !screen_consumes && !self.images.viewed(key) {
                 continue;
             }
-            // The faces playback switched to, as the renderer draws them.
-            let shown = scene.runtime.shown_theme();
-            for element in shown.elements.iter().filter(|e| shown.is_visible(e)) {
+            // Every Card face, shown or not: a face can come into view at any frame
+            // (playback triggers, timers, transitions) and must find its spectrum live.
+            let theme = scene.runtime.theme();
+            for element in theme
+                .elements
+                .iter()
+                .filter(|e| theme.visible_without_face(e))
+            {
                 if let bezel_core::domain::theme::ElementKind::Text {
                     content: bezel_core::domain::theme::TextContent::Spectrum(config),
                     ..
@@ -587,19 +594,24 @@ impl Engine {
                 {
                     scene.dirty = true;
                 }
+                let audible = requests
+                    .iter()
+                    .any(|r| r.key.starts_with(&format!("{}/", scene.id)));
                 // Audio renders follow the physical presenter when it cannot sustain 20 fps.
                 // Its slot and the audio worker both retain only their newest result.
-                if scene.live
-                    && requests
-                        .iter()
-                        .any(|r| r.key.starts_with(&format!("{}/", scene.id)))
-                    && scene.presenter.as_ref().is_some_and(|p| !p.idle())
-                {
+                if scene.live && audible && scene.presenter.as_ref().is_some_and(|p| !p.idle()) {
                     return Ok(Duration::from_millis(50));
                 }
-                if now.saturating_sub(scene.rendered_at) >= Duration::from_millis(50)
-                    || scene.frame.is_none()
-                {
+                // Spectra draw at most every SPECTRUM_FRAME, a little under the audio
+                // worker's step, so two equal 50 ms rhythms never beat and drop a result.
+                // A wake inside that window (a sensor sample, a worker result) comes back
+                // when it ends, not a whole interval later.
+                let mut audio_wait = None;
+                if now.saturating_sub(scene.rendered_at) < SPECTRUM_FRAME && scene.frame.is_some() {
+                    if audible {
+                        audio_wait = Some(scene.rendered_at + SPECTRUM_FRAME - now);
+                    }
+                } else {
                     let frames = requests
                         .iter()
                         .filter(|r| r.key.starts_with(&format!("{}/", scene.id)))
@@ -648,7 +660,7 @@ impl Engine {
                     due = due.min(scene.rendered_at + Duration::from_secs(1) / HOST_VIDEO_FPS);
                 }
                 if !scene.dirty && now < due {
-                    return Ok(due - now);
+                    return Ok(audio_wait.map_or(due - now, |wait| wait.min(due - now)));
                 }
                 Self::source(scene, self.media.as_mut(), &self.cache)?;
                 if let Some(link) = &mut scene.link {
