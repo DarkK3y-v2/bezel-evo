@@ -266,7 +266,11 @@ impl PresentMon {
             create_job_object().map_err(|e| format!("Failed to create job object: {}", e))?;
 
         let mut cmd = Command::new(&path);
-        cmd.arg("--output_stdout").arg("--exclude_dropped");
+        // A hard kill (our stop, the job object) leaves PresentMon's ETW
+        // session behind; --stop_existing_session clears it before starting.
+        cmd.arg("--stop_existing_session")
+            .arg("--output_stdout")
+            .arg("--exclude_dropped");
         for proc in IGNORED_PROCESSES {
             cmd.arg("--exclude").arg(proc);
         }
