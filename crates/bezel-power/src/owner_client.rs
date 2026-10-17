@@ -10,12 +10,17 @@ use bezel_core::ports::{ScreenConnector, ScreenLink};
 use bezel_core::{BezelError, Result};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// How long a live but unresponsive Light keeps the screens before Studio takes them.
+const LIGHT_GRACE: Duration = Duration::from_secs(60);
 
 #[derive(Default)]
 struct State {
     remote: Option<RemoteConnector>,
     fallback: Option<StudioSession>,
+    /// When a running Light first failed to answer; cleared once it answers.
+    unreachable_since: Option<Instant>,
 }
 /// Shared by all Studio links, including background documents and storage jobs.
 #[derive(Clone)]
@@ -37,6 +42,24 @@ impl LightConnector {
             directory: handoff::runtime_directory(executable)?,
             state: Arc::default(),
         })
+    }
+    /// A Light that still holds its instance lock is alive, only busy (its one
+    /// pipe instance still serving the previous session): Studio waits for it
+    /// instead of taking the screens, unless it stays silent for LIGHT_GRACE.
+    fn wait_for_live_light(&self, state: &mut State) -> Result<()> {
+        let alive = handoff::light_instance(&self.directory)
+            .map_err(|e| BezelError::Transport(e.to_string()))?
+            .is_none();
+        if !alive {
+            return Ok(());
+        }
+        let since = *state.unreachable_since.get_or_insert_with(Instant::now);
+        if since.elapsed() < LIGHT_GRACE {
+            return Err(BezelError::Transport(
+                "Light is running but busy; waiting before taking the screens".into(),
+            ));
+        }
+        Ok(())
     }
     /// Compatibility baseline files are used only by the legacy fallback.
     pub fn directory(&self) -> &Path {
@@ -86,6 +109,7 @@ impl LightConnector {
                     .as_ref()
                     .ok_or_else(|| BezelError::Transport("Light session missing".into()))?);
             }
+            self.wait_for_live_light(&mut state)?;
             crate::diagnostics::fallback(&self.directory, "session_lost");
             state.remote = None;
             state.fallback = Some(
@@ -100,6 +124,7 @@ impl LightConnector {
                 Ok(remote) => state.remote = Some(remote),
                 Err(error) => {
                     crate::diagnostics::failure("connect", &error);
+                    self.wait_for_live_light(&mut state)?;
                     crate::diagnostics::fallback(&self.directory, "connect_failed");
                     // No device operation is replayed. The current connect or
                     // explicit restart has not been sent to any owner yet.
@@ -286,6 +311,7 @@ impl bezel_core::ports::RuntimeConnection for LightConnector {
         match PipeChannel::connect(&self.directory, Duration::from_millis(500)) {
             Ok(channel) => {
                 state.remote = Some(RemoteConnector::new(Box::new(channel)));
+                state.unreachable_since = None;
                 true
             }
             Err(error) => {
@@ -304,6 +330,9 @@ impl bezel_core::ports::RuntimeConnection for LightConnector {
             .state
             .lock()
             .map_err(|_| BezelError::Transport("Light lock poisoned".into()))?;
+        if state.fallback.is_none() {
+            self.wait_for_live_light(&mut state)?;
+        }
         state.remote = None;
         crate::diagnostics::fallback(&self.directory, "owner_unreachable");
         if state.fallback.is_none() {
@@ -350,6 +379,7 @@ mod tests {
             state: Arc::new(Mutex::new(State {
                 remote: Some(RemoteConnector::new(Box::new(Dead))),
                 fallback: None,
+                unreachable_since: None,
             })),
         };
         let screen = discover_screens(&FakeBus::turing_88()).unwrap().remove(0);
@@ -386,6 +416,33 @@ mod tests {
         drop(link);
         assert!(!handoff::studio_active(&directory).unwrap());
         assert!(handoff::light_screen(&directory).unwrap().is_some());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+    #[test]
+    fn a_running_but_busy_light_keeps_the_screens_until_its_grace_ends() {
+        use bezel_core::ports::RuntimeConnection;
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../target")
+            .join(format!("busy-owner-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        // Light's process holds its instance lock but its pipe never answers.
+        let light = handoff::light_instance(&directory).unwrap().unwrap();
+        let direct = FakeConnector::default();
+        let client = LightConnector {
+            direct: Arc::new(direct.clone()),
+            executable: directory.join("must-not-run.exe"),
+            directory: directory.clone(),
+            state: Arc::default(),
+        };
+        assert!(client.take_direct_ownership().is_err());
+        assert!(client.take_direct_ownership().is_err());
+        assert!(!handoff::studio_active(&directory).unwrap());
+        client.state.lock().unwrap().unreachable_since =
+            Some(Instant::now() - LIGHT_GRACE - Duration::from_secs(1));
+        client.take_direct_ownership().unwrap();
+        assert!(handoff::studio_active(&directory).unwrap());
+        drop(client);
+        drop(light);
         std::fs::remove_dir_all(directory).unwrap();
     }
 }
