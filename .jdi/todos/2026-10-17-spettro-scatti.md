@@ -1,4 +1,4 @@
-# Spettro audio — scatti residui (2026-10-17, notte)
+# Spettro audio — scatti residui (2026-10-17) — RISOLTO
 
 ## Stato
 - Branch `windows-improvements`, nulla pubblicato su GitHub dopo v0.1.26. Ultima release locale: 0.1.29 (installata),
@@ -24,3 +24,15 @@
   a passo fisso e il renderer interpola le barre tra un risultato e l'altro, così un frame perso non si vede;
   (3) ridisegnare solo l'area dello spettro tra una lettura sensori e l'altra.
 - Poi: suite completa, pacchetto 0.1.30, push e release (su richiesta dell'utente).
+
+## Risolto (2026-10-17, pomeriggio)
+- Sonde temporanee nel motore (motivo di ogni attesa > 30 ms tra due frame) e nel worker audio. Esito su 122 s:
+  Present sull'8.8" ~5 ms, render ~7,5 ms, worker audio regolare. I Present lenti (120–260 ms al secondo) erano
+  tutti dello schermo 1. I 147 buchi da 60–120 ms avevano tutti la stessa causa: un ridisegno non dovuto allo spettro
+  (timer, preparazione della lettura sensori, 100–200 ms prima del Sample) dentro la finestra di 40 ms usava le barre
+  vecchie, produceva un frame identico (non inviato) e faceva ripartire la finestra: il risultato audio successivo
+  slittava di un frame intero.
+- Correzione in `bezel-runtime`: un frame identico non fa ripartire la finestra; un ridisegno che la finestra non può
+  rimandare prende le barre più recenti. Seconda misura a regime: nessuna attesa oltre 80 ms, 5 da 61–69 ms in 30 s,
+  mediana 44 ms. L'utente la vede "perfetta". Sonde tolte.
+- L'interpolazione delle barre (punto 2) non serve per ora.
