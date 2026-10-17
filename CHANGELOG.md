@@ -5,6 +5,21 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.31] - 2026-10-17
+
+0.1.30 was a local build; this entry and the one below cover it.
+
+### Fixes
+- An audio spectrum with nothing playing, or no sound yet, shows its bars at
+  rest instead of "Audio capture disabled". That message now appears only when
+  you turn capture off in **Preferences**.
+- When a screen was off at start-up, Studio could take the screens away from
+  Light and keep them until it was restarted, and the audio spectrum stopped
+  moving. Studio now waits for a busy Light and takes over only if Light has
+  really stopped.
+- Debug logs keep hours of history instead of a few minutes: the editor's
+  frame-by-frame traffic is summed every 10 seconds.
+
 ## [0.1.30] - 2026-10-17
 
 ### Widgets
