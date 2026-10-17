@@ -54,6 +54,7 @@ fn resolve(source: &str, processes: &[Process]) -> Option<u32> {
                 p.aumid
                     .as_ref()
                     .is_some_and(|a| a.eq_ignore_ascii_case(source))
+                    && !windows_host(&p.name)
             } else {
                 bezel_core::domain::playback::app_name(&p.name) == name
             }
@@ -77,6 +78,18 @@ fn resolve(source: &str, processes: &[Process]) -> Option<u32> {
         })
         .collect();
     (roots.len() == 1).then(|| roots[0].pid)
+}
+/// Windows processes that run on behalf of a Store package (background tasks,
+/// brokers, frames) and share its app ID but never play the app's audio.
+fn windows_host(name: &str) -> bool {
+    [
+        "backgroundTaskHost.exe",
+        "RuntimeBroker.exe",
+        "ApplicationFrameHost.exe",
+        "dllhost.exe",
+    ]
+    .iter()
+    .any(|host| host.eq_ignore_ascii_case(name))
 }
 struct Handle(HANDLE);
 impl Drop for Handle {
@@ -459,5 +472,16 @@ mod tests {
             resolve("Other!App", &[p(1, 0, "x.exe", Some("Vendor!App"))]),
             None
         );
+    }
+    #[test]
+    fn a_store_app_is_its_own_tree_not_the_windows_hosts_sharing_its_id() {
+        let id = "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify";
+        let items = [
+            p(15016, 45148, "Spotify.exe", Some(id)),
+            p(23080, 15016, "Spotify.exe", Some(id)),
+            p(53936, 996, "backgroundTaskHost.exe", Some(id)),
+            p(52252, 996, "RuntimeBroker.exe", Some(id)),
+        ];
+        assert_eq!(resolve(id, &items), Some(15016));
     }
 }
