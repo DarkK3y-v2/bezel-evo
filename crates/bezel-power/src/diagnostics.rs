@@ -13,6 +13,47 @@ static CONFIGURED_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 static INSTALLED: OnceLock<()> = OnceLock::new();
 const LIMIT: u64 = 2 * 1024 * 1024;
 static IMPORTANT: AtomicBool = AtomicBool::new(false);
+
+/// Per-frame owner traffic (canvas images and their replies) is summed and
+/// written once per TRAFFIC_PERIOD, so a busy editor session cannot rotate the
+/// log past the events that explain a failure.
+struct Traffic {
+    since: Option<std::time::Instant>,
+    images: u64,
+    canvas: u64,
+    replies: u64,
+    bytes: u64,
+}
+static TRAFFIC: Mutex<Traffic> = Mutex::new(Traffic {
+    since: None,
+    images: 0,
+    canvas: 0,
+    replies: 0,
+    bytes: 0,
+});
+const TRAFFIC_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
+fn traffic(update: impl FnOnce(&mut Traffic)) {
+    if !enabled() {
+        return;
+    }
+    let mut t = TRAFFIC
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    update(&mut t);
+    let since = *t.since.get_or_insert_with(std::time::Instant::now);
+    if since.elapsed() >= TRAFFIC_PERIOD {
+        let seconds = since.elapsed().as_secs_f64();
+        tracing::debug!(target:"bezel_light",event="RuntimeTraffic",seconds,images=t.images,
+            canvas=t.canvas,replies=t.replies,bytes=t.bytes,"owner traffic");
+        *t = Traffic {
+            since: Some(std::time::Instant::now()),
+            images: 0,
+            canvas: 0,
+            replies: 0,
+            bytes: 0,
+        };
+    }
+}
 struct Output {
     file: File,
     path: PathBuf,
@@ -216,6 +257,8 @@ pub fn light(event: LightEvent, screen: u64, millis: f64, kind: &'static str) {
     );
     if important {
         tracing::info!(target:"bezel_light",event=?event,screen,millis,kind,"Light event");
+    } else if matches!(event, Canvas) {
+        traffic(|t| t.canvas += 1);
     } else if enabled() {
         tracing::debug!(target:"bezel_light",event=?event,screen,millis,kind,"Light event");
     }
@@ -350,12 +393,20 @@ pub fn runtime_request(metadata: &[u8]) {
         "SensorRestarted" => "SensorRestarted",
         _ => "unknown",
     };
+    if command == "Image" {
+        traffic(|t| t.images += 1);
+        return;
+    }
     tracing::debug!(target:"bezel_light",event="RuntimeRequest",command,"owner request");
 }
 pub fn runtime_reply(metadata_bytes: usize, payload_bytes: usize, rejected: bool) {
-    if enabled() {
+    if rejected && enabled() {
         tracing::debug!(target:"bezel_light",event="RuntimeReply",metadata_bytes,payload_bytes,rejected,"owner response");
     }
+    traffic(|t| {
+        t.replies += 1;
+        t.bytes += (metadata_bytes + payload_bytes) as u64;
+    });
 }
 pub fn present_reason(screen: u64, kind: &str, reason: &str) {
     if !enabled() || kind != "full" {
@@ -483,7 +534,7 @@ mod tests {
         light(LightEvent::Start, 1, 0.0, "process");
         light(LightEvent::Sample, 1, 100.0, "interval");
         configure(&path, true, true).unwrap();
-        light(LightEvent::Canvas, 1, 0.0, r"C:\Users\secret\private.theme");
+        light(LightEvent::Draft, 1, 0.0, r"C:\Users\secret\private.theme");
         light(LightEvent::Present, 2, 400.0, "partial");
         device(
             LightEvent::ScreenOpened,
@@ -505,7 +556,7 @@ mod tests {
         fallback(directory, "connect_failed");
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("Start"));
-        assert!(text.contains("Canvas"));
+        assert!(text.contains("Draft"));
         assert!(text.contains("partial"));
         assert!(text.contains("peer_closed"));
         assert!(text.contains("owner_unreachable"));
