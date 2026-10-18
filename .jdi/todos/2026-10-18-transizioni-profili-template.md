@@ -60,9 +60,17 @@ Generatore ripetibile `scripts/create-modern-themes.py`, guida `themes/README.md
 
 ## Consegna
 
-Codice pronto per la 0.1.41; changelog preparato. Studio .40 risulta ancora
-aperto da target/release (PID 32212), non terminato. Richiesta all'utente
-conferma di salvataggio e chiusura prima della build e dell'avvio diretto.
-Nessun setup, installazione o push. Dopo la chiusura: build-evo.ps1 con versione
-0.1.41, copia dei sei soli template nelle risorse della build senza cancellare
-le librerie esistenti, verifica versione/hash/percorso e avvio.
+Ricevuta la conferma utente di salvataggio e chiusura. Verificata l'assenza di
+processi Bezel, completata `build-evo.ps1 -Version 0.1.41` in 1m29s; log in
+`target/build-evo-0.1.41.log`. CLI e metadati Studio riportano 0.1.41.
+
+Copiati i sei manifest in `target/release/themes`, verificando ciascun hash
+contro l'originale, senza cancellare le librerie esistenti. Avviato direttamente
+Studio in finestra normale da `F:/Dev/bezel/target/release/bezel-studio.exe`,
+PID 47596. Percorso del processo e SHA256 confrontati con il binario compilato:
+`ECFC8E4DC00B2C13BEFF69F335E124747291151495F069274941DBA774AD5BD1`.
+
+Commit versione/changelog `8fd6b88`. Nessun setup, installazione o push.
+Resta la prova utente delle transizioni sui due display fisici e dei template
+inclusi dalla libreria Temi; la configurazione degli effetti si trova in
+Temi → Profili e automazioni.
