@@ -5,6 +5,17 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.33] - 2026-10-18
+
+0.1.32 was a local build; this entry and the one below cover it.
+
+### Studio
+- **Rotate objects**: a **Rotation** field in the inspector and a handle on
+  the canvas turn any object around its centre; hold **Shift** to snap to
+  15°. Text, graphs, the spectrum and pictures turn with it, on the screen and
+  in every preview. Alignment and X/Y/W/H keep using the unrotated box. The
+  device background, Cards, groups and their members do not rotate.
+
 ## [0.1.32] - 2026-10-18
 
 ### Widgets
