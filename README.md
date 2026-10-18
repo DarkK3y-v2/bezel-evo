@@ -52,12 +52,12 @@ Studio has been redesigned from the ground up, in dark and light.
 - **A media player you compose.** Choose the parts (cover, title, artist, time,
   progress, app name) and style the progress bar: continuous, segments or dots,
   round or square ends, a knob, times at the sides or above.
-- **An audio spectrum that follows the music.** It moves with the app your
-  Player follows, in five styles: mirrored bars, bars rising from the bottom,
-  LED blocks that light up like a level meter, a smooth line with a soft fill,
-  and radial bars around a ring. Held peaks, gradients and colour by value come
-  with every style. It listens only to that app, in memory, and can be turned
-  off in Preferences (Windows 11).
+- **An audio spectrum that follows the music.** Five styles: mirrored bars,
+  bars rising from the bottom, LED blocks that light up like a level meter, a
+  smooth line with a soft fill, and radial bars around a ring. Held peaks, gradients, colour by value and an
+  amplitude multiplier come with every style. It listens to the app your Player
+  follows or, if you choose, to everything the PC plays, only in memory, and
+  can be turned off in Preferences (Windows 11).
 - **A clear background chooser.** One card shows the background in use; **Change
   background…** offers a solid colour, a picture or video from this computer, or
   a video already stored on the screen, and nothing changes until you confirm.
