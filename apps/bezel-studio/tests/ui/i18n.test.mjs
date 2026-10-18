@@ -187,7 +187,7 @@ test('translator substitutes params and falls back', () => {
 test('every static key used by the code exists', () => {
   const keys = sources().flatMap((code) => [...code.matchAll(/\bt\(\s*'([^'$]+)'/g)].map((m) => m[1]));
   assert.ok(keys.length > 50);
-  for (const key of keys) assert.ok(key in LOCALES.en, key);
+  for (const key of keys) assert.ok(canonicalLabelKey(key) in LOCALES.en, key);
 });
 
 /** String and template literals of `code`: where each starts and ends, and its text (`\0` for `${…}`). */
@@ -691,7 +691,7 @@ test('every data-i18n key used in index.html exists', () => {
   const html = readFileSync(new URL('index.html', src), 'utf8');
   const keys = [...html.matchAll(/data-i18n(?:-title|-aria-label|-placeholder)?="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(keys.length > 20);
-  for (const key of keys) assert.ok(key in LOCALES.en, key);
+  for (const key of keys) assert.ok(canonicalLabelKey(key) in LOCALES.en, key);
 });
 
 test('applyTranslations fills text, title, aria-label and placeholder', () => {

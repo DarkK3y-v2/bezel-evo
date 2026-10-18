@@ -7,6 +7,7 @@ export const PREFIXES = Object.freeze(['insp.']);
 
 export default {
   en: {
+    'insp.rotateHandle': 'Rotate object',
     'insp.colorByValue': 'Colour by value',
     'insp.baseColor': 'Base colour',
     'insp.colorFrom': 'From ≥',
@@ -148,6 +149,7 @@ export default {
     'insp.gapHint': '“Gap” is the space between cover and text.',
   },
   'pt-BR': {
+    'insp.rotateHandle': 'Girar objeto',
     'insp.colorByValue': 'Cor por valor',
     'insp.baseColor': 'Cor base',
     'insp.colorFrom': 'A partir de ≥',
@@ -289,6 +291,7 @@ export default {
     'insp.gapHint': '“Distância” é o espaço entre a capa e o texto.',
   },
   it: {
+    'insp.rotateHandle': 'Ruota oggetto',
     'insp.colorByValue': 'Colore in base al valore',
     'insp.baseColor': 'Colore di base',
     'insp.colorFrom': 'Da ≥',

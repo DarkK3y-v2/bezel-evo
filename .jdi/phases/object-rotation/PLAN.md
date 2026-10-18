@@ -90,7 +90,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - Inspector: campo "Rotazione" (gradi, decimali ammessi, suffisso `°`, normalizzato al commit) nella sezione geometria accanto a X/Y/W/H, assente se `!canRotate`; chiavi nuove `insp.rotation` e `insp.rotateHandle` (etichetta/`aria-label` della maniglia) in en, pt-BR, it, nessuna stringa fissa.
 - **Dependencies:** T-4
 - **Test:** `node --test tests/ui/i18n.test.mjs tests/ui/static-guards.test.mjs` (da `apps/bezel-studio`); comportamento nello spec e2e (T-7)
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 4
 

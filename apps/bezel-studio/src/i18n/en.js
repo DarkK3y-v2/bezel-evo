@@ -295,7 +295,7 @@ export default {
   'framing.readout': 'Zoom {zoom}% · X {x}% · Y {y}%',
   'framing.reducedMotion': 'Motion is reduced on this computer: the preview shows the poster.',
   'framing.reset': 'Reset framing',
-  'framing.rotation': 'Rotation',
+  'common.rotation': 'Rotation',
   'framing.surface': 'Video framing: drag, turn the wheel or use the arrow keys',
   'framing.title': 'Framing',
   'framing.zoom': 'Zoom',

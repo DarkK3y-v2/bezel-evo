@@ -142,6 +142,8 @@ const canvasView = createCanvasView({
   overlay: $('overlay'),
   onZoom: (z) => { $('zoom-label').textContent = `${Math.round(z * 100)}%`; },
   describe: (name) => t('stage.selected', { name }),
+  rotationLabel: () => t('insp.rotateHandle'),
+  rotationLabel: () => t('insp.rotateHandle'),
   onFrameRequest: () => setFramingMode(true),
 });
 

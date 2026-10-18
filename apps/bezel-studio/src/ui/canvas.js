@@ -1,3 +1,4 @@
+import { appliedRotation, canRotate, centerOf, rotatePoint, rotatedBounds, snapAngle, normalizeDegrees } from '../editor/rotation.js';
 import { groupTarget, selectionRoots, isShown, withChildren } from '../editor/cards.js';
 // The canvas: shows the rendered frame at a zoom level and handles direct
 // manipulation on a DOM overlay (selection, eight resize handles, snapping
@@ -28,7 +29,7 @@ const DRAG_THRESHOLD = 3;
  * @param {(label:string) => string} [opts.describe] accessible label of an element box
  * @param {() => void} [opts.onFrameRequest] a double click on the video background, off any element
  */
-export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom = () => {}, describe = (n) => n, onFrameRequest = () => {}, onFitContent = () => {} }) {
+export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom = () => {}, describe = (n) => n, onFrameRequest = () => {}, onFitContent = () => {}, rotationLabel = () => '' }) {
   const ctx = canvas.getContext('2d');
   const bezel = box.closest('.bezel') ?? box;
   const stageFrame = bezel.closest('.stage-frame') ?? bezel;
@@ -176,7 +177,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
 
   function editingRoom() {
     if (press) return; // Do not move the canvas origin beneath an active gesture.
-    const boxes = theme().elements.filter(e => isShown(theme(), e)).map(e => e.frame)
+    const boxes = theme().elements.filter(e => isShown(theme(), e)).map(e => rotatedBounds(e.frame, appliedRotation(e)))
       .filter(f => [f.x, f.y, f.width, f.height].every(Number.isFinite));
     const bounds = unionBox([{ x: 0, y: 0, ...size }, ...boxes]);
     const gutter = distance => distance > 0 ? distance * zoom + 8 : 0;
@@ -196,21 +197,37 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     const sel = new Set(selection());
     const nodes = [];
     for (const e of t.elements) {
-      const f = e.frame;
+      const f = rotatedBounds(e.frame, appliedRotation(e));
       if (isShown(t, e) && !sel.has(e.id) && (f.x < 0 || f.y < 0 || f.x + f.width > size.width || f.y + f.height > size.height)) {
         nodes.push(el('div', { class: 'off-canvas-box', style: boxStyle(f), role: 'img', 'aria-label': describe(e.name) }, [el('span', { class: 'off-canvas-label', text: e.name })]));
       }
     }
     const hovered = t.elements.find((e) => e.id === hoverId && !sel.has(e.id) && isShown(t, e));
-    if (hovered) nodes.push(el('div', { class: 'hover-box', style: boxStyle(hovered.frame) }));
+    if (hovered) nodes.push(el('div', { class: 'hover-box', style: { ...boxStyle(hovered.frame), transform: `rotate(${appliedRotation(hovered)}deg)` } }));
     const chosen = t.elements.filter((e) => sel.has(e.id) && (!e.cardMember || isShown(t, e)));
     for (const e of chosen) {
-      nodes.push(el('div', { class: `sel-box${e.locked ? ' locked' : ''}`, style: boxStyle(e.frame), role: 'img', 'aria-label': describe(e.name) }));
+      nodes.push(el('div', { class: `sel-box${e.locked ? ' locked' : ''}`, style: { ...boxStyle(e.frame), transform: `rotate(${appliedRotation(e)}deg)` }, role: 'img', 'aria-label': describe(e.name) }));
     }
     if (chosen.length === 1 && !chosen[0].locked) {
-      const pts = handlePoints(chosen[0].frame);
+      const e = chosen[0], angle = appliedRotation(e), center = centerOf(e.frame);
+      const pts = Object.fromEntries(Object.entries(handlePoints(e.frame)).map(([h, [x, y]]) => {
+        const p = rotatePoint({ x, y }, center, angle); return [h, [p.x, p.y]];
+      }));
       for (const h of HANDLES) {
-        nodes.push(el('div', { class: 'handle', dataset: { h }, style: { left: px(pts[h][0]), top: px(pts[h][1]) } }));
+        nodes.push(el('div', { class: 'handle', dataset: { h }, style: { left: px(pts[h][0]), top: px(pts[h][1]), transform: `rotate(${angle}deg)` } }));
+      }
+      if (canRotate(t, e)) {
+        const p = rotatePoint({ x: center.x, y: e.frame.y - 24 / zoom }, center, angle);
+        nodes.push(el('button', { type: 'button', class: 'rotate-handle', dataset: { rotate: e.id }, title: rotationLabel(), 'aria-label': rotationLabel(),
+          style: { left: px(p.x), top: px(p.y), transform: `rotate(${angle}deg)` },
+          onkeydown: evt => {
+            if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home'].includes(evt.key)) return;
+            evt.preventDefault(); evt.stopPropagation();
+            const delta = ['ArrowLeft', 'ArrowDown'].includes(evt.key) ? -1 : 1;
+            store.dispatch('rotate', { id: e.id, rotation: evt.key === 'Home' ? 0 : angle + delta * (evt.shiftKey ? 15 : 1) });
+            overlay.querySelector('[data-rotate]')?.focus();
+          },
+        }));
       }
     }
     for (const g of guides) {
@@ -261,9 +278,18 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     const start = point(evt.clientX, evt.clientY);
     const handle = evt.target?.dataset?.h;
     const state = store.getState();
+    if (evt.target?.dataset?.rotate && state.selection.length === 1) {
+      const e = state.theme.elements.find(x => x.id === state.selection[0]);
+      if (!canRotate(state.theme, e) || e.locked) return;
+      const center = centerOf(e.frame);
+      press = { mode: 'rotate', id: e.id, center, angle: appliedRotation(e),
+        pointerAngle: Math.atan2(start.y - center.y, start.x - center.x) * 180 / Math.PI,
+        client: [evt.clientX, evt.clientY], started: false };
+      return;
+    }
     if (handle && state.selection.length === 1) {
       const e = state.theme.elements.find((x) => x.id === state.selection[0]);
-      press = { mode: 'resize', id: e.id, handle, frame: { ...e.frame }, start, client: [evt.clientX, evt.clientY], started: false };
+      press = { mode: 'resize', id: e.id, rotation: appliedRotation(e), handle, frame: { ...e.frame }, start, client: [evt.clientX, evt.clientY], started: false };
       return;
     }
     let id = hitTest(state.theme.elements.filter(e => isShown(state.theme, e)), start.x, start.y);
@@ -311,9 +337,9 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
   }
 
   function onResize(evt, p) {
-    let next = resize(press.frame, press.handle, p.x - press.start.x, p.y - press.start.y, evt.shiftKey);
+    let next = resize(press.frame, press.handle, p.x - press.start.x, p.y - press.start.y, evt.shiftKey, press.rotation);
     guides = [];
-    if (!evt.altKey) {
+    if (!evt.altKey && !press.rotation) {
       const others = othersThan([press.id]);
       const h = press.handle;
       const snapX = (edge) => snapEdge(edge, 'x', size, others);
@@ -337,7 +363,7 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
         if (s.guide !== null) guides.push({ axis: 'y', position: s.guide });
       }
     }
-    store.dispatch('setFrame', { id: press.id, frame: next });
+    store.dispatch('setFrame', { id: press.id, frame: next, precise: !!press.rotation });
   }
 
   function onPointerMove(evt) {
@@ -354,6 +380,11 @@ export function createCanvasView({ store, scroll, box, canvas, overlay, onZoom =
     if (press.mode === 'frame') onFrame(evt);
     else if (press.mode === 'move') onMove(evt, p);
     else if (press.mode === 'resize') onResize(evt, p);
+    else if (press.mode === 'rotate') {
+      const pointerAngle = Math.atan2(p.y - press.center.y, p.x - press.center.x) * 180 / Math.PI;
+      const angle = normalizeDegrees(press.angle + pointerAngle - press.pointerAngle);
+      store.dispatch('rotate', { id: press.id, rotation: evt.shiftKey ? snapAngle(angle, 15) : angle });
+    }
     else {
       marquee = boxFromPoints(press.start.x, press.start.y, p.x, p.y);
       const hits = marqueeSelect(theme().elements.filter(e => isShown(theme(), e)), marquee);
