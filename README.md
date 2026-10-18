@@ -170,6 +170,7 @@ The Setup and the programs are not code-signed, so Windows SmartScreen may warn 
 - [User guide](docs/user/README.md) / [Your first theme](docs/user/first-theme.md) / [Editing in Studio](docs/user/studio-editing.md) / [Fonts](docs/user/fonts.md)
 - [Sensors](docs/user/sensors.md) / [Storage and video](docs/user/storage-and-video.md) / [Troubleshooting and logs](docs/user/troubleshooting.md)
 - [What's new](CHANGELOG.md) / [Technical documentation](docs/) / [Windows builds](docs/build-windows.md) / [Fork changes and validation](FORK.md)
+- [Whole-scene H.264 experiment](docs/experiments/scene-streaming.md): a developer prototype with mixed independent outputs; not a Studio setting or a hardware-verified frame-rate claim.
 
 ## Support
 
