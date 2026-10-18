@@ -34,18 +34,28 @@ Function EvoOptionsLeave
   ${NSD_GetState} $EvoSensorsCheckbox $EvoSensors
 FunctionEnd
 
-!macro NSIS_HOOK_PREINSTALL
+!macro EvoCheckDirectory Directory
   ; In a new install the maintenance script is not yet on disk.
   InitPluginsDir
   File /oname=$PLUGINSDIR\evo-maintenance.ps1 "@EVO_MAINTENANCE@"
-  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\evo-maintenance.ps1" -Mode Check -AppDirectory "$INSTDIR"'
+  nsExec::ExecToStack /TIMEOUT=60000 '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\evo-maintenance.ps1" -Mode Check -AppDirectory "${Directory}"'
   Pop $R0
   Pop $R1
   ${If} $R0 != 0
+    BringToFront
     MessageBox MB_OK|MB_ICONEXCLAMATION "$R1" /SD IDOK
     SetErrorLevel 1
     Abort
   ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+  !insertmacro EvoCheckDirectory $INSTDIR
+!macroend
+
+!macro NSIS_HOOK_BEFORE_OLD_UNINSTALL Directory
+  ; Use the new check before an older uninstaller can delete locked DLLs.
+  !insertmacro EvoCheckDirectory ${Directory}
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
@@ -83,7 +93,7 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\installer-maintenance.ps1" -Mode Check -AppDirectory "$INSTDIR"'
+  nsExec::ExecToStack /TIMEOUT=60000 '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\installer-maintenance.ps1" -Mode Check -AppDirectory "$INSTDIR"'
   Pop $R0
   Pop $R1
   ${If} $R0 != 0

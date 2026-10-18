@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory=$true)][string]$AppDirectory,
     [ValidateSet('0','1')][string]$Startup = '0',
     [string]$ExpectedUserSid,
-    [switch]$Elevated
+    [switch]$Elevated,
+    [ValidateRange(0,300)][int]$HelperWaitSeconds = 45
 )
 $ErrorActionPreference = 'Stop'
 try {
@@ -31,14 +32,41 @@ try {
     $admin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
     switch ($Mode) {
         'Check' {
-            # Never kill Studio: an editor can have unsaved documents. The helper
-            # exits after its clients close; wait briefly for its DLL handles.
+            # Never kill clients: Studio can have unsaved documents. An elevated
+            # helper can have a null ExecutablePath in an unelevated CIM query,
+            # so also probe this installation's sensor binaries for write locks.
             $names = @('bezel.exe','bezel-studio.exe','bezel-sensors-helper.exe')
-            $running = @(Get-CimInstance Win32_Process | Where-Object {
-                $_.Name -in $names -and $_.ExecutablePath -and
-                [IO.Path]::GetDirectoryName($_.ExecutablePath) -in @($appPath, (Join-Path $appPath 'sensors'))
-            })
-            if ($running) { throw 'Save and exit Bezel Studio, quit Bezel Light from its tray icon, then retry. The sensor helper stops within 30 seconds after its clients exit.' }
+            $sensorDirectory = Join-Path $appPath 'sensors'
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            while ($true) {
+                $running = @(Get-CimInstance Win32_Process -Filter "Name = 'bezel.exe' OR Name = 'bezel-studio.exe' OR Name = 'bezel-sensors-helper.exe'" | Where-Object {
+                    $_.Name -in $names -and $_.ExecutablePath -and
+                    [IO.Path]::GetDirectoryName($_.ExecutablePath) -in @($appPath, $sensorDirectory)
+                })
+                if (@($running | Where-Object { $_.Name -ne 'bezel-sensors-helper.exe' })) {
+                    throw 'Save and exit Bezel Studio, quit Bezel Light from its tray icon, then retry.'
+                }
+                $locked = @()
+                if (Test-Path -LiteralPath $sensorDirectory) {
+                    $locked = @(Get-ChildItem -LiteralPath $sensorDirectory -File -Recurse | Where-Object {
+                        $_.Extension -in @('.exe','.dll')
+                    } | ForEach-Object {
+                        $stream = $null
+                        try {
+                            $stream = [IO.File]::Open($_.FullName, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+                        } catch [IO.IOException] {
+                            $_.Exception.Message
+                        } finally {
+                            if ($stream) { $stream.Dispose() }
+                        }
+                    })
+                }
+                if (-not $running -and -not $locked) { break }
+                if ($timer.Elapsed.TotalSeconds -ge $HelperWaitSeconds) {
+                    throw 'The sensor reader is still using this installation. Keep Studio and Light closed, wait for the reader to finish, then retry. No application was terminated.'
+                }
+                Start-Sleep -Milliseconds 250
+            }
         }
         'Startup' {
             $launcher = Join-Path $appPath 'start-light.ps1'

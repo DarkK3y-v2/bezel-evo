@@ -23,8 +23,10 @@ Setup's Light option and Studio's own editor-autostart setting are separate.
 
 Save and fully exit Studio and quit Light from the tray before updating or
 uninstalling. The sensor helper exits within 30 seconds after its clients close.
-The installer refuses to overwrite a running installation; it does not kill the
-editor. Uninstall removes only the sensor task and Light login entry that point
+The installer blocks open Studio/Light clients and waits up to 45 seconds for
+the reader's sensor files to become writable, even when Windows hides its
+elevated process path. It does not kill applications. Uninstall removes only
+the sensor task and Light login entry that point
 to this installation. User themes, preferences and caches are retained, including
 the inherited internal `io.github.slipalison.bezel` data directories used for
 compatibility. Bezel Evo's installed product name and publisher identify this fork.

@@ -63,8 +63,13 @@ Sensor aliases are excluded by default; the personal helper build supports the
 explicit `-ImportSensorNames` switch when needed.
 
 `installer-maintenance.ps1` manages only its own `BezelEvoLight` login entry and
-an owned `Bezel-Sensors` task. Its `Check` mode blocks running installations;
-it does not kill Studio or Light. Setup uses process-scoped execution-policy
+an owned `Bezel-Sensors` task. Its `Check` mode blocks open Studio/Light clients
+and waits up to 45 seconds for the sensor reader and its DLL write locks to
+clear, including readers whose elevated process path is unavailable. Updates
+run the new check before invoking an older uninstaller, too. It does not kill
+applications. Run `test-installer-maintenance.ps1` for isolated process and
+file-lock regression checks without touching the installed application.
+Setup uses process-scoped execution-policy
 bypass for the bundled scripts and never changes the machine's policy.
 The old `configure-startup.ps1` migration remains a separate manual tool and is
 not included in the public package. See [the installer guide](../../packaging/windows/README.md).
