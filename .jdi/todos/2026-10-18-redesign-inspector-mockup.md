@@ -44,9 +44,10 @@ Per queste prove: solo build diretta e avvio dell'eseguibile, niente setup.
 
 ## Consegna
 
-Build locale 0.1.38 in corso con `scripts/windows/build-evo.ps1 -Version 0.1.38`.
+Build locale 0.1.38 riuscita con `scripts/windows/build-evo.ps1 -Version 0.1.38`.
 Primo tentativo interrotto per includere la richiesta di centratura arrivata durante
 la compilazione. Nessun setup, installazione, push o pubblicazione.
 
-Prossimo passo: completare la build, verificare versione e processo, avviare direttamente
-`target/release/bezel-studio.exe` e raccogliere la prova dell'utente.
+CLI e metadati Studio verificati come 0.1.38. Avviato direttamente
+`target/release/bezel-studio.exe` in finestra normale, processo e percorso verificati.
+Prossimo passo: raccogliere la prova dell'utente.
