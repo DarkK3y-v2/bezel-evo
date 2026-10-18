@@ -6,9 +6,9 @@ The `gpu.fps` sensor (*Game frame rate*) shows the frame rate of the game you ar
 playing. Bezel does not hook into games: it reads what a frame-rate tool you
 already run publishes. Drag the sensor onto a theme like any other.
 
-> The FPS readers follow the published formats of these tools, but have not yet
-> been checked against a running game (not validated on hardware). If the value
-> looks wrong, please report it.
+> The FPS readers follow the published formats of these tools and were checked
+> against a running game on real hardware (2026-10-18). If a value looks wrong,
+> please report it.
 
 ## Windows: Intel PresentMon (Preferred)
 
@@ -19,7 +19,7 @@ frame. It is never installed as a service.
 
 1. Download the Intel PresentMon console application (v2.6.0 or newer).
 2. Place `PresentMon.exe` in one of these locations (checked in order):
-   - A `tools/` folder next to the Bezel executable.
+   - A `tools/` or `sensors/` folder next to the Bezel executable.
    - `C:\Program Files\Intel\PresentMon\PresentMon.exe`.
    - Anywhere in your system `PATH`.
 3. **Administrator rights required**: PresentMon reads ETW events. Run Bezel
@@ -28,8 +28,8 @@ frame. It is never installed as a service.
    explaining the fix.
 4. Start the game. Bezel automatically starts PresentMon, excludes
    compositor and overlay processes (like `dwm.exe`, `explorer.exe`,
-   `discord.exe`), and shows `gpu.fps`, `gpu.frametime`, `gpu.fps_low_1p`,
-   `gpu.game` and `gpu.limiter`.
+   `discord.exe`), and shows `gpu.fps`, `gpu.frametime`, `gpu.fps_low_1p`, `gpu.fps_low_01p`,
+   `gpu.fps_min`, `gpu.fps_max`, `gpu.fps.source`, `gpu.game` and `gpu.limiter`.
 
 If PresentMon is not found or fails to start, `gpu.fps` falls back to
 RivaTuner Statistics Server (RTSS) exactly as before, and the catalog says
