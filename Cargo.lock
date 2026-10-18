@@ -416,6 +416,8 @@ name = "bezel-media"
 version = "0.0.0"
 dependencies = [
  "bezel-core",
+ "bezel-render",
+ "bezel-themes",
  "image",
  "serde",
  "serde_json",

@@ -48,7 +48,7 @@ pub(crate) fn spawn<S: AsRef<OsStr>>(program: &Path, args: &[S]) -> io::Result<C
     command.spawn()
 }
 
-fn hide_console(command: &mut Command) {
+pub(crate) fn hide_console(command: &mut Command) {
     use std::os::windows::process::CommandExt;
     /// `CREATE_NO_WINDOW` from the Win32 process creation flags.
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
