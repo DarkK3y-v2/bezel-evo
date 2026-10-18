@@ -5,6 +5,25 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.41] - 2026-10-18
+
+0.1.32 through 0.1.40 were local builds; these entries cover them too.
+
+### Studio
+- Profile changes reuse the Card effects: Fade, Slide and perspective Flip,
+  alongside an instant switch. Set direction and duration once in Profiles and
+  automation, for manual, automatic and return changes across all displays.
+- Transitions follow each display's presentation speed, interrupt from the
+  current image on rapid switches and preserve the editor's document and preview.
+  Video played directly by a device switches immediately.
+
+### Themes
+- Add six editable templates to the bundled library: Pulse / Gaming, Resonance /
+  Music and Clarity / Monitor, each in 1920×480 Wide and 480×480 Round versions.
+- Demonstrate rotating Cards, smooth values, colour thresholds, gradient gauges,
+  history graphs, palettes, independent player corners and progress styling,
+  and live spectra from the computer's output audio.
+
 ## [0.1.40] - 2026-10-18
 
 0.1.32 through 0.1.39 were local builds; these entries cover them too.
