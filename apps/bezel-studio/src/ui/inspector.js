@@ -414,11 +414,11 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const setFont = (font) => update(e.id, { kind: { style: { font } } });
     return [
       fontPicker(texts, s.font, setFont, source),
-      size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800 }),
+      size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px', iconName: 'textSize' }),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
       segmented(t('inspector.align'), s.align, [['left', t('common.left')], ['center', t('inspector.alignCenter')], ['right', t('common.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
       segmented(t('axis.vertical'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
-      numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any' }),
+      numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any', unit: 'px', iconName: 'spacing' }),
     ];
   }
 
@@ -561,10 +561,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         c.demo && el('p', { class: 'hint', role: 'status', text: t('spectrum.demoHint') }),
         el('p', { class: 'hint', text: t('spectrum.enableHint') }),
       ]), section('spectrum-bands', t('spectrum.bands'), [
-        numberField(t('spectrum.bands'), c.bands, bands => set({ bands }), { min: 8, max: 64, step: 1 }),
-        numberField(t('spectrum.low'), c.low, low => set({ low }), { min: 20, max: 23999, step: 1 }),
-        numberField(t('spectrum.high'), c.high, high => set({ high }), { min: c.low + 1, max: 24000, step: 1 }),
-        numberField(t('spectrum.gain'), c.gain, gain => set({ gain }), { min: 0.1, max: 4, step: 0.1 }),
+        numberField(t('spectrum.bands'), c.bands, bands => set({ bands }), { min: 8, max: 64, step: 1, iconName: 'count' }),
+        numberField(t('spectrum.low'), c.low, low => set({ low }), { min: 20, max: 23999, step: 1, unit: 'Hz', iconName: 'frequency' }),
+        numberField(t('spectrum.high'), c.high, high => set({ high }), { min: c.low + 1, max: 24000, step: 1, unit: 'Hz', iconName: 'frequency' }),
+        numberField(t('spectrum.gain'), c.gain, gain => set({ gain }), { min: 0.1, max: 4, step: 0.1, unit: '×', iconName: 'gain' }),
         el('p', { class: 'hint', text: t('spectrum.gainHint') }),
       ])],
       look: [section('spectrum-paint', t('inspector.color'), [
@@ -573,11 +573,11 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         gradient && colorField(t('ring.endColor'), end, v => setPaint('gradient', start, v)),
       ]), section('spectrum-bars', t('graph.bars'), [
         selectField(t('spectrum.style'), c.style, SPECTRUM_STYLES.map(v => [v, t(STYLE_LABELS[v])]), style => set({ style })),
-        !line && numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256 }),
-        !line && numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128 }),
-        c.style === 'blocks' && numberField(t('spectrum.block'), c.block, block => set({ block }), { min: 1, max: 64 }),
+        !line && numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256, unit: 'px', iconName: 'width' }),
+        !line && numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128, unit: 'px', iconName: 'spacing' }),
+        c.style === 'blocks' && numberField(t('spectrum.block'), c.block, block => set({ block }), { min: 1, max: 64, unit: 'px', iconName: 'height' }),
         c.style === 'blocks' && el('p', { class: 'hint', text: t('spectrum.blockColors') }),
-        line && numberField(t('spectrum.stroke'), c.stroke, stroke => set({ stroke }), { min: 1, max: 32 }),
+        line && numberField(t('spectrum.stroke'), c.stroke, stroke => set({ stroke }), { min: 1, max: 32, unit: 'px', iconName: 'strokeWidth' }),
         line && switchRow(t('spectrum.fill'), c.fill, fill => set({ fill })),
         c.style === 'radial' && numberField(t('spectrum.inner'), c.inner, inner => set({ inner }), { min: 0, max: 90 }),
         c.style !== 'blocks' && switchRow(t(baseLabel), c.centre, centre => set({ centre })),
@@ -616,8 +616,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       parts.progress ? progressSection(e, parts) : null,
       section('spacing', t('insp.spacing'), [
         fieldGrid([
-          prefixedField(t('insp.gap'), t('player.coverGap'), c.coverGap ?? s.size * 0.3, (v) => set({ coverGap: Math.max(0, v) }), { min: 0, step: 'any', unit: 'px' }),
-          prefixedField(t('insp.textSize'), t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px' }),
+          prefixedField(t('insp.gap'), t('player.coverGap'), c.coverGap ?? s.size * 0.3, (v) => set({ coverGap: Math.max(0, v) }), { min: 0, step: 'any', unit: 'px', iconName: 'spacing' }),
+          prefixedField(t('insp.textSize'), t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px', iconName: 'textSize' }),
         ]),
         el('p', { class: 'hint', text: t('insp.gapHint') }),
       ]),
@@ -698,8 +698,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     return [
       switchRow(t('inspector.segments'), Boolean(seg), (on) => update(e.id, { kind: { segments: on ? { count: 10, gap: e.kind.type === 'ring' ? 4 : 2 } : null } })),
       seg && el('div', { class: 'field-row' }, [
-        numberField(t('inspector.count'), seg.count, (v) => update(e.id, { kind: { segments: { count: Math.max(1, v) } } }), { min: 1, max: 200 }),
-        numberField(t('inspector.gap'), seg.gap, (v) => update(e.id, { kind: { segments: { gap: Math.max(0, v) } } }), { min: 0, step: 'any' }),
+        numberField(t('inspector.count'), seg.count, (v) => update(e.id, { kind: { segments: { count: Math.max(1, v) } } }), { min: 1, max: 200, iconName: 'count' }),
+        numberField(t('inspector.gap'), seg.gap, (v) => update(e.id, { kind: { segments: { gap: Math.max(0, v) } } }), { min: 0, step: 'any', unit: e.kind.type === 'ring' ? '°' : 'px', iconName: 'spacing' }),
       ]),
     ];
   }
@@ -718,12 +718,13 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   function barForm(e) {
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
-    const look = [section('appearance', t('inspector.appearance'), [
+    const look = [section('style', t('inspector.style'), [
       selectField(t('common.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
+    ]), section('color', t('inspector.color'), [
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
-      ...trackFields(e),
-      ...segmentsFields(e),
-    ]), cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0), ({ radius }) => update(e.id, { kind: { radius } }),
+    ]), section('track', t('inspector.track'), trackFields(e)),
+    section('segments', t('inspector.segments'), segmentsFields(e)),
+    cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0), ({ radius }) => update(e.id, { kind: { radius } }),
       { individual: false, box: e.frame })];
     return { data, look };
   }
@@ -770,10 +771,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       transitionSection(e),
     ];
     const look = [
-      section('appearance', t('inspector.appearance'), [
-        ...ringFillFields(e),
-        ...trackFields(e),
-        ...segmentsFields(e),
+      section('color', t('inspector.color'), ringFillFields(e)),
+      section('track', t('inspector.track'), trackFields(e)),
+      section('segments', t('inspector.segments'), segmentsFields(e)),
+      section('preview', t('common.preview'), [
         switchRow(t('ring.testFull'), Boolean(k.testFull), (v) => update(e.id, { kind: { testFull: v } })),
       ]),
     ];
@@ -783,14 +784,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   function needleForm(e) {
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
-    const look = [section('appearance', t('inspector.appearance'), [
+    const look = [section('arc', t('insp.arc'), [
       angleFields(e),
       fieldGrid([
         prefixedField(t('insp.xPrefix'), t('inspector.pivotX'), Math.round((k.pivot?.[0] ?? 0.5) * 100), (v) => update(e.id, { kind: { pivot: [v / 100, k.pivot?.[1] ?? 0.5] } }), { min: 0, max: 100, unit: '%' }),
         prefixedField(t('insp.yPrefix'), t('inspector.pivotY'), Math.round((k.pivot?.[1] ?? 0.5) * 100), (v) => update(e.id, { kind: { pivot: [k.pivot?.[0] ?? 0.5, v / 100] } }), { min: 0, max: 100, unit: '%' }),
       ]),
-      colorField(t('inspector.color'), k.color, (v) => update(e.id, { kind: { color: v } })),
       rangeField(t('inspector.lineWidth'), k.width, (v) => update(e.id, { kind: { width: Math.max(1, v) } }), { min: 1, max: Math.max(32, k.width), format: (v) => t('insp.px', { value: v }) }),
+    ]), section('color', t('inspector.color'), [
+      colorField(t('inspector.color'), k.color, (v) => update(e.id, { kind: { color: v } })),
     ])];
     return { data, look };
   }
@@ -911,13 +913,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         : el('p', { class: 'hint', text: t('inspector.addMediaFirst') }),
     ])];
     const look = [section('appearance', t('inspector.appearance'), [
-      ...fadeFields(e),
-      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color }), { live: false }),
-      paint?.style === 'outline' && numberField(t('inspector.strokeWidth'), paint.stroke, (stroke) => change({ stroke: Math.min(4, Math.max(0.5, stroke)) }), { min: 0.5, max: 4, step: 0.5 }),
-      paint && numberField(t('icons.shadow'), paint.shadow, (shadow) => change({ shadow: Math.min(4, Math.max(0, shadow)) }), { min: 0, max: 4, step: 0.5 }),
-      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor }), { live: false }),
       selectField(t('inspector.fit'), k.fit, ['fill', 'contain', 'cover', 'none'].map((f) => [f, t(`fit.${f}`)]), (v) => update(e.id, { kind: { fit: v } })),
-    ])];
+    ]), section('color', t('inspector.color'), [
+      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color }), { live: false }),
+      paint?.style === 'outline' && numberField(t('inspector.strokeWidth'), paint.stroke, (stroke) => change({ stroke: Math.min(4, Math.max(0.5, stroke)) }), { min: 0.5, max: 4, step: 0.5, unit: 'px', iconName: 'strokeWidth' }),
+    ]), section('shadow', t('icons.shadow'), [
+      paint && numberField(t('icons.shadow'), paint.shadow, (shadow) => change({ shadow: Math.min(4, Math.max(0, shadow)) }), { min: 0, max: 4, step: 0.5, unit: 'px' }),
+      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor }), { live: false }),
+    ]), section('transparency', t('fade.mode'), fadeFields(e))];
     return { data, look };
   }
 
@@ -947,14 +950,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
 
   function shapeForm(e) {
     const k = e.kind;
-    return { look: [section('appearance', t('inspector.appearance'), [
+    return { look: [section('shape', t('common.shape'), [
       segmented(t('common.shape'), k.shape, [['rect', t('shape.rect')], ['ellipse', t('shape.ellipse')]], (v) => update(e.id, { kind: { shape: v } })),
       switchRow(t('shape.videoWindow'), Boolean(k.videoWindow), (videoWindow) => update(e.id, { kind: { videoWindow } })),
+    ]), section('color', t('inspector.color'), [
       k.videoWindow ? el('div', {}, [el('p', { class: 'hint', text: t('shape.videoWindowHint') }), button(t('deviceVideo.choose'), () => video.openStorage())]) : colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#1e293bff', (v) => update(e.id, { kind: { fill: v } })),
-      ...fadeFields(e),
-      el('div', { class: 'field-row' }, [
-        numberField(t('inspector.strokeWidth'), k.strokeWidth ?? 0, (v) => update(e.id, { kind: { strokeWidth: Math.max(0, v), stroke: v > 0 ? (k.stroke ?? '#ffffffff') : null } }), { min: 0 }),
-      ]),
+    ]), section('transparency', t('fade.mode'), fadeFields(e)),
+    section('outline', t('insp.outline'), [
+      numberField(t('inspector.strokeWidth'), k.strokeWidth ?? 0, (v) => update(e.id, { kind: { strokeWidth: Math.max(0, v), stroke: v > 0 ? (k.stroke ?? '#ffffffff') : null } }), { min: 0, unit: 'px', iconName: 'strokeWidth' }),
       (k.strokeWidth ?? 0) > 0 && colorField(t('inspector.stroke'), k.stroke ?? '#ffffffff', (v) => update(e.id, { kind: { stroke: v } })),
     ]), k.shape === 'rect' ? cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0, k.corners),
       ({ radius, corners }) => update(e.id, { kind: { radius, corners } }), { box: e.frame }) : null] };
@@ -1213,7 +1216,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       target?.focus();
     });
     const reorder = (i, to, action) => { set({ ...rule, thresholds: moveRule(rows, i, to) }); focusRow(to, action); };
-    return section('value-color', t('insp.colorByValue'), [
+    return el('div', { class: 'value-color', dataset: { section: 'value-color' }, role: 'group', 'aria-label': t('insp.colorByValue') }, [
       switchRow(t('insp.colorByValue'), Boolean(rule), enabled => set(enabled ? defaultValueColor(e,
         sensors.catalog()[0]?.key ?? '', readIcon(assets.find(a => a.ref === e.kind.asset)?.iconSvg)?.color) : null)),
       ...(rule ? [
@@ -1238,11 +1241,21 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   function panelsOf(e, theme, assets) {
     const kindForms = { text: textForm, bar: barForm, ring: ringForm, needle: needleForm, graph: graphForm, shape: shapeForm };
     const specific = e.isGroup ? {} : e.kind.type === 'image' ? imageForm(e, assets) : kindForms[e.kind.type]?.(e) ?? {};
-    // The opacity closes the Look tab: in its last section, or alone under "Appearance".
+    // Conditional colour belongs beside the paint it controls. Opacity has a
+    // stable group of its own instead of ending up among corners or thresholds.
     const opacity = rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` });
-    const look = [...(specific.look ?? []), valueColorSection(e, assets)].filter(Boolean);
-    if (look.length) look.at(-1).querySelector('.property-section-body').append(opacity);
-    else look.push(section('appearance', t('inspector.appearance'), [opacity]));
+    const look = [...(specific.look ?? [])].filter(Boolean);
+    const conditional = valueColorSection(e, assets);
+    if (conditional) {
+      const paint = look.flatMap(group => [...group.querySelectorAll('.color-field')])[0];
+      const group = paint?.closest('.property-section');
+      if (['color', 'spectrum-paint'].includes(group?.dataset.section)) group.querySelector('.property-section-body').append(conditional);
+      else if (paint) paint.after(conditional);
+      else look.push(section('color', t('inspector.color'), [conditional]));
+    }
+    const transparency = look.find(group => group.dataset.section === 'transparency');
+    if (transparency) transparency.querySelector('.property-section-body').append(opacity);
+    else look.push(section('visibility', t('insp.visibility'), [opacity]));
     if (e.card) return { ...cardPanels(e), look };
     return {
       data: [...(specific.data ?? []), section('membership', t('inspector.membership'), membershipForm(e, theme))],
@@ -1258,12 +1271,12 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const setFrame = patch => store.dispatch('setFrame', { id: e.id, frame: { ...f, ...patch } });
     const position = section('position', t('inspector.position'), [
       fieldGrid([
-        prefixedField(t('insp.xPrefix'), t('inspector.x'), f.x, v => setFrame({ x: v })),
-        prefixedField(t('insp.yPrefix'), t('inspector.y'), f.y, v => setFrame({ y: v })),
-        prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4 }),
-        prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4 }),
+        prefixedField(t('insp.xPrefix'), t('inspector.x'), f.x, v => setFrame({ x: v }), { unit: 'px' }),
+        prefixedField(t('insp.yPrefix'), t('inspector.y'), f.y, v => setFrame({ y: v }), { unit: 'px' }),
+        prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4, unit: 'px', iconName: 'width' }),
+        prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4, unit: 'px', iconName: 'height' }),
       ]),
-      canRotate(theme, e) && prefixedField(t('insp.rotation'), t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°' }),
+      canRotate(theme, e) && numberField(t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°', iconName: 'rotate' }),
       chipButton(t('insp.fitContent'), false, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id) }),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
     ]);

@@ -66,10 +66,13 @@ export function adoptControl(current, fresh) {
 }
 
 /** A labelled number input. `step` 1 rounds to integers. */
-export function numberField(label, value, onChange, { min, max, step = 1 } = {}) {
+export function numberField(label, value, onChange, { min, max, step = 1, unit, iconName } = {}) {
   const id = fieldId();
-  const input = numberInput({ id, value: String(value ?? ''), min, max }, step, onChange);
-  return el('label', { class: 'field', for: id }, [el('span', { text: label }), input]);
+  const input = numberInput({ id, value: String(value ?? ''), min, max, 'aria-label': label }, step, onChange);
+  return el('label', { class: 'field number-field', for: id }, [
+    el('span', { class: 'field-label' }, [iconName ? icon(ICONS[iconName], 16) : null, label]),
+    el('span', { class: 'number-control' }, [input, unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null]),
+  ]);
 }
 
 /** A labelled text input (committed on change). */
@@ -137,10 +140,11 @@ export function segmented(label, value, options, onChange, { bare = false } = {}
  * @param {string} label the accessible name, e.g. "X (px)"
  * @param {{min?: number, max?: number, step?: number|'any', unit?: string}} [opts]
  */
-export function prefixedField(prefix, label, value, onChange, { min, max, step = 1, unit } = {}) {
+export function prefixedField(prefix, label, value, onChange, { min, max, step = 1, unit, iconName } = {}) {
   const id = fieldId();
   const input = numberInput({ id, value: String(value ?? ''), min, max, 'aria-label': label }, step, onChange);
   return el('label', { class: 'fld', for: id }, [
+    iconName ? icon(ICONS[iconName], 16) : null,
     el('span', { class: 'fld-prefix', 'aria-hidden': 'true', text: prefix }),
     input,
     unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null,

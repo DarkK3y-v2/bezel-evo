@@ -142,7 +142,26 @@
 .inspector-tabs [role="tab"] { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inspector-tabs [role="tab"]:focus-visible { outline-offset: 0; }
 
-/* Sections: an 11px caps title (sectionTitle()), 22px apart. */
+/* Property groups have a visible boundary; short values keep a stable width. */
+.inspector .property-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.inspector .section-head { min-height: 26px; }
+.inspector .section-title { color: var(--text-2); }
+.inspector .number-field { display: grid; grid-template-columns: minmax(0, 1fr) 112px; align-items: center; gap: 10px; }
+.inspector .number-field > .field-label { font-size: var(--fs-field); line-height: 1.4; color: var(--text-2); }
+.inspector .number-control { height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.inspector .number-control input { width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; font-family: var(--font-mono); font-size: var(--fs-field); }
+.inspector .number-control:focus-within { border-color: var(--accent); }
+.inspector .number-control input:focus-visible { outline: none; }
+.inspector .number-control:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.inspector .field-row .number-field { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.inspector .value-color { display: flex; flex-direction: column; gap: 10px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.inspector .value-color > .switch-row { font-size: var(--fs-small); }
+.inspector .value-color .trigger-rule { padding: 8px; }
+.inspector .corner-radii[data-mode="same"] { grid-template-columns: 64px minmax(100px, 140px); }
+.inspector .corner-radii[data-mode="each"] { grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr); gap: 6px; }
+.inspector .corner-radii .fld { padding-inline: 8px; gap: 4px; }
+.inspector .corner-radii .fld input { width: 5ch; }
+.inspector .fld input { font-variant-numeric: tabular-nums; }
 .inspector .section-head h3 { margin: 0; }
 .inspector-tabs + .property-section, .inspector-tabs + .inspector-panel > .property-section:first-child { margin-top: 18px; }
 .inspector-panel > .dashed-hint { margin-top: 22px; }

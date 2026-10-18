@@ -121,6 +121,10 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 .corner-radii:has(.fld[data-corner="bottomLeft"]:focus-within) .corner-mark[data-corner="bottomLeft"] { opacity: 1; }
 /* A labelled field (label above): `numberField()`, `textField()`, `selectField()`. */
 .field { display: grid; gap: 4px; margin-bottom: 8px; }
+.number-control { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.number-control input { min-width: 0; }
+.field-label { display: flex; align-items: center; gap: 6px; }
+.field-label .ic, .fld > .ic { flex: none; color: var(--dim); }
 .field > span { font-size: 0.85rem; color: var(--muted); }
 .field input[type="text"], .field input[type="number"], .field select, .field textarea, .prefs-section .field select, .prefs-section .field input[type="text"] { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); }
 .field-row, .icon-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

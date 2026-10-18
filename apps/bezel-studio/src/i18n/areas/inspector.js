@@ -9,6 +9,8 @@ export default {
   en: {
     'insp.rotateHandle': 'Rotate object',
     'insp.colorByValue': 'Colour by value',
+    'insp.visibility': 'Visibility',
+    'insp.outline': 'Outline',
     'insp.baseColor': 'Base colour',
     'insp.colorFrom': 'From ≥',
     'insp.colorThresholdValue': 'Threshold value',
@@ -151,6 +153,8 @@ export default {
   'pt-BR': {
     'insp.rotateHandle': 'Girar objeto',
     'insp.colorByValue': 'Cor por valor',
+    'insp.visibility': 'Visibilidade',
+    'insp.outline': 'Contorno',
     'insp.baseColor': 'Cor base',
     'insp.colorFrom': 'A partir de ≥',
     'insp.colorThresholdValue': 'Valor do limite',
@@ -293,6 +297,8 @@ export default {
   it: {
     'insp.rotateHandle': 'Ruota oggetto',
     'insp.colorByValue': 'Colore in base al valore',
+    'insp.visibility': 'Visibilità',
+    'insp.outline': 'Bordo',
     'insp.baseColor': 'Colore di base',
     'insp.colorFrom': 'Da ≥',
     'insp.colorThresholdValue': 'Valore soglia',
