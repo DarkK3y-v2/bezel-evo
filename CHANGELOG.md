@@ -5,6 +5,22 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.40] - 2026-10-18
+
+0.1.32 through 0.1.39 were local builds; these entries cover them too.
+
+### Studio
+- A profile now contains a theme assignment for each display. Choosing Gaming,
+  manually or through an automatic rule, applies its different themes across
+  both screens from one shared profile selection.
+- Profile management shows the selected theme names for each display and seeds
+  new profiles from those assignments. Theme pickers show only compatible themes
+  for their display, while saved assignments for disconnected displays are kept.
+- Return choices in Studio and both trays show the selected theme names instead
+  of the ambiguous “Original theme” label.
+- Existing single-display profiles migrate to the new assignment format without
+  losing their saved theme or rules.
+
 ## [0.1.39] - 2026-10-18
 
 0.1.32 through 0.1.38 were local builds; these entries cover them too.
