@@ -659,7 +659,7 @@ pub fn preferences(state: State<'_, Shared>) -> PreferencesDto {
 }
 
 #[tauri::command]
-pub async fn profiles(state: State<'_, Shared>) -> UiResult<bezel_runtime::profiles::Config> {
+pub async fn profiles(state: State<'_, Shared>) -> UiResult<bezel_runtime::profiles::Overview> {
     blocking(&state, |b| b.profiles()).await
 }
 

@@ -263,18 +263,19 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(100));
         if Instant::now() >= profiles_poll {
             profiles_poll = Instant::now() + Duration::from_secs(1);
-            if let Some(file) = &profile_file && let Ok(config) = file.load()
-                && shown_profiles.as_ref() != Some(&config) {
+            if let Some(file) = &profile_file && let Ok(overview) = file.overview()
+                && shown_profiles.as_ref() != Some(&overview) {
+                let config = &overview.config;
                 while profiles_menu.remove_at(0).is_some() {}
                 let automatic = CheckMenuItem::with_id("profile:auto", labels[1], true, config.automatic, None);
-                let default = CheckMenuItem::with_id("profile:default", labels[2], true, !config.automatic && config.manual.is_none(), None);
+                let default = CheckMenuItem::with_id("profile:default", overview.baseline_label(labels[2]), true, !config.automatic && config.manual.is_none(), None);
                 let _ = profiles_menu.append_items(&[&automatic, &default]);
                 for p in &config.profiles {
                     let item = CheckMenuItem::with_id(format!("profile:{}", p.id), &p.name, true, !config.automatic && config.manual.as_ref() == Some(&p.id), None);
                     let _ = profiles_menu.append(&item);
                 }
                 let _ = profiles_menu.append(&MenuItem::with_id("profile:manage", labels[3], true, None));
-                shown_profiles = Some(config);
+                shown_profiles = Some(overview);
             }
         }
         if let Event::UserEvent(Action::Menu(ref event)) = event

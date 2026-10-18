@@ -5,7 +5,7 @@ import { errorText } from '../messages.js';
 
 export function createProfilesDialog({ t, bridge, notify }) {
   let dialog = null;
-  let config, themes, screens;
+  let config, themes, screens, displays;
   let busy = false;
   const field = (label, control) => el('label', { class: 'field' }, [el('span', { text: label }), control]);
   const select = (label, values, value, change) => field(label,
@@ -14,6 +14,31 @@ export function createProfilesDialog({ t, bridge, notify }) {
   const input = (label, value, change, attrs = {}) => field(label,
     el('input', { type: 'text', 'aria-label': label, value, ...attrs, oninput: (e) => change(e.target.value) }));
   const button = (text, onclick, attrs = {}) => el('button', { type: 'button', class: 'text-button', text, onclick, ...attrs });
+  const themeName = (path) => themes.find((theme) => theme.location === path)?.name
+    ?? path?.split(/[\\/]/).pop()?.replace(/\.bezeltheme$/i, '') ?? t('profiles.unassigned');
+  const displayName = (display) => display.name === display.key ? display.name : `${display.name} · ${display.key}`;
+  const currentDisplays = () => displays.some((d) => d.connected) ? displays.filter((d) => d.connected) : displays;
+  const baselineName = () => currentDisplays().map((d) => d.themeName ?? t('profiles.unassigned')).join(' · ') || t('profiles.unassigned');
+  const compatibleThemes = (display) => {
+    const screen = screens.find((s) => s.key === display.key);
+    return themes.filter((theme) => !screen || screen.models.some((model) => theme.models.includes(model.id)));
+  };
+
+  function assignment(profile, display) {
+    const value = profile.themes[display.key] ?? '';
+    const choices = compatibleThemes(display).map((theme) => [theme.location, theme.name]);
+    if (value && !choices.some(([path]) => path === value)) choices.unshift([value, themeName(value)]);
+    const control = select(t('inspector.theme'), [['', t('profiles.chooseTheme')], ...choices], value, (path) => {
+      if (path) profile.themes[display.key] = path;
+      else delete profile.themes[display.key];
+    });
+    control.querySelector('select').required = display.connected || Boolean(value);
+    return el('fieldset', { class: 'profile-display-assignment', dataset: { screen: display.key } }, [
+      el('legend', { text: displayName(display) }),
+      ...(!display.connected ? [el('p', { class: 'hint', text: t('profiles.disconnected') })] : []),
+      control,
+    ]);
+  }
 
   function ruleEditor(profile, rule, index) {
     return el('div', { class: 'profile-rule' }, [
@@ -26,13 +51,6 @@ export function createProfilesDialog({ t, bridge, notify }) {
     ]);
   }
   function profileEditor(profile) {
-    const knownThemes = themes.filter((theme) => {
-      const screen = screens.find((s) => s.key === profile.screen);
-      return !screen || screen.models.some((model) => theme.models.includes(model.id));
-    }).map((theme) => [theme.location, theme.name]);
-    if (!knownThemes.some(([id]) => id === profile.theme)) knownThemes.unshift([profile.theme, profile.theme]);
-    const knownScreens = screens.map((s) => [s.key, `${s.models[0]?.name ?? s.family} · ${s.key}`]);
-    if (!knownScreens.some(([key]) => key === profile.screen)) knownScreens.unshift([profile.screen, profile.screen]);
     return el('fieldset', { class: 'profile-editor', dataset: { profile: profile.id } }, [
       el('legend', { text: profile.name || t('profiles.new') }),
       input(t('common.name'), profile.name, (value) => {
@@ -41,15 +59,7 @@ export function createProfilesDialog({ t, bridge, notify }) {
         if (editor) editor.querySelector('legend').textContent = value || t('profiles.new');
         for (const option of dialog.querySelectorAll('option')) if (option.value === profile.id) option.textContent = value;
       }, { required: true, maxlength: 160 }),
-      select(t('profiles.screen'), knownScreens, profile.screen, (value) => {
-        const screen = screens.find((s) => s.key === value);
-        const compatible = themes.filter((theme) => screen?.models.some((model) => theme.models.includes(model.id)));
-        if (!compatible.length) { notify(t('profiles.noTheme')); render(); return; }
-        profile.screen = value;
-        if (!compatible.some((theme) => theme.location === profile.theme)) profile.theme = compatible[0].location;
-        render();
-      }),
-      select(t('inspector.theme'), knownThemes, profile.theme, (value) => { profile.theme = value; }),
+      el('div', { class: 'profile-assignments' }, displays.filter((d) => d.connected || Object.hasOwn(profile.themes, d.key)).map((d) => assignment(profile, d))),
       el('h4', { text: t('profiles.rules') }),
       ...profile.rules.map((rule, index) => ruleEditor(profile, rule, index)),
       el('div', { class: 'button-row' }, [
@@ -79,17 +89,22 @@ export function createProfilesDialog({ t, bridge, notify }) {
         el('button', { type: 'button', class: 'icon-button dialog-close', 'aria-label': t('dialog.close'), onclick: close }, [icon(ICONS.close, 16)])]),
       el('div', { class: 'dialog-body' }, [
         el('p', { class: 'hint', text: t('profiles.hint') }),
-        select(t('profiles.mode'), [['auto', t('profiles.automatic')], ['default', t('profiles.original')], ...choices], mode, (value) => {
+        el('section', { class: 'profile-current' }, [
+          el('h3', { text: t('profiles.currentThemes') }),
+          el('div', { class: 'profile-current-displays' }, currentDisplays().map((display) => el('div', { class: 'profile-current-display', dataset: { currentScreen: display.key } }, [
+            el('strong', { text: displayName(display) }),
+            el('span', { class: 'profile-current-theme', text: display.themeName ?? t('profiles.unassigned') }),
+          ]))),
+        ]),
+        select(t('profiles.mode'), [['auto', t('profiles.automatic')], ['default', baselineName()], ...choices], mode, (value) => {
           config.automatic = value === 'auto'; config.manual = value === 'auto' || value === 'default' ? null : value;
         }),
-        select(t('profiles.fallback'), [['', t('profiles.original')], ...choices], config.defaultProfile ?? '', (value) => { config.defaultProfile = value || null; }),
+        select(t('profiles.fallback'), [['', baselineName()], ...choices], config.defaultProfile ?? '', (value) => { config.defaultProfile = value || null; }),
         ...config.profiles.map(profileEditor),
         ...(!config.profiles.length ? [el('p', { class: 'empty-note', text: t('profiles.empty') })] : []),
         button(t('profiles.add'), () => {
-          const screen = screens[0];
-          const theme = themes.find((entry) => screen.models.some((m) => entry.models.includes(m.id)));
-          if (!theme) { notify(t('profiles.noTheme')); return; }
-          config.profiles.push({ id: crypto.randomUUID(), name: t('profiles.new'), screen: screen.key, theme: theme.location, rules: [] });
+          const assignments = Object.fromEntries(currentDisplays().map((display) => [display.key, display.theme ?? '']));
+          config.profiles.push({ id: crypto.randomUUID(), name: t('profiles.new'), themes: assignments, rules: [] });
           render(); dialog.querySelector('.profile-editor:last-of-type input')?.focus();
         }, { disabled: !themes.length || !screens.length || config.profiles.length >= 32 }),
         ...(!screens.length ? [el('p', { class: 'hint', text: t('profiles.noScreen') })] : []),
@@ -103,7 +118,12 @@ export function createProfilesDialog({ t, bridge, notify }) {
     if (dialog) return;
     try {
       const [saved, entries, devices] = await Promise.all([bridge.profiles(), bridge.listThemes(), bridge.listDevices()]);
-      config = structuredClone(saved); themes = entries; screens = devices.screens;
+      config = structuredClone(saved.config); displays = saved.displays; themes = entries; screens = devices.screens;
+      // Existing single-display profiles inherit the other selected themes in the
+      // editable draft; Cancel leaves the stored configuration untouched.
+      for (const profile of config.profiles) for (const display of currentDisplays()) {
+        if (!Object.hasOwn(profile.themes, display.key) && display.theme) profile.themes[display.key] = display.theme;
+      }
       const opener = document.activeElement;
       dialog = el('dialog', { class: 'confirm-dialog profiles-dialog', 'aria-labelledby': 'profiles-title' });
       dialog.addEventListener('cancel', (event) => { if (busy) event.preventDefault(); });

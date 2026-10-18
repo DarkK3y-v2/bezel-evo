@@ -1035,6 +1035,17 @@ impl Studio {
         self.location.as_ref()
     }
 
+    /// Names and saved locations of every display document, without selecting it.
+    pub fn profile_documents(&self) -> BTreeMap<String, (String, Option<String>)> {
+        let mut documents: BTreeMap<_, _> = self.documents.iter().map(|(key, studio)| {
+            (key.clone(), (studio.theme().name.clone(), studio.location().map(|p| p.0.clone())))
+        }).collect();
+        if let Some(key) = &self.selected_screen {
+            documents.insert(key.clone(), (self.theme().name.clone(), self.location().map(|p| p.0.clone())));
+        }
+        documents
+    }
+
     /// The session's assets (used by the theme or added for it).
     pub fn assets(&self) -> &BTreeMap<AssetRef, Vec<u8>> {
         self.runtime.assets()
@@ -2808,6 +2819,10 @@ mod tests {
         assert_eq!(second.log().frames.len(), 1);
         s.select_screen("one", theme_88());
         assert_eq!(s.theme().name, "T");
+        let documents = s.profile_documents();
+        assert_eq!(documents["one"].0, "T");
+        assert_eq!(documents["two"].0, "Second");
+        assert_eq!(s.selected_screen(), Some("one"));
         assert_eq!(s.live_key(), Some("one"));
         assert!(s.is_live("two"));
         drop(s.stop_live());

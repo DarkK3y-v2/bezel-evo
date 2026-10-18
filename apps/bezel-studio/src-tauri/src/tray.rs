@@ -117,13 +117,14 @@ pub(crate) struct TrayMenu {
 impl TrayMenu {
     pub(crate) fn refresh_profiles(&self, app: &AppHandle) {
         let Some(backend) = app.try_state::<Shared>() else { return; };
-        let Ok(config) = backend.profiles() else { return; };
+        let Ok(overview) = backend.profiles() else { return; };
+        let config = &overview.config;
         let text = backend.texts();
         let refresh = || -> tauri::Result<()> {
             self.profiles.set_text(text.profiles)?;
             for item in self.profiles.items()? { self.profiles.remove(&item)?; }
             let auto = CheckMenuItemBuilder::with_id("profile:auto", text.automatic).checked(config.automatic).build(app)?;
-            let default = CheckMenuItemBuilder::with_id("profile:default", text.default_profile).checked(!config.automatic && config.manual.is_none()).build(app)?;
+            let default = CheckMenuItemBuilder::with_id("profile:default", overview.baseline_label(text.default_profile)).checked(!config.automatic && config.manual.is_none()).build(app)?;
             self.profiles.append(&auto)?;
             self.profiles.append(&default)?;
             for p in &config.profiles {
@@ -205,6 +206,10 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
+            if matches!(event, TrayIconEvent::Enter { .. })
+                && let Some(menu) = tray.app_handle().try_state::<TrayMenu>() {
+                menu.refresh_profiles(tray.app_handle());
+            }
             if let TrayIconEvent::Click {
                 button: MouseButton::Left,
                 button_state: MouseButtonState::Up,

@@ -1642,7 +1642,13 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
     setAudioCapture: (on) => { audioCapture = Boolean(on); return Promise.resolve(); },
-    profiles: () => Promise.resolve(structuredClone(profileConfig)),
+    profiles: () => Promise.resolve({ config: structuredClone(profileConfig), displays: devices.screens.map((screen) => {
+      const current = screen.key === selectedScreen ? theme : screenDocuments.get(screen.key)?.theme;
+      const selected = saved.find((entry) => current && entry.theme.name === current.name)
+        ?? saved.find((entry) => demoFits(entry.theme).models.some((id) => screen.models.some((m) => m.id === id)));
+      return { key: screen.key, name: screen.models[0]?.name ?? screen.family, theme: selected?.location ?? null,
+        themeName: current?.name ?? selected?.theme.name ?? null, connected: true };
+    }) }),
     profilesRequested: () => Promise.resolve(false),
     onProfilesRequested: () => Promise.resolve(() => {}),
     saveProfiles: (config) => { profileConfig = structuredClone(config); return Promise.resolve(); },

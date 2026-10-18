@@ -327,7 +327,14 @@ button.layer-group-title { cursor: pointer; }
 .sensor-row-text .value { white-space: normal; overflow-wrap: anywhere; font-family: var(--font-sans); }
 .sensor-subgroup { margin: 14px 8px 4px; font-size: var(--fs-meta); color: var(--dim); font-weight: 600; }
 
-.profiles-dialog { width: min(680px, calc(100vw - 32px)); }
+.profiles-dialog { width: min(820px, calc(100vw - 32px)); }
+.profile-current h3 { margin: 8px 0; font-size: var(--fs-base); }
+.profile-current-displays, .profile-assignments { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.profile-current-display { min-width: 0; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.profile-current-display strong { color: var(--dim); font-size: var(--fs-meta); font-weight: 500; overflow-wrap: anywhere; }
+.profile-current-theme { font-weight: 600; overflow-wrap: anywhere; }
+.profile-display-assignment { min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+.profile-display-assignment legend { font-size: var(--fs-meta); font-weight: 500; overflow-wrap: anywhere; }
 .profiles-dialog > form { display: flex; flex-direction: column; max-height: calc(100dvh - 64px); min-height: 0; }
 .profiles-dialog .dialog-body { flex: 1; min-height: 0; overflow-y: auto; }
 .profiles-dialog .dialog-head, .profiles-dialog .dialog-actions { flex-shrink: 0; }
