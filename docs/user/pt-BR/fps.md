@@ -7,9 +7,9 @@ você está jogando. O Bezel não se injeta nos jogos: ele lê o que uma ferrame
 de FPS que você já usa publica. Arraste o sensor para um tema como qualquer
 outro.
 
-> A leitura segue os formatos publicados dessas ferramentas, mas ainda não foi
-> conferida com um jogo rodando (não validado no hardware). Se o valor parecer
-> errado, avise.
+> A leitura segue os formatos publicados dessas ferramentas e foi conferida com
+> um jogo rodando em hardware real (18-10-2026). Se algum valor parecer errado,
+> avise.
 
 ## Windows: Intel PresentMon (Preferencial)
 
@@ -20,7 +20,7 @@ segundos após o último quadro. Ele nunca é instalado como um serviço.
 
 1. Baixe a aplicação de console do Intel PresentMon (v2.6.0 ou superior).
 2. Coloque o `PresentMon.exe` em um destes locais (verificados nesta ordem):
-   - Uma pasta `tools/` ao lado do executável do Bezel.
+   - Uma pasta `tools/` ou `sensors/` ao lado do executável do Bezel.
    - `C:\Program Files\Intel\PresentMon\PresentMon.exe`.
    - Qualquer lugar no `PATH` do seu sistema.
 3. **Direitos de administrador necessários**: o PresentMon lê eventos ETW.
