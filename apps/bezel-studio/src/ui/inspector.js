@@ -488,7 +488,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         [['auto', t('inspector.decimalsAuto')], ['0', '0'], ['1', '1'], ['2', '2']],
         (v) => update(e.id, { kind: { content: { format: { decimals: v === 'auto' ? null : Number(v) } } } })));
       nodes.push(switchRow(t('inspector.showUnit'), c.format.showUnit !== false, (v) => update(e.id, { kind: { content: { format: { showUnit: v } } } })));
-      nodes.push(switchRow(t('inspector.fahrenheit'), c.format.fahrenheit, (v) => update(e.id, { kind: { content: { format: { fahrenheit: v } } } })));
+      if (sensors.catalog().find(sensor => sensor.key === c.key)?.quantity === 'celsius') {
+        nodes.push(switchRow(t('inspector.fahrenheit'), c.format.fahrenheit, (v) => update(e.id, { kind: { content: { format: { fahrenheit: v } } } })));
+      }
     }
     data.push(section('content', t('inspector.content'), nodes));
     if (c.type === 'sensor') data.push(transitionSection(e));
@@ -717,7 +719,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const set = (change) => update(e.id, { valueTransition: transitionPatch(e, change) });
     return section('transition', t('insp.transition'), [
       segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')]], (next) => set({ mode: next }), { bare: true }),
-      mode === 'smooth' && rangeField(t('card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs }),
+      mode === 'smooth' && rangeField(t('card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs, compact: true }),
       el('p', { class: 'hint', text: t('insp.transitionHint') }),
     ]);
   }
@@ -1040,8 +1042,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     for (const tab of offered) {
       list.append(el('button', {
         type: 'button', role: 'tab', id: `inspector-tab-${tab}`, 'aria-controls': `inspector-panel-${tab}`, 'aria-selected': String(tab === open),
-        tabindex: tab === open ? '0' : '-1', dataset: { tab }, text: tabName(kind, tab), onclick: () => show(tab, false),
-      }));
+        tabindex: tab === open ? '0' : '-1', dataset: { tab }, title: tabName(kind, tab), onclick: () => show(tab, false),
+      }, [icon(ICONS[tab === 'data' ? 'database' : tab === 'look' ? 'brush' : tab === 'faces' ? 'layers' : tab === 'motion' ? 'play' : 'sliders'], 16), tabName(kind, tab)]));
     }
     list.addEventListener('keydown', evt => {
       const next = tabAfterKey(offered, evt.target.dataset?.tab, evt.key);
@@ -1285,13 +1287,13 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     shownElement = e;
     const setFrame = patch => store.dispatch('setFrame', { id: e.id, frame: { ...f, ...patch } });
     const position = section('position', t('inspector.position'), [
-      fieldGrid([
+      el('div', { class: 'fld-grid geometry-fields' }, [
         prefixedField(t('insp.xPrefix'), t('inspector.x'), f.x, v => setFrame({ x: v }), { unit: 'px' }),
         prefixedField(t('insp.yPrefix'), t('inspector.y'), f.y, v => setFrame({ y: v }), { unit: 'px' }),
-        prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4, unit: 'px', iconName: 'width' }),
-        prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4, unit: 'px', iconName: 'height' }),
+        prefixedField(t('insp.widthLabel'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4, unit: 'px' }),
+        prefixedField(t('insp.heightLabel'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4, unit: 'px' }),
       ]),
-      canRotate(theme, e) && numberField(t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°', iconName: 'rotate' }),
+      canRotate(theme, e) && el('div', { class: 'geometry-rotation' }, [prefixedField(t('insp.rotation'), t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°' })]),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
     ], { tool: iconButton(t('insp.fitContent'), ICONS.frame, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id), class: 'quiet' }) });
     const actions = section('actions', t('inspector.actions'), [el('div', { class: 'actions' }, [

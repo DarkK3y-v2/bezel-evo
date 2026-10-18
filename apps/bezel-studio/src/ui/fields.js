@@ -112,13 +112,13 @@ export function checkField(label, checked, onChange) {
  * A slider under its label and mono value (artboards' "Spessore 24 px").
  * `format` writes the value with its unit; `change` commits it.
  */
-export function rangeField(label, value, onChange, { min = 0, max = 100, step = 1, format = (v) => String(v) } = {}) {
+export function rangeField(label, value, onChange, { min = 0, max = 100, step = 1, format = (v) => String(v), compact = false } = {}) {
   const id = fieldId();
   const out = el('output', { for: id, text: format(value) });
   const input = el('input', { id, type: 'range', min, max, step, value: String(value) });
   input.addEventListener('input', () => { out.textContent = format(Number(input.value)); });
   input.addEventListener('change', () => onChange(Number(input.value)));
-  return el('label', { class: 'slider-field', for: id }, [el('span', { class: 'slider-head' }, [el('span', { text: label }), ' ', out]), input]);
+  return el('label', { class: `slider-field${compact ? ' slider-field-inline' : ''}`, for: id }, [el('span', { class: 'slider-head' }, [el('span', { text: label }), ' ', out]), input]);
 }
 
 /**
@@ -245,10 +245,24 @@ export function sectionTitle(text, { count: n = null, id } = {}) {
 }
 
 /** A property group shared by the object and Card inspector. */
+const SECTION_ICONS = Object.freeze({
+  membership: 'card', position: 'drag', source: 'database', content: 'count',
+  transition: 'frequency', font: 'text', color: 'brush', appearance: 'brush',
+  style: 'sliders', shape: 'shape', corners: 'radius', outline: 'strokeWidth',
+  transparency: 'sunDim', visibility: 'eye', shadow: 'sunDim', track: 'bar',
+  segments: 'grid', arc: 'ring', scale: 'height', window: 'history',
+  'spectrum-source': 'spectrum', 'spectrum-bands': 'frequency',
+  'spectrum-paint': 'brush', 'spectrum-bars': 'spectrum',
+  apps: 'player', stopped: 'pause', time: 'clock', show: 'eye', spacing: 'spacing',
+  progress: 'bar', fill: 'brush', preview: 'eye', faces: 'layers', objects: 'widgets',
+  motion: 'play', triggers: 'sliders', actions: 'more', refresh: 'refresh',
+});
+
 export function propertySection(key, label, nodes, { count: n = null, tool = null } = {}) {
   const contents = nodes.filter(Boolean);
   if (!contents.length) return null;
   const head = sectionTitle(label, { count: n });
+  head.querySelector('h3').prepend(icon(ICONS[SECTION_ICONS[key] ?? 'sliders'], 17));
   if (tool) head.append(tool);
   return el('section', { class: 'property-section', dataset: { section: key } }, [head, el('div', { class: 'property-section-body' }, contents)]);
 }

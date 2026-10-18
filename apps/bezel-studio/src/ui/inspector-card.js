@@ -155,7 +155,7 @@ function transitionSection(ctx, layout) {
   const nodes = layout === 'compact' ? [compactControls(ctx, settings, set), play] : [
     el('p', { class: 'hint', text: t('cardInsp.transitionHint') }),
     effectCards(ctx, settings, set),
-    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ durationMs }), { ...CARD_DURATION, format: value => `${value} ms` }),
+    transition && rangeField(t('card.duration'), transition.durationMs, durationMs => set({ durationMs }), { ...CARD_DURATION, format: value => `${value} ms`, compact: true }),
     transition && el('div', { class: 'card-scale' }, [el('span', { text: t('cardInsp.fast') }), el('span', { text: t('cardInsp.slow') })]),
     directed(transition) && directionControl(t, transition, set),
     transition && switchRow(t('cardInsp.animateShared'), transition.includeBase, includeBase => set({ includeBase })),

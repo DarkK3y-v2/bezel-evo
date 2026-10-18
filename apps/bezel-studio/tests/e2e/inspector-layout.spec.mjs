@@ -12,10 +12,10 @@ test('short numbers stay compact and conditional colour stays with the paint', a
     const box = await rotation.boundingBox();
     expect(box.width).toBeLessThan(115);
     expect(box.width).toBeGreaterThan(60);
-    await expect(rotation.locator('..').locator('..').locator('.ic')).toHaveCount(1);
+    await expect(rotation.locator('..').locator('.fld-prefix')).toHaveText(t('insp.rotation'));
     expect(await rotation.evaluate(input => {
-      const row = input.closest('.number-field');
-      return row.querySelector('.number-control').getBoundingClientRect().left - row.querySelector('.field-label').getBoundingClientRect().right;
+      const row = input.closest('.fld');
+      return input.getBoundingClientRect().left - row.querySelector('.fld-prefix').getBoundingClientRect().right;
     })).toBeLessThanOrEqual(12);
     await inspector.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
     const rules = inspector.locator('[data-section="value-color"]');

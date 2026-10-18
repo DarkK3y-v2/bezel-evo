@@ -8,6 +8,8 @@ export const PREFIXES = Object.freeze(['insp.']);
 export default {
   en: {
     'insp.rotateHandle': 'Rotate object',
+    'insp.widthLabel': 'Width',
+    'insp.heightLabel': 'Height',
     'insp.colorByValue': 'Colour by value',
     'insp.visibility': 'Visibility',
     'insp.outline': 'Outline',
@@ -152,6 +154,8 @@ export default {
   },
   'pt-BR': {
     'insp.rotateHandle': 'Girar objeto',
+    'insp.widthLabel': 'Largura',
+    'insp.heightLabel': 'Altura',
     'insp.colorByValue': 'Cor por valor',
     'insp.visibility': 'Visibilidade',
     'insp.outline': 'Contorno',
@@ -296,6 +300,8 @@ export default {
   },
   it: {
     'insp.rotateHandle': 'Ruota oggetto',
+    'insp.widthLabel': 'Larghezza',
+    'insp.heightLabel': 'Altezza',
     'insp.colorByValue': 'Colore in base al valore',
     'insp.visibility': 'Visibilità',
     'insp.outline': 'Bordo',

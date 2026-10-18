@@ -11,6 +11,9 @@ const rect = (x, y, w, h, r = 0) => (r
 const circle = (cx, cy, r) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0-${2 * r} 0`;
 
 export const ICONS = Object.freeze({
+  database: ['M4 6a8 3 0 1 0 16 0 8 3 0 1 0-16 0', 'M4 6v12a8 3 0 0 0 16 0V6', 'M4 12a8 3 0 0 0 16 0'],
+  brush: ['m14 4 6 6', 'm5 15 12-12 4 4-12 12', 'M5 15a4 4 0 0 0-2 6c3 0 6 0 6-4'],
+  radius: ['M4 20V10a6 6 0 0 1 6-6h10', 'M4 4h.01', 'M12 12h8v8h-8z'],
   rotate: ['M20 10a8 8 0 1 0-1 7', 'M20 4v6h-6'],
   width: ['M3 6v12', 'M21 6v12', 'M3 12h18', 'm7 8-4 4 4 4', 'm17 8 4 4-4 4'],
   height: ['M6 3h12', 'M6 21h12', 'M12 3v18', 'm8 7 4-4 4 4', 'm8 17 4 4 4-4'],
