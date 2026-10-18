@@ -5,6 +5,20 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.35] - 2026-10-18
+
+0.1.32 through 0.1.34 were local builds; these entries cover them too.
+
+### Studio
+- Inspector number inputs now use compact controls, with explanatory icons
+  and units for geometry, rotation, typography and spectrum settings.
+- Conditional colours sit beside the paint they control. Colour, track,
+  segments, outline, transparency and corners have clearer property groups;
+  opacity stays with transparency or in its own visibility group.
+- Shared corner controls keep the same drawing and editing behaviour across
+  shapes, bars, spectrum bars and player covers, with compact shared radii.
+- Colour and font pickers stay inside the window when their contents grow.
+
 ## [0.1.34] - 2026-10-18
 
 0.1.32 and 0.1.33 were local builds; this entry and the two below cover them.
