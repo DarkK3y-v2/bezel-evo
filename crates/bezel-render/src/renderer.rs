@@ -866,6 +866,7 @@ impl SkiaRenderer {
                 // Animated image faces take the original drawing path. Static icons
                 // and all sensor/text widgets may reuse surfaces until inputs change.
                 let animated = selected.iter().any(|(_, e)| match &e.kind {
+                    ElementKind::Graph { binding, interval_seconds, .. } => self.cards.motion && context.histories.scroll_offset(&SeriesId::graph(&binding.key, *interval_seconds), context.animation) > 0.,
                     ElementKind::Image { asset, .. } => self
                         .images
                         .timeline(asset, assets, &mut self.diagnostics)
@@ -1366,7 +1367,7 @@ impl SkiaRenderer {
             }
             ElementKind::Ring { .. } => draw_ring(layer, element, context),
             ElementKind::Needle { .. } => self.draw_needle(layer, element, assets, context),
-            ElementKind::Graph { .. } => draw_graph(layer, element, context),
+            ElementKind::Graph { .. } => draw_graph(layer, element, context, self.cards.motion),
         }
     }
 
@@ -1488,7 +1489,7 @@ fn draw_ring(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'
     );
 }
 
-fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'_>) {
+fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'_>, motion: bool) {
     let ElementKind::Graph {
         binding,
         history,
@@ -1502,7 +1503,10 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
     else {
         return;
     };
+    let series = SeriesId::graph(&binding.key, *interval_seconds);
+    let scroll = if motion { context.histories.scroll_offset(&series, context.animation) } else { 0. };
     let spec = GraphSpec {
+        scroll,
         history: *history,
         style: *style,
         color: *color,
@@ -1512,8 +1516,7 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         min: binding.min,
         max: binding.max,
     };
-    let series = SeriesId::graph(&binding.key, *interval_seconds);
-    let values = context.histories.points(&series, usize::from(*history));
+    let values = context.histories.points(&series, usize::from(*history) + usize::from(scroll > 0.));
     graph::draw(layer, element.frame, &values, &spec);
 }
 
@@ -1521,7 +1524,42 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
 mod tests {
     use super::*;
     use crate::testkit::{self, Scene, count, element, png, px, render_over};
-    use bezel_core::domain::theme::{Paint, ShapeKind};
+    use bezel_core::domain::theme::{GraphStyle, Paint, ShapeKind};
+
+    #[test]
+    fn timed_graphs_move_between_samples_in_every_style_and_respect_reduced_motion() {
+        use bezel_core::domain::{history::{Histories, Tick}, sensor::{Reading, Snapshot}};
+        use std::time::Duration;
+        let key = bezel_core::domain::sensor::SensorKey::new("cpu.usage").unwrap();
+        for style in [GraphStyle::Line, GraphStyle::Area, GraphStyle::Bars] {
+            let e = element(BoxF::new(8., 8., 112., 64.), ElementKind::Graph {
+                binding: bezel_core::domain::theme::Binding { key: key.clone(), min: 0., max: 100. },
+                history: 4, interval_seconds: None, style, color: Rgba::WHITE,
+                fill: None, line_width: 2., autoscale: false,
+            });
+            let theme = testkit::theme(128, 80, Background::Color(Rgba::BLACK), vec![e]);
+            let mut scene = Scene::empty();
+            let id = SeriesId::graph(&key, None);
+            scene.histories = Histories::new(std::slice::from_ref(&id));
+            for (n, v) in [10., 80., 30., 90.].into_iter().enumerate() {
+                let mut snapshot = Snapshot::default();
+                snapshot.insert(key.clone(), Reading::Value(v));
+                scene.histories.push(&snapshot, Tick::At { now: Duration::from_secs(n as u64), refresh: true });
+            }
+            let mut renderer = testkit::renderer();
+            scene.animation = Duration::from_millis(3000);
+            let a = testkit::render(&mut renderer, &theme, &scene);
+            scene.animation = Duration::from_millis(3500);
+            let b = testkit::render(&mut renderer, &theme, &scene);
+            assert_ne!(a, b, "{style:?} must move without sampling again");
+            assert_eq!(scene.histories.points(&id, 10).len(), 4);
+            renderer.set_motion(false);
+            let still = testkit::render(&mut renderer, &theme, &scene);
+            scene.animation = Duration::from_secs(4);
+            renderer.set_motion(true);
+            assert_eq!(still, testkit::render(&mut renderer, &theme, &scene));
+        }
+    }
 
     const CLEAR: Rgba = Rgba {
         r: 0,

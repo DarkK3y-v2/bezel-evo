@@ -49,6 +49,10 @@ Studio has been redesigned from the ground up, in dark and light.
   next to the app and media triggers.
 - **Values that glide.** Rings, bars, needles and numbers move smoothly to each
   new reading instead of jumping, without flooding the screen with frames.
+- **Graphs that scroll smoothly.** Line, area and bar histories move between
+  real samples, up to 50 fps where rendering and the display allow. Each screen
+  follows its own output pace. Sampling stays unchanged; scrolling uses up to
+  one sample interval of visual delay and preserves unavailable-reading gaps.
 - **Colour by value.** Turn a gauge, a graph, a text or an icon orange above 70
   and red above 90, with as many thresholds as you like.
 - **A media player you compose.** Choose the parts (cover, title, artist, time,

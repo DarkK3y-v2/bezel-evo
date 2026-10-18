@@ -12,6 +12,8 @@ use crate::path::{positive, rect};
 
 /// How a graph looks and scales.
 pub(crate) struct GraphSpec<'a> {
+    /// Remaining fraction of a sample entering from the right.
+    pub scroll: f32,
     /// Samples across the width.
     pub history: u16,
     /// Drawing style.
@@ -58,7 +60,7 @@ fn runs(
     spec: &GraphSpec<'_>,
     range: (f64, f64),
 ) -> Vec<Vec<(f32, f32)>> {
-    let slots = usize::from(spec.history).max(values.len()).max(2);
+    let slots = usize::from(spec.history).max(2);
     let step = area.width / (slots - 1) as f32;
     let inset = (spec.line_width / 2.0).clamp(0.0, area.height / 2.0);
     let right = area.x + area.width;
@@ -69,14 +71,47 @@ fn runs(
         let f = v.and_then(|v| fraction(v, range.0, range.1));
         match (f, out.last_mut()) {
             (Some(f), Some(run)) => {
-                let x = right - (values.len() - 1 - i) as f32 * step;
+                let x = right - (values.len() - 1 - i) as f32 * step + spec.scroll * step;
                 run.push((x, bottom - f as f32 * span));
             }
             _ => out.push(Vec::new()),
         }
     }
     out.retain(|r| !r.is_empty());
+    if spec.scroll > 0. {
+        for run in &mut out {
+            *run = clip_run(run, area.x, right);
+        }
+        out.retain(|r| !r.is_empty());
+    }
     out
+}
+
+// Interpolate only within an unbroken run, including its moving edge. No
+// synthetic segment may cross an unavailable reading or leave the graph box.
+fn clip_run(run: &[(f32, f32)], left: f32, right: f32) -> Vec<(f32, f32)> {
+    if run.len() == 1 {
+        return run
+            .iter()
+            .copied()
+            .filter(|p| p.0 >= left && p.0 <= right)
+            .collect();
+    }
+    let mut clipped = Vec::new();
+    for pair in run.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        if b.0 < left || a.0 > right {
+            continue;
+        }
+        let point = |x: f32| (x, a.1 + (b.1 - a.1) * ((x - a.0) / (b.0 - a.0)));
+        let start = if a.0 < left { point(left) } else { a };
+        let end = if b.0 > right { point(right) } else { b };
+        if clipped.last() != Some(&start) {
+            clipped.push(start);
+        }
+        clipped.push(end);
+    }
+    clipped
 }
 
 /// Draws the graph of `values` (oldest first) in `area`.
@@ -164,7 +199,7 @@ fn draw_bars(
     spec: &GraphSpec<'_>,
     range: (f64, f64),
 ) {
-    let slots = usize::from(spec.history).max(values.len()).max(1);
+    let slots = usize::from(spec.history).max(1);
     let slot = area.width / slots as f32;
     let gap = if slot >= 4.0 { slot * 0.2 } else { 0.0 };
     let right = area.x + area.width;
@@ -175,8 +210,10 @@ fn draw_bars(
             continue;
         };
         let height = f as f32 * area.height;
-        let x = right - (values.len() - i) as f32 * slot + gap / 2.0;
-        if let Some(bar) = rect(x, bottom - height, slot - gap, height) {
+        let x = right - (values.len() - i) as f32 * slot + gap / 2.0 + spec.scroll * slot;
+        let left = x.max(area.x);
+        let width = (x + slot - gap).min(right) - left;
+        if let Some(bar) = rect(left, bottom - height, width, height) {
             pb.push_path(&bar);
         }
     }
@@ -189,8 +226,32 @@ fn draw_bars(
 mod tests {
     use super::*;
 
+    #[test]
+    fn motion_clips_the_interpolated_edge_and_never_bridges_a_gap() {
+        let area = BoxF::new(10., 20., 120., 80.);
+        let spec = GraphSpec {
+            scroll: 0.5,
+            ..spec(false)
+        };
+        let r = runs(
+            area,
+            &[Some(0.), Some(20.), None, Some(60.), Some(100.)],
+            &spec,
+            (0., 100.),
+        );
+        assert_eq!(r.len(), 2);
+        assert!(r.iter().flatten().all(|p| p.0 >= 10. && p.0 <= 130.));
+        let last = r.last().unwrap().last().unwrap();
+        assert_eq!(last.0, 130.);
+        assert!(
+            (last.1 - 36.6).abs() < 0.01,
+            "right edge interpolates 80%, not the future endpoint"
+        );
+    }
+
     fn spec(autoscale: bool) -> GraphSpec<'static> {
         GraphSpec {
+            scroll: 0.,
             history: 4,
             style: GraphStyle::Line,
             color: Rgba::WHITE,

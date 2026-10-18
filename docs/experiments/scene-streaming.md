@@ -89,6 +89,22 @@ third-party artwork. Existing protocol credits remain applicable.
 
 ## Validation and remaining work
 
+### Production native graphs (0.1.44)
+
+Native graph scrolling is integrated independently of the experimental H.264
+adapter. Line, area and bar histories scroll over the most recently observed
+sample period, capped at their configured refresh/interval after a suspension.
+The newest segment is interpolated at the right edge; gaps remain separate runs.
+This uses up to one sample interval of visual delay and never predicts readings
+or inserts synthetic history samples. Untimed thumbnails remain static.
+
+Visible graph motion requests frames every 20 ms. A busy display skips automatic
+motion renders until its presenter completes, while new sensor samples still
+update the history and replace its pending frame. No encoder is started, and
+there is no global frame rate tied to the slowest device. Actual frame rates
+depend on scene rendering and native transfer cost. Card-face caching excludes
+moving graphs; reduced-motion rendering shows the latest static graph.
+
 ### Physical native-path baseline (2026-10-18)
 
 The connected CT88INCH Rev C 8.8 panel (COM6, firmware
@@ -119,8 +135,8 @@ present events after control was released. The restored-frame result and detaile
 timings are in `dist/scene-stream-probe/device-report.json`.
 
 This establishes useful headroom for native graph animation, but also a clear
-full-scene bandwidth limit on this serial family. Production scheduling and
-interpolation still need integration; USB H.264 remains physically unvalidated.
+full-scene bandwidth limit on this serial family. Production graph integration
+is described above; USB H.264 remains physically unvalidated.
 
 Unit tests cover opt-in, transparent clearing, bounded pictures, queue pressure,
 timeout, no per-picture flush, rate restoration, capability isolation, packet
@@ -137,6 +153,5 @@ cargo test -p bezel-media scene_output::tests::failed_stream_returns_to_native_f
 Before runtime/Studio integration: validate startup, display orientation, picture
 acknowledgments, queue pacing and exit behavior on a compatible physical panel;
 retain independent per-display scheduling; add actual measurements and an
-explicit per-display experimental setting. Extend production graph interpolation
-and scheduling separately. The currently connected CT88INCH Rev C serial panel
+explicit per-display experimental setting. The currently connected CT88INCH Rev C serial panel
 does not expose the new USB H.264 input through its documented protocol.

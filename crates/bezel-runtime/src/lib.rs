@@ -655,7 +655,7 @@ impl Engine {
                 // Audio and profile motion follow the physical presenter's pace.
                 // Its slot and the audio worker both retain only their newest result.
                 if scene.live
-                    && (audible || scene.profile_animation.is_some())
+                    && (audible || scene.profile_animation.is_some() || (!scene.dirty && scene.runtime.graph_animating(now)))
                     && scene.presenter.as_ref().is_some_and(|p| !p.idle())
                 {
                     return Ok(Duration::from_millis(50));

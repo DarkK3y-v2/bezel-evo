@@ -352,11 +352,13 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         )
         .unwrap();
         send(&mut f.engine, &f.key, RuntimeOp::Live { on: true }, &[]).unwrap();
-        advance(&mut f.engine, Duration::from_millis(3100), time()).unwrap();
+        // Hold the clock: handover itself must not redraw. Advancing it now
+        // legitimately draws the scrolling graph between sensor samples.
+        advance(&mut f.engine, Duration::from_secs(3), time()).unwrap();
         f.engine.disconnected().unwrap();
         f.owner.set_editing(false);
         f.owner.saved_ready();
-        advance(&mut f.engine, Duration::from_millis(3200), time()).unwrap();
+        advance(&mut f.engine, Duration::from_secs(3), time()).unwrap();
     }
     assert_eq!(
         f.physical.log().frames.len(),
@@ -380,6 +382,25 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         1
     );
     assert!(!f.physical.log().storage.calls.contains(&StorageCall::Stop));
+}
+
+#[test]
+fn graph_frames_follow_twenty_ms_clock_without_more_sensor_samples() {
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    f.engine.document(&f.key, 1, document, true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    let delay = advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
+    assert!(delay <= Duration::from_millis(20));
+    let count = f.seen.lock().unwrap().len();
+    advance(&mut f.engine, Duration::from_millis(1010), time()).unwrap();
+    assert_eq!(f.seen.lock().unwrap().len(), count, "do not exceed 50 fps");
+    advance(&mut f.engine, Duration::from_millis(1020), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    assert_eq!(seen.len(), count + 1);
+    assert_eq!(seen.last().unwrap().clock, Duration::from_millis(1020));
+    assert_eq!(seen.last().unwrap().history.len(), 2, "animation must not sample");
 }
 #[test]
 fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
