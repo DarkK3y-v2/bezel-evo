@@ -15,10 +15,9 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   const tabs = inspector.getByRole('tablist', { name: t('inspector.tabs'), exact: true }).getByRole('tab');
   await expect(tabs).toHaveText([t('inspector.tab.data'), t('inspector.tab.look')]);
   await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
-  // Main: the isolated preview right under the head, before the tabs
-  // (D-2026-10-15-studio-redesign-fidelity-17), then geometry and source/arc.
+  // Geometry leads every object's properties, before preview and tabs.
   const order = () => inspector.locator(':scope > *').evaluateAll(nodes => nodes.map(n => n.dataset.section ?? n.getAttribute('role') ?? n.className));
-  expect(await order()).toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist', 'position', 'tabpanel', 'tabpanel']);
+  expect(await order()).toEqual(['inspector-head', 'actions', 'position', 'inspector-preview', 'tablist', 'tabpanel', 'tabpanel']);
   await expect(inspector.locator('[data-section="arc"]')).toBeVisible();
   const more = inspector.getByRole('button', { name: t('insp.more'), exact: true });
   const actions = inspector.locator('#inspector-actions');
@@ -65,10 +64,12 @@ test('object properties are Data and Look tabs, kept per kind through edits and 
   const ring = await inspector.getByLabel(t('common.name'), { exact: true }).inputValue();
   await addWidget(page, t, 'bar');
   await expect(inspector.getByRole('tab', { name: t('inspector.tab.data'), exact: true })).toHaveAttribute('aria-selected', 'true');
-  expect((await order()).slice(0, 4)).toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist']);
-  // The graph puts data first, geometry below: its preview still leads.
-  await addWidget(page, t, 'graph');
-  expect(await order()).toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist', 'tabpanel', 'tabpanel', 'position']);
+  expect((await order()).slice(0, 5)).toEqual(['inspector-head', 'actions', 'position', 'inspector-preview', 'tablist']);
+  // Graph, Player and spectrum follow exactly the same area order.
+  for (const widget of ['graph', 'player', 'spectrum']) {
+    await addWidget(page, t, widget);
+    expect(await order()).toEqual(['inspector-head', 'actions', 'position', 'inspector-preview', 'tablist', 'tabpanel', 'tabpanel']);
+  }
   await page.locator('#tab-layers').click();
   await page.locator('.layer-name').filter({ hasText: ring }).first().click();
   await expect(inspector.getByLabel(t('common.name'), { exact: true })).toHaveValue(ring);
@@ -107,9 +108,9 @@ test('a card has Faces, Motion, Triggers and Look tabs; its faces are a list, th
   await page.goto('/index.html?demo=turing88');
   await addWidget(page, t, 'card');
   const inspector = page.locator('#inspector');
-  // D-2026-10-15-studio-redesign-fidelity-17: the preview under the head, before the tabs.
-  expect((await inspector.locator(':scope > *').evaluateAll(nodes => nodes.map(n => n.dataset.section ?? n.getAttribute('role') ?? n.className))).slice(0, 4))
-    .toEqual(['inspector-head', 'actions', 'inspector-preview', 'tablist']);
+  // Cards keep the same geometry-first order as ordinary objects.
+  expect((await inspector.locator(':scope > *').evaluateAll(nodes => nodes.map(n => n.dataset.section ?? n.getAttribute('role') ?? n.className))).slice(0, 5))
+    .toEqual(['inspector-head', 'actions', 'position', 'inspector-preview', 'tablist']);
   const tabs = inspector.getByRole('tablist', { name: t('card.tabs'), exact: true }).getByRole('tab');
   await expect(tabs).toHaveText([t('card.tab.faces'), t('card.tab.motion'), t('card.tab.triggers'), t('inspector.tab.look')]);
   const faces = inspector.getByRole('list', { name: t('card.tab.faces'), exact: true });

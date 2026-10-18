@@ -36,7 +36,7 @@ test('shape groups separate fill, transparency, outline and corners in both them
   // Shapes have only Look properties, so the inspector omits the tab strip.
   const panel = inspector;
   expect(await panel.locator(':scope > [data-section]').evaluateAll(nodes => nodes.map(node => node.dataset.section).filter(key => !['position', 'actions'].includes(key))))
-    .toEqual(['shape', 'color', 'transparency', 'outline', 'corners']);
+    .toEqual(['shape', 'color', 'outline', 'corners', 'transparency']);
   await expect(panel.locator('[data-section="transparency"]').getByRole('slider', { name: t('inspector.opacity'), exact: true })).toBeVisible();
   await inspector.getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
   const corners = inspector.locator('.corner-radii');

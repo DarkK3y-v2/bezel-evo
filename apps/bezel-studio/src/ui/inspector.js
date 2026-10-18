@@ -41,6 +41,13 @@ const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
 const PREVIEW_HEIGHT = 120;
 /** The edges an object aligns to on the screen, and their icons. */
 const ALIGN_EDGES = Object.freeze([['left', 'alignLeft'], ['centerX', 'alignCenterX'], ['right', 'alignRight'], ['top', 'alignTop'], ['centerY', 'alignCenterY'], ['bottom', 'alignBottom']]);
+// The same reading order for every object's Look tab: structure/type,
+// typography, paint, edges, then effects. A kind omits what it does not use.
+const LOOK_ORDER = Object.freeze([
+  'show', 'shape', 'style', 'spectrum-bars', 'arc', 'spacing', 'appearance', 'font',
+  'color', 'spectrum-paint', 'fill', 'progress', 'track', 'segments',
+  'outline', 'corners', 'shadow', 'transparency', 'preview', 'visibility',
+]);
 /** A sensor's category drawn on its source card (ui/icons.js names). */
 const CATEGORY_ICON = Object.freeze({ cpu: 'chip', gpu: 'monitor', memory: 'chip', board: 'chip', network: 'download', disk: 'sdCard' });
 // Illustrations of the option tiles (24-unit paths drawn like every icon):
@@ -1007,11 +1014,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /**
    * The panels of an object as tabs (ARIA tabs: ←/→, Home, End), only those
    * with something in them; one alone is shown without a tab list.
-   * `between` goes after the tab list, before the panels (position and size).
    */
-  function tabbed(kind, panels, between = null) {
+  function tabbed(kind, panels) {
     const offered = tabsOf(kind).filter(tab => panels[tab]?.some(Boolean));
-    if (offered.length < 2) return [between, ...offered.flatMap(tab => panels[tab])];
+    if (offered.length < 2) return offered.flatMap(tab => panels[tab]);
     const open = tabMemory.current(kind, offered);
     const list = el('div', { class: 'inspector-tabs subtabs', role: 'tablist', 'aria-label': t(kind === 'card' ? 'card.tabs' : 'inspector.tabs') });
     const views = offered.map(tab => el('div', {
@@ -1039,7 +1045,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       evt.preventDefault();
       show(next, true);
     });
-    return [list, between, ...views];
+    return [list, ...views];
   }
 
   // ------------------------------------------------------------ preview --
@@ -1256,6 +1262,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const transparency = look.find(group => group.dataset.section === 'transparency');
     if (transparency) transparency.querySelector('.property-section-body').append(opacity);
     else look.push(section('visibility', t('insp.visibility'), [opacity]));
+    const rank = group => { const index = LOOK_ORDER.indexOf(group.dataset.section); return index < 0 ? LOOK_ORDER.length : index; };
+    look.sort((a, b) => rank(a) - rank(b));
     if (e.card) return { ...cardPanels(e), look };
     return {
       data: [...(specific.data ?? []), section('membership', t('inspector.membership'), membershipForm(e, theme))],
@@ -1289,17 +1297,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
-    // The isolated preview always sits right under the head, before the tabs
-    // (D-2026-10-15-studio-redesign-fidelity-17). Main puts geometry first and
-    // the ring's source/arc together; the standalone Graph/Player boards put
-    // data first, with geometry below.
-    const dataFirst = widget === 'graph' || widget === 'spectrum' || widget === 'player' || widget === 'card';
+    // Geometry is always the first property area, independent of object kind
+    // or active tab. Preview and content/appearance follow the same order.
     return [
       header(e, widget, theme),
       actions,
+      position,
       preview(e),
-      ...tabbed(kind, panelsOf(e, theme, assets), dataFirst ? null : position),
-      dataFirst ? position : null,
+      ...tabbed(kind, panelsOf(e, theme, assets)),
     ];
   }
 
