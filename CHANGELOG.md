@@ -5,6 +5,31 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.39] - 2026-10-18
+
+0.1.32 through 0.1.38 were local builds; these entries cover them too.
+
+### Studio
+- Manage display profiles from Themes → Profiles and automation, or open the
+  same editor from either tray menu. Profiles associate a saved theme with a
+  display and optional application or media playback rules.
+- Select a profile manually from the Studio or Light tray, or enable Automatic.
+  Rules support foreground apps, running apps and media playing, with priorities,
+  a configurable return delay and a fallback profile. Manual selection persists.
+- Profile switching pauses while a display is being edited and resumes when
+  Studio is hidden. Unsaved documents and the editor's preview remain separate
+  from profile output; Light applies profiles without Studio running.
+- System sensors have separate PC information, Audio and Power groups, full
+  text values, readable keys and explanatory value tooltips. System status values
+  use localized Yes/No labels and omit unnecessary sparklines.
+
+### Sensors
+- Read the Windows default output's volume, mute state and device name, recovering
+  automatically when the output changes.
+- Add Windows version, running process count, AC power, battery percentage,
+  charging state and estimated remaining time. Missing hardware or estimates
+  remain unavailable instead of being shown as zero.
+
 ## [0.1.38] - 2026-10-18
 
 0.1.32 through 0.1.37 were local builds; these entries cover them too.
