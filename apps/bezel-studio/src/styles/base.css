@@ -354,6 +354,7 @@ button.pill:hover { border-color: var(--accent); }
 .sentence-word { color: var(--muted); font-size: var(--fs-compact); }
 .sentence-word.is-joined { margin-left: -6px; }
 .sentence .sentence-token { max-width: 100%; min-width: 0; height: 28px; padding: 2px 6px; font-size: var(--fs-compact); }
+.sentence input.sentence-token { border: 1px solid var(--border); border-radius: 6px; background: var(--well); color: var(--text); }
 
 /* Shared layouts and control states used across panels. */
 .connect-device-list, .layer-groups { list-style: none; margin: 0; padding: 0; }

@@ -218,6 +218,9 @@ export function sentence(parts, attrs = {}) {
     if (typeof part === 'string') return el('span', { class: joinsPrevious(part) ? 'sentence-word is-joined' : 'sentence-word', text: part });
     const control = part.matches('input, select') ? part : part.querySelector('input, select');
     control?.classList.add('sentence-token');
+    // A sentence supplies the label in its surrounding words. Keep only the
+    // named input so its numeric well cannot be hidden with a field's label.
+    if (part.matches('.number-field') && control) return control;
     return part;
   }));
 }
