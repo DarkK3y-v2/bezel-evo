@@ -5,6 +5,23 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.38] - 2026-10-18
+
+0.1.32 through 0.1.37 were local builds; these entries cover them too.
+
+### Studio
+- All widget property panels share the new inspector design: icon-led section
+  headings, orange navigation states, cream primary text in dark mode, and
+  lighter grouping with fewer nested borders.
+- Data and Look are clearly separated from geometry by dedicated navigation
+  spacing. Common properties remain outside the tabs, and geometry fields
+  integrate their labels, values and units without changing numeric behaviour.
+- Transitions use compact duration readouts; Fahrenheit is offered only for
+  temperature sensors. Typography, conditional colours, player parts, card
+  controls and all widget-specific settings remain available.
+- Visible preview content is centred independently of the widget's saved
+  text alignment; rendered pixels and screen output remain unchanged.
+
 ## [0.1.37] - 2026-10-18
 
 ### Studio
