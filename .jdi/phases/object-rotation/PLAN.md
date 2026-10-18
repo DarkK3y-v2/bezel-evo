@@ -56,7 +56,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `bounds()` usa `rotated_bounds(frame, applied_rotation())`: un elemento ruotato ha un canvas grande quanto il suo bbox ruotato e nessun angolo tagliato; per angolo 0 il risultato è identico a oggi.
 - **Dependencies:** T-1
 - **Test:** `cargo test -p bezel-runtime --lib element_preview::tests::a_rotated_element_gets_a_canvas_of_its_rotated_box -- --exact`
-- **Status:** pending
+- **Status:** completed
 
 #### T-4: Geometria e store dello Studio (JS)
 - **Specialist:** jdi-doer-bezel
