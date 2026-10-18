@@ -13,7 +13,7 @@ use clap::Parser;
 use tao::event::Event;
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::platform::run_return::EventLoopExtRunReturn;
-use tray_icon::menu::{Menu, MenuEvent, MenuItem};
+use tray_icon::menu::{Menu, MenuEvent, MenuItem, Submenu, CheckMenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 /// The tray icon's pictures, shared with Studio's tray.
@@ -177,6 +177,20 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         None,
     );
     menu.append_items(&[&open, &memory_item, &quit])?;
+    let profile_file = match &initial.command {
+        Command::Run { screens_config: Some(path), .. } => Some(bezel_runtime::profiles::ProfileFile::beside(path)),
+        _ => None,
+    };
+    let language = match locale.as_str() {
+        s if s.starts_with("it") => bezel_core::domain::clock::Language::Italian,
+        s if s.starts_with("pt") => bezel_core::domain::clock::Language::PortugueseBr,
+        _ => bezel_core::domain::clock::Language::English,
+    };
+    let labels = bezel_runtime::profiles::menu_labels(language);
+    let profiles_menu = Submenu::new(labels[0], true);
+    if profile_file.is_some() { menu.insert(&profiles_menu, 1)?; }
+    let mut shown_profiles = None;
+    let mut profiles_poll = Instant::now();
     let scale = event_loop
         .primary_monitor()
         .map_or(1.0, |monitor| monitor.scale_factor());
@@ -208,6 +222,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     let mut stop = Arc::new(AtomicBool::new(false));
     let shutdown = Arc::new(AtomicBool::new(false));
     let mut pending_open = false;
+    let mut pending_profiles = false;
     let mut opening: Option<(std::process::Child, Instant)> = None;
     let mut visible = true;
     let mut retry_at = Instant::now();
@@ -246,6 +261,30 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             return;
         }
         *flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(100));
+        if Instant::now() >= profiles_poll {
+            profiles_poll = Instant::now() + Duration::from_secs(1);
+            if let Some(file) = &profile_file && let Ok(config) = file.load()
+                && shown_profiles.as_ref() != Some(&config) {
+                while profiles_menu.remove_at(0).is_some() {}
+                let automatic = CheckMenuItem::with_id("profile:auto", labels[1], true, config.automatic, None);
+                let default = CheckMenuItem::with_id("profile:default", labels[2], true, !config.automatic && config.manual.is_none(), None);
+                let _ = profiles_menu.append_items(&[&automatic, &default]);
+                for p in &config.profiles {
+                    let item = CheckMenuItem::with_id(format!("profile:{}", p.id), &p.name, true, !config.automatic && config.manual.as_ref() == Some(&p.id), None);
+                    let _ = profiles_menu.append(&item);
+                }
+                let _ = profiles_menu.append(&MenuItem::with_id("profile:manage", labels[3], true, None));
+                shown_profiles = Some(config);
+            }
+        }
+        if let Event::UserEvent(Action::Menu(ref event)) = event
+            && let Some(id) = event.id.as_ref().strip_prefix("profile:")
+            && id != "manage" && let Some(file) = &profile_file {
+                if let Err(error) = file.select(if id == "auto" || id == "default" { None } else { Some(id) }, id == "auto") {
+                    eprintln!("bezel light: profile selection failed: {error}");
+                }
+                profiles_poll = Instant::now();
+        }
         if pause_watch.poll(std::time::SystemTime::now()) && !simulate && !finite
             && !quit_requested.load(Ordering::SeqCst)
         {
@@ -279,6 +318,10 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
             tray.show_menu();
         }
         let wants_open = match event {
+            Event::UserEvent(Action::Menu(ref event)) if event.id.as_ref() == "profile:manage" => {
+                pending_profiles = true;
+                true
+            }
             Event::UserEvent(Action::Menu(ref event)) if event.id == *quit.id() => {
                 quit_requested.store(true, Ordering::SeqCst);
                 false
@@ -355,6 +398,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
         }
         if pending_open && !quit_requested.load(Ordering::SeqCst) {
             match std::process::Command::new(&studio_exe)
+                .args(if pending_profiles { vec!["--profiles"] } else { vec![] })
                 .current_dir(&directory)
                 .spawn()
             {
@@ -362,6 +406,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 Err(error) => eprintln!("bezel light: Studio could not start: {error}"),
             }
             pending_open = false;
+            pending_profiles = false;
         }
         if let Some((child, deadline)) = opening.as_mut()
             && (studio_active
@@ -506,6 +551,9 @@ fn make_engine(
         );
     }
     load_saved_documents(&mut engine, cli)?;
+    if let Command::Run { screens_config: Some(path), .. } = &cli.command {
+        engine = engine.with_profiles(bezel_runtime::profiles::ProfileFile::beside(path));
+    }
     Ok(engine)
 }
 

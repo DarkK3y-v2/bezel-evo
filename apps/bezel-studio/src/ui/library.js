@@ -228,15 +228,22 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     else svg.firstChild.removeAttribute('d');
   }
 
+  const SYSTEM_STATES = new Set(['system.audio.muted', 'system.power.ac', 'system.battery.charging']);
+  const sensorValue = (key, r) => SYSTEM_STATES.has(key) && !r?.unavailable && Number.isFinite(r?.value)
+    ? t(`sensorsPanel.state.${r.value ? 'on' : 'off'}`) : r?.display ?? '…';
+  const sensorValueTitle = (r) => r?.unavailable ? String(r.unavailable) : r?.display ?? '';
+  const systemGroup = (key) => key === 'system.volume' || key.startsWith('system.audio.') ? 'audio'
+    : key.startsWith('system.battery.') || key.startsWith('system.power.') ? 'power' : 'system';
+
   function sensorRow(s) {
     const r = readings[s.key];
-    const value = el('span', { class: `value${r?.unavailable ? ' unavailable' : ''}`, dataset: { valueFor: s.key }, text: r?.display ?? '…' });
-    const row = el('button', { type: 'button', class: 'sensor-row', dataset: { key: s.key }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
+    const value = el('span', { class: `value${r?.unavailable ? ' unavailable' : ''}`, dataset: { valueFor: s.key }, text: sensorValue(s.key, r), title: sensorValueTitle(r) });
+    const row = el('button', { type: 'button', class: `sensor-row${s.quantity === 'text' ? ' sensor-row-text' : ''}${s.category === 'system' ? ' sensor-row-system' : ''}`, dataset: { key: s.key }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
       el('span', { class: 'sensor-text' }, [
         el('span', { class: 'label', text: s.label }),
         el('span', { class: 'key', text: s.key }),
       ]),
-      sparkline(s.key, s.category),
+      ...(s.quantity === 'text' || s.category === 'system' ? [el('span')] : [sparkline(s.key, s.category)]),
       value,
     ]);
     const sensor = { key: s.key, quantity: s.quantity, label: s.label };
@@ -294,7 +301,10 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     }
     list.replaceChildren(...groups.map(([cat, items]) => el('section', { class: 'sensor-group', 'aria-labelledby': `sensor-group-${cat}` }, [
       sectionTitle(t(`category.${cat}`), { id: `sensor-group-${cat}`, count: sharedSource(items) }),
-      ...items.map(sensorRow),
+      ...(cat === 'system' ? ['system', 'audio', 'power'].flatMap((group) => {
+        const members = items.filter((s) => systemGroup(s.key) === group);
+        return members.length ? [el('h3', { class: 'sensor-subgroup', text: t(`sensorsPanel.group.${group}`) }), ...members.map(sensorRow)] : [];
+      }) : items.map(sensorRow)),
     ])));
   }
 
@@ -333,7 +343,8 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     history.push(next, at);
     for (const span of document.querySelectorAll('[data-value-for]')) {
       const r = readings[span.dataset.valueFor];
-      span.textContent = r?.display ?? '…';
+      span.textContent = sensorValue(span.dataset.valueFor, r);
+      span.title = sensorValueTitle(r);
       span.classList.toggle('unavailable', Boolean(r?.unavailable));
     }
     for (const svg of document.querySelectorAll('svg[data-spark-for]')) drawSpark(svg);

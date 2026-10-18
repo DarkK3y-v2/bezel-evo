@@ -5,7 +5,7 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use tauri::menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItem, MenuItemBuilder};
+use tauri::menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItem, MenuItemBuilder, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter as _, Manager};
 
@@ -107,6 +107,7 @@ fn toggle_live(app: &AppHandle, item: &LiveItem) {
 /// The menu's items, to label them again in another language.
 #[derive(Clone)]
 pub(crate) struct TrayMenu {
+    profiles: Submenu<tauri::Wry>,
     show: MenuItem<tauri::Wry>,
     hide: MenuItem<tauri::Wry>,
     quit: MenuItem<tauri::Wry>,
@@ -114,6 +115,27 @@ pub(crate) struct TrayMenu {
 }
 
 impl TrayMenu {
+    pub(crate) fn refresh_profiles(&self, app: &AppHandle) {
+        let Some(backend) = app.try_state::<Shared>() else { return; };
+        let Ok(config) = backend.profiles() else { return; };
+        let text = backend.texts();
+        let refresh = || -> tauri::Result<()> {
+            self.profiles.set_text(text.profiles)?;
+            for item in self.profiles.items()? { self.profiles.remove(&item)?; }
+            let auto = CheckMenuItemBuilder::with_id("profile:auto", text.automatic).checked(config.automatic).build(app)?;
+            let default = CheckMenuItemBuilder::with_id("profile:default", text.default_profile).checked(!config.automatic && config.manual.is_none()).build(app)?;
+            self.profiles.append(&auto)?;
+            self.profiles.append(&default)?;
+            for p in &config.profiles {
+                let item = CheckMenuItemBuilder::with_id(format!("profile:{}", p.id), &p.name)
+                    .checked(!config.automatic && config.manual.as_ref() == Some(&p.id)).build(app)?;
+                self.profiles.append(&item)?;
+            }
+            self.profiles.append(&MenuItemBuilder::with_id("profile:manage", text.manage_profiles).build(app)?)?;
+            Ok(())
+        };
+        if refresh().is_err() { diag::report(DiagCode::TrayMenuNotRelabelled); }
+    }
     /// The live check item, which follows the session.
     pub(crate) fn live(&self) -> &LiveItem {
         &self.live
@@ -122,6 +144,7 @@ impl TrayMenu {
     /// Labels the menu with `text`.
     pub(crate) fn relabel(&self, text: &Texts) {
         let labels = [
+            self.profiles.set_text(text.profiles),
             self.show.set_text(text.show),
             self.hide.set_text(text.hide),
             self.live.item.set_text(text.live),
@@ -145,6 +168,7 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
         shown: Arc::new(Mutex::new(Some(live))),
     };
     let items = TrayMenu {
+        profiles: Submenu::new(app, text.profiles, true)?,
         show: MenuItemBuilder::with_id(SHOW, text.show).build(app)?,
         hide: MenuItemBuilder::with_id(HIDE, text.hide).build(app)?,
         quit: MenuItemBuilder::with_id(QUIT, text.quit).build(app)?,
@@ -155,6 +179,7 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
         .item(&items.hide)
         .separator()
         .item(&live_item.item)
+        .item(&items.profiles)
         .separator()
         .item(&items.quit)
         .build()?;
@@ -168,6 +193,15 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
             HIDE => hide_main_window(app),
             LIVE => toggle_live(app, &clicked),
             QUIT => quit(app),
+            "profile:manage" => crate::request_profiles(app),
+            id if id.starts_with("profile:") => {
+                if let Some(backend) = app.try_state::<Shared>() {
+                    let id = &id[8..];
+                    let result = backend.select_profile(if id == "auto" || id == "default" { None } else { Some(id) }, id == "auto");
+                    if result.is_err() { diag::report(DiagCode::SettingsNotSaved); }
+                }
+                if let Some(menu) = app.try_state::<TrayMenu>() { menu.refresh_profiles(app); }
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -190,5 +224,6 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
         builder = builder.icon(tauri::image::Image::new_owned(rgba, width, height));
     }
     builder.build(app)?;
+    items.refresh_profiles(app);
     Ok(items)
 }

@@ -658,6 +658,23 @@ pub fn preferences(state: State<'_, Shared>) -> PreferencesDto {
     state.preferences()
 }
 
+#[tauri::command]
+pub async fn profiles(state: State<'_, Shared>) -> UiResult<bezel_runtime::profiles::Config> {
+    blocking(&state, |b| b.profiles()).await
+}
+
+#[tauri::command]
+pub fn profiles_requested() -> bool {
+    crate::OPEN_PROFILES.swap(false, Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub async fn save_profiles(app: AppHandle, state: State<'_, Shared>, config: bezel_runtime::profiles::Config) -> UiResult<()> {
+    blocking(&state, move |b| b.save_profiles(config)).await?;
+    if let Some(menu) = app.try_state::<TrayMenu>() { menu.refresh_profiles(&app); }
+    Ok(())
+}
+
 /// Uses `language` (`pt-BR`, `en`, or `None` for the system's) from now on,
 /// in the tray too.
 #[tauri::command]
@@ -669,6 +686,7 @@ pub fn set_language(
     state.set_language(language.as_deref())?;
     if let Some(tray) = app.try_state::<TrayMenu>() {
         tray.relabel(&state.texts());
+        tray.refresh_profiles(&app);
     }
     Ok(())
 }

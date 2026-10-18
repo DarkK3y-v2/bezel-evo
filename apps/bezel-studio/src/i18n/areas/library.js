@@ -7,6 +7,12 @@ export const PREFIXES = Object.freeze(['widgets.', 'sensorsPanel.', 'layersPanel
 
 export default {
   en: {
+    'sensorsPanel.group.system': 'PC information',
+    "sensorsPanel.group.audio": "Audio",
+    "sensorsPanel.group.power": "Power",
+    "sensorsPanel.state.on": "Yes",
+    "sensorsPanel.state.off": "No",
+
     'widgets.count': '{count} items',
     'widgets.search': 'Search widgets',
     'widgets.none': 'No widget matches.',
@@ -48,6 +54,12 @@ export default {
     'themesPanel.openEditor': 'Open in the editor',
   },
   'pt-BR': {
+    'sensorsPanel.group.system': 'Informações do PC',
+    "sensorsPanel.group.audio": "Áudio",
+    "sensorsPanel.group.power": "Energia",
+    "sensorsPanel.state.on": "Sim",
+    "sensorsPanel.state.off": "N?o",
+
     'widgets.count': '{count} itens',
     'widgets.search': 'Buscar widgets',
     'widgets.none': 'Nenhum widget corresponde.',
@@ -89,6 +101,12 @@ export default {
     'themesPanel.openEditor': 'Abrir no editor',
   },
   it: {
+    'sensorsPanel.group.system': 'Informazioni sul PC',
+    "sensorsPanel.group.audio": "Audio",
+    "sensorsPanel.group.power": "Alimentazione",
+    "sensorsPanel.state.on": "Sì",
+    "sensorsPanel.state.off": "No",
+
     'widgets.count': '{count} elementi',
     'widgets.search': 'Cerca widget',
     'widgets.none': 'Nessun widget corrisponde.',

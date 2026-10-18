@@ -16,6 +16,7 @@ import { applyIcons, el, icon } from './ui/dom.js';
 import { ICONS } from './ui/icons.js';
 import { askChoice } from './ui/dialog.js';
 import { createPreferences } from './ui/preferences.js';
+import { createProfilesDialog } from './ui/profiles.js';
 import { createGifSearch } from './ui/gif-search.js';
 import { createCollectionPanel } from './ui/collection.js';
 import { createStandbyPanel } from './ui/standby.js';
@@ -1290,6 +1291,10 @@ function setLocale(next) {
 
 const preferences = createPreferences({ t, bridge, onLanguage: setLocale, notify: toast });
 $('preferences').addEventListener('click', () => preferences.open());
+const profiles = createProfilesDialog({ t, bridge, notify: toast });
+$('theme-profiles').addEventListener('click', () => profiles.open());
+const openRequestedProfiles = async () => { if (await bridge.profilesRequested()) await profiles.open(); };
+bridge.onProfilesRequested(openRequestedProfiles);
 
 // ------------------------------------------------------------ start ----
 library.renderWidgets();
@@ -1310,3 +1315,4 @@ sampleLoop();
 memoryLoop();
 scheduleTick();
 setInterval(refreshScreens, 5000);
+await openRequestedProfiles();

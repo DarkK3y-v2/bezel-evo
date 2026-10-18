@@ -321,3 +321,23 @@ button.layer-group-title { cursor: pointer; }
   .layer-tools { top: auto; bottom: 2px; height: 24px; }
   .layer-row .icon-button.layer-tool { min-height: 24px; }
 }
+
+.sensor-row-text { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+.sensor-row-text > span:nth-child(2) { display: none; }
+.sensor-row-text .value { white-space: normal; overflow-wrap: anywhere; font-family: var(--font-sans); }
+.sensor-subgroup { margin: 14px 8px 4px; font-size: var(--fs-meta); color: var(--dim); font-weight: 600; }
+
+.profiles-dialog { width: min(680px, calc(100vw - 32px)); }
+.profiles-dialog > form { display: flex; flex-direction: column; max-height: calc(100dvh - 64px); min-height: 0; }
+.profiles-dialog .dialog-body { flex: 1; min-height: 0; overflow-y: auto; }
+.profiles-dialog .dialog-head, .profiles-dialog .dialog-actions { flex-shrink: 0; }
+.sensor-row-system, .sensor-row-system.sensor-row-text { grid-template-columns: minmax(0, 1fr) fit-content(55%); row-gap: 4px; }
+.sensor-row-system .sensor-text { display: contents; }
+.sensor-row-system > span:nth-child(2) { display: none; }
+.sensor-row-system .label { grid-column: 1; grid-row: 1; white-space: normal; overflow-wrap: anywhere; }
+.sensor-row-system .key { grid-column: 1 / -1; grid-row: 2; }
+.sensor-row-system .value { grid-column: 2; grid-row: 1; white-space: normal; overflow-wrap: anywhere; }
+.profile-editor { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin: 16px 0; min-width: 0; display: grid; gap: 12px; }
+.profile-editor legend { padding: 0 6px; font-weight: 600; }
+.profile-rule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+.profile-rule input[type=number] { max-width: 112px; }

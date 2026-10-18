@@ -1125,6 +1125,8 @@ function createDemoStorage(chosen, { delay, now, live, isLive, theme, themes, sc
  *   `letGo` (tests)
  */
 export function createDemoBackend(scenario, clock = {}, hooks = {}) {
+  let profileConfig = { profiles: [], automatic: true, manual: null, defaultProfile: null };
+  const systemText = { 'system.hostname': 'bezel-demo-workstation', 'system.os': 'Windows 11', 'system.audio.device': 'Demo headphones' };
   const cards = createCardMotion();
   const cardTimers = createCardTimers();
   let libreFailed = hooks.libre === 'partial' || hooks.libre === 'error';
@@ -1375,7 +1377,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       devices.screens.push(structuredClone(DEMO_BACK_FROM_DESKTOP));
       return Promise.resolve({ model: panel.models[0].name });
     },
-    catalog: () => Promise.resolve([...DEMO_SENSORS.map(([key, category, label, quantity]) => ({ key, category, label, quantity, source: 'demo' })), ...libreSensors]),
+    catalog: () => Promise.resolve([...DEMO_SENSORS.map(([key, category, label, quantity]) => ({ key, category, label, quantity, source: 'demo' })),
+      ...Object.keys(systemText).map((key) => ({ key, category: 'system', label: key, quantity: 'text', source: 'demo' })), ...libreSensors]),
     restartLibre: async () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
       libreFailed = false;
@@ -1398,6 +1401,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
         readings[key] = { value, display: demoFormat(value, quantity) };
       });
       readings['gpu.1.fan'] = { unavailable: 'no fan sensor', display: '—' };
+      for (const [key, value] of Object.entries(systemText)) readings[key] = { text: value, display: value };
       // A hung screen stops live mode, like a frame the screen stopped reading.
       let liveError = null;
       if (live && screenState.hung) {
@@ -1638,6 +1642,10 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
     setAudioCapture: (on) => { audioCapture = Boolean(on); return Promise.resolve(); },
+    profiles: () => Promise.resolve(structuredClone(profileConfig)),
+    profilesRequested: () => Promise.resolve(false),
+    onProfilesRequested: () => Promise.resolve(() => {}),
+    saveProfiles: (config) => { profileConfig = structuredClone(config); return Promise.resolve(); },
     preferences: () => Promise.resolve({
       debug, debugShowReadings, debugCorner, debugLogPath: "Demo: no file logging",
       audioCapture,

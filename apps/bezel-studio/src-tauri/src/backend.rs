@@ -561,6 +561,23 @@ impl Backend {
         }
     }
 
+    pub fn profiles(&self) -> UiResult<bezel_runtime::profiles::Config> {
+        Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).load()?)
+    }
+
+    pub fn save_profiles(&self, config: bezel_runtime::profiles::Config) -> UiResult<()> {
+        config.validate()?;
+        // Refuse unreadable themes before persisting a profile the user cannot use.
+        for profile in &config.profiles {
+            let _ = self.store.load(&bezel_core::ports::ThemeLocation(profile.theme.clone()))?;
+        }
+        Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).save(&config)?)
+    }
+
+    pub fn select_profile(&self, id: Option<&str>, automatic: bool) -> UiResult<()> {
+        Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).select(id, automatic)?)
+    }
+
     /// Remembers `ping_host` (empty: the default) and rebuilds the sensors
     /// outside the session's lock.
     pub fn set_sensor_options(&self, ping_host: &str) -> UiResult<()> {

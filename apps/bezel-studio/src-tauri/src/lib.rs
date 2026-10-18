@@ -78,6 +78,13 @@ pub(crate) const MAIN_WINDOW: &str = "main";
 /// Set to `1` to serve a simulated Turing 8.8" and scripted sensors instead
 /// of the real machine: demos and checks that must never touch a screen.
 pub const SIMULATION_SWITCH: &str = "BEZEL_FAKE";
+static OPEN_PROFILES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub(crate) fn request_profiles(app: &AppHandle) {
+    OPEN_PROFILES.store(true, std::sync::atomic::Ordering::SeqCst);
+    show_main_window(app);
+    let _ = app.emit("profiles-requested", ());
+}
 
 /// Event asking the UI to settle unsaved edits before the window closes.
 pub const CLOSE_EVENT: &str = "close-requested";
@@ -232,6 +239,7 @@ fn refresh_loop_failure(error: &io::Error) -> DiagCode {
 /// Tauri's error when the app cannot start; [`start_failure`] says which
 /// part failed.
 pub fn run() -> Result<(), tauri::Error> {
+    OPEN_PROFILES.store(std::env::args().any(|a| a == "--profiles"), std::sync::atomic::Ordering::SeqCst);
     let simulate = switch_on(std::env::var_os(SIMULATION_SWITCH).as_deref());
     let start: Start<tauri::Wry> = Start {
         simulate,
@@ -243,8 +251,9 @@ pub fn run() -> Result<(), tauri::Error> {
     };
     let app = tauri::Builder::default()
         // First plugin: a second launch shows this window and exits.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             show_main_window(app);
+            if args.iter().any(|a| a == "--profiles") { request_profiles(app); }
         }))
         .plugin(tauri_plugin_dialog::init())
         // Opens the guide's fixed pages from Rust only (`open_guide`): no
@@ -344,6 +353,9 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::set_unsaved,
             commands::close_window,
             commands::preferences,
+            commands::profiles,
+            commands::profiles_requested,
+            commands::save_profiles,
             commands::set_audio_capture,
             commands::set_debug,
             commands::set_language,
@@ -494,6 +506,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
         let ffmpeg = backend.settings.load().ffmpeg_path.map(PathBuf::from);
         let audio = backend.settings.load().audio_capture.0;
         let cache = folders.cache.join("runtime-fallback");
+        let profile_file = bezel_runtime::profiles::ProfileFile::beside(backend.settings.path());
         let font_dirs: Vec<_> = bundled_theme_dirs(&folders)
             .iter()
             .map(|p| p.join("fonts"))
@@ -529,6 +542,7 @@ fn setup<R: Runtime>(app: &App<R>, start: Start<R>) -> Result<(), Box<dyn std::e
                     );
                     // The Preferences choice, not "disabled", until options sync.
                     engine.audio_consent(audio);
+                    engine = engine.with_profiles(profile_file.clone());
                     engine
                 })
             }),
