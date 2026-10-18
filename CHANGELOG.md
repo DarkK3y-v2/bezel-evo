@@ -5,7 +5,7 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
-## [Unreleased]
+## [0.1.37] - 2026-10-18
 
 ### Studio
 - Object inspectors show preview, membership and geometry before their tabs.
