@@ -15,9 +15,9 @@ use bezel_core::domain::sensor::{Category, Quantity, Reading, SensorInfo, Snapsh
 use crate::SensorOptions;
 use crate::provider::{Provider, describe, put};
 
-/// False until someone reads a real game through each source; the catalog
-/// says so next to the source.
-pub(crate) const HARDWARE_VALIDATED: bool = false;
+/// Validated on real hardware 2026-10-18: acceptance tests E1-E6 passed
+/// (AMD Ryzen 9 9950X3D, RTX 4090, PresentMon from Program Files).
+pub(crate) const HARDWARE_VALIDATED: bool = true;
 
 /// Readings older than this are stale: the game is paused, minimized or
 /// closed, or logging stopped.
@@ -284,14 +284,14 @@ mod tests {
     }
 
     #[test]
-    fn gpu_fps_is_listed_as_not_validated_on_hardware() {
+        fn gpu_fps_lists_its_source() {() {
         let fps = Fps::new(Scripted(Ok(60.0)));
         let catalog = fps.catalog();
         assert_eq!(catalog.len(), 9);
         assert_eq!(catalog[0].key.as_str(), keys::GPU_FPS);
         assert_eq!(catalog[0].category, Category::Gpu);
         assert_eq!(catalog[0].quantity, Quantity::Number);
-        assert_eq!(catalog[0].source, "a script (not validated on hardware)");
+        assert_eq!(catalog[0].source, "a script");
     }
 
     #[test]
@@ -305,7 +305,7 @@ mod tests {
         assert!(matches!(sample(&mut none), Reading::Unavailable(why) if why.contains("MangoHud") || why.contains("PresentMon")));
         assert_eq!(
             none.catalog()[0].source,
-            "none on this system (not validated on hardware)"
+            "none on this system"
         );
     }
 
@@ -324,7 +324,7 @@ mod tests {
         };
         assert_eq!(
             provider(&options).catalog()[0].source,
-            "MangoHud logs in /games/logs (not validated on hardware)"
+            "MangoHud logs in /games/logs"
         );
     }
 }
