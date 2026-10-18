@@ -107,6 +107,7 @@ export default {
   "fade.none": "Nessuna",
   "fade.linear": "Lineare",
   "fade.radial": "Radiale",
+  "fade.midpoint": "Punto centrale",
   "fade.centerX": "Centro X (%)",
   "fade.centerY": "Centro Y (%)",
   "fade.extent": "Raggio (%)",

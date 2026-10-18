@@ -78,9 +78,15 @@ pub struct Fade {
     pub start: f32,
     /// Opacity at the end, 0..=1.
     pub end: f32,
+    /// Position along the ramp, 0.05..=0.95, where opacity is halfway between start and end.
+    pub midpoint: f32,
 }
 
 impl Fade {
+    /// The even ramp: halfway opacity in the middle.
+    pub const MIDPOINT: f32 = 0.5;
+    /// The bounds a theme file may give the midpoint.
+    pub const MIDPOINTS: std::ops::RangeInclusive<f32> = 0.05..=0.95;
     /// Precomputes the direction once; the returned ramp takes normalized box coordinates.
     pub fn ramp(self) -> impl Fn(f32, f32) -> f32 {
         let (sin, cos) = self.angle.to_radians().sin_cos();
@@ -93,6 +99,15 @@ impl Fade {
                         .clamp(0.0, 1.0)
                 },
             );
+            // Two straight pieces meeting at the midpoint, at halfway opacity.
+            let m = self
+                .midpoint
+                .clamp(*Self::MIDPOINTS.start(), *Self::MIDPOINTS.end());
+            let t = if t <= m {
+                0.5 * t / m
+            } else {
+                0.5 + 0.5 * (t - m) / (1.0 - m)
+            };
             (self.start + (self.end - self.start) * t).clamp(0.0, 1.0)
         }
     }
@@ -108,6 +123,7 @@ mod fade_tests {
             angle: 0.,
             start: 1.,
             end: 0.,
+            midpoint: Fade::MIDPOINT,
         };
         let ramp = fade.ramp();
         assert_eq!(ramp(0.25, 0.75), 1.);
@@ -121,5 +137,25 @@ mod fade_tests {
         .ramp();
         assert_eq!(ramp(0.25, 0.75), 0.);
         assert_eq!(ramp(0.75, 0.75), 1.);
+    }
+    #[test]
+    fn the_midpoint_moves_where_a_linear_fade_is_halfway() {
+        let fade = Fade {
+            radial: None,
+            angle: 0.,
+            start: 1.,
+            end: 0.,
+            midpoint: Fade::MIDPOINT,
+        };
+        assert!((fade.ramp()(0.5, 0.5) - 0.5).abs() < 1e-6);
+        let early = Fade {
+            midpoint: 0.25,
+            ..fade
+        }
+        .ramp();
+        assert!((early(0.25, 0.5) - 0.5).abs() < 1e-6);
+        assert!((early(0.625, 0.5) - 0.25).abs() < 1e-6);
+        assert_eq!(early(0., 0.5), 1.);
+        assert_eq!(early(1., 0.5), 0.);
     }
 }

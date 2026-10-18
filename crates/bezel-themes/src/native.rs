@@ -817,6 +817,7 @@ mod tests {
             angle: 90.0,
             start: 0.2,
             end: 0.8,
+            midpoint: Fade::MIDPOINT,
         });
         let dto = ThemeDto::from(&theme);
         assert_eq!(Theme::try_from(&dto).unwrap(), theme);

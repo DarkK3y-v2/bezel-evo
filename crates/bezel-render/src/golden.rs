@@ -1274,6 +1274,7 @@ fn device_video_windows_clear_alpha_with_border_layer_order_and_fade() {
             angle: 0.0,
             start: 1.0,
             end: 0.0,
+            midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
         }),
     )];
     let f = render_over(&mut r, &t, &scene, Backdrop::OnDevice);
@@ -1306,6 +1307,7 @@ fn ordinary_shape_linear_transparency_blends_and_rotates() {
                     angle: 0.0,
                     start: 1.0,
                     end: 0.0,
+                    midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
                 }),
             },
         )],
@@ -1328,6 +1330,7 @@ fn radial_image_mask_keeps_assets_and_multiplies_pixels() {
         angle: 0.,
         start: 1.,
         end: 0.,
+        midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
     };
     let t = theme(
         40,

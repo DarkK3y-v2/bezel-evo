@@ -281,6 +281,15 @@ pub struct FadeDto {
     pub start: f32,
     /// End opacity, 0..=1.
     pub end: f32,
+    /// Where opacity is halfway; written only when moved from the middle.
+    #[serde(default = "fade_midpoint", skip_serializing_if = "is_fade_midpoint")]
+    pub midpoint: f32,
+}
+fn fade_midpoint() -> f32 {
+    bezel_core::domain::gradient::Fade::MIDPOINT
+}
+fn is_fade_midpoint(v: &f32) -> bool {
+    *v == bezel_core::domain::gradient::Fade::MIDPOINT
 }
 
 /// One element.
@@ -1567,6 +1576,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
                     angle: f.angle,
                     start: f.start,
                     end: f.end,
+                    midpoint: f.midpoint,
                 }),
                 corners,
                 shape: name.to_string(),
@@ -2259,6 +2269,7 @@ fn fade_dto(f: bezel_core::domain::gradient::Fade) -> FadeDto {
         start: f.start,
         end: f.end,
         radial: f.radial,
+        midpoint: f.midpoint,
     }
 }
 fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
@@ -2267,6 +2278,7 @@ fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
         || !f.end.is_finite()
         || !(0.0..=1.0).contains(&f.start)
         || !(0.0..=1.0).contains(&f.end)
+        || !bezel_core::domain::gradient::Fade::MIDPOINTS.contains(&f.midpoint)
         || f.radial.is_some_and(|[x, y, r]| {
             !x.is_finite()
                 || !y.is_finite()
@@ -2283,6 +2295,7 @@ fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
         start: f.start,
         end: f.end,
         radial: f.radial,
+        midpoint: f.midpoint,
     })
 }
 
@@ -2357,5 +2370,37 @@ mod spectrum_tests {
             let back: SpectrumDto = serde_json::from_slice(&json).unwrap();
             assert_eq!(back.domain().unwrap(), s);
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod fade_tests {
+    use super::*;
+    #[test]
+    fn a_centred_fade_keeps_the_old_shape_and_a_moved_midpoint_round_trips() {
+        let old: FadeDto = serde_json::from_str(r#"{"angle":0,"start":1,"end":0}"#).unwrap();
+        let fade = parse_fade(&old).unwrap();
+        assert_eq!(fade.midpoint, bezel_core::domain::gradient::Fade::MIDPOINT);
+        assert!(
+            serde_json::to_value(fade_dto(fade))
+                .unwrap()
+                .get("midpoint")
+                .is_none()
+        );
+        let moved = bezel_core::domain::gradient::Fade {
+            midpoint: 0.3,
+            ..fade
+        };
+        let json = serde_json::to_vec(&fade_dto(moved)).unwrap();
+        let back: FadeDto = serde_json::from_slice(&json).unwrap();
+        assert_eq!(parse_fade(&back).unwrap(), moved);
+        assert!(
+            parse_fade(&FadeDto {
+                midpoint: 0.99,
+                ..back
+            })
+            .is_err()
+        );
     }
 }

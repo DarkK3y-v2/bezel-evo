@@ -275,7 +275,9 @@ function drawElement(ctx, e, t, refresh = 1, motion = true) {
     const g = k.fade.radial
       ? lc.createRadialGradient(k.fade.radial[0], k.fade.radial[1], 0, ...k.fade.radial)
       : lc.createLinearGradient(...fadeLine(f, k.fade.angle));
+    // Halfway opacity at the midpoint, as the screen renderer's two-piece ramp.
     g.addColorStop(0, `rgba(0,0,0,${k.fade.start})`);
+    g.addColorStop(k.fade.midpoint ?? .5, `rgba(0,0,0,${(k.fade.start + k.fade.end) / 2})`);
     g.addColorStop(1, `rgba(0,0,0,${k.fade.end})`);
     lc.fillStyle = g;
     if (k.fade.radial) lc.fillRect(0, 0, 1, 1);

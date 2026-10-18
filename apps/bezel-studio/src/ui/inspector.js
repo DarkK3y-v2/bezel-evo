@@ -928,7 +928,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
           numberField(t('fade.centerX'), Math.round(f.radial[0]*100), x => set({ radial: [Math.max(0,Math.min(100,x))/100,f.radial[1],f.radial[2]] }), {min:0,max:100}),
           numberField(t('fade.centerY'), Math.round(f.radial[1]*100), y => set({ radial: [f.radial[0],Math.max(0,Math.min(100,y))/100,f.radial[2]] }), {min:0,max:100}),
           numberField(t('fade.extent'), Math.round(f.radial[2]*100), r => set({ radial: [f.radial[0],f.radial[1],Math.max(1,Math.min(200,r))/100] }), {min:1,max:200}),
-        ] : [numberField(t('shape.fadeAngle'), f.angle, angle => set({angle:Math.max(-360,Math.min(360,angle))}), {min:-360,max:360})]),
+        ] : [
+          numberField(t('shape.fadeAngle'), f.angle, angle => set({angle:Math.max(-360,Math.min(360,angle))}), {min:-360,max:360}),
+          rangeField(t('fade.midpoint'), Math.round((f.midpoint ?? .5)*100), v => set({midpoint:Math.max(5,Math.min(95,v))/100}), {min:5,max:95,format:v=>`${v}%`}),
+        ]),
         rangeField(t('shape.fadeStart'), Math.round(f.start*100), v => set({start:v/100}), {format:v=>`${v}%`}),
         rangeField(t('shape.fadeEnd'), Math.round(f.end*100), v => set({end:v/100}), {format:v=>`${v}%`}),
       ] : []),
