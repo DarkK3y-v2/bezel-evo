@@ -7,3 +7,25 @@
 - Preserve unsaved Studio documents. Build first; if Studio is still running, ask the user to save and close it before replacing the executable. Verify installed executable hashes after copying.
 - Languages: code, commit messages and PRs in English; documents under `.jdi/` (decisions, plans, summaries, reports) in Italian; every UI string through i18n with en, pt-BR and it kept at key parity.
 - Commits: Conventional Commits, small and atomic, explicit paths, no amend. End each commit with the trailer of the agent that wrote it, e.g. `Co-Authored-By: ChatGPT <noreply@openai.com>` for ChatGPT work and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` for Claude work.
+
+# Release and publishing (decided with the user, 2026-10-17/18)
+
+Publish only when the user asks ("deploy", "pubblica", "push e release"). Building a local package is fine without asking.
+
+1. **Changelog first.** Add a `## [X.Y.Z] - YYYY-MM-DD` entry at the top of `CHANGELOG.md` (Keep a Changelog, user-facing English, sections such as `### Studio`, `### Widgets`, `### Fixes`). If earlier versions were local builds only, say so in the first line ("0.1.32 was a local build; this entry and the one below cover it."). Update `README.md` when a feature changes what the README promises (the audio spectrum bullet, the gallery image `docs/images/spectrum-styles.png`, ...).
+2. **Full suite, once, before any push** (never during work):
+   - `cargo fmt --all -- --check`
+   - `cargo clippy --workspace --all-targets --locked -- -D warnings`
+   - `cargo llvm-cov --workspace --locked --summary-only --fail-under-lines 80 --ignore-filename-regex '(^|/)(main|build)\.rs$'` (runs every Rust test; coverage is about 90 %)
+   - from `apps/bezel-studio`: `npm test` (UI unit tests with coverage, then every Playwright spec).
+   - A spec that fails only under load (e.g. `canvas-wheel-zoom.spec.mjs` while llvm-cov runs) is re-run alone with `node scripts/e2e-slot.mjs tests/e2e/<spec>`; it must then pass. Never re-run the whole suite for one flaky spec.
+3. **Package**: close Bezel Studio/Light builds that lock `target\release` (the installed copy in `%LOCALAPPDATA%\Bezel Evo` does not matter), then run `scripts/windows/package-evo.ps1` with an absolute path from PowerShell (`& "F:\dev\bezel\scripts\windows\package-evo.ps1"`). It raises the patch in `VERSION`, builds CLI and Studio, and writes `dist/Bezel-Evo-X.Y.Z-windows-x64-setup.exe`, `-portable.zip` and `-SHA256SUMS.txt`. Check `target\release\bezel.exe --version`.
+4. **Release notes**: write `dist/Bezel-Evo-X.Y.Z-release-notes.md` from the changelog entries since the last *published* release (first line: "The first published release since A.B.C (… were local builds), so these notes cover …"), then a `### Downloads` list of the three files and the SmartScreen/unsigned note, as in `dist/Bezel-Evo-0.1.31-release-notes.md`.
+5. **Commit** `VERSION` and `CHANGELOG.md` as `release: Bezel Evo X.Y.Z` with the agent's trailer. `dist/` is not committed.
+6. **Push** (only on request): `git push origin windows-improvements` and `git push origin HEAD:main` (main is kept equal to windows-improvements, fast-forward only; if it is not a fast-forward, stop and ask). Then `git tag -a vX.Y.Z -m "Bezel Evo X.Y.Z"` and `git push origin vX.Y.Z`.
+7. **GitHub release** on the fork, always with `-R` (the checkout has no default gh repo and without it gh shows the upstream's 0.14–0.16 releases):
+   `gh release create vX.Y.Z -R jripper77/bezel-evo --title "Bezel Evo X.Y.Z" --notes-file Bezel-Evo-X.Y.Z-release-notes.md --latest Bezel-Evo-X.Y.Z-windows-x64-setup.exe Bezel-Evo-X.Y.Z-windows-x64-portable.zip Bezel-Evo-X.Y.Z-SHA256SUMS.txt` (run from `dist/`), then `gh release list -R jripper77/bezel-evo --limit 2` to check it is Latest with three assets.
+8. **Install for the user** only when asked: `Start-Process` on the setup in `dist/`. If the installer reports that a file in `...\Bezel Evo\sensors\` (e.g. `BlackSharp.Core.dll`) cannot be written, the sensors helper was still closing: check `tasklist` and press **Retry**; never **Ignore** (known installer issue, see `.jdi/STATE.md`).
+9. **Record**: update `.jdi/STATE.md` (untracked) with what was published, what is local only, and the next step.
+
+Parallel work: each agent uses its own manual worktree (`git worktree add -b fid/<topic> /f/dev/bezel-<topic> HEAD`), never pushes from it, and the integrating agent merges with `git merge --no-ff`. Phase hand-off notes live in `.jdi/phases/<slug>/HANDOFF.md`.
