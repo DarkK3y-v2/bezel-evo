@@ -121,6 +121,13 @@ impl PresentMonParser {
         {
             return None;
         }
+        // PresentMon reports "<unknown>" when it cannot attribute frames to a
+        // process (official docs): on an idle desktop these are all that is
+        // left, and they must not pose as a game. Any name in angle brackets
+        // is a placeholder, never a real process.
+        if process_name.starts_with('<') && process_name.ends_with('>') {
+            return None;
+        }
 
         let frametime_ms = cols.get(self.frametime_idx)?.parse::<f64>().ok()?;
         // A frame is longer than 0 ms and shorter than 5 s.
