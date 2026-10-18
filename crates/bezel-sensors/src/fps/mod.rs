@@ -284,7 +284,7 @@ mod tests {
     }
 
     #[test]
-        fn gpu_fps_lists_its_source() {() {
+    fn gpu_fps_lists_its_source() {
         let fps = Fps::new(Scripted(Ok(60.0)));
         let catalog = fps.catalog();
         assert_eq!(catalog.len(), 9);
