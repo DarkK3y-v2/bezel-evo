@@ -1,5 +1,6 @@
 //! Windows process loopback. PCM is bounded in RAM and never logged or persisted.
-//! Process association rejects ambiguity; no system-output or microphone fallback.
+//! Process association rejects ambiguity; never a microphone, and the PC's whole
+//! output only when a spectrum asks for SYSTEM_SOURCE (D-AS-13), never as a fallback.
 #![allow(unsafe_code)]
 use bezel_core::{
     domain::spectrum::{AudioBlock, AudioState},
@@ -203,7 +204,8 @@ impl Drop for Apartment {
 struct Capture {
     client: IAudioClient,
     reader: IAudioCaptureClient,
-    process: Handle,
+    /// The followed app; none for the PC's whole output.
+    process: Option<Handle>,
     _apartment: Apartment,
 }
 impl Drop for Capture {
@@ -226,6 +228,11 @@ impl AudioCaptureFactory for ProcessAudio {
         if !supported() {
             return Err(AudioState::Unsupported);
         }
+        if source == bezel_core::domain::spectrum::SYSTEM_SOURCE {
+            return open_system()
+                .map(|c| Box::new(c) as Box<dyn AudioCapture>)
+                .map_err(|_| AudioState::Unavailable);
+        }
         if source.is_empty() || source.len() > 4096 {
             return Err(AudioState::Unavailable);
         }
@@ -234,6 +241,23 @@ impl AudioCaptureFactory for ProcessAudio {
         open(pid, source)
             .map(|c| Box::new(c) as Box<dyn AudioCapture>)
             .map_err(|_| AudioState::Unavailable)
+    }
+}
+/// Everything the PC plays: process loopback that excludes only this process,
+/// which plays nothing. It follows the default output when it changes.
+fn open_system() -> windows_core::Result<Capture> {
+    // SAFETY: COM initialized on this MTA worker thread, as for one app.
+    unsafe {
+        CoInitializeEx(None, COINIT_MULTITHREADED).ok()?;
+        let apartment = Apartment;
+        let pid = windows::Win32::System::Threading::GetCurrentProcessId();
+        let (client, reader) = activate(pid, PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE)?;
+        Ok(Capture {
+            client,
+            reader,
+            process: None,
+            _apartment: apartment,
+        })
     }
 }
 fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
@@ -284,12 +308,32 @@ fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
             }
         }
 
+        let (client, reader) = activate(pid, PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE)?;
+        Ok(Capture {
+            client,
+            reader,
+            process: Some(process),
+            _apartment: apartment,
+        })
+    }
+}
+/// Activates and starts a process-loopback client for `pid` in `mode`.
+///
+/// # Safety
+/// COM must be initialized (MTA) on the calling thread, which owns the result.
+unsafe fn activate(
+    pid: u32,
+    mode: PROCESS_LOOPBACK_MODE,
+) -> windows_core::Result<(IAudioClient, IAudioCaptureClient)> {
+    // SAFETY: parameters and PCM format are initialized; the completion retains
+    // the blob even on timeout.
+    unsafe {
         let params = Arc::new(AUDIOCLIENT_ACTIVATION_PARAMS {
             ActivationType: AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
             Anonymous: AUDIOCLIENT_ACTIVATION_PARAMS_0 {
                 ProcessLoopbackParams: AUDIOCLIENT_PROCESS_LOOPBACK_PARAMS {
                     TargetProcessId: pid,
-                    ProcessLoopbackMode: PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
+                    ProcessLoopbackMode: mode,
                 },
             },
         });
@@ -363,12 +407,7 @@ fn open(pid: u32, source: &str) -> windows_core::Result<Capture> {
         )?;
         let reader = client.GetService::<IAudioCaptureClient>()?;
         client.Start()?;
-        Ok(Capture {
-            client,
-            reader,
-            process,
-            _apartment: apartment,
-        })
+        Ok((client, reader))
     }
 }
 impl AudioCapture for Capture {
@@ -376,10 +415,12 @@ impl AudioCapture for Capture {
         // SAFETY: GetBuffer's frame count bounds its PCM16 stereo pointer. Each successful
         // GetBuffer is paired with ReleaseBuffer, including errors; copies never escape this worker.
         unsafe {
-            let mut exit = 0;
-            GetExitCodeProcess(self.process.0, &mut exit).map_err(|_| AudioState::Unavailable)?;
-            if exit != 259 {
-                return Err(AudioState::Unavailable);
+            if let Some(process) = &self.process {
+                let mut exit = 0;
+                GetExitCodeProcess(process.0, &mut exit).map_err(|_| AudioState::Unavailable)?;
+                if exit != 259 {
+                    return Err(AudioState::Unavailable);
+                }
             }
             let mut samples = Vec::with_capacity(4800 * 2);
             for _ in 0..64 {
@@ -483,5 +524,19 @@ mod tests {
             p(52252, 996, "RuntimeBroker.exe", Some(id)),
         ];
         assert_eq!(resolve(id, &items), Some(15016));
+    }
+    #[test]
+    #[ignore = "captures this PC's real output; run by hand on Windows 11"]
+    fn the_pcs_output_opens_and_reads_pcm() {
+        let factory = ProcessAudio;
+        let mut capture = factory
+            .open(bezel_core::domain::spectrum::SYSTEM_SOURCE)
+            .unwrap_or_else(|state| panic!("not opened: {state:?}"));
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let block = capture
+            .read()
+            .unwrap_or_else(|state| panic!("not read: {state:?}"));
+        assert_eq!((block.rate, block.channels), (48000, 2));
+        assert!(!block.samples.is_empty(), "300 ms of output, even silent");
     }
 }

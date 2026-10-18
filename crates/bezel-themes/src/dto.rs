@@ -800,6 +800,11 @@ pub struct SpectrumDto {
     pub inner: f32,
     #[serde(skip_serializing_if = "is_default_gain")]
     pub gain: f32,
+    #[serde(skip_serializing_if = "is_player_audio")]
+    pub audio: String,
+}
+fn is_player_audio(audio: &str) -> bool {
+    audio == "player"
 }
 fn is_mirrored(style: &str) -> bool {
     style == "mirrored"
@@ -829,7 +834,7 @@ impl Default for SpectrumDto {
 }
 impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
     fn from(s: &bezel_core::domain::spectrum::Spectrum) -> Self {
-        use bezel_core::domain::spectrum::{Motion, SpectrumStyle};
+        use bezel_core::domain::spectrum::{Motion, SpectrumAudio, SpectrumStyle};
         Self {
             player: s.player.map(|p| p.0),
             bands: s.bands,
@@ -860,12 +865,17 @@ impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
             fill: s.fill,
             inner: s.inner,
             gain: s.gain,
+            audio: match s.audio {
+                SpectrumAudio::Player => "player",
+                SpectrumAudio::System => "system",
+            }
+            .into(),
         }
     }
 }
 impl SpectrumDto {
     fn domain(&self) -> R<bezel_core::domain::spectrum::Spectrum> {
-        use bezel_core::domain::spectrum::{Motion, Spectrum, SpectrumStyle};
+        use bezel_core::domain::spectrum::{Motion, Spectrum, SpectrumAudio, SpectrumStyle};
         let motion = match self.motion.as_str() {
             "smooth" => Motion::Smooth,
             "balanced" => Motion::Balanced,
@@ -879,6 +889,11 @@ impl SpectrumDto {
             "line" => SpectrumStyle::Line,
             "radial" => SpectrumStyle::Radial,
             _ => return err("unknown spectrum style"),
+        };
+        let audio = match self.audio.as_str() {
+            "player" => SpectrumAudio::Player,
+            "system" => SpectrumAudio::System,
+            _ => return err("unknown spectrum audio"),
         };
         let s = Spectrum {
             player: self.player.map(ElementId),
@@ -898,6 +913,7 @@ impl SpectrumDto {
             fill: self.fill,
             inner: self.inner,
             gain: self.gain,
+            audio,
         };
         if !s.valid() {
             return err("invalid spectrum bounds");
@@ -2354,12 +2370,15 @@ mod spectrum_tests {
         s.inner = 40.;
         s.gain = 5.;
         assert!(s.domain().is_err());
+        s.gain = 1.;
+        s.audio = "microphone".into();
+        assert!(s.domain().is_err());
     }
     #[test]
     fn every_style_round_trips_and_the_default_keeps_the_old_shape() {
         use bezel_core::domain::spectrum::{Spectrum, SpectrumStyle};
         let mirrored = serde_json::to_value(SpectrumDto::default()).unwrap();
-        for key in ["style", "block", "stroke", "fill", "inner", "gain"] {
+        for key in ["style", "block", "stroke", "fill", "inner", "gain", "audio"] {
             assert!(mirrored.get(key).is_none(), "{key}");
         }
         for style in [
@@ -2375,6 +2394,7 @@ mod spectrum_tests {
                 fill: false,
                 inner: 25.,
                 gain: 0.5,
+                audio: bezel_core::domain::spectrum::SpectrumAudio::System,
                 ..Spectrum::default()
             };
             let json = serde_json::to_vec(&SpectrumDto::from(&s)).unwrap();

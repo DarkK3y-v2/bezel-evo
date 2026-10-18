@@ -24,6 +24,18 @@ test('spectrum follows one Player; demo, presets, gradients and band thresholds 
   await inspector.getByRole('switch',{name:t('insp.colorByValue'),exact:true}).check();await expect(inspector.getByText(t('spectrum.levelScale'),{exact:true})).toBeVisible();
   await expectAccessible(page);expect(errors).toEqual([]);
 });
+test('the whole PC output needs no Player and hides the Player controls (D-AS-13)',async({page,t})=>{
+  const errors=watchErrors(page), inspector=await setup(page,t,false);
+  await expect(inspector.getByRole('status')).toHaveText(t('spectrum.playerMissing'));
+  const system=inspector.getByRole('button',{name:t('spectrum.audioSystem'),exact:true});
+  await system.click();await expect(system).toHaveAttribute('aria-pressed','true');
+  await expect(inspector.getByText(t('spectrum.systemHint'),{exact:true})).toBeVisible();
+  await expect(inspector.getByRole('combobox',{name:t('spectrum.follow'),exact:true})).toHaveCount(0);
+  await expect(inspector.getByText(t('spectrum.playerMissing'),{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:t('top.undo'),exact:true}).click();
+  await expect(inspector.getByRole('button',{name:t('spectrum.audioPlayer'),exact:true})).toHaveAttribute('aria-pressed','true');
+  await expectAccessible(page);expect(errors).toEqual([]);
+});
 test('missing Player is explicit and audio capture is on until turned off locally',async({page,t})=>{
   const errors=watchErrors(page), inspector=await setup(page,t,false);
   await expect(inspector.getByRole('status')).toHaveText(t('spectrum.playerMissing'));

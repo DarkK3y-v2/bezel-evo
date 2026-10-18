@@ -524,8 +524,24 @@ impl Engine {
                     } else {
                         scene.runtime.snapshot()
                     };
-                    let selected = config.session(scene.runtime.theme(), snapshot);
+                    let selected =
+                        if config.audio == bezel_core::domain::spectrum::SpectrumAudio::System {
+                            // The PC's output needs no Player: it is always "playing".
+                            Ok(None)
+                        } else {
+                            config.session(scene.runtime.theme(), snapshot)
+                        };
                     let (source, playing, state) = match selected {
+                        Ok(None)
+                            if config.audio
+                                == bezel_core::domain::spectrum::SpectrumAudio::System =>
+                        {
+                            (
+                                bezel_core::domain::spectrum::SYSTEM_SOURCE.to_owned(),
+                                true,
+                                bezel_core::domain::spectrum::AudioState::Live,
+                            )
+                        }
                         Ok(Some(s)) => (
                             s.source.clone(),
                             s.playing,

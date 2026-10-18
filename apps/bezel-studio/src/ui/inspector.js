@@ -549,9 +549,13 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const baseLabel = { mirrored: 'spectrum.centre', radial: 'spectrum.ring' }[c.style] ?? 'spectrum.baseline';
     return {
       data: [section('spectrum-source', t('spectrum.source'), [
-        selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
-        !selected && el('p', { class: 'hint', role: 'status', text: t('spectrum.playerMissing') }),
-        el('p', { class: 'hint', text: t('spectrum.browser') }),
+        // D-AS-13: the followed Player's app, or everything the PC plays.
+        segmented(t('spectrum.source'), c.audio, [['player', t('spectrum.audioPlayer')], ['system', t('spectrum.audioSystem')]], audio => set({ audio }), { bare: true }),
+        ...(c.audio === 'system' ? [el('p', { class: 'hint', text: t('spectrum.systemHint') })] : [
+          selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
+          !selected && el('p', { class: 'hint', role: 'status', text: t('spectrum.playerMissing') }),
+          el('p', { class: 'hint', text: t('spectrum.browser') }),
+        ]),
         segmented(t('common.preview'), c.demo ? 'demo' : 'live', [['live',t('spectrum.live')],['demo',t('spectrum.demo')]], v => set({ demo: v === 'demo' })),
         c.demo && el('p', { class: 'hint', role: 'status', text: t('spectrum.demoHint') }),
         el('p', { class: 'hint', text: t('spectrum.enableHint') }),

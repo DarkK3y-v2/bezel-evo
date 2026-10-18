@@ -16,6 +16,18 @@ pub enum Motion {
     /// Fast attack and fall.
     Snappy,
 }
+/// What a spectrum listens to (D-AS-13).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SpectrumAudio {
+    /// Only the app of the session its Player shows (D-AS-2).
+    #[default]
+    Player,
+    /// Everything the PC plays on its output, chosen explicitly by the user.
+    System,
+}
+/// Capture source key of the PC's whole output. `*` never appears in an app
+/// identifier or an executable name, so it cannot name an app.
+pub const SYSTEM_SOURCE: &str = "*system*";
 /// How the bands are drawn (D-AS-11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SpectrumStyle {
@@ -68,6 +80,8 @@ pub struct Spectrum {
     pub inner: f32,
     /// Multiplies every band's height, 0.1..=4 (D-AS-12).
     pub gain: f32,
+    /// What it listens to.
+    pub audio: SpectrumAudio,
 }
 impl Default for Spectrum {
     fn default() -> Self {
@@ -89,6 +103,7 @@ impl Default for Spectrum {
             fill: true,
             inner: 40.,
             gain: 1.,
+            audio: SpectrumAudio::Player,
         }
     }
 }

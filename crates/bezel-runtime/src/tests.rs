@@ -1393,3 +1393,54 @@ fn an_identical_frame_does_not_hold_the_next_spectrum_back() {
     advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
     assert_eq!(f.engine.scenes["a"].rendered_at, rendered);
 }
+
+#[test]
+fn a_spectrum_on_the_pcs_output_listens_without_any_player() {
+    use bezel_core::{
+        domain::{
+            spectrum::{AudioBlock, AudioState, SYSTEM_SOURCE, Spectrum, SpectrumAudio},
+            theme::{TextContent, TextStyle},
+        },
+        ports::{AudioCapture, AudioCaptureFactory},
+    };
+    struct Factory(Arc<Mutex<Vec<String>>>);
+    struct Capture;
+    impl AudioCapture for Capture {
+        fn read(&mut self) -> std::result::Result<AudioBlock, AudioState> {
+            Ok(AudioBlock {
+                samples: vec![],
+                rate: 48000,
+                channels: 2,
+            })
+        }
+    }
+    impl AudioCaptureFactory for Factory {
+        fn open(&self, source: &str) -> std::result::Result<Box<dyn AudioCapture>, AudioState> {
+            self.0.lock().unwrap().push(source.into());
+            Ok(Box::new(Capture))
+        }
+    }
+    let mut f = fixture();
+    let mut document = doc();
+    // No Player in the theme: the PC's output does not need one.
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum {
+            audio: SpectrumAudio::System,
+            ..Spectrum::default()
+        }),
+        style: TextStyle::default(),
+    };
+    let opened = Arc::new(Mutex::new(Vec::new()));
+    f.engine = f.engine.with_audio(Arc::new(Factory(opened.clone())));
+    f.engine.audio_consent(true);
+    f.engine.document("preview", 0, document, false).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("preview", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let until = Instant::now() + Duration::from_secs(1);
+    while !opened.lock().unwrap().iter().any(|s| s == SYSTEM_SOURCE) {
+        assert!(Instant::now() < until, "the PC's output was not opened");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(opened.lock().unwrap().iter().all(|s| s == SYSTEM_SOURCE));
+}

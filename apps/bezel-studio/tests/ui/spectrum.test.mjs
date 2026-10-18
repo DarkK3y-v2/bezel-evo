@@ -27,6 +27,9 @@ test('defaults, range boundaries and non-finite edits cannot escape JSON bounds'
 });
 test('styles default to mirrored; unknown styles and style bounds cannot escape the file format', () => {
   assert.equal(spectrumOf({}).style, 'mirrored');
+  assert.equal(spectrumOf({}).audio, 'player');
+  assert.equal(spectrumPatch({}, { audio: 'system' }).audio, 'system');
+  assert.equal(spectrumPatch({}, { audio: 'microphone' }).audio, 'player');
   for (const style of SPECTRUM_STYLES) assert.equal(spectrumPatch({}, { style }).style, style);
   assert.equal(spectrumPatch({}, { style: 'spiral' }).style, 'mirrored');
   const c = spectrumPatch({}, { block: 0, stroke: 99, inner: 95, fill: false });
