@@ -84,12 +84,15 @@ Studio has been redesigned from the ground up, in dark and light.
 
 ## Light keeps everything running
 
-**Display profiles** switch a whole theme from the Studio or Light tray. Manage
-them from **Themes → Profiles and automation**: choose a saved theme and display,
-then add rules for an app running, an app in the foreground or media playing.
+**Display profiles** switch the complete configuration from the Studio or Light
+tray. Manage them from **Themes → Profiles and automation**: each profile, such
+as Gaming or Music, assigns a saved theme to each display. A single selection
+applies the profile across your screens. Add rules for an app running, an app in
+the foreground or media playing.
 Priorities resolve simultaneous rules; a return delay avoids brief switches.
 Manual selection stays in effect until you choose Automatic again. Profiles
 pause on the display being edited and resume when Studio is hidden.
+The selected theme names are shown for each display and in the return choice.
 
 **Bezel Light** is the small tray program that owns your screens. It runs the
 themes, reads the sensors, keeps the graph history and clocks, plays the
