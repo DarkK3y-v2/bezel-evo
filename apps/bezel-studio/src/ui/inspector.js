@@ -28,7 +28,7 @@ import { videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
 import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, layerFacts, quickDurations, refreshChoices, tabAfterKey, tabsOf } from '../inspector-tabs.js';
-import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
+import { createPeakWatch, createPreviewScheduler, fitPreview, previewOffset, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 import { createPickers } from './pickers.js';
@@ -1107,6 +1107,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     target.height = frame.height;
     target.style.width = `${size.width}px`;
     target.style.height = `${size.height}px`;
+    const offset = previewOffset(frame);
+    target.style.transform = `translate(${offset.x * size.width / frame.width}px, ${offset.y * size.height / frame.height}px)`;
     target.getContext('2d').putImageData(new ImageData(pixels instanceof Uint8ClampedArray ? pixels : new Uint8ClampedArray(pixels), frame.width, frame.height), 0, 0);
   }
 

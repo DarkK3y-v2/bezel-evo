@@ -31,6 +31,28 @@ export function fitPreview(frame, box, ratio = 1) {
 }
 
 /**
+ * Translation in frame pixels that centres the visible content, ignoring
+ * transparent padding. Only the inspector's presentation uses this offset;
+ * the rendered pixels, frame size and the widget's alignment stay unchanged.
+ */
+export function previewOffset(frame) {
+  const pixels = frame?.pixels ?? frame?.rgba;
+  if (!pixels || !(frame.width > 0 && frame.height > 0)) return { x: 0, y: 0 };
+  let left = frame.width, right = -1, top = frame.height, bottom = -1;
+  for (let y = 0; y < frame.height; y += 1) {
+    for (let x = 0; x < frame.width; x += 1) {
+      if (!(pixels[(y * frame.width + x) * 4 + 3] > 0)) continue;
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+  }
+  return right < 0 ? { x: 0, y: 0 } : {
+    x: (frame.width - left - right - 1) / 2,
+    y: (frame.height - top - bottom - 1) / 2,
+  };
+}
+
+/**
  * The longest side to ask the backend for, device pixels: the box's longest
  * side at the device ratio, between 16 and {@link PREVIEW_MAX_SIDE}.
  */
