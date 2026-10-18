@@ -195,6 +195,7 @@ pub(crate) mod tests {
         Element {
             color_by_value: None,
             value_transition: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,

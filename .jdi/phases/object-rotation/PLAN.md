@@ -34,7 +34,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `cargo check --workspace --all-targets` passa su Windows.
 - **Dependencies:** none
 - **Test:** `cargo test -p bezel-core --lib domain::rotation::tests` ; `cargo test -p bezel-themes --lib native::tests::rotation_zero_omitted_and_old_themes_unchanged -- --exact` ; `cargo test -p bezel-themes --lib native::tests::rotation_roundtrip_normalizes_and_rejects_non_finite -- --exact`
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 2 (parallel-eligible)
 

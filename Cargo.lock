@@ -379,6 +379,7 @@ dependencies = [
  "bezel-devices",
  "bezel-media",
  "bezel-sensors",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 

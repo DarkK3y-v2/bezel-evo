@@ -79,6 +79,7 @@ fn image(id: u32, asset: &str) -> Element {
         color_by_value: None,
         value_transition: None,
         card: None,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

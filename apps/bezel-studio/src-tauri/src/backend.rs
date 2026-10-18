@@ -1765,6 +1765,7 @@ mod tests {
             opacity: 1.,
             visible: true,
             locked: false,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -2255,6 +2256,7 @@ mod tests {
         let bar = |max: f64| Element {
             color_by_value: None,
             value_transition: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,

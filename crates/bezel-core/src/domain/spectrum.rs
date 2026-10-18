@@ -217,6 +217,7 @@ mod tests {
             visible: true,
             locked: false,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

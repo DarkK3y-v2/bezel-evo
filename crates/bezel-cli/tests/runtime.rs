@@ -102,6 +102,7 @@ fn graphing(name: &str, history: u16) -> Theme {
         color_by_value: None,
         value_transition: None,
         card: None,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

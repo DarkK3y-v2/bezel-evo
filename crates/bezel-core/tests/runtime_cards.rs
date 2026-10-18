@@ -53,6 +53,7 @@ fn theme() -> Theme {
         opacity: 1.0,
         visible: true,
         locked: false,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

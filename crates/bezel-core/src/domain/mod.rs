@@ -38,3 +38,5 @@ pub mod playback;
 pub mod spectrum;
 
 pub mod value_color;
+
+pub mod rotation;
