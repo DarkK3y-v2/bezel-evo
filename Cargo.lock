@@ -446,6 +446,7 @@ dependencies = [
  "fontdb",
  "image",
  "resvg",
+ "serde_json",
  "tiny-skia",
  "tracing",
  "ttf-parser",

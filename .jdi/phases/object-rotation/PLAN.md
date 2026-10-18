@@ -47,7 +47,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - Il campione del fixture a 30° (opaco e opacità 0.5) è rispettato.
 - **Dependencies:** T-1
 - **Test:** `cargo test -p bezel-render rotation` (test: `rotation_zero_keeps_pixels_identical`, `rotation_90_turns_box_around_center`, `rotation_45_blends_with_opacity`, `rotation_30_matches_parity_fixture`, `rotation_turns_text_graph_and_spectrum_content`, `rotation_ignored_for_cards_groups_and_video_windows`) ; `cargo test -p bezel-render dirty_rotated` (test `dirty_rotated_covers_rotated_bbox`: inchiostro negli angoli del bbox ruotato fuori dal `frame`, tutti coperti da `dirty_rects(blank, frame)`)
-- **Status:** pending
+- **Status:** completed
 
 #### T-3: Anteprima isolata dell'inspector (runtime) sul bbox ruotato
 - **Specialist:** jdi-doer-bezel
