@@ -1,5 +1,5 @@
-Application,Process,ProcessID,ThreadID,LaunchID,MsBetweenPresents,MsBetweenDisplayChange,MsInPresentAPI,MsUntilRenderComplete,MsUntilDisplayed,GPUBusy,MsGPUBusy,GPUDuration,MsGPUDuration,CPUBusy,MsCPUBusy,CPUWait,MsCPUWait,GPUWait,MsGPUWait
-Desktop Window Manager,dwm.exe,100,200,1,16.666,16.666,0.1,15.0,16.0,95.0,15.8,15.8,40.0,6.6,10.0,1.6,50.0,8.3,8.3
-Game,game.exe,1234,5678,1,16.666,16.666,0.1,15.0,16.0,95.0,15.8,15.8,40.0,6.6,10.0,1.6,50.0,8.3,8.3
-Windows Explorer,explorer.exe,300,400,1,16.666,16.666,0.1,15.0,16.0,95.0,15.8,15.8,40.0,6.6,10.0,1.6,50.0,8.3,8.3
-Game,game.exe,1234,5678,1,16.666,16.666,0.1,15.0,16.0,95.0,15.8,15.8,40.0,6.6,10.0,1.6,50.0,8.3,8.3
+Application,ProcessID,SwapChainAddress,PresentRuntime,SyncInterval,PresentFlags,AllowsTearing,PresentMode,FrameType,CPUStartTime,MsBetweenPresents,MsCPUBusy,MsCPUWait,MsInPresentAPI,MsGPUBusy,MsGPUWait,MsBetweenDisplayChange,MsUntilDisplayed
+dwm.exe,100,0x0000019A2B4C0000,DXGI,1,0,0,Hardware: Direct Flip,Composited,0.000000,16.666000,6.600000,1.600000,0.100000,15.800000,8.300000,16.666000,16.000000
+game.exe,1234,0x000001F8A3B2C000,D3D11,1,0,0,Hardware: Composed Flip,Application Rendered,0.000000,16.666000,6.600000,1.600000,0.100000,15.800000,8.300000,16.666000,16.000000
+explorer.exe,300,0x0000021A5F3E8000,D3D9,1,0,0,Hardware Legacy Blt,Composited,0.000000,16.666000,6.600000,1.600000,0.100000,15.800000,8.300000,16.666000,16.000000
+game.exe,1234,0x000001F8A3B2C000,D3D11,1,0,0,Hardware: Composed Flip,Application Rendered,16.666000,16.666000,6.600000,1.600000,0.100000,15.800000,8.300000,16.666000,16.000000
