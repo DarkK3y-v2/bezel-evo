@@ -1,4 +1,7 @@
-# Spettro audio e sfumatura lineare — richieste dell'utente (2026-10-18)
+# Spettro audio e sfumatura lineare — richieste dell'utente (2026-10-18) — FATTO
+
+Fatto il 2026-10-18: sorgente Player/tutto il PC (D-AS-13), ampiezza 0,1×–4× (D-AS-12), punto centrale
+della sfumatura lineare 5–95% (feat(shapes) e2e02ce).
 
 ## 1. Sorgente dello spettro: il Player oppure l'audio del PC
 L'utente vuole scegliere, per ogni spettro, se ascoltare l'app seguita dal Player (com'è oggi) oppure
