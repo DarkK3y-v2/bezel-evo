@@ -466,6 +466,7 @@ dependencies = [
  "bezel-power",
  "bezel-sensors",
  "bezel-themes",
+ "ctrlc",
  "image",
  "serde",
  "serde_json",

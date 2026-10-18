@@ -21,6 +21,7 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 bezel-devices = { workspace = true }
 bezel-sensors = { workspace = true }
 bezel-media = { workspace = true }
+ctrlc = { version = "3.5.2", features = ["termination"] }
 
 [lints]
 workspace = true

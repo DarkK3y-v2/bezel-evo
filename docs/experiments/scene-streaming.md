@@ -89,6 +89,39 @@ third-party artwork. Existing protocol credits remain applicable.
 
 ## Validation and remaining work
 
+### Physical native-path baseline (2026-10-18)
+
+The connected CT88INCH Rev C 8.8 panel (COM6, firmware
+`chs_88inch.dev1_rom1.90`) was tested using its existing serial driver, **not
+H.264**. Studio was closed. The example captures the current runtime frame,
+uses the existing cooperative Light handoff to acquire exclusive screen control,
+restores the captured frame and releases control so Light resumes saved themes.
+No theme, device storage, firmware or settings are changed.
+
+```powershell
+cargo run --release -p bezel-runtime --example device_scene_probe -- F:\Dev\bezel\target\release\bezel.exe COM6 F:\Dev\bezel\dist\scene-stream-probe\device-report.json
+```
+
+Each phase targets 50 updates/s for five seconds. Completed native transfers:
+
+| Content | Transfers/s | Median present time |
+| --- | ---: | ---: |
+| Small 240x80 graph | 47.72 | 4.41 ms |
+| Large 800x240 graph | 49.67 | 5.81 ms |
+| Sparse graph across 1920x480 | 48.19 | 8.61 ms |
+| All pixels changing at 1920x480 | 4.12 | 241.64 ms |
+
+The first three phases mostly use partial updates; the last uses full frames.
+The initial full transfer also reduces the small-graph average. These are host
+transfer completion rates, not an optical measurement of panel refresh or a
+benchmark of production themes. Both current screens resumed normal Light
+present events after control was released. The restored-frame result and detailed
+timings are in `dist/scene-stream-probe/device-report.json`.
+
+This establishes useful headroom for native graph animation, but also a clear
+full-scene bandwidth limit on this serial family. Production scheduling and
+interpolation still need integration; USB H.264 remains physically unvalidated.
+
 Unit tests cover opt-in, transparent clearing, bounded pictures, queue pressure,
 timeout, no per-picture flush, rate restoration, capability isolation, packet
 metadata (including FFmpeg side-data columns) and single-slice validation.
