@@ -143,6 +143,14 @@ pub mod keys {
     pub const GPU_FRAMETIME: &str = "gpu.frametime";
     /// Game 1% low FPS.
     pub const GPU_FPS_LOW_1P: &str = "gpu.fps_low_1p";
+    /// Game 0.1% low FPS.
+    pub const GPU_FPS_LOW_01P: &str = "gpu.fps_low_01p";
+    /// Game minimum FPS over the last 30 s.
+    pub const GPU_FPS_MIN: &str = "gpu.fps_min";
+    /// Game maximum FPS over the last 30 s.
+    pub const GPU_FPS_MAX: &str = "gpu.fps_max";
+    /// Which software measures the game FPS right now.
+    pub const GPU_FPS_SOURCE: &str = "gpu.fps.source";
     /// Game name.
     pub const GPU_GAME: &str = "gpu.game";
     /// Frame rate limiter source.
@@ -203,7 +211,7 @@ pub mod keys {
     /// turing-smart-screen-python bind to that Bezel's own themes did not
     /// use before. Every source lists them, so an imported theme finds each
     /// one measured, or unavailable with the reason.
-    pub const IMPORTED: [&str; 16] = [
+    pub const IMPORTED: [&str; 20] = [
         CPU_FAN,
         FAN_PUMP,
         FAN_CASE_1,
@@ -213,6 +221,10 @@ pub mod keys {
         GPU_FPS,
         GPU_FRAMETIME,
         GPU_FPS_LOW_1P,
+        GPU_FPS_LOW_01P,
+        GPU_FPS_MIN,
+        GPU_FPS_MAX,
+        GPU_FPS_SOURCE,
         GPU_GAME,
         GPU_LIMITER,
         NET_PING,
