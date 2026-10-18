@@ -5,6 +5,36 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.42] - 2026-10-18
+
+0.1.32 through 0.1.41 were local builds; these entries cover them too.
+
+### Studio
+- Format any text as uppercase, lowercase, first letter uppercase or each word
+  capitalized, or preserve the original. Case formatting supports Unicode and
+  applies to static text, sensors, clocks, weather and media without rewriting
+  their source. Drawing and natural frame sizing use the same formatted text.
+- Save case formatting with the theme and undo changes. Existing theme styles
+  retain their original appearance; clock-specific formatting remains compatible.
+
+### Themes
+- Add six graphic-only animated flagship themes alongside the six modern
+  originals: Synapse / Kinetic, Prism / Kinetic and Morph / Sound, each with
+  Wide and Round layouts.
+- Synapse combines animated orbital signals, segmented instruments and live
+  audio; Prism pairs a changing geometric knot with poster typography and
+  telemetry; Morph layers a live audio sculpture over generative geometry.
+- Decorative motion is a bounded, local transparent GIF loop; sensor readings,
+  graphs, gauges and audio spectra are native live widgets. No photographs or
+  external downloads are required. Hide the Motion layer for a still layout.
+- Redesign all six modern templates with distinct art direction: Pulse's
+  calibrated instrument cockpit, Resonance's album-led listening room and vinyl
+  spectrum, and Clarity's copper editorial clock and contrasting memory module.
+- Add local vector artwork, matching round display layouts and clearer visual
+  relationships between load, temperature, histories and audio activity.
+- Music templates include a designed standby face and automatically crossfade
+  to album artwork and track details when a media session starts playing.
+
 ## [0.1.41] - 2026-10-18
 
 0.1.32 through 0.1.40 were local builds; these entries cover them too.
