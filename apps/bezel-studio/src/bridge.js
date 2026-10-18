@@ -501,6 +501,7 @@ function tauriBridge(invoke, tauri = {}) {
      * machine lacks (`null` without fonts).
      */
     fontCatalog: () => invoke('font_catalog'),
+    pickScreenColor: () => invoke('pick_screen_color'),
     /** Open only the fixed per-user font directory. */
     openFontsFolder: () => invoke('open_fonts_folder'),
     includeFont: (family, weight, italic) => invoke('include_font', { family, weight, italic }),

@@ -37,6 +37,7 @@ const COMMANDS: &[&str] = &[
     "list_assets",
     "video_preview",
     "font_catalog",
+    "pick_screen_color",
     "font_face",
     "include_font",
     "open_fonts_folder",

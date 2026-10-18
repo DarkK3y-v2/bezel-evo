@@ -50,6 +50,17 @@ use crate::tray::{LiveItem, TrayMenu};
 /// State managed by Tauri.
 pub type Shared = Arc<Backend>;
 
+/// Picks one desktop pixel through Windows, independently of WebView2 support.
+#[tauri::command]
+pub async fn pick_screen_color(window: WebviewWindow) -> UiResult<Option<String>> {
+    let owner = window.hwnd().map_err(UiError::system)?.0 as usize;
+    tauri::async_runtime::spawn_blocking(move || {
+        bezel_power::eyedropper::pick(owner).map_err(UiError::system)
+    })
+    .await
+    .map_err(UiError::system)?
+}
+
 /// Runs `work` on the blocking pool with the backend.
 async fn blocking<T: Send + 'static>(
     state: &State<'_, Shared>,
@@ -669,9 +680,15 @@ pub fn profiles_requested() -> bool {
 }
 
 #[tauri::command]
-pub async fn save_profiles(app: AppHandle, state: State<'_, Shared>, config: bezel_runtime::profiles::Config) -> UiResult<()> {
+pub async fn save_profiles(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    config: bezel_runtime::profiles::Config,
+) -> UiResult<()> {
     blocking(&state, move |b| b.save_profiles(config)).await?;
-    if let Some(menu) = app.try_state::<TrayMenu>() { menu.refresh_profiles(&app); }
+    if let Some(menu) = app.try_state::<TrayMenu>() {
+        menu.refresh_profiles(&app);
+    }
     Ok(())
 }
 

@@ -3,6 +3,9 @@
 
 pub mod diagnostics;
 
+#[cfg(windows)]
+pub mod eyedropper;
+
 pub mod handoff;
 
 mod session;

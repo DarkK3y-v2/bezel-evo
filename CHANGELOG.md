@@ -5,6 +5,15 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.43] - 2026-10-18
+
+### Fixes
+- Use a native Windows eyedropper in Studio to pick a colour from any monitor,
+  independently of browser EyeDropper support. Keep the selected opacity and
+  allow cancellation with Escape or right-click.
+- Report eyedropper failures instead of silently ignoring them; prevent duplicate
+  picks and ignore results arriving after their colour panel was dismissed.
+
 ## [0.1.42] - 2026-10-18
 
 0.1.32 through 0.1.41 were local builds; these entries cover them too.

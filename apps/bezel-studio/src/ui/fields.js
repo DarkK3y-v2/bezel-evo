@@ -731,14 +731,27 @@ function openColorPanel(button, label, start, onChange, { texts, source, alpha, 
     const v = Number(percent.value);
     if (Number.isFinite(v)) commit(withAlphaPercent(color, v));
   });
-  const eyedropper = typeof window.EyeDropper === 'function'
+  const pickScreenColor = source.pickScreenColor ?? (typeof window.EyeDropper === 'function'
+    ? async () => (await new window.EyeDropper().open())?.sRGBHex
+    : null);
+  const pickStatus = el('p', { class: 'hint cp-pick-status', role: 'status', hidden: true });
+  const eyedropper = pickScreenColor
     ? iconButton(texts.eyedropper, ICONS.eyedropper, async () => {
+      eyedropper.disabled = true;
+      pickStatus.hidden = false;
+      pickStatus.textContent = texts.eyedropperHint;
       try {
-        const picked = await new window.EyeDropper().open();
-        const next = readHexInput(picked?.sRGBHex, alpha ? colorOf(color).a : 255);
-        if (next) commit(next);
-      } catch {
-        // Cancelled (Escape) or refused: the colour stays.
+        const picked = await pickScreenColor();
+        const next = readHexInput(picked, alpha ? colorOf(color).a : 255);
+        // A native pick may complete after this popover was dismissed.
+        if (next && panel.isConnected) commit(next);
+        pickStatus.hidden = true;
+      } catch (error) {
+        // Escape is a cancellation; unsupported/refused picks remain visible.
+        pickStatus.hidden = error?.name === 'AbortError';
+        pickStatus.textContent = texts.eyedropperError;
+      } finally {
+        eyedropper.disabled = false;
       }
     }, { class: 'cp-eyedropper' })
     : null;
@@ -750,7 +763,7 @@ function openColorPanel(button, label, start, onChange, { texts, source, alpha, 
   let lastFocus = null;
   sections.addEventListener('focusin', (evt) => { lastFocus = evt.target.closest('[data-focus]')?.dataset.focus ?? lastFocus; });
   const panel = el('div', { class: 'color-popover' }, [
-    area.node, hue.node, opacity?.node ?? null, inputs, sections,
+    area.node, hue.node, opacity?.node ?? null, inputs, pickStatus, sections,
   ]);
 
   function show() {

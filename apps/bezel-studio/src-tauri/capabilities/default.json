@@ -39,6 +39,7 @@
     "allow-list-assets",
     "allow-video-preview",
     "allow-font-catalog",
+    "allow-pick-screen-color",
     "allow-font-face",
     "allow-include-font",
     "allow-open-fonts-folder",

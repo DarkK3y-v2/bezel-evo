@@ -104,6 +104,8 @@ export function createPickers({ store, t, bridge, onCatalog = () => {}, storage 
     opacityPercent: t('colorPicker.opacityPercent'),
     hex: t('colorPicker.hex'),
     eyedropper: t('colorPicker.eyedropper'),
+    eyedropperHint: t('colorPicker.eyedropperHint'),
+    eyedropperError: t('colorPicker.eyedropperError'),
     swatch: (hex, alpha) => (alpha === 100 ? hex : t('colorPicker.swatchAlpha', { hex, alpha })),
     themeColors: t('colorPicker.themeColors'),
     themeEmpty: t('colorPicker.themeEmpty'),
@@ -161,6 +163,7 @@ export function createPickers({ store, t, bridge, onCatalog = () => {}, storage 
     color: ({ saved = true } = {}) => ({
       texts: colorTexts(),
       source: {
+        pickScreenColor: typeof bridge.pickScreenColor === 'function' ? () => bridge.pickScreenColor() : null,
         swatches: () => paletteOf(theme()),
         used: () => usedColors(theme()),
         recent: () => recentColors.list(),

@@ -239,7 +239,10 @@ fn refresh_loop_failure(error: &io::Error) -> DiagCode {
 /// Tauri's error when the app cannot start; [`start_failure`] says which
 /// part failed.
 pub fn run() -> Result<(), tauri::Error> {
-    OPEN_PROFILES.store(std::env::args().any(|a| a == "--profiles"), std::sync::atomic::Ordering::SeqCst);
+    OPEN_PROFILES.store(
+        std::env::args().any(|a| a == "--profiles"),
+        std::sync::atomic::Ordering::SeqCst,
+    );
     let simulate = switch_on(std::env::var_os(SIMULATION_SWITCH).as_deref());
     let start: Start<tauri::Wry> = Start {
         simulate,
@@ -253,7 +256,9 @@ pub fn run() -> Result<(), tauri::Error> {
         // First plugin: a second launch shows this window and exits.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             show_main_window(app);
-            if args.iter().any(|a| a == "--profiles") { request_profiles(app); }
+            if args.iter().any(|a| a == "--profiles") {
+                request_profiles(app);
+            }
         }))
         .plugin(tauri_plugin_dialog::init())
         // Opens the guide's fixed pages from Rust only (`open_guide`): no
@@ -333,6 +338,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::list_assets,
             commands::video_preview,
             commands::font_catalog,
+            commands::pick_screen_color,
             commands::font_face,
             commands::include_font,
             commands::open_fonts_folder,
