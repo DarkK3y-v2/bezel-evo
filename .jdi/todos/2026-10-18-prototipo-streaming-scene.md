@@ -89,3 +89,7 @@ ack, profondità coda e ripristino. Poi integrazione nel presenter esistente con
 preferenza e misure per display, composizione host dei device-video e scheduler
 dei grafici di produzione. Il worker per display del runtime esiste già; il
 prototipo usa worker propri per misurare l'isolamento senza toccare lo Studio.
+
+## Aggiornamento: prova fisica nativa completata
+
+Il 18 ottobre, su richiesta utente, provato il CT88 seriale 8.8 COM6 con firmware chs_88inch.dev1_rom1.90. Nessun 1CBE presente, quindi H264 non provato. Prima richiesta Present via pipe rifiutata dal runtime autorevole senza invii; usato poi il passaggio cooperativo esistente, senza modificare le protezioni. Quattro fasi da cinque secondi: 47.72, 49.67 e 48.19 invii/s per grafici sparsi di dimensione crescente; 4.12 invii/s per tutti i pixel variabili. Non sono misure ottiche del refresh. Originale ripristinato e Light riprende i temi su entrambi i display; eventi Present verificati. Test runtime 45 e due unitari esempio, clippy all-targets verdi. Nessuna consegna prodotto: VERSION .43. Guida e comando ripetibile in docs/experiments/scene-streaming.md. Prossimo passo: interpolazione e pianificazione per display; H264 resta separato e da validare fisicamente.
