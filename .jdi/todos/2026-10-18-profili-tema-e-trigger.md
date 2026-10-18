@@ -34,11 +34,11 @@ l'utente durante l'implementazione; l'accesso provvisorio da Preferenze è rimos
 ## Stato
 
 Codice implementato. Utente ha confermato salvataggio e chiusura: build locale
-0.1.39 in corso con build-evo.ps1, poi avvio diretto da target/release.
+0.1.39 finale riuscita con build-evo.ps1 e avviata direttamente da target/release.
 Nessun setup o push. Commit funzionali: `b61b4f9`, `7f6bfff`, `3b72b17`.
 Correzione di rientro: `3a1799d`, rilettura del tema appena salvato dopo l'editing;
-prima build .39 non avviata, ricompilazione finale con la stessa versione ancora
-non consegnata. Regressione verificata anche con frame distinguibili fra profilo
+primo eseguibile .39 non avviato, ricompilazione finale con la stessa versione
+ancora non consegnata. Regressione verificata anche con frame distinguibili fra profilo
 e documento per provare che il canvas pubblicato conserva i pixel dell'editor.
 
 - Sensori Sistema: volume reale, muto, nome uscita, versione Windows, processi,
@@ -67,3 +67,12 @@ e documento per provare che il canvas pubblicato conserva i pixel dell'editor.
 Limiti intenzionali: nessun cambio del documento aperto, nessun trigger orario
 o webhook in questa prima versione. La prova fisica del cambio temi e dei menu
 nativi rimane una verifica utente; i test del motore usano display simulati.
+
+## Consegna locale
+
+- CLI `bezel 0.1.39`; Studio FileVersion e ProductVersion `0.1.39`.
+- Processo avviato in finestra normale: PID 33016,
+  `F:/Dev/bezel/target/release/bezel-studio.exe`.
+- Hash SHA256 Studio verificato prima e dopo l'avvio:
+  `B1715A567FA25124EA4BA57240418AEE498F53FBE65EE92868B0BB814A041FCD`.
+- Release locale registrata da `42d256d`; nessuna pubblicazione o installazione.
