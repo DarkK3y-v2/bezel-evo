@@ -72,11 +72,18 @@ di `target/release/themes`, confrontati con SHA256. I sei moderni preservati.
   `target/text-case-measure-final.log`, `target/kinetic-preview-tests.log`.
 - Nessuna suite workspace o pubblicazione, nessun setup.
 
-## Consegna da completare
+## Consegna locale .42 completata
 
-Gli originali dei dodici temi sono già provabili con Temi → Aggiorna l'elenco
-nello Studio .41 aperto; la formattazione nuova richiede l'eseguibile .42.
-Ultimo PID Studio 32708 da target/release. Richiesta aggiornata di salvataggio e
-chiusura inviata dopo le verifiche, senza terminare il processo. VERSION resta
-.41 e il changelog .42 è pronto. Alla conferma: `build-evo.ps1 -Version 0.1.42`,
-verifica versione/hash/percorso, avvio diretto, commit VERSION/CHANGELOG e stato.
+Ricevuta la conferma utente di salvataggio e chiusura. Controllata l'assenza di
+processi Bezel, compilata .42 con `build-evo.ps1 -Version 0.1.42` in 1m38s.
+Log: `target/build-evo-0.1.42.log`. CLI e metadati Studio riportano 0.1.42.
+
+Sincronizzati tutti i file delle dodici cartelle temi in `target/release/themes`,
+con confronto SHA256 di ogni sorgente e destinazione; nessuna cancellazione di
+librerie o copie personali. Avviato Studio in finestra normale direttamente da
+`F:/Dev/bezel/target/release/bezel-studio.exe`, PID 44036. Percorso del processo
+e hash verificati: `702152659BF0CA9B63BCAB967FAFA72ACD144017D135633099E05D8A639EF72C`.
+
+Commit versione/changelog `3071b30`. Nessun setup, installazione o push.
+Restano la prova utente della formattazione in Aspetto → Carattere e delle sei
+nuove varianti animate della libreria Temi sui display fisici.

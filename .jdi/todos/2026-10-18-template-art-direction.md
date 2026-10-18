@@ -44,9 +44,8 @@ SHA256 di ogni file confrontato con la sorgente. Nello Studio .41 già aperto
 (PID 47596 all'ultimo controllo) basta Temi → Aggiorna l'elenco e riaprire gli
 originali inclusi. Il documento aperto rimane in memoria.
 
-Per rispettare la versione distinta per l'aggiornamento, è stata richiesta
-conferma di salvataggio e chiusura per compilare e avviare direttamente .42 con
-`build-evo.ps1 -Version 0.1.42`. Non è stata ancora ricevuta. VERSION ed eseguibili
-restano .41; nessun setup, installazione, push o terminazione forzata di Studio.
-Alla conferma: build .42, verifica metadati/hash/percorso, avvio diretto, commit
-VERSION/CHANGELOG e aggiornamento dello stato.
+Consegna completata insieme ai successivi sei temi cinetici e alla formattazione
+dei testi: conferma utente ricevuta, build .42 compilata e avviata direttamente,
+versioni, percorso e hash verificati. Commit versione/changelog `3071b30`.
+Nessun setup, installazione o push. Dettaglio della consegna finale nel rapporto
+`.jdi/todos/2026-10-18-kinetic-e-formattazione-testi.md`.
