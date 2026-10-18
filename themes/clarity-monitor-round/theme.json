@@ -1,0 +1,187 @@
+{
+  "schema": 1,
+  "name": "Clarity / Monitor \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#eceee8ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Collection",
+      "frame": {
+        "x": 125,
+        "y": 72,
+        "width": 230,
+        "height": 30
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CLARITY"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 20,
+          "paint": "#26685dff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Clock",
+      "frame": {
+        "x": 68,
+        "y": 121,
+        "width": 344,
+        "height": 94
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 76,
+          "paint": "#162c29ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Date",
+      "frame": {
+        "x": 96,
+        "y": 219,
+        "width": 288,
+        "height": 34
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%a %d %b"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#637773ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "CPU history",
+      "frame": {
+        "x": 100,
+        "y": 280,
+        "width": 280,
+        "height": 80
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#26685dff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#26685d50"
+            ],
+            [
+              1,
+              "#26685d00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    },
+    {
+      "id": 5,
+      "name": "CPU value",
+      "frame": {
+        "x": 140,
+        "y": 369,
+        "width": 200,
+        "height": 32
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 24,
+          "paint": "#162c29ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#eceee8ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#26685dff"
+    },
+    {
+      "name": "Text",
+      "color": "#162c29ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#637773ff"
+    }
+  ]
+}

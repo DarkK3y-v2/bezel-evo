@@ -1,0 +1,525 @@
+{
+  "schema": 1,
+  "name": "Clarity / Monitor \u2014 Wide",
+  "canvas": {
+    "width": 1920,
+    "height": 480
+  },
+  "orientation": "landscape",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#eceee8ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Collection",
+      "frame": {
+        "x": 42,
+        "y": 36,
+        "width": 530,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "C L A R I T Y  /  W O R K S T A T I O N"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#26685dff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Clock",
+      "frame": {
+        "x": 38,
+        "y": 110,
+        "width": 460,
+        "height": 124
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 106,
+          "paint": "#162c29ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Date",
+      "frame": {
+        "x": 44,
+        "y": 245,
+        "width": 450,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%A %d %B"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 25,
+          "paint": "#637773ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Uptime",
+      "frame": {
+        "x": 44,
+        "y": 352,
+        "width": 450,
+        "height": 46
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "system.uptime",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 32,
+          "paint": "#162c29ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 5,
+      "name": "Uptime label",
+      "frame": {
+        "x": 44,
+        "y": 407,
+        "width": 450,
+        "height": 28
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "UPTIME"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#637773ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "CPU surface",
+      "frame": {
+        "x": 550,
+        "y": 28,
+        "width": 424,
+        "height": 424
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 28,
+        "fill": "#ffffff90",
+        "strokeWidth": 0
+      }
+    },
+    {
+      "id": 7,
+      "name": "CPU label",
+      "frame": {
+        "x": 578,
+        "y": 52,
+        "width": 370,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 23,
+          "paint": "#637773ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "name": "CPU value",
+      "frame": {
+        "x": 574,
+        "y": 111,
+        "width": 370,
+        "height": 104
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 78,
+          "paint": "#162c29ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 9,
+      "name": "CPU history",
+      "frame": {
+        "x": 578,
+        "y": 270,
+        "width": 368,
+        "height": 140
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#26685dff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#26685d50"
+            ],
+            [
+              1,
+              "#26685d00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    },
+    {
+      "id": 10,
+      "name": "GPU surface",
+      "frame": {
+        "x": 1000,
+        "y": 28,
+        "width": 424,
+        "height": 424
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 28,
+        "fill": "#ffffff90",
+        "strokeWidth": 0
+      }
+    },
+    {
+      "id": 11,
+      "name": "GPU label",
+      "frame": {
+        "x": 1028,
+        "y": 52,
+        "width": 370,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 23,
+          "paint": "#637773ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "GPU value",
+      "frame": {
+        "x": 1024,
+        "y": 111,
+        "width": 370,
+        "height": 104
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 78,
+          "paint": "#162c29ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 13,
+      "name": "GPU history",
+      "frame": {
+        "x": 1028,
+        "y": 270,
+        "width": 368,
+        "height": 140
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#26685dff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#26685d50"
+            ],
+            [
+              1,
+              "#26685d00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    },
+    {
+      "id": 14,
+      "name": "RAM surface",
+      "frame": {
+        "x": 1450,
+        "y": 28,
+        "width": 424,
+        "height": 424
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 28,
+        "fill": "#ffffff90",
+        "strokeWidth": 0
+      }
+    },
+    {
+      "id": 15,
+      "name": "RAM label",
+      "frame": {
+        "x": 1478,
+        "y": 52,
+        "width": 370,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RAM"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 23,
+          "paint": "#637773ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "name": "RAM value",
+      "frame": {
+        "x": 1474,
+        "y": 111,
+        "width": 370,
+        "height": 104
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "memory.percent",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 78,
+          "paint": "#162c29ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 17,
+      "name": "RAM history",
+      "frame": {
+        "x": 1478,
+        "y": 270,
+        "width": 368,
+        "height": 140
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "memory.percent",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#26685dff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#26685d50"
+            ],
+            [
+              1,
+              "#26685d00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#eceee8ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#26685dff"
+    },
+    {
+      "name": "Text",
+      "color": "#162c29ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#637773ff"
+    }
+  ]
+}

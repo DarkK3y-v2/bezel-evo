@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "name": "Resonance / Music \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#100e19ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Collection",
+      "frame": {
+        "x": 105,
+        "y": 67,
+        "width": 270,
+        "height": 32
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RESONANCE"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#be9cffff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "Media player",
+      "frame": {
+        "x": 86,
+        "y": 132,
+        "width": 308,
+        "height": 174
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "coverRadius": 22,
+          "coverCorners": [
+            22,
+            22,
+            22,
+            6
+          ],
+          "coverGap": 0,
+          "showProgress": true,
+          "showSource": false,
+          "showTime": true,
+          "emptyText": "Resonance",
+          "progressStyle": {
+            "fill": "#be9cffff",
+            "track": "#ffffff18",
+            "thickness": 5,
+            "knob": true,
+            "times": "sides"
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": "#f6f0ffff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Live spectrum",
+      "frame": {
+        "x": 114,
+        "y": 328,
+        "width": 252,
+        "height": 68
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "bands": 24,
+          "style": "bars",
+          "motion": "balanced",
+          "peaks": true,
+          "corners": [
+            3,
+            3,
+            3,
+            3
+          ],
+          "gap": 3
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 24,
+          "paint": "#be9cffff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#100e19ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#be9cffff"
+    },
+    {
+      "name": "Text",
+      "color": "#f6f0ffff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#a59bb6ff"
+    }
+  ]
+}

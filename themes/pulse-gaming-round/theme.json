@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "name": "Pulse / Gaming \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#0b0e16ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Load arc",
+      "frame": {
+        "x": 34,
+        "y": 34,
+        "width": 412,
+        "height": 412
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -225,
+        "sweep": 270,
+        "thickness": 12,
+        "clockwise": true,
+        "fill": {
+          "scale": "arc",
+          "start": "#abff63ff",
+          "end": "#ffa35cff",
+          "transition": 75
+        },
+        "track": "#ffffff12",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 2,
+      "name": "Collection",
+      "frame": {
+        "x": 110,
+        "y": 102,
+        "width": 260,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "PULSE / GPU"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#abff63ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "GPU load",
+      "frame": {
+        "x": 100,
+        "y": 148,
+        "width": 280,
+        "height": 105
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 82,
+          "paint": "#f3f6eeff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      },
+      "colorByValue": {
+        "base": "#f3f6eeff",
+        "thresholds": [
+          {
+            "value": 90,
+            "color": "#ff647cff"
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "name": "GPU temperature",
+      "frame": {
+        "x": 125,
+        "y": 258,
+        "width": 230,
+        "height": 48
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 34,
+          "paint": "#f3f6eeff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 5,
+      "name": "Clock",
+      "frame": {
+        "x": 140,
+        "y": 326,
+        "width": 200,
+        "height": 32
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 24,
+          "paint": "#929cabff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#0b0e16ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#abff63ff"
+    },
+    {
+      "name": "Text",
+      "color": "#f3f6eeff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#929cabff"
+    }
+  ]
+}

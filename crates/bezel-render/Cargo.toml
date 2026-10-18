@@ -26,4 +26,5 @@ resvg = { version = "0.48.1", default-features = false }
 workspace = true
 
 [dev-dependencies]
+bezel-themes = { workspace = true }
 serde_json = { workspace = true }

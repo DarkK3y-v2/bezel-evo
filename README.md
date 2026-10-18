@@ -93,6 +93,15 @@ Priorities resolve simultaneous rules; a return delay avoids brief switches.
 Manual selection stays in effect until you choose Automatic again. Profiles
 pause on the display being edited and resume when Studio is hidden.
 The selected theme names are shown for each display and in the return choice.
+Choose None, Fade, Slide or Flip, with direction and duration, for changes between
+profiles and the return to the selected themes. Displays keep their own pace;
+video played directly by a device switches immediately.
+
+The included theme library also offers three coordinated pairs for 1920×480 and
+480×480 displays: **Pulse / Gaming**, **Resonance / Music** and **Clarity / Monitor**.
+They demonstrate rotating Cards, smooth sensor values, colour thresholds, history
+graphs, the media player and live system-audio spectra. Open one from **Themes**
+and save a copy to customise it. See [the template guide](themes/README.md).
 
 **Bezel Light** is the small tray program that owns your screens. It runs the
 themes, reads the sensors, keeps the graph history and clocks, plays the

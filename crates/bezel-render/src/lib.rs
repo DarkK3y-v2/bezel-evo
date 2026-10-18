@@ -69,3 +69,6 @@ mod weather;
 
 #[cfg(test)]
 mod rotation_tests;
+
+#[cfg(test)]
+mod modern_themes_tests;

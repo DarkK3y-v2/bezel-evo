@@ -442,6 +442,7 @@ name = "bezel-render"
 version = "0.0.0"
 dependencies = [
  "bezel-core",
+ "bezel-themes",
  "cosmic-text",
  "fontdb",
  "image",
