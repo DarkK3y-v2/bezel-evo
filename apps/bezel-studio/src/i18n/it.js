@@ -295,7 +295,7 @@ export default {
   "framing.readout": "Zoom {zoom}% · X {x}% · Y {y}%",
   "framing.reducedMotion": "Su questo computer il movimento è ridotto: l'anteprima mostra la copertina.",
   "framing.reset": "Azzera l'inquadratura",
-  "framing.rotation": "Rotazione",
+  "common.rotation": "Rotazione",
   "framing.surface": "Inquadratura del video: trascina, gira la rotellina o usa le frecce",
   "framing.title": "Inquadratura",
   "framing.zoom": "Zoom",

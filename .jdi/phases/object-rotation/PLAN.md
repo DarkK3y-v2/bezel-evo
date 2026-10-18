@@ -13,7 +13,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
 - D-2026-10-18-object-rotation-07: Layer ritagliato sul riquadro, rotazione in composizione (bilineare, con opacità); bbox ruotato nei dirty rect; demo-render.js e anteprima isolata fanno lo stesso.
 - D-2026-10-18-object-rotation-08: hit-test e maniglie nel sistema locale; copia/incolla/duplica tengono l'angolo; un trascinamento = un Annulla; i18n en/pt-BR/it.
 
-## Scelte del piano (da confermare in verifica)
+## Scelte del piano (confermate dalla verifica automatica)
 - Verso: angolo positivo = orario sullo schermo (y verso il basso), come `Transform::from_rotate` di tiny-skia e `ctx.rotate` del canvas 2D.
 - Esclusi: oltre a Card/membri/gruppi/membri, anche le forme `videoWindow` (sono il "buco" sul video di sfondo; il video di sfondo vero è `theme.background`, non un elemento). `Element::applied_rotation()` restituisce 0 per tutti gli esclusi in entrambi i renderer; il caricamento DTO azzera l'angolo degli esclusi (nessun errore).
 - Raggruppare o mettere in una Card un oggetto ruotato ne azzera la rotazione (Annulla la ripristina): il campo per i membri non esiste, l'angolo resterebbe non modificabile.
@@ -34,7 +34,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `cargo check --workspace --all-targets` passa su Windows.
 - **Dependencies:** none
 - **Test:** `cargo test -p bezel-core --lib domain::rotation::tests` ; `cargo test -p bezel-themes --lib native::tests::rotation_zero_omitted_and_old_themes_unchanged -- --exact` ; `cargo test -p bezel-themes --lib native::tests::rotation_roundtrip_normalizes_and_rejects_non_finite -- --exact`
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 2 (parallel-eligible)
 
@@ -47,7 +47,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - Il campione del fixture a 30° (opaco e opacità 0.5) è rispettato.
 - **Dependencies:** T-1
 - **Test:** `cargo test -p bezel-render rotation` (test: `rotation_zero_keeps_pixels_identical`, `rotation_90_turns_box_around_center`, `rotation_45_blends_with_opacity`, `rotation_30_matches_parity_fixture`, `rotation_turns_text_graph_and_spectrum_content`, `rotation_ignored_for_cards_groups_and_video_windows`) ; `cargo test -p bezel-render dirty_rotated` (test `dirty_rotated_covers_rotated_bbox`: inchiostro negli angoli del bbox ruotato fuori dal `frame`, tutti coperti da `dirty_rects(blank, frame)`)
-- **Status:** pending
+- **Status:** completed
 
 #### T-3: Anteprima isolata dell'inspector (runtime) sul bbox ruotato
 - **Specialist:** jdi-doer-bezel
@@ -56,7 +56,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `bounds()` usa `rotated_bounds(frame, applied_rotation())`: un elemento ruotato ha un canvas grande quanto il suo bbox ruotato e nessun angolo tagliato; per angolo 0 il risultato è identico a oggi.
 - **Dependencies:** T-1
 - **Test:** `cargo test -p bezel-runtime --lib element_preview::tests::a_rotated_element_gets_a_canvas_of_its_rotated_box -- --exact`
-- **Status:** pending
+- **Status:** completed
 
 #### T-4: Geometria e store dello Studio (JS)
 - **Specialist:** jdi-doer-bezel
@@ -67,7 +67,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `beginGesture` + più `rotate` + `endGesture` = un solo passo di `undo`; `duplicate`/`paste` mantengono `rotation`; raggruppare un oggetto ruotato lo porta a 0 e `undo` lo ripristina.
 - **Dependencies:** T-1 (fixture)
 - **Test:** `node --test tests/ui/rotation.test.mjs` (da `apps/bezel-studio`) ; `node --test tests/ui/editor-geometry.test.mjs tests/ui/editor-store.test.mjs` (non regressione)
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 3 (parallel-eligible)
 
@@ -79,7 +79,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `demoIsolate` dimensiona il canvas sul bbox ruotato come `element_preview::isolate` (T-3).
 - **Dependencies:** T-4
 - **Test:** `node --test --test-name-pattern="rotated" tests/ui/demo-backend.test.mjs` (test nuovo `demoIsolate: a rotated element gets a canvas of its rotated box`); i pixel del canvas 2D si provano nello spec e2e (T-7)
-- **Status:** pending
+- **Status:** completed
 
 #### T-6: Canvas e inspector: maniglia, campo Rotazione, i18n
 - **Specialist:** jdi-doer-bezel
@@ -90,7 +90,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - Inspector: campo "Rotazione" (gradi, decimali ammessi, suffisso `°`, normalizzato al commit) nella sezione geometria accanto a X/Y/W/H, assente se `!canRotate`; chiavi nuove `insp.rotation` e `insp.rotateHandle` (etichetta/`aria-label` della maniglia) in en, pt-BR, it, nessuna stringa fissa.
 - **Dependencies:** T-4
 - **Test:** `node --test tests/ui/i18n.test.mjs tests/ui/static-guards.test.mjs` (da `apps/bezel-studio`); comportamento nello spec e2e (T-7)
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 4
 
@@ -105,13 +105,13 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `demo render and inspector preview match the Rust parity fixture at 30°` (fixture letto con `fs` lato Node e passato a `page.evaluate`; pixel di `renderApprox` e del frame di `renderElement` sui punti campione)
 - **Dependencies:** T-5, T-6
 - **Test:** `node scripts/e2e-slot.mjs tests/e2e/object-rotation.spec.mjs` (da `apps/bezel-studio`); singolo caso: `node scripts/e2e-slot.mjs tests/e2e/object-rotation.spec.mjs -g "copy, paste and duplicate"`; non regressione mirata: `node scripts/e2e-slot.mjs tests/e2e/clipboard.spec.mjs tests/e2e/alignment-019.spec.mjs tests/e2e/inspector-preview.spec.mjs`
-- **Status:** pending
+- **Status:** completed
 
 ## Execution
 - Total tasks: 7
 - Waves: 4 (1 → 3 → 2 → 1)
 - Estimated parallel speedup: 1.75x
-- Commit: uno per task, `feat(object-rotation): …` / `test(object-rotation): …`, con riferimento al D-XX e trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit: uno per task, `feat(object-rotation): …` / `test(object-rotation): …`, con riferimento al D-XX e trailer `Co-Authored-By: ChatGPT <noreply@openai.com>`.
 
 ## Files modified (all tasks)
 - `crates/bezel-core/src/domain/{rotation.rs,mod.rs,theme.rs,spectrum.rs,transition.rs}`, `crates/bezel-core/src/app/card_timer.rs`, `crates/bezel-core/tests/fixtures/rotation-parity.json`, `crates/bezel-core/tests/runtime_*.rs`

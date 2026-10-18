@@ -98,6 +98,7 @@ fn doc() -> Document {
         visible: true,
         locked: false,
         opacity: 1.0,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

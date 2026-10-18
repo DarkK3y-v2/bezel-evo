@@ -1,3 +1,4 @@
+import { appliedRotation, containsRotated, rotatedBounds, rotatePoint } from './rotation.js';
 // Pure box geometry for the editor: hit testing, marquee, resize handles.
 // Boxes are `{x, y, width, height}` in canvas pixels (the theme.json frame).
 
@@ -43,14 +44,14 @@ export function unionBox(boxes) {
 export function hitTest(elements, px, py) {
   for (let i = elements.length - 1; i >= 0; i -= 1) {
     const e = elements[i];
-    if (e.visible !== false && contains(e.frame, px, py)) return e.id;
+    if (e.visible !== false && containsRotated(e.frame, appliedRotation(e), px, py)) return e.id;
   }
   return null;
 }
 
 /** Ids of visible elements whose box intersects the marquee. */
 export function marqueeSelect(elements, marquee) {
-  return elements.filter((e) => e.visible !== false && intersects(e.frame, marquee)).map((e) => e.id);
+  return elements.filter((e) => e.visible !== false && intersects(rotatedBounds(e.frame, appliedRotation(e)), marquee)).map((e) => e.id);
 }
 
 /** Center point of each handle of a box. */
@@ -70,7 +71,14 @@ export function handlePoints(b) {
  * handles keep the original proportions. Sizes never go below MIN_SIZE and
  * the opposite edge stays put.
  */
-export function resize(b, handle, dx, dy, keepRatio = false) {
+export function resize(b, handle, dx, dy, keepRatio = false, rotation = 0) {
+  if (rotation) {
+    const delta = rotatePoint({ x: dx, y: dy }, { x: 0, y: 0 }, -rotation);
+    const local = resize(b, handle, delta.x, delta.y, keepRatio);
+    const shift = { x: local.x + local.width / 2 - b.x - b.width / 2, y: local.y + local.height / 2 - b.y - b.height / 2 };
+    const turned = rotatePoint(shift, { x: 0, y: 0 }, rotation);
+    return { ...local, x: b.x + b.width / 2 + turned.x - local.width / 2, y: b.y + b.height / 2 + turned.y - local.height / 2 };
+  }
   let { x, y, width, height } = b;
   const right = x + width;
   const bottom = y + height;

@@ -1,3 +1,4 @@
+import { canRotate, appliedRotation } from '../editor/rotation.js';
 import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
 import { moveRule } from '../card-rules.js';
@@ -1262,6 +1263,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4 }),
         prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4 }),
       ]),
+      canRotate(theme, e) && prefixedField(t('insp.rotation'), t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°' }),
       chipButton(t('insp.fitContent'), false, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id) }),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
     ]);

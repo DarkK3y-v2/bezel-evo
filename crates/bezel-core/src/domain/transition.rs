@@ -412,6 +412,7 @@ mod tests {
 
     fn element(id: u32, kind: ElementKind, transition: Option<ValueTransition>) -> Element {
         Element {
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,

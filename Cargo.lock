@@ -379,6 +379,7 @@ dependencies = [
  "bezel-devices",
  "bezel-media",
  "bezel-sensors",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 
@@ -445,6 +446,7 @@ dependencies = [
  "fontdb",
  "image",
  "resvg",
+ "serde_json",
  "tiny-skia",
  "tracing",
  "ttf-parser",

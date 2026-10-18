@@ -1,3 +1,4 @@
+import { appliedRotation, rotatedBounds } from './editor/rotation.js';
 import { normalizeCardTheme } from './card-config.js';
 import { DEMO_SENSORS, demoValue } from './demo-sensors.js';
 export { DEMO_SENSORS, demoValue } from './demo-sensors.js';
@@ -140,13 +141,14 @@ export function demoIsolate(theme, id) {
     for (const e of theme.elements) if (!kept.has(e.id) && owned(e)) { kept.add(e.id); grew = true; }
   }
   const elements = theme.elements.filter((e) => kept.has(e.id)).map((e) => structuredClone(e));
-  const drawn = elements.filter((e) => !e.isGroup).map((e) => e.frame);
+  const drawn = elements.filter((e) => !e.isGroup).map((e) => rotatedBounds(e.frame, appliedRotation(e)));
   const boxes = drawn.length ? drawn : [root.frame];
   const left = Math.floor(Math.min(...boxes.map((b) => b.x)));
   const top = Math.floor(Math.min(...boxes.map((b) => b.y)));
   const right = Math.ceil(Math.max(...boxes.map((b) => b.x + b.width)));
   const bottom = Math.ceil(Math.max(...boxes.map((b) => b.y + b.height)));
   for (const e of elements) {
+    if (!appliedRotation(e)) delete e.rotation;
     e.frame = { ...e.frame, x: e.frame.x - left, y: e.frame.y - top };
     if (e.card) {
       delete e.card.triggers;

@@ -71,7 +71,7 @@ fn bounds(elements: &[Element], fallback: BoxF) -> (f32, f32, f32, f32) {
     let boxes: Vec<BoxF> = elements
         .iter()
         .filter(|e| !e.is_group)
-        .map(|e| e.frame)
+        .map(|e| bezel_core::domain::rotation::rotated_bounds(e.frame, e.applied_rotation()))
         .collect();
     let boxes = if boxes.is_empty() {
         vec![fallback]
@@ -120,6 +120,7 @@ pub fn isolate(theme: &Theme, id: ElementId) -> Option<Theme> {
         .collect();
     let (left, top, right, bottom) = bounds(&elements, root.frame);
     for element in &mut elements {
+        element.rotation = element.applied_rotation();
         element.frame.x -= left;
         element.frame.y -= top;
         if let Some(card) = element.card.as_mut() {
@@ -195,6 +196,7 @@ pub(crate) mod tests {
         Element {
             color_by_value: None,
             value_transition: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,
@@ -223,6 +225,16 @@ pub(crate) mod tests {
 
     fn ids(theme: &Theme) -> Vec<u32> {
         theme.elements.iter().map(|e| e.id.0).collect()
+    }
+
+    #[test]
+    fn a_rotated_element_gets_a_canvas_of_its_rotated_box() {
+        let mut e = shape(1, BoxF::new(50., 45., 60., 30.), Rgba::WHITE);
+        e.rotation = 30.;
+        let alone = isolate(&theme(vec![e]), ElementId(1)).unwrap();
+        assert_eq!(alone.canvas, Size::new(68, 56));
+        assert_eq!(alone.elements[0].frame, BoxF::new(4., 13., 60., 30.));
+        assert_eq!(alone.elements[0].rotation, 30.);
     }
 
     #[test]

@@ -245,6 +245,7 @@ mod tests {
             color_by_value: None,
             value_transition: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -1701,5 +1702,75 @@ mod tests {
         ] {
             assert!(serde_json::from_value::<ThemeDto>(player_json(bad)).is_err());
         }
+    }
+    #[test]
+    fn rotation_zero_omitted_and_old_themes_unchanged() {
+        let (theme, _) = every_kind();
+        let dto = ThemeDto::from(&theme);
+        let bytes = serde_json::to_vec(&dto).unwrap();
+        assert!(dto.elements.iter().all(|e| e.rotation == 0.0));
+        let json = serde_json::to_value(&dto).unwrap();
+        assert!(
+            json["elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("rotation").is_none())
+        );
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert_eq!(serde_json::to_vec(&ThemeDto::from(&loaded)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn rotation_roundtrip_normalizes_and_rejects_non_finite() {
+        let (theme, _) = every_kind();
+        let mut dto = ThemeDto::from(&theme);
+        dto.elements[0].rotation = 200.;
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert_eq!(loaded.elements[0].rotation, -160.);
+        assert_eq!(ThemeDto::from(&loaded).elements[0].rotation, -160.);
+        dto.elements[0].rotation = f32::NAN;
+        assert_eq!(Theme::try_from(&dto).unwrap_err().0, "invalid rotation");
+        dto.elements[0].rotation = 30.;
+        dto.elements[0].kind = dto
+            .elements
+            .iter()
+            .find(|e| matches!(e.kind, crate::dto::KindDto::Shape { .. }))
+            .unwrap()
+            .kind
+            .clone();
+        if let crate::dto::KindDto::Shape { video_window, .. } = &mut dto.elements[0].kind {
+            *video_window = true;
+        }
+        assert_eq!(Theme::try_from(&dto).unwrap().elements[0].rotation, 0.);
+        let mut json = serde_json::to_value(&dto).unwrap();
+        let mut base = json["elements"][0].clone();
+        base["kind"]["videoWindow"] = serde_json::json!(false);
+        base["kind"]["fill"] = serde_json::Value::Null;
+        base["kind"]["stroke"] = serde_json::Value::Null;
+        base["kind"]["fade"] = serde_json::Value::Null;
+        let mut objects = Vec::new();
+        for id in 1..=5 {
+            let mut object = base.clone();
+            object["id"] = serde_json::json!(id);
+            object["rotation"] = serde_json::json!(30);
+            match id {
+                1 => object["card"] = serde_json::json!({"faces":["Face"],"activeFace":0}),
+                2 => object["cardMember"] = serde_json::json!({"parent":1,"face":0}),
+                3 => object["isGroup"] = serde_json::json!(true),
+                4 => object["groupParent"] = serde_json::json!(3),
+                _ => object["kind"]["videoWindow"] = serde_json::json!(true),
+            }
+            objects.push(object);
+        }
+        json["elements"] = serde_json::json!(objects);
+        let dto: ThemeDto = serde_json::from_value(json).unwrap();
+        assert!(
+            Theme::try_from(&dto)
+                .unwrap()
+                .elements
+                .iter()
+                .all(|e| e.rotation == 0.)
+        );
     }
 }

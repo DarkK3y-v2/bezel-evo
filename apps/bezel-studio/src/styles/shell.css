@@ -204,3 +204,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 #status-memory { min-width: 16ch; }
 #status-libre-label { min-width: 15ch; }
 #status-fps { min-width: 7ch; }
+
+/* Object rotation shares the resize handle palette and stays independently addressable. */
+.rotate-handle { position: absolute; width: 12px; height: 12px; padding: 0; margin: -6px 0 0 -6px; background: var(--handle); border: 1.5px solid var(--select); border-radius: 50%; pointer-events: auto; cursor: grab; }
+.rotate-handle:active { cursor: grabbing; }
+.rotate-handle:focus-visible { outline: 2px solid var(--select); outline-offset: 3px; }

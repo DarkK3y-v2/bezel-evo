@@ -295,7 +295,7 @@ export default {
   'framing.readout': 'Zoom {zoom}% · X {x}% · Y {y}%',
   'framing.reducedMotion': 'O movimento está reduzido neste computador: a prévia mostra o pôster.',
   'framing.reset': 'Redefinir enquadramento',
-  'framing.rotation': 'Rotação',
+  'common.rotation': 'Rotação',
   'framing.surface': 'Enquadramento do vídeo: arraste, gire a roda ou use as setas',
   'framing.title': 'Enquadramento',
   'framing.zoom': 'Zoom',

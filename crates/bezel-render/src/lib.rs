@@ -66,3 +66,6 @@ mod tests {
 }
 
 mod weather;
+
+#[cfg(test)]
+mod rotation_tests;

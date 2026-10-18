@@ -431,6 +431,8 @@ pub enum ElementKind {
 /// One thing drawn on the canvas.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Element {
+    /// Clockwise degrees around the frame center, normalized to (-180, 180].
+    pub rotation: f32,
     /// Invisible ordinary group container.
     pub is_group: bool,
     /// Ordinary group owning this object.
@@ -867,6 +869,7 @@ mod tests {
             color_by_value: None,
             value_transition: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

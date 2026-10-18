@@ -96,6 +96,10 @@ fn palette(list: &[SwatchDto]) -> R<Vec<Swatch>> {
     list.iter().map(swatch).collect()
 }
 
+fn is_zero_f32(value: &f32) -> bool {
+    *value == 0.0
+}
+
 fn one() -> f32 {
     1.0
 }
@@ -296,6 +300,9 @@ fn is_fade_midpoint(v: &f32) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementDto {
+    /// Clockwise degrees; omitted for unchanged themes.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub rotation: f32,
     /// Ordinary group container; omitted in older themes.
     #[serde(default, skip_serializing_if = "is_false")]
     pub is_group: bool,
@@ -2026,6 +2033,7 @@ impl From<&Theme> for ThemeDto {
                             transition: c.transition.map(card_transition_dto),
                         }
                     }),
+                    rotation: e.applied_rotation(),
                     is_group: e.is_group,
                     group_parent: e.group_parent.map(|id| id.0),
                     card_member: e.card_member.as_ref().map(|m| CardMemberDto {
@@ -2105,7 +2113,10 @@ impl TryFrom<&ThemeDto> for Theme {
             .elements
             .iter()
             .map(|e| {
-                Ok(Element {
+                if !e.rotation.is_finite() {
+                    return err("invalid rotation");
+                }
+                let mut element = Element {
                     card: e
                         .card
                         .as_ref()
@@ -2178,6 +2189,7 @@ impl TryFrom<&ThemeDto> for Theme {
                             .into_owned())
                         })
                         .transpose()?,
+                    rotation: bezel_core::domain::rotation::normalize_degrees(e.rotation),
                     is_group: e.is_group,
                     group_parent: e.group_parent.map(ElementId),
                     card_member: e.card_member.as_ref().map(|m| {
@@ -2196,7 +2208,9 @@ impl TryFrom<&ThemeDto> for Theme {
                     value_transition: value_transition(e.value_transition),
                     kind: kind(&e.kind)
                         .map_err(|x| DtoError(format!("element {} ({}): {}", e.id, e.name, x.0)))?,
-                })
+                };
+                element.rotation = element.applied_rotation();
+                Ok(element)
             })
             .collect::<R<Vec<_>>>()?;
         if elements.iter().any(|e| {
