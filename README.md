@@ -70,12 +70,6 @@ Windows preview packages are unsigned. See the [installation guide](packaging/wi
 - [Sensors](docs/user/sensors.md) / [Storage and video](docs/user/storage-and-video.md) / [Troubleshooting](docs/user/troubleshooting.md)
 - [Technical documentation](docs/) / [Windows builds](docs/build-windows.md) / [Fork changes and validation](FORK.md)
 
-## Support
-
-Bezel Evo is free and open source. If it is useful to you, you can support its development on Ko-fi.
-
-<a href="https://ko-fi.com/jripper"><img src="https://img.shields.io/badge/Ko--fi-support%20Bezel%20Evo-FF9248?logo=kofi&amp;logoColor=white" alt="Support Bezel Evo on Ko-fi"></a>
-
 ## Credits & licence
 
 Bezel Evo is a **fork of [slipalison/bezel](https://github.com/slipalison/bezel)**, created by [Alison Amorim (@slipalison)](https://github.com/slipalison). Original authorship, research and copyright notices are preserved.
