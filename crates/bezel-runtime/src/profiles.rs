@@ -57,14 +57,47 @@ impl Rule {
             .matches(snapshot)
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Profile {
     pub id: String,
     pub name: String,
-    pub screen: String,
-    pub theme: String,
+    pub themes: BTreeMap<String, String>,
     pub rules: Vec<Rule>,
+}
+
+impl<'de> Deserialize<'de> for Profile {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Stored {
+            id: String,
+            name: String,
+            #[serde(default)]
+            themes: BTreeMap<String, String>,
+            #[serde(default)]
+            screen: Option<String>,
+            #[serde(default)]
+            theme: Option<String>,
+            rules: Vec<Rule>,
+        }
+        let mut stored = Stored::deserialize(deserializer)?;
+        match (stored.screen, stored.theme) {
+            (Some(screen), Some(theme)) if stored.themes.is_empty() => {
+                stored.themes.insert(screen, theme);
+            }
+            (None, None) => {}
+            _ => return Err(serde::de::Error::custom("conflicting profile assignments")),
+        }
+        Ok(Self {
+            id: stored.id,
+            name: stored.name,
+            themes: stored.themes,
+            rules: stored.rules,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -99,10 +132,14 @@ impl Config {
                 || !ids.insert(&p.id)
                 || p.name.trim().is_empty()
                 || p.name.len() > 160
-                || p.screen.is_empty()
-                || p.screen.len() > 256
-                || p.theme.is_empty()
-                || p.theme.len() > 32768
+                || p.themes.is_empty()
+                || p.themes.len() > crate::MAX_SCENES
+                || p.themes.iter().any(|(screen, theme)| {
+                    screen.is_empty()
+                        || screen.len() > 256
+                        || theme.is_empty()
+                        || theme.len() > 32768
+                })
                 || p.rules.len() > 16
             {
                 return Err(invalid("invalid profile"));
@@ -153,6 +190,44 @@ impl Config {
 #[derive(Clone)]
 pub struct ProfileFile(pub PathBuf);
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Display {
+    pub key: String,
+    pub name: String,
+    pub theme: Option<String>,
+    pub theme_name: Option<String>,
+    pub connected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Overview {
+    pub config: Config,
+    pub displays: Vec<Display>,
+}
+impl Overview {
+    pub fn baseline_label(&self, unassigned: &str) -> String {
+        let connected = self.displays.iter().any(|d| d.connected);
+        let names = self
+            .displays
+            .iter()
+            .filter(|d| {
+                if connected {
+                    d.connected
+                } else {
+                    d.theme_name.is_some()
+                }
+            })
+            .map(|d| d.theme_name.as_deref().unwrap_or(unassigned))
+            .collect::<Vec<_>>();
+        if names.is_empty() {
+            unassigned.into()
+        } else {
+            names.join(" · ")
+        }
+    }
+}
+
 /// Native tray strings, also used while no WebView is running.
 pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static str; 4] {
     use bezel_core::domain::clock::Language;
@@ -160,14 +235,19 @@ pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static s
         Language::Italian => [
             "Profili",
             "Automatico",
-            "Tema originale",
+            "Nessun tema selezionato",
             "Gestisci profili…",
         ],
-        Language::PortugueseBr => ["Perfis", "Automático", "Tema original", "Gerenciar perfis…"],
+        Language::PortugueseBr => [
+            "Perfis",
+            "Automático",
+            "Nenhum tema selecionado",
+            "Gerenciar perfis…",
+        ],
         Language::English => [
             "Profiles",
             "Automatic",
-            "Original theme",
+            "No theme selected",
             "Manage profiles…",
         ],
     }
@@ -175,6 +255,61 @@ pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static s
 impl ProfileFile {
     pub fn beside(settings: &Path) -> Self {
         Self(settings.with_file_name("profiles.json"))
+    }
+    pub fn overview(&self) -> Result<Overview> {
+        let config = self.load()?;
+        let settings = self.0.with_file_name("settings.json");
+        let settings = std::fs::metadata(&settings)
+            .ok()
+            .filter(|m| m.len() <= 1024 * 1024)
+            .and_then(|_| std::fs::read(settings).ok())
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .unwrap_or_default();
+        let mut keys: BTreeSet<String> = config
+            .profiles
+            .iter()
+            .flat_map(|p| p.themes.keys().cloned())
+            .collect();
+        if let Some(themes) = settings["screenThemes"].as_object() {
+            keys.extend(themes.keys().cloned());
+        }
+        if let Some(key) = settings["selectedScreen"].as_str() {
+            keys.insert(key.into());
+        }
+        if let Some(live) = settings["liveScreens"].as_array() {
+            keys.extend(live.iter().filter_map(|v| v.as_str().map(str::to_owned)));
+        }
+        let displays = keys
+            .into_iter()
+            .map(|key| {
+                let theme = settings["screenThemes"][&key]
+                    .as_str()
+                    .or_else(|| {
+                        (settings["selectedScreen"].as_str() == Some(&key))
+                            .then(|| settings["lastTheme"].as_str())
+                            .flatten()
+                    })
+                    .map(str::to_owned);
+                let theme_name = theme.as_ref().and_then(|path| {
+                    bezel_themes::native::load_manifest(&ThemeLocation(path.clone()))
+                        .ok()
+                        .map(|t| t.name)
+                        .or_else(|| {
+                            Path::new(path)
+                                .file_stem()
+                                .map(|s| s.to_string_lossy().into_owned())
+                        })
+                });
+                Display {
+                    name: key.clone(),
+                    key,
+                    theme,
+                    theme_name,
+                    connected: false,
+                }
+            })
+            .collect();
+        Ok(Overview { config, displays })
     }
     pub fn load(&self) -> Result<Config> {
         let metadata = match std::fs::metadata(&self.0) {
@@ -217,31 +352,15 @@ struct Selection {
     priority: u32,
 }
 impl Selection {
-    fn choose(
-        &mut self,
-        config: &Config,
-        screen: &str,
-        snapshot: &Snapshot,
-        now: Duration,
-    ) -> Option<String> {
+    fn choose(&mut self, config: &Config, snapshot: &Snapshot, now: Duration) -> Option<String> {
         if !config.automatic {
-            self.active = config
-                .manual
-                .as_ref()
-                .filter(|id| {
-                    config
-                        .profiles
-                        .iter()
-                        .any(|p| &p.id == *id && p.screen == screen)
-                })
-                .cloned();
+            self.active = config.manual.as_ref().cloned();
             self.release = None;
             return self.active.clone();
         }
         let matching = config
             .profiles
             .iter()
-            .filter(|p| p.screen == screen)
             .flat_map(|p| p.rules.iter().map(move |r| (p, r)))
             .filter(|(_, r)| r.matches(snapshot))
             // Stable saved order wins ties.
@@ -265,12 +384,11 @@ impl Selection {
             self.return_seconds = r.return_seconds;
             self.priority = r.priority;
             self.release = None;
-        } else if let Some(profile) = self.active.as_ref().and_then(|id| {
-            config
-                .profiles
-                .iter()
-                .find(|p| &p.id == id && p.screen == screen)
-        }) {
+        } else if let Some(profile) = self
+            .active
+            .as_ref()
+            .and_then(|id| config.profiles.iter().find(|p| &p.id == id))
+        {
             if profile.rules.iter().any(|r| !r.available(snapshot)) {
                 return self.active.clone();
             }
@@ -289,12 +407,7 @@ impl Selection {
             config
                 .default_profile
                 .as_ref()
-                .filter(|id| {
-                    config
-                        .profiles
-                        .iter()
-                        .any(|p| &p.id == *id && p.screen == screen)
-                })
+                .filter(|id| config.profiles.iter().any(|p| &p.id == *id))
                 .cloned()
         })
     }
@@ -305,8 +418,8 @@ pub(crate) struct Service {
     config: Config,
     stamp: Option<SystemTime>,
     poll: Duration,
-    selections: BTreeMap<String, Selection>,
-    documents: BTreeMap<String, Option<Document>>,
+    selection: Selection,
+    documents: BTreeMap<(String, String), Option<Document>>,
 }
 impl Service {
     pub fn new(file: ProfileFile) -> Self {
@@ -315,7 +428,7 @@ impl Service {
             config: Config::default(),
             stamp: None,
             poll: Duration::ZERO,
-            selections: BTreeMap::new(),
+            selection: Selection::default(),
             documents: BTreeMap::new(),
         }
     }
@@ -335,21 +448,21 @@ impl Service {
             {
                 changed = true;
                 self.config = config;
-                self.selections.clear();
+                self.selection = Selection::default();
                 self.documents.clear();
                 self.stamp = stamp;
             }
         }
         // Re-entering a profile after editing must read its freshly saved theme.
         // Keep only active documents; failed reads retry at most once a second.
-        self.documents.retain(|id, document| {
+        self.documents.retain(|(id, screen), document| {
             if document.is_none() {
                 return !poll;
             }
             engine
                 .scenes
-                .values()
-                .any(|scene| scene.profile_id.as_ref() == Some(id))
+                .get(screen)
+                .is_some_and(|scene| scene.profile_id.as_ref() == Some(id))
         });
         let config_changed = changed;
         let scene_bytes = |scene: &crate::Scene| {
@@ -358,9 +471,14 @@ impl Service {
                 + scene.profile_restore.as_ref().map_or(0, Document::bytes)
         };
         let mut budget: usize = engine.scenes.values().map(&scene_bytes).sum();
+        let selected = self.selection.choose(&self.config, snapshot, now);
         for (key, scene) in &mut engine.scenes {
-            let selection = self.selections.entry(key.clone()).or_default();
-            let id = selection.choose(&self.config, key, snapshot, now);
+            let id = selected.clone().filter(|id| {
+                self.config
+                    .profiles
+                    .iter()
+                    .any(|p| &p.id == id && p.themes.contains_key(key))
+            });
             // Editing pauses profile output. Its pixels never replace the editor's
             // published frame, so reopening Studio first sees its own document.
             let id = id.filter(|_| {
@@ -377,15 +495,17 @@ impl Service {
                     .saturating_sub(before)
                     .saturating_add(scene_bytes(scene));
                 if let Some(id) = id {
-                    if !self.documents.contains_key(&id) {
+                    let cache_key = (id.clone(), key.clone());
+                    if !self.documents.contains_key(&cache_key) {
                         let document = self
                             .config
                             .profiles
                             .iter()
                             .find(|p| p.id == id)
-                            .and_then(|p| {
+                            .and_then(|p| p.themes.get(key))
+                            .and_then(|path| {
                                 bezel_themes::FsThemeStore
-                                    .load(&ThemeLocation(p.theme.clone()))
+                                    .load(&ThemeLocation(path.clone()))
                                     .ok()
                             })
                             .map(|(theme, assets)| Document { theme, assets })
@@ -395,9 +515,9 @@ impl Service {
                         let document = document.filter(|d| {
                             cached_bytes.saturating_add(d.bytes()) <= crate::MAX_ALL_ASSETS / 2
                         });
-                        self.documents.insert(id.clone(), document);
+                        self.documents.insert(cache_key.clone(), document);
                     }
-                    if let Some(Some(document)) = self.documents.get(&id)
+                    if let Some(Some(document)) = self.documents.get(&cache_key)
                         && scene
                             .screen
                             .as_ref()
@@ -429,14 +549,26 @@ impl Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_single_screen_profiles_migrate_without_losing_their_assignment() {
+        let old = r#"{"profiles":[{"id":"gaming","name":"Gaming","screen":"COM3","theme":"wide.bezeltheme","rules":[]}],"automatic":false,"manual":"gaming"}"#;
+        let config: Config = serde_json::from_str(old).unwrap();
+        config.validate().unwrap();
+        assert_eq!(config.profiles[0].themes["COM3"], "wide.bezeltheme");
+        let saved = serde_json::to_value(&config).unwrap();
+        assert!(saved["profiles"][0].get("screen").is_none());
+        assert!(saved["profiles"][0].get("theme").is_none());
+        assert_eq!(saved["profiles"][0]["themes"]["COM3"], "wide.bezeltheme");
+        let duplicate = r#"{"id":"bad","name":"Bad","screen":"COM3","theme":"old","themes":{"COM4":"new"},"rules":[]}"#;
+        assert!(serde_json::from_str::<Profile>(duplicate).is_err());
+    }
     fn config() -> Config {
         Config {
             profiles: vec![
                 Profile {
                     id: "music".into(),
                     name: "Music".into(),
-                    screen: "screen".into(),
-                    theme: "music.bezeltheme".into(),
+                    themes: BTreeMap::from([("screen".into(), "music.bezeltheme".into())]),
                     rules: vec![Rule {
                         source: Source::MediaPlaying,
                         app: String::new(),
@@ -447,8 +579,7 @@ mod tests {
                 Profile {
                     id: "game".into(),
                     name: "Game".into(),
-                    screen: "screen".into(),
-                    theme: "game.bezeltheme".into(),
+                    themes: BTreeMap::from([("screen".into(), "game.bezeltheme".into())]),
                     rules: vec![Rule {
                         source: Source::Foreground,
                         app: "Game.exe".into(),
@@ -469,17 +600,13 @@ mod tests {
         s.activity_available = true;
         let mut choice = Selection::default();
         assert_eq!(
-            choice.choose(&c, "screen", &s, Duration::ZERO).as_deref(),
+            choice.choose(&c, &s, Duration::ZERO).as_deref(),
             Some("music")
         );
         c.select(None, true).unwrap();
         assert_eq!(
-            choice.choose(&c, "screen", &s, Duration::ZERO).as_deref(),
+            choice.choose(&c, &s, Duration::ZERO).as_deref(),
             Some("game")
-        );
-        assert_eq!(
-            Selection::default().choose(&c, "other", &s, Duration::ZERO),
-            None
         );
     }
     #[test]
@@ -491,33 +618,24 @@ mod tests {
         s.activity_available = true;
         s.media_available = true;
         assert_eq!(
-            choice.choose(&c, "screen", &s, Duration::ZERO).as_deref(),
+            choice.choose(&c, &s, Duration::ZERO).as_deref(),
             Some("game")
         );
         s.foreground = None;
         assert_eq!(
-            choice
-                .choose(&c, "screen", &s, Duration::from_secs(1))
-                .as_deref(),
+            choice.choose(&c, &s, Duration::from_secs(1)).as_deref(),
             Some("game")
         );
         assert_eq!(
-            choice
-                .choose(&c, "screen", &s, Duration::from_secs(2))
-                .as_deref(),
+            choice.choose(&c, &s, Duration::from_secs(2)).as_deref(),
             Some("game")
         );
-        assert_eq!(
-            choice.choose(&c, "screen", &s, Duration::from_secs(3)),
-            None
-        );
+        assert_eq!(choice.choose(&c, &s, Duration::from_secs(3)), None);
         s.foreground = Some("game".into());
-        choice.choose(&c, "screen", &s, Duration::from_secs(4));
+        choice.choose(&c, &s, Duration::from_secs(4));
         s.activity_available = false;
         assert_eq!(
-            choice
-                .choose(&c, "screen", &s, Duration::from_secs(40))
-                .as_deref(),
+            choice.choose(&c, &s, Duration::from_secs(40)).as_deref(),
             Some("game")
         );
     }
@@ -550,34 +668,32 @@ mod tests {
         });
         let mut choice = Selection::default();
         assert_eq!(
-            choice
-                .choose(&c, "screen", &snapshot, Duration::ZERO)
-                .as_deref(),
+            choice.choose(&c, &snapshot, Duration::ZERO).as_deref(),
             Some("music")
         );
         snapshot.foreground = Some("GAME.EXE".into());
         assert_eq!(
             choice
-                .choose(&c, "screen", &snapshot, Duration::from_secs(1))
+                .choose(&c, &snapshot, Duration::from_secs(1))
                 .as_deref(),
             Some("game")
         );
         snapshot.foreground = None;
         assert_eq!(
             choice
-                .choose(&c, "screen", &snapshot, Duration::from_secs(2))
+                .choose(&c, &snapshot, Duration::from_secs(2))
                 .as_deref(),
             Some("game")
         );
         assert_eq!(
             choice
-                .choose(&c, "screen", &snapshot, Duration::from_secs(3))
+                .choose(&c, &snapshot, Duration::from_secs(3))
                 .as_deref(),
             Some("game")
         );
         assert_eq!(
             choice
-                .choose(&c, "screen", &snapshot, Duration::from_secs(4))
+                .choose(&c, &snapshot, Duration::from_secs(4))
                 .as_deref(),
             Some("music")
         );
@@ -585,7 +701,7 @@ mod tests {
         c.profiles[1].rules[0].priority = 10;
         assert_eq!(
             Selection::default()
-                .choose(&c, "screen", &snapshot, Duration::ZERO)
+                .choose(&c, &snapshot, Duration::ZERO)
                 .as_deref(),
             Some("music")
         );

@@ -202,7 +202,7 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     let mut music = saved.clone(); music.theme.name = "music profile".into();
     bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &music.theme, &music.assets).unwrap();
     let file = ProfileFile(directory.join("profiles.json"));
-    file.save(&Config { profiles: vec![Profile { id: "music".into(), name: "Music".into(), screen: f.key.clone(), theme: path.display().to_string(), rules: vec![] }], automatic: false, manual: Some("music".into()), default_profile: None }).unwrap();
+    file.save(&Config { profiles: vec![Profile { id: "music".into(), name: "Music".into(), themes: BTreeMap::from([(f.key.clone(), path.display().to_string())]), rules: vec![] }], automatic: false, manual: Some("music".into()), default_profile: None }).unwrap();
     f.engine.scenes.get_mut(&f.key).unwrap().live = true;
     let mut service = Service::new(file.clone());
     service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
@@ -232,6 +232,45 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     std::fs::remove_file(path).unwrap();
     std::fs::remove_dir(directory).unwrap();
     DISTINCT.with(|d| d.set(previous_pixels));
+}
+
+#[test]
+fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
+    use crate::profiles::{Config, Profile, ProfileFile, Service};
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    let mut f = fixture();
+    let mut wide = doc(); wide.theme.name = "Selected wide".into();
+    let mut round = wide.clone(); round.theme.name = "Selected round".into();
+    round.theme.canvas = Size::new(480, 480); round.theme.orientation = Orientation::Portrait;
+    f.engine.document("wide", 1, wide.clone(), true).unwrap();
+    f.engine.document("round", 1, round.clone(), true).unwrap();
+    for scene in f.engine.scenes.values_mut() { scene.live = true; }
+    let directory = std::env::temp_dir().join(format!("bezel-profile-pair-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let mut themes = BTreeMap::new();
+    for (key, base) in [("wide", &wide), ("round", &round)] {
+        let mut gaming = base.clone(); gaming.theme.name = format!("Gaming {key}");
+        let path = directory.join(format!("{key}.bezeltheme"));
+        bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &gaming.theme, &gaming.assets).unwrap();
+        themes.insert(key.to_owned(), path.display().to_string());
+    }
+    let file = ProfileFile(directory.join("profiles.json"));
+    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None };
+    file.save(&config).unwrap();
+    let mut service = Service::new(file.clone());
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
+    for key in ["wide", "round"] {
+        assert_eq!(f.engine.scenes[key].runtime.theme().name, format!("Gaming {key}"));
+        assert_eq!(f.engine.scenes[key].profile_id.as_deref(), Some("gaming"));
+    }
+    assert!(f.engine.scenes["wide"].saved == wide);
+    assert!(f.engine.scenes["round"].saved == round);
+    file.select(None, false).unwrap();
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(2));
+    assert_eq!(f.engine.scenes["wide"].runtime.theme().name, "Selected wide");
+    assert_eq!(f.engine.scenes["round"].runtime.theme().name, "Selected round");
+    for path in themes.values() { std::fs::remove_file(path).unwrap(); }
+    std::fs::remove_file(&file.0).unwrap(); std::fs::remove_dir(directory).unwrap();
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
