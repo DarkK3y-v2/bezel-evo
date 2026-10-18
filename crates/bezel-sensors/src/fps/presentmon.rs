@@ -206,8 +206,10 @@ impl PresentMon {
     }
 
     /// Where PresentMon's console executable is, in this order: the
-    /// configured path, a `tools/` folder next to Bezel, `PATH`,
-    /// Intel's install folder.
+    /// configured path, a `tools/` or `sensors/` folder next to Bezel,
+    /// Intel's install folder, then `PATH`. In every folder the plain
+    /// `PresentMon.exe` wins, and a versioned release name such as
+    /// `PresentMon-2.6.0-x64.exe` is accepted as well.
     fn find_executable(&self) -> Option<PathBuf> {
         if let Some(p) = &self.path {
             if p.exists() {
@@ -218,35 +220,60 @@ impl PresentMon {
             // An exe without a parent folder must not skip the rest of the
             // search (PATH, Program Files) below.
             if let Some(dir) = exe.parent() {
-                let tools = dir.join("tools").join("PresentMon.exe");
-                if tools.exists() {
-                    return Some(tools);
+                if let Some(found) = Self::find_in_dir(&dir.join("tools")) {
+                    return Some(found);
                 }
                 // The portable layout keeps the sensor helper in sensors\.
-                let sensors = dir.join("sensors").join("PresentMon.exe");
-                if sensors.exists() {
-                    return Some(sensors);
+                if let Some(found) = Self::find_in_dir(&dir.join("sensors")) {
+                    return Some(found);
                 }
             }
         }
         if let Ok(pf) = std::env::var("ProgramFiles") {
-            let intel = PathBuf::from(pf)
-                .join("Intel")
-                .join("PresentMon")
-                .join("PresentMon.exe");
-            if intel.exists() {
-                return Some(intel);
+            let intel = PathBuf::from(pf).join("Intel").join("PresentMon");
+            if let Some(found) = Self::find_in_dir(&intel) {
+                return Some(found);
             }
         }
         if let Ok(paths) = std::env::var("PATH") {
             for dir in std::env::split_paths(&paths) {
-                let exe = dir.join("PresentMon.exe");
-                if exe.exists() {
-                    return Some(exe);
+                if let Some(found) = Self::find_in_dir(&dir) {
+                    return Some(found);
                 }
             }
         }
         None
+    }
+
+    /// True for a PresentMon console executable: the plain
+    /// `PresentMon.exe`, or a versioned release name such as
+    /// `PresentMon-2.6.0-x64.exe`.
+    fn is_presentmon_exe(name: &str) -> bool {
+        let name = name.to_ascii_lowercase();
+        name == "presentmon.exe" || (name.starts_with("presentmon-") && name.ends_with(".exe"))
+    }
+
+    /// The PresentMon executable inside `dir`: the plain `PresentMon.exe`
+    /// wins over versioned names; among versioned names the highest name in
+    /// alphabetical order wins, so a newer release usually does.
+    fn find_in_dir(dir: &std::path::Path) -> Option<PathBuf> {
+        let mut exact: Option<PathBuf> = None;
+        let mut versioned: Vec<PathBuf> = Vec::new();
+        for entry in std::fs::read_dir(dir).ok()?.flatten() {
+            let Some(name) = entry.file_name().into_string().ok() else {
+                continue;
+            };
+            if name.eq_ignore_ascii_case("PresentMon.exe") {
+                exact = Some(entry.path());
+            } else if Self::is_presentmon_exe(&name) {
+                versioned.push(entry.path());
+            }
+        }
+        if exact.is_some() {
+            return exact;
+        }
+        versioned.sort();
+        versioned.pop()
     }
 
     /// True when the foreground process looks like a game: not a browser,
@@ -272,7 +299,7 @@ impl PresentMon {
     /// is created before the spawn: a job failure leaves nothing running.
     fn start(&mut self) -> Result<(), String> {
         let path = self.find_executable().ok_or(
-            "PresentMon executable not found. Configure path or ensure it is in tools/, Program Files, or PATH.",
+            "PresentMon executable not found. Configure its path, or copy PresentMon.exe or PresentMon-<version>-x64.exe into tools\\ or sensors\\ next to bezel.exe.",
         )?;
 
         #[cfg(windows)]
