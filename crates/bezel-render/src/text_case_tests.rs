@@ -66,6 +66,7 @@ fn casing_pixels_and_measurement_match_formatted_text_without_changing_the_sourc
                 context(),
             )
             .unwrap();
+        assert!(a.is_some(), "formatted text must have a natural frame");
         assert_eq!(a, b);
         assert!(
             matches!(&original.elements[0].kind, ElementKind::Text { content: TextContent::Static(text), .. } if text==source)
