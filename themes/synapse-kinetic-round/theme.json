@@ -1,0 +1,285 @@
+{
+  "schema": 1,
+  "name": "Synapse / Kinetic \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#080c11ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Motion / hide this layer for a still theme",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/motion.gif",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 3,
+      "name": "Load arc",
+      "frame": {
+        "x": 76,
+        "y": 76,
+        "width": 328,
+        "height": 328
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -90,
+        "sweep": 360,
+        "thickness": 7,
+        "clockwise": true,
+        "fill": "#b4ffd7ff",
+        "track": "#ffffff12",
+        "roundCaps": true,
+        "segments": {
+          "count": 64,
+          "gap": 2
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 4,
+      "name": "Brand",
+      "frame": {
+        "x": 130,
+        "y": 121,
+        "width": 220,
+        "height": 32
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "SYNAPSE"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 26,
+          "paint": "#e9f8f2ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Caption",
+      "frame": {
+        "x": 140,
+        "y": 166,
+        "width": 200,
+        "height": 22
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU / LOAD"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 13,
+          "paint": "#6e98a0ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "GPU load",
+      "frame": {
+        "x": 112,
+        "y": 201,
+        "width": 256,
+        "height": 87
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 72,
+          "paint": "#e9f8f2ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 7,
+      "name": "GPU thermal",
+      "frame": {
+        "x": 156,
+        "y": 291,
+        "width": 168,
+        "height": 29
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 22,
+          "paint": "#ff8098ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 8,
+      "name": "CPU caption",
+      "frame": {
+        "x": 140,
+        "y": 342,
+        "width": 72,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "CPU reading",
+      "frame": {
+        "x": 221,
+        "y": 333,
+        "width": 112,
+        "height": 34
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 25,
+          "paint": "#e9f8f2ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#080c11ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#b4ffd7ff"
+    },
+    {
+      "name": "Text",
+      "color": "#e9f8f2ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#6e98a0ff"
+    }
+  ]
+}

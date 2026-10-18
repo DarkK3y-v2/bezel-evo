@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "name": "Morph / Sound \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#0e0a1cff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Motion / hide this layer for a still theme",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/motion.gif",
+        "fit": "fill"
+      },
+      "locked": true,
+      "opacity": 0.35
+    },
+    {
+      "id": 3,
+      "name": "Live radial sound sculpture",
+      "frame": {
+        "x": 6,
+        "y": 6,
+        "width": 468,
+        "height": 468
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "style": "radial",
+          "bands": 64,
+          "motion": "smooth",
+          "peaks": false,
+          "thickness": 5,
+          "inner": 83,
+          "centre": false,
+          "gain": 1.2
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 0,
+            "stops": [
+              [
+                0,
+                "#72f4e5ff"
+              ],
+              [
+                0.5,
+                "#a391f5ff"
+              ],
+              [
+                1,
+                "#fa91f2ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Centre disc",
+      "frame": {
+        "x": 114,
+        "y": 114,
+        "width": 252,
+        "height": 252
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "ellipse",
+        "radius": 0,
+        "fill": "#160f28ed",
+        "stroke": "#c38add66",
+        "strokeWidth": 1
+      }
+    },
+    {
+      "id": 5,
+      "name": "Brand",
+      "frame": {
+        "x": 135,
+        "y": 157,
+        "width": 210,
+        "height": 54
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "MORPH"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 40,
+          "paint": "#fff1ffff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "Track metadata",
+      "frame": {
+        "x": 142,
+        "y": 224,
+        "width": 196,
+        "height": 79
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "showProgress": false,
+          "showTime": false,
+          "showSource": false,
+          "emptyText": "Let the\nroom move."
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 19,
+          "paint": "#fff1ffff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "name": "Clock",
+      "frame": {
+        "x": 175,
+        "y": 320,
+        "width": 130,
+        "height": 25
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#a69ec4ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#0e0a1cff"
+    },
+    {
+      "name": "Accent",
+      "color": "#f78eefff"
+    },
+    {
+      "name": "Text",
+      "color": "#fff1ffff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#a69ec4ff"
+    }
+  ]
+}

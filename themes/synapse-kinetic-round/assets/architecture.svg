@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480"><defs><radialGradient id="pool"><stop stop-color="#1b3c40"/><stop offset="1" stop-color="#080c11"/></radialGradient></defs>
+        <circle cx="240" cy="240" r="238" fill="url(#pool)" stroke="#315158"/>
+        <circle cx="240" cy="240" r="117" fill="#0b151c" stroke="#345d60"/>
+        <path d="M117 331H363" stroke="#315158"/></svg>

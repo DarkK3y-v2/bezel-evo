@@ -20,7 +20,14 @@ fn coordinated_templates_load_and_render_with_live_features() {
         crate::SHIPPED_FONTS.iter().map(|f| f.to_vec()).collect(),
         SystemFonts::Skip,
     );
-    for collection in ["pulse-gaming", "resonance-music", "clarity-monitor"] {
+    for collection in [
+        "pulse-gaming",
+        "resonance-music",
+        "clarity-monitor",
+        "synapse-kinetic",
+        "prism-kinetic",
+        "morph-sound",
+    ] {
         for format in ["wide", "round"] {
             let slug = format!("{collection}-{format}");
             let (mut theme, assets) = bezel_themes::FsThemeStore
@@ -111,6 +118,56 @@ fn coordinated_templates_load_and_render_with_live_features() {
                         image::ColorType::Rgba8,
                     )
                     .unwrap();
+                }
+            }
+            let moving = theme
+                .elements
+                .iter()
+                .filter_map(|e| {
+                    if let ElementKind::Image { asset, .. } = &e.kind {
+                        asset.0.ends_with("motion.gif").then_some(asset)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            for asset in &moving {
+                let timeline = renderer
+                    .animation(asset, &scene.assets)
+                    .expect("animated asset");
+                assert_eq!(timeline.len(), 40);
+                assert!(timeline.next_change(Duration::ZERO) >= Duration::from_millis(100));
+                assert!(timeline.total() >= Duration::from_secs(4));
+            }
+            if !moving.is_empty() {
+                scene.animation = Duration::ZERO;
+                let first = testkit::render(&mut renderer, &theme, &scene);
+                scene.animation = Duration::from_millis(125);
+                let second = testkit::render(&mut renderer, &theme, &scene);
+                assert_ne!(first, second, "kinetic theme must actually change pixels");
+                if let Some(dir) = std::env::var_os("BEZEL_KINETIC_PREVIEW_FRAMES") {
+                    let folder = Path::new(&dir).join(&slug);
+                    std::fs::create_dir_all(&folder).unwrap();
+                    for n in 0..40 {
+                        scene.animation = Duration::from_millis(n * 120);
+                        // Representative audio motion for exported previews only.
+                        for spectrum in scene.snapshot.spectra.values_mut() {
+                            for (i, level) in spectrum.levels.iter_mut().enumerate() {
+                                *level =
+                                    0.15 + ((i as f32 * 0.3 + n as f32 * 0.15).sin() + 1.0) * 0.32;
+                            }
+                            spectrum.peaks.clone_from(&spectrum.levels);
+                        }
+                        let frame = testkit::render(&mut renderer, &theme, &scene);
+                        image::save_buffer(
+                            folder.join(format!("{n:02}.png")),
+                            frame.as_rgba(),
+                            theme.canvas.width,
+                            theme.canvas.height,
+                            image::ColorType::Rgba8,
+                        )
+                        .unwrap();
+                    }
                 }
             }
         }

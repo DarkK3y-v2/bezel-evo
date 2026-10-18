@@ -103,6 +103,12 @@ They demonstrate rotating Cards, smooth sensor values, colour thresholds, histor
 graphs, the media player and live system-audio spectra. Open one from **Themes**
 and save a copy to customise it. See [the template guide](themes/README.md).
 
+Six additional animated **Kinetic** templates explore graphic motion design:
+**Synapse** (orbital signals and telemetry), **Prism** (a moving geometric knot
+and poster typography) and **Morph** (a live sound sculpture). Each has Wide
+and Round layouts, local animation loops and native live widgets, with no
+photographic backgrounds.
+
 **Bezel Light** is the small tray program that owns your screens. It runs the
 themes, reads the sensors, keeps the graph history and clocks, plays the
 transitions and decodes background videos, all in one place. Studio is the

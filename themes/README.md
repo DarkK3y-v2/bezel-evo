@@ -1,5 +1,37 @@
 # Modern template pairs
 
+## Animated graphic collections
+
+The six modern originals below remain available. The library also includes six
+additional graphic-only animated themes, with matching Wide and Round layouts:
+
+| Collection | Art direction | Live elements |
+| --- | --- | --- |
+| Synapse / Kinetic | Dark mint/cyan signal architecture, orbiting particles, counter-rotating arcs and large typography | Segmented GPU gauge, CPU/RAM readings and meters, thermals, media metadata and system-audio frequency field on Wide |
+| Prism / Kinetic | Cream, orange and lilac poster, continuously deforming geometric knot | Clock, CPU/GPU/RAM readings and histories on Wide; compact CPU dial inside the clock on Round |
+| Morph / Sound | Magenta/cyan motion graphics, full-width layered audio sculpture | Media session, live system-audio curves and telemetry on Wide; radial audio around a central media display on Round |
+
+The animated artwork is drawn from geometric primitives, with no photographs.
+Forty transparent frames form a seamless local loop lasting approximately
+4.8 seconds (about 8 frames/second). The display's animation scheduler skips
+frames when necessary; audio and sensor widgets use actual readings. No video
+decoder or media conversion is needed for the decorative loops.
+
+For a still layout, hide the layer named **Motion / hide this layer for a still
+theme**. The clock, sensor readings and live audio remain independent.
+
+Regenerate these six new themes with `python scripts/create-kinetic-themes.py`
+(requires Pillow). This script does not rewrite the six modern originals.
+
+To export animated review pages from actual renderer frames, set
+`BEZEL_THEME_PREVIEWS=dist/kinetic-theme-previews` and
+`BEZEL_KINETIC_PREVIEW_FRAMES=target/kinetic-preview-frames` to **absolute paths**,
+run `cargo test -p bezel-render coordinated_templates -- --nocapture`, then
+`python scripts/create-kinetic-previews.py`. The result is
+`dist/kinetic-theme-previews/index.html`, with labelled, simulated preview data.
+
+## Modern originals
+
 Open these from Studio's **Themes** library. Included themes are read-only;
 save a copy to make your own. Each collection has a **Wide** canvas (1920×480)
 and a **Round** canvas (480×480, with important content inside the circular

@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "name": "Prism / Kinetic \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#f1eee7ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Motion / hide this layer for a still theme",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/motion.gif",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 3,
+      "name": "Clock surround",
+      "frame": {
+        "x": 132,
+        "y": 132,
+        "width": 216,
+        "height": 216
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "ellipse",
+        "radius": 0,
+        "fill": "#f1eee7ff",
+        "strokeWidth": 0
+      }
+    },
+    {
+      "id": 4,
+      "name": "Load arc",
+      "frame": {
+        "x": 134,
+        "y": 134,
+        "width": 212,
+        "height": 212
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -90,
+        "sweep": 360,
+        "thickness": 4,
+        "clockwise": true,
+        "fill": "#ff633fff",
+        "track": "#d6cfc5ff",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 5,
+      "name": "Clock disc",
+      "frame": {
+        "x": 143,
+        "y": 143,
+        "width": 194,
+        "height": 194
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "ellipse",
+        "radius": 0,
+        "fill": "#f1eee7ff",
+        "stroke": "#252b30ff",
+        "strokeWidth": 1.5
+      }
+    },
+    {
+      "id": 6,
+      "name": "Brand",
+      "frame": {
+        "x": 167,
+        "y": 170,
+        "width": 146,
+        "height": 25
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "PRISM"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 22,
+          "paint": "#20282cff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "name": "Clock",
+      "frame": {
+        "x": 153,
+        "y": 209,
+        "width": 174,
+        "height": 55
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 42,
+          "paint": "#20282cff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "name": "CPU label",
+      "frame": {
+        "x": 182,
+        "y": 284,
+        "width": 48,
+        "height": 19
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#777b79ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "CPU value",
+      "frame": {
+        "x": 235,
+        "y": 277,
+        "width": 65,
+        "height": 30
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 21,
+          "paint": "#20282cff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#f1eee7ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#ff633fff"
+    },
+    {
+      "name": "Text",
+      "color": "#20282cff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#777b79ff"
+    }
+  ]
+}

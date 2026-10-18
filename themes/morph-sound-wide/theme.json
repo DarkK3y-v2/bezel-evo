@@ -1,0 +1,548 @@
+{
+  "schema": 1,
+  "name": "Morph / Sound \u2014 Wide",
+  "canvas": {
+    "width": 1920,
+    "height": 480
+  },
+  "orientation": "landscape",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#0e0a1cff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Motion / hide this layer for a still theme",
+      "frame": {
+        "x": 748,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/motion.gif",
+        "fit": "fill"
+      },
+      "locked": true,
+      "opacity": 0.23
+    },
+    {
+      "id": 3,
+      "name": "Wordmark",
+      "frame": {
+        "x": 24,
+        "y": -0.0,
+        "width": 1070,
+        "height": 150
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "MORPH"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 142,
+          "paint": "#fff1ffff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Descriptor",
+      "frame": {
+        "x": 730,
+        "y": 55,
+        "width": 500,
+        "height": 28
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "SOUND / SCULPTURE"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#a69ec4ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "Clock",
+      "frame": {
+        "x": 1660,
+        "y": 48,
+        "width": 228,
+        "height": 44
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 33,
+          "paint": "#fff1ffff",
+          "align": "right",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "Live sound sculpture",
+      "frame": {
+        "x": 32,
+        "y": 151,
+        "width": 1856,
+        "height": 202
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "style": "line",
+          "bands": 64,
+          "motion": "smooth",
+          "peaks": false,
+          "stroke": 14,
+          "fill": false,
+          "centre": false,
+          "gain": 1.2
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 0,
+            "stops": [
+              [
+                0,
+                "#72f4e5ff"
+              ],
+              [
+                0.5,
+                "#a391f5ff"
+              ],
+              [
+                1,
+                "#fa91f2ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "opacity": 0.08
+    },
+    {
+      "id": 7,
+      "name": "Live sound sculpture",
+      "frame": {
+        "x": 32,
+        "y": 151,
+        "width": 1856,
+        "height": 202
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "style": "line",
+          "bands": 64,
+          "motion": "smooth",
+          "peaks": false,
+          "stroke": 6,
+          "fill": false,
+          "centre": false,
+          "gain": 1.2
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 0,
+            "stops": [
+              [
+                0,
+                "#72f4e5ff"
+              ],
+              [
+                0.5,
+                "#a391f5ff"
+              ],
+              [
+                1,
+                "#fa91f2ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "opacity": 0.22
+    },
+    {
+      "id": 8,
+      "name": "Live sound sculpture",
+      "frame": {
+        "x": 32,
+        "y": 151,
+        "width": 1856,
+        "height": 202
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "style": "line",
+          "bands": 64,
+          "motion": "smooth",
+          "peaks": false,
+          "stroke": 2,
+          "fill": false,
+          "centre": false,
+          "gain": 1.2
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 0,
+            "stops": [
+              [
+                0,
+                "#72f4e5ff"
+              ],
+              [
+                0.5,
+                "#a391f5ff"
+              ],
+              [
+                1,
+                "#fa91f2ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "opacity": 1.0
+    },
+    {
+      "id": 9,
+      "name": "Track metadata",
+      "frame": {
+        "x": 34,
+        "y": 386,
+        "width": 1050,
+        "height": 57
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "showProgress": false,
+          "showTime": false,
+          "showSource": false,
+          "emptyText": "Let the room move."
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 23,
+          "paint": "#fff1ffff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "CPU caption",
+      "frame": {
+        "x": 1190,
+        "y": 391,
+        "width": 70,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#a69ec4ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "name": "CPU reading",
+      "frame": {
+        "x": 1265,
+        "y": 382,
+        "width": 120,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#72f4e5ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 12,
+      "name": "GPU caption",
+      "frame": {
+        "x": 1440,
+        "y": 391,
+        "width": 70,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#a69ec4ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "name": "GPU reading",
+      "frame": {
+        "x": 1515,
+        "y": 382,
+        "width": 120,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#b49cf5ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 14,
+      "name": "RAM caption",
+      "frame": {
+        "x": 1690,
+        "y": 391,
+        "width": 70,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RAM"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#a69ec4ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "name": "RAM reading",
+      "frame": {
+        "x": 1765,
+        "y": 382,
+        "width": 120,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "memory.percent",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#fa91f2ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 16,
+      "name": "Footer",
+      "frame": {
+        "x": 34,
+        "y": 460,
+        "width": 1820,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "M / 03     GENERATIVE MOTION                                     LIVE SYSTEM-AUDIO SCULPTURE"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 11,
+          "paint": "#a69ec4ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#0e0a1cff"
+    },
+    {
+      "name": "Accent",
+      "color": "#f78eefff"
+    },
+    {
+      "name": "Text",
+      "color": "#fff1ffff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#a69ec4ff"
+    }
+  ]
+}
