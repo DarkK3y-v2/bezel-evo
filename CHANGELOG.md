@@ -5,6 +5,17 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.34] - 2026-10-18
+
+0.1.32 and 0.1.33 were local builds; this entry and the two below cover them.
+
+### Fixes
+- Windows Setup waits for the sensor reader to release its files before an
+  update or uninstall, including elevated readers whose process path Windows
+  hides. Updates also check before running an older uninstaller, preventing
+  write errors on sensor DLLs such as BlackSharp.Core.dll. Open Studio and
+  Light still block the operation so you can save and close them yourself.
+
 ## [0.1.33] - 2026-10-18
 
 0.1.32 was a local build; this entry and the one below cover it.
