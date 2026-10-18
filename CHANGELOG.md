@@ -5,6 +5,16 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.36] - 2026-10-18
+
+0.1.32 through 0.1.35 were local builds; these entries cover them too.
+
+### Studio
+- Every object inspector starts with position and size, followed by the
+  preview and property tabs, including graphs, spectrum, players and cards.
+- Appearance groups follow one shared order: structure and typography,
+  colours, edges and corners, then effects and transparency.
+
 ## [0.1.35] - 2026-10-18
 
 0.1.32 through 0.1.34 were local builds; these entries cover them too.
