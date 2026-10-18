@@ -39,6 +39,12 @@ sostituiti dalla dicitura generica «Tema originale».
 - Clippy dei tre crate toccati verde; test, integration e doctest dei soli tre
   crate verdi, compresi 223 unitari Studio. Nessuna suite workspace o push.
 - Screenshot verificato: `dist/profiles-two-displays.png`.
-- Consegna prevista: build diretta 0.1.40, nessun setup, installazione o push.
-  Studio .39 resta aperto: richiesta di salvataggio e chiusura inviata a codice
-  verificato; compilazione .40 ancora da avviare.
+- Dopo conferma utente di salvataggio e chiusura, verificata l'assenza di processi
+  Bezel e completata `build-evo.ps1 -Version 0.1.40`. CLI e metadati dello Studio
+  riportano 0.1.40; log in `target/build-evo-0.1.40.log`.
+- Avviato direttamente `F:/Dev/bezel/target/release/bezel-studio.exe` in finestra
+  normale, PID 32212. Percorso del processo e SHA256 verificati:
+  `DB842007A2E548124C68C94EB94E66F9E29C54811BA4D5D28362E5A67DE8323C`.
+- Commit implementazione: `b7b4630`, `07c087c`, `5742147`. Nessun setup,
+  installazione o push. Resta la prova utente del cambio sui due display fisici
+  da Temi → Profili e automazioni e dai menu nativi.
