@@ -219,6 +219,10 @@ impl super::FrameRateSource for Rtss {
             fps,
             frametime: None,
             fps_low_1p: None,
+            fps_low_01p: None,
+            fps_min: None,
+            fps_max: None,
+            source: Some("RTSS".to_string()),
             game: None,
             limiter: None,
         })
