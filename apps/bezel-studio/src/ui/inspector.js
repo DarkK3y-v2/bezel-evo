@@ -6,8 +6,8 @@ import { canFitContent } from '../editor/fit-content.js';
 // The right inspector: the theme when nothing is selected, one element's
 // properties, or align/distribute tools for several. Every edit is one
 // store command (one undo step). An element's head (kind, name, layer,
-// eye, lock and more actions), its preview rendered alone by the backend
-// (D-2026-10-09-studio-redesign-fidelity-8), its tabs, position and size,
+// eye, lock, type and more actions), its preview rendered alone by the backend
+// (D-2026-10-09-studio-redesign-fidelity-8), membership, position and size, tabs,
 // then the sections of its tab (artboards Main, GraphData/Look,
 // PlayerData/Look), all built from the primitives of ui/fields.js (D-14).
 import { canGroup } from '../editor/cards.js';
@@ -983,11 +983,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   }
 
   function membershipForm(e, theme) {
-    if (e.card) return [];
+    const facts = layerFacts(theme, e);
+    const summary = el('p', { class: 'hint membership-location', text: facts.group
+      ? t('insp.inGroup', { group: facts.group }) : t('layers.rootDrop') });
+    if (e.card) return [summary];
     const cards = theme.elements.filter(p => p.card);
-    if (!cards.length) return [];
+    if (!cards.length) return [summary];
     const parent = cards.find(p => p.id === e.cardMember?.parent);
     return [
+      summary,
       selectField(t('widget.card'), parent ? String(parent.id) : '', [['', t('card.none')], ...cards.map(p => [String(p.id), p.name])], value => {
         const target = cards.find(p => String(p.id) === value);
         store.dispatch('attachCard', { ids: [e.id], parent: target?.id, face: target?.card.activeFace ?? null });
@@ -1191,6 +1195,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       else name.value = e.name;
     });
     const hidden = e.visible === false;
+    const type = showAs(e, theme);
+    type?.classList.add('inspector-type');
     const tool = (label, paths, onclick, attrs = {}) => iconButton(label, paths, onclick, { class: 'quiet', ...attrs });
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
@@ -1202,13 +1208,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         evt.currentTarget.setAttribute('aria-expanded', String(actionsOpen));
         root.querySelector('#inspector-actions').hidden = !actionsOpen;
       }, { 'aria-expanded': String(actionsOpen), 'aria-controls': 'inspector-actions' }),
+      type,
     ]);
   }
 
   /** An align button: the selection to an edge (a lone object: of the screen). */
   const alignTool = (ids, edge, paths) => el('button', { type: 'button', class: 'icon-button', title: t(`align.${edge}`), 'aria-label': t(`align.${edge}`), onclick: () => store.dispatch('align', { ids, edge }) }, [icon(paths, 16)]);
 
-  /** What the tabs of an element hold: its kind's sections, then its membership and look. */
+  /** Conditional paint controls live beside the paint they affect. */
   function valueColorSection(e, assets) {
     if (!supportsValueColor(e)) return null;
     const rule = e.colorByValue;
@@ -1266,7 +1273,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     look.sort((a, b) => rank(a) - rank(b));
     if (e.card) return { ...cardPanels(e), look };
     return {
-      data: [...(specific.data ?? []), section('membership', t('inspector.membership'), membershipForm(e, theme))],
+      data: specific.data ?? [],
       look,
     };
   }
@@ -1285,10 +1292,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4, unit: 'px', iconName: 'height' }),
       ]),
       canRotate(theme, e) && numberField(t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°', iconName: 'rotate' }),
-      chipButton(t('insp.fitContent'), false, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id) }),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
-    ]);
-    const actions = section('actions', t('inspector.actions'), [showAs(e, theme), el('div', { class: 'actions' }, [
+    ], { tool: iconButton(t('insp.fitContent'), ICONS.frame, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id), class: 'quiet' }) });
+    const actions = section('actions', t('inspector.actions'), [el('div', { class: 'actions' }, [
       e.isGroup && el('button', { type: 'button', class: 'text-button', text: t('group.ungroup'), onclick: () => store.dispatch('ungroup', { ids: [e.id] }) }),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: theme.elements.length }) }, [t('inspector.front')]),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: 0 }) }, [t('inspector.back')]),
@@ -1297,13 +1303,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
-    // Geometry is always the first property area, independent of object kind
-    // or active tab. Preview and content/appearance follow the same order.
+    // Identify and preview the object, establish its context, then edit its
+    // geometry. These areas stay visible independently of the active tab.
     return [
       header(e, widget, theme),
       actions,
-      position,
       preview(e),
+      section('membership', t('inspector.membership'), membershipForm(e, theme)),
+      position,
       ...tabbed(kind, panelsOf(e, theme, assets)),
     ];
   }

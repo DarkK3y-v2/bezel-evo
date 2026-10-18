@@ -5,6 +5,16 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [Unreleased]
+
+### Studio
+- Object inspectors show preview, membership and geometry before their tabs.
+  Membership stays visible on every tab, including the top-level context.
+- Convertible sensor widgets show their type selector beside their name;
+  changing type no longer requires opening the more-actions menu.
+- Numeric labels stay beside their compact controls. Tighter section spacing
+  and a fit-to-content action in the geometry heading reduce vertical scrolling.
+
 ## [0.1.36] - 2026-10-18
 
 0.1.32 through 0.1.35 were local builds; these entries cover them too.

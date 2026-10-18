@@ -116,7 +116,10 @@
 /* An object (artboards Main, GraphData/Look, PlayerData/Look): its head
    (kind, name, layer, eye, lock, more), its preview, the tabs, position
    and size, then the sections of the open tab. */
-.inspector-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+.inspector-head { display: grid; grid-template-columns: 34px minmax(0, 1fr) repeat(3, 28px); align-items: center; gap: 8px; margin: 2px 0 12px; }
+.inspector-type { grid-column: 1 / -1; margin: 0; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px; }
+.inspector-head > .icon-button { width: 28px; height: 28px; }
+.inspector-type > span { font-size: var(--fs-small); }
 .inspector-title { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .inspector-name { width: 100%; min-width: 0; padding: 1px 4px; margin-left: -5px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: var(--fs-heading); font-weight: 600; text-overflow: ellipsis; }
 .inspector-name:hover { border-color: var(--border); }
@@ -143,10 +146,11 @@
 .inspector-tabs [role="tab"]:focus-visible { outline-offset: 0; }
 
 /* Property groups have a visible boundary; short values keep a stable width. */
-.inspector .property-section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-.inspector .section-head { min-height: 26px; }
+.inspector .property-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.inspector .property-section .section-head { min-height: 24px; margin-bottom: 8px; }
+.inspector .section-head > .icon-button:last-child { margin-left: auto; }
 .inspector .section-title { color: var(--text-2); }
-.inspector .number-field { display: grid; grid-template-columns: minmax(0, 1fr) 112px; align-items: center; gap: 10px; }
+.inspector .number-field { display: grid; grid-template-columns: minmax(0, max-content) 112px; justify-content: start; align-items: center; gap: 10px; }
 .inspector .number-field > .field-label { font-size: var(--fs-field); line-height: 1.4; color: var(--text-2); }
 .inspector .number-control { height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
 .inspector .number-control input { width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; font-family: var(--font-mono); font-size: var(--fs-field); }

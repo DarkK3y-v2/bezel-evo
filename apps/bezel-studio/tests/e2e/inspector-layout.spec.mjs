@@ -13,6 +13,10 @@ test('short numbers stay compact and conditional colour stays with the paint', a
     expect(box.width).toBeLessThan(115);
     expect(box.width).toBeGreaterThan(60);
     await expect(rotation.locator('..').locator('..').locator('.ic')).toHaveCount(1);
+    expect(await rotation.evaluate(input => {
+      const row = input.closest('.number-field');
+      return row.querySelector('.number-control').getBoundingClientRect().left - row.querySelector('.field-label').getBoundingClientRect().right;
+    })).toBeLessThanOrEqual(12);
     await inspector.getByRole('tab', { name: t('inspector.tab.look'), exact: true }).click();
     const rules = inspector.locator('[data-section="value-color"]');
     await expect(rules).toBeVisible();
@@ -35,7 +39,7 @@ test('shape groups separate fill, transparency, outline and corners in both them
   const inspector = page.locator('#inspector');
   // Shapes have only Look properties, so the inspector omits the tab strip.
   const panel = inspector;
-  expect(await panel.locator(':scope > [data-section]').evaluateAll(nodes => nodes.map(node => node.dataset.section).filter(key => !['position', 'actions'].includes(key))))
+  expect(await panel.locator(':scope > [data-section]').evaluateAll(nodes => nodes.map(node => node.dataset.section).filter(key => !['position', 'actions', 'membership'].includes(key))))
     .toEqual(['shape', 'color', 'outline', 'corners', 'transparency']);
   await expect(panel.locator('[data-section="transparency"]').getByRole('slider', { name: t('inspector.opacity'), exact: true })).toBeVisible();
   await inspector.getByRole('button', { name: t('insp.cornersEach'), exact: true }).click();
@@ -51,6 +55,34 @@ test('shape groups separate fill, transparency, outline and corners in both them
   // Keep the fixed status footer outside the full-height inspector capture.
   await page.locator('.statusbar').evaluate(node => { node.style.visibility = 'hidden'; });
   await inspector.screenshot({ path: test.info().outputPath('inspector-shape.png') });
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
+test('membership stays visible across tabs and changing a card keeps Undo', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await clickAddWidget(page, t, 'card');
+  await clickAddWidget(page, t, 'bar');
+  const inspector = page.locator('#inspector');
+  const membership = inspector.locator(':scope > [data-section="membership"]');
+  const card = membership.getByRole('combobox', { name: t('widget.card'), exact: true });
+  const parent = await card.inputValue();
+  expect(parent).not.toBe('');
+  for (const tab of ['look', 'data']) {
+    await inspector.getByRole('tab', { name: t(`inspector.tab.${tab}`), exact: true }).click();
+    await expect(card).toBeVisible();
+    await expect(inspector.locator('.inspector-type select')).toBeVisible();
+  }
+  await card.selectOption('');
+  await expect(membership.getByRole('combobox', { name: t('card.face'), exact: true })).toHaveCount(0);
+  await page.locator('#undo').click();
+  await expect(card).toHaveValue(parent);
+  await expect(membership.getByRole('combobox', { name: t('card.face'), exact: true })).toBeVisible();
+  await inspector.evaluate(node => { node.style.height = `${node.scrollHeight}px`; node.style.maxHeight = 'none'; node.style.flex = 'none'; node.scrollTop = 0; });
+  await page.locator('.statusbar').evaluate(node => { node.style.visibility = 'hidden'; });
+  await inspector.screenshot({ path: test.info().outputPath('inspector-context.png') });
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
