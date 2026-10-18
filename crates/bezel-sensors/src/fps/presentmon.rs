@@ -73,9 +73,12 @@ impl PresentMonParser {
     /// `None` when `header` is not PresentMon's header.
     pub fn new(header: &str) -> Option<Self> {
         let cols: Vec<&str> = header.split(',').map(|s| s.trim()).collect();
+        // PresentMon names the process column "Application" in every real
+        // release (1.x, 2.x and current); "Process"/"ProcessName" cover
+        // synthetic logs and older forks.
         let process_idx = cols
             .iter()
-            .position(|&c| c == "Process" || c == "ProcessName")?;
+            .position(|&c| c == "Application" || c == "Process" || c == "ProcessName")?;
         let frametime_idx = cols.iter().position(|&c| {
             c == "MsBetweenPresents"
                 || c == "msBetweenPresents"
@@ -212,9 +215,13 @@ impl PresentMon {
             }
         }
         if let Ok(exe) = std::env::current_exe() {
-            let tools = exe.parent()?.join("tools").join("PresentMon.exe");
-            if tools.exists() {
-                return Some(tools);
+            // An exe without a parent folder must not skip the rest of the
+            // search (PATH, Program Files) below.
+            if let Some(dir) = exe.parent() {
+                let tools = dir.join("tools").join("PresentMon.exe");
+                if tools.exists() {
+                    return Some(tools);
+                }
             }
         }
         if let Ok(pf) = std::env::var("ProgramFiles") {
@@ -432,6 +439,14 @@ impl PresentMon {
     }
 }
 
+/// A dropped PresentMon must never leave PresentMon.exe running: whatever
+/// forgets stop(), the kill happens here too.
+impl Drop for PresentMon {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 impl FrameRateSource for PresentMon {
     fn describe(&self) -> String {
         if self.fallback_to_rtss {
@@ -493,7 +508,7 @@ impl FrameRateSource for PresentMon {
                     }
                     self.state = State::BackingOff(Instant::now() + self.backoff_duration);
                     self.backoff_duration = (self.backoff_duration * 2).min(BACKOFF_MAX);
-                    return Err(format!("{}  gpu.fps falls back to RTSS", e));
+                    return Err(format!("{} -gpu.fps falls back to RTSS", e));
                 }
                 self.backoff_duration = BACKOFF_INITIAL;
             } else {
@@ -954,8 +969,7 @@ mod tests {
 
     #[test]
     fn parses_wait_and_busy_columns() {
-        let csv =
-            "Process,FrameTime,CPUBusy,CPUWait,GPUBusy,GPUWait\ngame.exe,16.6,8.0,5.0,9.0,15.0";
+        let csv = "Application,FrameTime,MsCPUBusy,MsCPUWait,MsGPUBusy,MsGPUWait\ngame.exe,16.6,8.0,5.0,9.0,15.0";
         let mut lines = csv.lines();
         let header = lines.next().unwrap();
         let parser = PresentMonParser::new(header).unwrap();
