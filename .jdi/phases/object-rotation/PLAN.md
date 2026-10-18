@@ -13,7 +13,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
 - D-2026-10-18-object-rotation-07: Layer ritagliato sul riquadro, rotazione in composizione (bilineare, con opacità); bbox ruotato nei dirty rect; demo-render.js e anteprima isolata fanno lo stesso.
 - D-2026-10-18-object-rotation-08: hit-test e maniglie nel sistema locale; copia/incolla/duplica tengono l'angolo; un trascinamento = un Annulla; i18n en/pt-BR/it.
 
-## Scelte del piano (da confermare in verifica)
+## Scelte del piano (confermate dalla verifica automatica)
 - Verso: angolo positivo = orario sullo schermo (y verso il basso), come `Transform::from_rotate` di tiny-skia e `ctx.rotate` del canvas 2D.
 - Esclusi: oltre a Card/membri/gruppi/membri, anche le forme `videoWindow` (sono il "buco" sul video di sfondo; il video di sfondo vero è `theme.background`, non un elemento). `Element::applied_rotation()` restituisce 0 per tutti gli esclusi in entrambi i renderer; il caricamento DTO azzera l'angolo degli esclusi (nessun errore).
 - Raggruppare o mettere in una Card un oggetto ruotato ne azzera la rotazione (Annulla la ripristina): il campo per i membri non esiste, l'angolo resterebbe non modificabile.
@@ -105,13 +105,13 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `demo render and inspector preview match the Rust parity fixture at 30°` (fixture letto con `fs` lato Node e passato a `page.evaluate`; pixel di `renderApprox` e del frame di `renderElement` sui punti campione)
 - **Dependencies:** T-5, T-6
 - **Test:** `node scripts/e2e-slot.mjs tests/e2e/object-rotation.spec.mjs` (da `apps/bezel-studio`); singolo caso: `node scripts/e2e-slot.mjs tests/e2e/object-rotation.spec.mjs -g "copy, paste and duplicate"`; non regressione mirata: `node scripts/e2e-slot.mjs tests/e2e/clipboard.spec.mjs tests/e2e/alignment-019.spec.mjs tests/e2e/inspector-preview.spec.mjs`
-- **Status:** pending
+- **Status:** completed
 
 ## Execution
 - Total tasks: 7
 - Waves: 4 (1 → 3 → 2 → 1)
 - Estimated parallel speedup: 1.75x
-- Commit: uno per task, `feat(object-rotation): …` / `test(object-rotation): …`, con riferimento al D-XX e trailer `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+- Commit: uno per task, `feat(object-rotation): …` / `test(object-rotation): …`, con riferimento al D-XX e trailer `Co-Authored-By: ChatGPT <noreply@openai.com>`.
 
 ## Files modified (all tasks)
 - `crates/bezel-core/src/domain/{rotation.rs,mod.rs,theme.rs,spectrum.rs,transition.rs}`, `crates/bezel-core/src/app/card_timer.rs`, `crates/bezel-core/tests/fixtures/rotation-parity.json`, `crates/bezel-core/tests/runtime_*.rs`

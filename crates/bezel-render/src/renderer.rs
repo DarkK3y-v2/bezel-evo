@@ -565,16 +565,34 @@ fn opacity_of(opacity: f32) -> u8 {
 }
 
 /// Composites a layer covering `bounds` onto the canvas.
-fn composite_layer(canvas: &mut Pixmap, pixels: &[u8], bounds: IntRect, opacity: u8, opaque: bool, element: &Element) {
+fn composite_layer(
+    canvas: &mut Pixmap,
+    pixels: &[u8],
+    bounds: IntRect,
+    opacity: u8,
+    opaque: bool,
+    element: &Element,
+) {
     let angle = element.applied_rotation();
     if angle != 0.0 {
-        let Some(source) = tiny_skia::PixmapRef::from_bytes(pixels, bounds.width(), bounds.height()) else { return; };
+        let Some(source) =
+            tiny_skia::PixmapRef::from_bytes(pixels, bounds.width(), bounds.height())
+        else {
+            return;
+        };
         let (cx, cy) = element.frame.center();
-        canvas.draw_pixmap(bounds.x(), bounds.y(), source, &tiny_skia::PixmapPaint {
-            opacity: f32::from(opacity) / 255.0,
-            quality: tiny_skia::FilterQuality::Bilinear,
-            ..Default::default()
-        }, Transform::from_rotate_at(angle, cx, cy), None);
+        canvas.draw_pixmap(
+            bounds.x(),
+            bounds.y(),
+            source,
+            &tiny_skia::PixmapPaint {
+                opacity: f32::from(opacity) / 255.0,
+                quality: tiny_skia::FilterQuality::Bilinear,
+                ..Default::default()
+            },
+            Transform::from_rotate_at(angle, cx, cy),
+            None,
+        );
         return;
     }
     let (width, height) = (canvas.width(), canvas.height());
@@ -603,7 +621,12 @@ fn element_bounds(
     let area = element.frame;
     if element.applied_rotation() != 0.0 {
         let bounds = Rect::from_xywh(area.x, area.y, area.width, area.height)?.round_out()?;
-        return IntRect::from_xywh(bounds.x(), bounds.y(), bounds.width().min(MAX_CANVAS_SIDE), bounds.height().min(MAX_CANVAS_SIDE));
+        return IntRect::from_xywh(
+            bounds.x(),
+            bounds.y(),
+            bounds.width().min(MAX_CANVAS_SIDE),
+            bounds.height().min(MAX_CANVAS_SIDE),
+        );
     }
     let rect = match &element.kind {
         ElementKind::Needle {

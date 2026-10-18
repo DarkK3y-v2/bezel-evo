@@ -120,6 +120,7 @@ pub fn isolate(theme: &Theme, id: ElementId) -> Option<Theme> {
         .collect();
     let (left, top, right, bottom) = bounds(&elements, root.frame);
     for element in &mut elements {
+        element.rotation = element.applied_rotation();
         element.frame.x -= left;
         element.frame.y -= top;
         if let Some(card) = element.card.as_mut() {
@@ -228,12 +229,12 @@ pub(crate) mod tests {
 
     #[test]
     fn a_rotated_element_gets_a_canvas_of_its_rotated_box() {
-        let mut e = shape(1, BoxF::new(50.,45.,60.,30.), Rgba::WHITE);
+        let mut e = shape(1, BoxF::new(50., 45., 60., 30.), Rgba::WHITE);
         e.rotation = 30.;
         let alone = isolate(&theme(vec![e]), ElementId(1)).unwrap();
-        assert_eq!(alone.canvas, Size::new(68,56));
-        assert_eq!(alone.elements[0].frame, BoxF::new(4.,13.,60.,30.));
-        assert_eq!(alone.elements[0].rotation,30.);
+        assert_eq!(alone.canvas, Size::new(68, 56));
+        assert_eq!(alone.elements[0].frame, BoxF::new(4., 13., 60., 30.));
+        assert_eq!(alone.elements[0].rotation, 30.);
     }
 
     #[test]
