@@ -3,6 +3,17 @@
 Studio and Light draw text with the same fonts, from three places. The
 [font picker](studio-editing.md#fonts) lists each of them in its own section.
 
+## Letter case
+
+Select a text widget and open **Look → Font → Letter case**. Choose Original,
+UPPERCASE, lowercase, First letter uppercase or Capitalize Each Word. The same
+control applies to values, clocks, weather and media metadata.
+
+Formatting changes the displayed text, including accented letters, without
+rewriting its source. Original restores the source's case. Changes are undoable
+and saved with the theme. **Fit content** measures the formatted text, so it also
+accounts for letters becoming wider after conversion.
+
 ## Included with Bezel
 
 **Inter** and **JetBrains Mono** are built into Bezel Evo: every theme can use

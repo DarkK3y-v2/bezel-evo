@@ -41,6 +41,8 @@ Studio has been redesigned from the ground up, in dark and light.
   own font, a preview with the object's real text, and only the weights the font
   really has. Fonts come from three places: [included with Bezel, your own fonts
   folder, or packed inside the theme](docs/user/fonts.md).
+- **Letter case without rewriting text.** Preserve the original, use upper or
+  lowercase, or capitalize the first letter or every word, including live text.
 - **Cards that are easy to follow.** A plain list of faces with **Edit** for each,
   a shared background under all of them, **one transition** for the whole Card
   (fade, slide or flip) and **timed triggers** ("every 30 s, the next face")
