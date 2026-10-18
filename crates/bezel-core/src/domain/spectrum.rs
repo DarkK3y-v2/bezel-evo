@@ -66,6 +66,8 @@ pub struct Spectrum {
     pub fill: bool,
     /// Inner ring radius as a percentage of the outer radius, for `Radial`.
     pub inner: f32,
+    /// Multiplies every band's height, 0.1..=4 (D-AS-12).
+    pub gain: f32,
 }
 impl Default for Spectrum {
     fn default() -> Self {
@@ -86,6 +88,7 @@ impl Default for Spectrum {
             stroke: 2.,
             fill: true,
             inner: 40.,
+            gain: 1.,
         }
     }
 }
@@ -109,6 +112,7 @@ impl Spectrum {
             && (1. ..=64.).contains(&self.block)
             && (1. ..=32.).contains(&self.stroke)
             && (0. ..=90.).contains(&self.inner)
+            && (0.1..=4.).contains(&self.gain)
     }
     /// The followed session, selected by the Player's own selection function.
     pub fn session<'a>(

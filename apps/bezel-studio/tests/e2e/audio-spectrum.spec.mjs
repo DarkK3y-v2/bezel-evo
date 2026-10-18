@@ -11,6 +11,8 @@ test('spectrum follows one Player; demo, presets, gradients and band thresholds 
   await expect(follow.locator('option')).toHaveCount(2);await follow.selectOption({index:1});await expect(follow).not.toHaveValue('');
   const count=inspector.getByRole('spinbutton',{name:t('spectrum.bands'),exact:true});await expect(count).toHaveValue('32');
   await count.fill('48');await count.press('Tab');await expect(count).toHaveValue('48');
+  const gain=inspector.getByRole('spinbutton',{name:t('spectrum.gain'),exact:true});await expect(gain).toHaveValue('1');
+  await gain.fill('0.5');await gain.press('Tab');await expect(gain).toHaveValue('0.5');await expect(inspector.getByText(t('spectrum.gainHint'),{exact:true})).toBeVisible();
   await inspector.getByRole('button',{name:t('spectrum.demo'),exact:true}).click();await expect(inspector.getByText(t('spectrum.demoHint'),{exact:true})).toBeVisible();
   const canvas=inspector.locator('canvas');const before=await canvas.evaluate(c=>c.toDataURL());await expect.poll(()=>canvas.evaluate(c=>c.toDataURL())).not.toBe(before);
   await tab(page,t,'inspector.tab.look');

@@ -798,6 +798,8 @@ pub struct SpectrumDto {
     pub fill: bool,
     #[serde(skip_serializing_if = "is_default_inner")]
     pub inner: f32,
+    #[serde(skip_serializing_if = "is_default_gain")]
+    pub gain: f32,
 }
 fn is_mirrored(style: &str) -> bool {
     style == "mirrored"
@@ -816,6 +818,9 @@ fn is_default_fill(v: &bool) -> bool {
 }
 fn is_default_inner(v: &f32) -> bool {
     *v == spectrum_default().inner
+}
+fn is_default_gain(v: &f32) -> bool {
+    *v == spectrum_default().gain
 }
 impl Default for SpectrumDto {
     fn default() -> Self {
@@ -854,6 +859,7 @@ impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
             stroke: s.stroke,
             fill: s.fill,
             inner: s.inner,
+            gain: s.gain,
         }
     }
 }
@@ -891,6 +897,7 @@ impl SpectrumDto {
             stroke: self.stroke,
             fill: self.fill,
             inner: self.inner,
+            gain: self.gain,
         };
         if !s.valid() {
             return err("invalid spectrum bounds");
@@ -2344,12 +2351,15 @@ mod spectrum_tests {
         s.block = 6.;
         s.inner = 95.;
         assert!(s.domain().is_err());
+        s.inner = 40.;
+        s.gain = 5.;
+        assert!(s.domain().is_err());
     }
     #[test]
     fn every_style_round_trips_and_the_default_keeps_the_old_shape() {
         use bezel_core::domain::spectrum::{Spectrum, SpectrumStyle};
         let mirrored = serde_json::to_value(SpectrumDto::default()).unwrap();
-        for key in ["style", "block", "stroke", "fill", "inner"] {
+        for key in ["style", "block", "stroke", "fill", "inner", "gain"] {
             assert!(mirrored.get(key).is_none(), "{key}");
         }
         for style in [
@@ -2364,6 +2374,7 @@ mod spectrum_tests {
                 stroke: 3.,
                 fill: false,
                 inner: 25.,
+                gain: 0.5,
                 ..Spectrum::default()
             };
             let json = serde_json::to_vec(&SpectrumDto::from(&s)).unwrap();

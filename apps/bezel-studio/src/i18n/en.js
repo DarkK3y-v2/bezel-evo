@@ -26,6 +26,8 @@ export default {
   "spectrum.enableHint": "Live listens to the app the Player follows; you can turn it off in Preferences.",
   "spectrum.gradient": "Gradient",
   "spectrum.levelScale": "Each band: 0–100 represents −72 to 0 dB.",
+  "spectrum.gain": "Amplitude (×)",
+  "spectrum.gainHint": "Below 1 lowers the bars, above 1 raises them.",
   "spectrum.style": "Style",
   "spectrum.mirrored": "Mirrored",
   "spectrum.blocks": "LED blocks",

@@ -13,14 +13,15 @@ use bezel_core::domain::{
 };
 use tiny_skia::{LineCap, LineJoin, PathBuilder, Stroke, Transform};
 
-/// Bands of one frame, clamped to 0..=1; missing values read as silence.
-struct Bands<'a>(&'a SpectrumFrame);
+/// Bands of one frame scaled by the gain and clamped to 0..=1; missing values
+/// read as silence.
+struct Bands<'a>(&'a SpectrumFrame, f32);
 impl Bands<'_> {
     fn level(&self, i: usize) -> f32 {
-        self.0.levels.get(i).copied().unwrap_or(0.).clamp(0., 1.)
+        (self.0.levels.get(i).copied().unwrap_or(0.) * self.1).clamp(0., 1.)
     }
     fn peak(&self, i: usize) -> f32 {
-        self.0.peaks.get(i).copied().unwrap_or(0.).clamp(0., 1.)
+        (self.0.peaks.get(i).copied().unwrap_or(0.) * self.1).clamp(0., 1.)
     }
 }
 
@@ -35,7 +36,7 @@ pub(crate) fn draw(
     if !s.valid() {
         return;
     }
-    let bands = Bands(frame);
+    let bands = Bands(frame, s.gain);
     match s.style {
         SpectrumStyle::Mirrored => mirrored(layer, area, s, &bands, paint, colors),
         SpectrumStyle::Bars => bars(layer, area, s, &bands, paint, colors),
@@ -553,6 +554,24 @@ mod tests {
                 }
             }
         }
+    }
+    #[test]
+    fn the_gain_scales_every_band() {
+        let half = Spectrum {
+            gain: 0.5,
+            ..plain(SpectrumStyle::Bars)
+        };
+        let f = styled(half, WIDGET, two_bands(), true);
+        // 0.8 at half gain reads 0.4: below the 50 threshold and 22.8 px tall.
+        assert_eq!(f.pixel(55, 70), Some(green()));
+        assert_eq!(f.pixel(55, 50), Some(Rgba::BLACK));
+        let double = Spectrum {
+            gain: 4.,
+            ..plain(SpectrumStyle::Bars)
+        };
+        let f = styled(double, WIDGET, two_bands(), true);
+        // 0.2 at four times reads 0.8.
+        assert_eq!(f.pixel(45, 40), Some(red()));
     }
     #[test]
     fn a_spectrum_without_a_result_is_silent_not_disabled() {

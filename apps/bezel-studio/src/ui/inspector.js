@@ -559,6 +559,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         numberField(t('spectrum.bands'), c.bands, bands => set({ bands }), { min: 8, max: 64, step: 1 }),
         numberField(t('spectrum.low'), c.low, low => set({ low }), { min: 20, max: 23999, step: 1 }),
         numberField(t('spectrum.high'), c.high, high => set({ high }), { min: c.low + 1, max: 24000, step: 1 }),
+        numberField(t('spectrum.gain'), c.gain, gain => set({ gain }), { min: 0.1, max: 4, step: 0.1 }),
+        el('p', { class: 'hint', text: t('spectrum.gainHint') }),
       ])],
       look: [section('spectrum-paint', t('inspector.color'), [
         selectField(t('inspector.fill'), gradient ? 'gradient' : 'solid', [['solid', t('ring.solid')],['gradient',t('spectrum.gradient')]], mode => setPaint(mode)),

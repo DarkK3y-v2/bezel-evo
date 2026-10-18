@@ -26,6 +26,8 @@ export default {
   "spectrum.enableHint": "Dal vivo ascolta l’app seguita dal Player; puoi spegnerlo nelle Preferenze.",
   "spectrum.gradient": "Gradiente",
   "spectrum.levelScale": "Ogni banda: 0–100 corrisponde a −72–0 dB.",
+  "spectrum.gain": "Ampiezza (×)",
+  "spectrum.gainHint": "Sotto 1 abbassa le barre, sopra 1 le alza.",
   "spectrum.style": "Modalità",
   "spectrum.mirrored": "Specchiate",
   "spectrum.blocks": "Blocchi LED",

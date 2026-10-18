@@ -190,7 +190,7 @@ function drawText(ctx, e, t, value, measure = false) {
 
 function drawSpectrum(ctx, e, seconds) {
   const c = spectrumOf(e.kind.content), f = e.frame, mid = f.y + f.height / 2, bottom = f.y + f.height;
-  const values = c.demo ? demoSpectrum(c, seconds) : Array(c.bands).fill(0);
+  const values = (c.demo ? demoSpectrum(c, seconds) : Array(c.bands).fill(0)).map(v => Math.min(1, v * c.gain));
   const tr = translator(globalThis.document?.documentElement?.lang ?? 'en');
   ctx.save(); ctx.globalAlpha = e.opacity ?? 1; ctx.beginPath(); ctx.rect(f.x,f.y,f.width,f.height); ctx.clip();
   const fill = e.kind.style.paint;

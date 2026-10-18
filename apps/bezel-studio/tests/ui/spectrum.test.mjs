@@ -31,7 +31,8 @@ test('styles default to mirrored; unknown styles and style bounds cannot escape 
   assert.equal(spectrumPatch({}, { style: 'spiral' }).style, 'mirrored');
   const c = spectrumPatch({}, { block: 0, stroke: 99, inner: 95, fill: false });
   assert.deepEqual([c.block, c.stroke, c.inner, c.fill], [1, 32, 90, false]);
-  assert.deepEqual(spectrumPatch({}, { block: NaN, stroke: NaN, inner: NaN }), SPECTRUM_DEFAULTS);
+  assert.deepEqual(spectrumPatch({}, { block: NaN, stroke: NaN, inner: NaN, gain: NaN }), SPECTRUM_DEFAULTS);
+  assert.deepEqual([spectrumPatch({}, { gain: 0 }).gain, spectrumPatch({}, { gain: 9 }).gain, spectrumPatch({}, { gain: 0.5 }).gain], [0.1, 4, 0.5]);
 });
 test('spectrum is standalone, uses band thresholds and remains one Undo step per edit', () => {
   const store = createStore(DEMO_THEME); store.dispatch('add', { widget: 'spectrum' });
