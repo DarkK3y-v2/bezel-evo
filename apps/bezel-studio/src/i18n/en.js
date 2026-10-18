@@ -1,5 +1,11 @@
 // English strings. Keys must match pt-BR.js (checked by tests/ui/i18n.test.mjs).
 export default {
+  "textCase.label": "Letter case",
+  "textCase.normal": "Original",
+  "textCase.upper": "UPPERCASE",
+  "textCase.lower": "lowercase",
+  "textCase.sentence": "First letter uppercase",
+  "textCase.title": "Capitalize Each Word",
   "profiles.transition": "Transition between profiles",
   "profiles.transitionHint": "Applies to all displays, including the return to selected themes. Slow displays show fewer frames. None and video played directly by the device switch instantly.",
   "profiles.title": "Profiles and automation",

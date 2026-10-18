@@ -1,4 +1,5 @@
 import { canRotate, appliedRotation } from '../editor/rotation.js';
+import { applyTextCase, TEXT_CASES } from '../text-case.js';
 import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
 import { moveRule } from '../card-rules.js';
@@ -416,11 +417,12 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** The font of a text: family and face, size (unless shown elsewhere), color, alignment and spacing. */
   function fontFields(e, { size = true } = {}) {
     const s = e.kind.style;
-    const { texts, source } = pickers.font(sampleText(e));
+    const { texts, source } = pickers.font(applyTextCase(sampleText(e), s.casing));
     // A family picked instead of the theme's own font file drops that file.
     const setFont = (font) => update(e.id, { kind: { style: { font } } });
     return [
       fontPicker(texts, s.font, setFont, source),
+      selectField(t('textCase.label'), s.casing ?? 'normal', TEXT_CASES.map((value) => [value, t(`textCase.${value}`)]), (casing) => update(e.id, { kind: { style: { casing } } })),
       size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px', iconName: 'textSize' }),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
       segmented(t('inspector.align'), s.align, [['left', t('common.left')], ['center', t('inspector.alignCenter')], ['right', t('common.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
@@ -443,10 +445,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         if (pattern === 'custom') root.querySelector('[list="clock-patterns"]')?.focus();
         else update(e.id, { kind: { content: { pattern } } });
       }));
-      nodes.push(selectField(t('clock.casing'), c.casing ?? 'normal', ['normal', 'upper', 'title'].map((value) => [value, t(`clock.${value}`)]), (casing) => update(e.id, { kind: { content: { casing } } })));
+      nodes.push(selectField(t('clock.casing'), e.kind.style.casing ?? c.casing ?? 'normal', TEXT_CASES.map((value) => [value, t(`textCase.${value}`)]), (casing) => update(e.id, { kind: { content: { casing: 'normal' }, style: { casing } } })));
       nodes.push(textField(t('inspector.pattern'), c.pattern, (v) => update(e.id, { kind: { content: { pattern: v } } }), { list: 'clock-patterns' }));
       nodes.push(el('datalist', { id: 'clock-patterns' }, CLOCK_PATTERNS.map((p) => el('option', { value: p }))));
-      nodes.push(el('p', { id: 'clock-preview', class: 'hint', text: t('clock.preview', { value: formatClock(c.pattern, new Date(), c.language, c.casing) }) }));
+      nodes.push(el('p', { id: 'clock-preview', class: 'hint', text: t('clock.preview', { value: applyTextCase(formatClock(c.pattern, new Date(), c.language, c.casing), e.kind.style.casing) }) }));
       nodes.push(el('p', { class: 'hint', text: t('inspector.patternHelp') }));
     }
     if (c.type === 'weather') {

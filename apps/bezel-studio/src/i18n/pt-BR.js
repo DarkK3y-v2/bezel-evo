@@ -1,5 +1,11 @@
 // Portuguese (Brazil) strings. Keys must match en.js (checked by tests/ui/i18n.test.mjs).
 export default {
+  "textCase.label": "Maiúsculas e minúsculas",
+  "textCase.normal": "Original",
+  "textCase.upper": "TUDO MAIÚSCULO",
+  "textCase.lower": "tudo minúsculo",
+  "textCase.sentence": "Primeira letra maiúscula",
+  "textCase.title": "Iniciais De Cada Palavra",
   "profiles.transition": "Transição entre perfis",
   "profiles.transitionHint": "Vale para todas as telas, incluindo o retorno aos temas selecionados. Telas lentas mostram menos quadros. Nenhum e vídeos reproduzidos diretamente pelo dispositivo trocam imediatamente.",
   "profiles.title": "Perfis e automações",

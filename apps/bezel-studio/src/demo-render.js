@@ -1,4 +1,5 @@
 import { appliedRotation, centerOf } from './editor/rotation.js';
+import { applyTextCase } from './text-case.js';
 import { boundKey } from './editor/widgets.js';
 import { demoSensorValue } from './demo-sensors.js';
 import { demoColorValue, withValueColor } from './value-color.js';
@@ -139,11 +140,12 @@ function drawText(ctx, e, t, value, measure = false) {
   } else if (k.content.type === 'sensor') {
     text = `${k.content.prefix ?? ''}${Number.isFinite(value) ? Math.round(value * 100) : '\u2014'}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
   }
+  text = applyTextCase(text, s.casing);
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
   if (measure && k.content.type === 'player') {
     const shown = playerText(k.content, DEMO_MEDIA);
-    const lines = shown.lines;
+    const lines = shown.lines.length ? applyTextCase(shown.lines.join('\n'), s.casing).split('\n') : [];
     const block = lines.length ? { width: Math.max(...lines.map(line => ctx.measureText(line).width)), height: lines.length * Math.ceil(s.size * 1.2) } : null;
     const m = blockMetrics(k.content, DEMO_MEDIA, shown, timeLabel(ctx, s), s.size);
     return fitPlayer(k.content, shown, block, m, e.frame, s.size);
