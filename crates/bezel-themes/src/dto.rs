@@ -1058,6 +1058,9 @@ pub struct FontDto {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextStyleDto {
+    /// Non-destructive case; absent preserves the source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub casing: Option<String>,
     /// Face.
     pub font: FontDto,
     /// Size, px.
@@ -1416,6 +1419,13 @@ fn format(f: FormatDto) -> DisplayFormat {
 
 fn style_dto(s: &TextStyle) -> TextStyleDto {
     TextStyleDto {
+        casing: match s.casing {
+            bezel_core::domain::text_case::TextCase::Normal => None,
+            bezel_core::domain::text_case::TextCase::Upper => Some("upper".into()),
+            bezel_core::domain::text_case::TextCase::Lower => Some("lower".into()),
+            bezel_core::domain::text_case::TextCase::Sentence => Some("sentence".into()),
+            bezel_core::domain::text_case::TextCase::Title => Some("title".into()),
+        },
         font: FontDto {
             family: s.font.family.clone(),
             weight: s.font.weight,
@@ -1442,6 +1452,14 @@ fn style_dto(s: &TextStyle) -> TextStyleDto {
 
 fn style(s: &TextStyleDto) -> R<TextStyle> {
     Ok(TextStyle {
+        casing: match s.casing.as_deref() {
+            None | Some("normal") => bezel_core::domain::text_case::TextCase::Normal,
+            Some("upper") => bezel_core::domain::text_case::TextCase::Upper,
+            Some("lower") => bezel_core::domain::text_case::TextCase::Lower,
+            Some("sentence") => bezel_core::domain::text_case::TextCase::Sentence,
+            Some("title") => bezel_core::domain::text_case::TextCase::Title,
+            Some(other) => return err(format!("unknown text casing {other:?}")),
+        },
         font: FontSpec {
             family: s.font.family.clone(),
             weight: s.font.weight,
@@ -1464,6 +1482,27 @@ fn style(s: &TextStyleDto) -> R<TextStyle> {
         },
         letter_spacing: s.letter_spacing,
     })
+}
+
+#[cfg(test)]
+mod text_case_tests {
+    use super::*;
+    #[test]
+    fn text_case_round_trips_and_old_styles_keep_their_format() {
+        let base = serde_json::json!({"font":{"family":"Inter","weight":400},"size":24,
+            "paint":"#ffffffff","align":"left","valign":"top"});
+        let old: TextStyleDto = serde_json::from_value(base.clone()).unwrap();
+        let restored = style(&old).unwrap();
+        assert_eq!(restored.casing, bezel_core::domain::text_case::TextCase::Normal);
+        assert!(serde_json::to_value(style_dto(&restored)).unwrap().get("casing").is_none());
+        for mode in ["upper", "lower", "sentence", "title"] {
+            let mut json = base.clone(); json["casing"] = mode.into();
+            let dto: TextStyleDto = serde_json::from_value(json).unwrap();
+            assert_eq!(style_dto(&style(&dto).unwrap()).casing.as_deref(), Some(mode));
+        }
+        let mut invalid = base; invalid["casing"] = "unknown".into();
+        assert!(style(&serde_json::from_value(invalid).unwrap()).is_err());
+    }
 }
 
 fn direction_name(d: Direction) -> &'static str {

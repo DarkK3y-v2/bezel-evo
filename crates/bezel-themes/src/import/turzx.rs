@@ -874,6 +874,7 @@ impl Importer {
             paint,
             align,
             valign: VAlign::Top,
+            casing: Default::default(),
             letter_spacing: spacing as f32,
         }
     }

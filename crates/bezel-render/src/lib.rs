@@ -72,3 +72,5 @@ mod rotation_tests;
 
 #[cfg(test)]
 mod modern_themes_tests;
+#[cfg(test)]
+mod text_case_tests;

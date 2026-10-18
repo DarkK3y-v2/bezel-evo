@@ -34,6 +34,7 @@ fn style(align: HAlign, valign: VAlign) -> TextStyle {
         paint: Paint::solid(Rgba::WHITE),
         align,
         valign,
+        casing: Default::default(),
         letter_spacing: 0.,
     }
 }

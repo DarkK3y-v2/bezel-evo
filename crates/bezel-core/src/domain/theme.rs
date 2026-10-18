@@ -185,6 +185,8 @@ pub enum VAlign {
 /// How text looks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
+    /// Non-destructive letter case for every text source.
+    pub casing: super::text_case::TextCase,
     /// Face.
     pub font: FontSpec,
     /// Size in pixels.
@@ -202,6 +204,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
+            casing: super::text_case::TextCase::Normal,
             font: FontSpec::default(),
             size: 24.0,
             paint: Paint::solid(Rgba::WHITE),

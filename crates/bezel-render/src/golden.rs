@@ -213,6 +213,7 @@ fn style(size: f32, align: HAlign, valign: VAlign) -> TextStyle {
         paint: solid(WHITE),
         align,
         valign,
+        casing: Default::default(),
         letter_spacing: 0.0,
     }
 }
@@ -300,6 +301,7 @@ pub(crate) fn texts(r: &mut SkiaRenderer) {
     assert!(l <= 21 && rr >= 58, "overflowing text reaches both sides");
 
     let narrow = |spacing| TextStyle {
+        casing: Default::default(),
         letter_spacing: spacing,
         ..style(20.0, HAlign::Left, VAlign::Top)
     };
@@ -1399,6 +1401,7 @@ fn player_cover_progress_and_stopped_state_use_measured_context() {
                     paint: Paint::solid(WHITE),
                     align: HAlign::Left,
                     valign: VAlign::Top,
+                    casing: Default::default(),
                     letter_spacing: 0.,
                 },
             },
