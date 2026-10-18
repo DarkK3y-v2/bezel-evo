@@ -67,7 +67,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `beginGesture` + più `rotate` + `endGesture` = un solo passo di `undo`; `duplicate`/`paste` mantengono `rotation`; raggruppare un oggetto ruotato lo porta a 0 e `undo` lo ripristina.
 - **Dependencies:** T-1 (fixture)
 - **Test:** `node --test tests/ui/rotation.test.mjs` (da `apps/bezel-studio`) ; `node --test tests/ui/editor-geometry.test.mjs tests/ui/editor-store.test.mjs` (non regressione)
-- **Status:** pending
+- **Status:** completed
 
 ### Wave 3 (parallel-eligible)
 
