@@ -47,12 +47,12 @@ try {
     # A separate installation must not block this one.
     Assert-Check (Start-Check @([pscustomobject]@{ Name = 'bezel.exe'; ExecutablePath = Join-Path $fixture 'other\bezel.exe' })) 0
     $reader = [pscustomobject]@{ Name = 'bezel-sensors-helper.exe'; ExecutablePath = Join-Path $fixture 'sensors\bezel-sensors-helper.exe' }
-    Assert-Check (Start-Check @($reader)) 1 'sensor reader is still using'
+    Assert-Check (Start-Check @($reader)) 1 'The sensor helper stops'
     Assert-Check (Start-Check @($reader) -WaitSeconds 3 -DisappearAfterMs 750) 0
     $invisibleReader = [pscustomobject]@{ Name = 'bezel-sensors-helper.exe'; ExecutablePath = $null }
     $lock = [IO.File]::Open($dll, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
     try {
-        Assert-Check (Start-Check @($invisibleReader)) 1 'sensor reader is still using'
+        Assert-Check (Start-Check @($invisibleReader)) 1 'The sensor helper stops'
         $pending = Start-Check @($invisibleReader) -WaitSeconds 5
         Start-Sleep -Milliseconds 1500
         if ($pending.Process.HasExited) { throw 'Check accepted a locked sensor DLL.' }

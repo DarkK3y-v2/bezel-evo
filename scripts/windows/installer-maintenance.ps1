@@ -44,7 +44,7 @@ try {
                     [IO.Path]::GetDirectoryName($_.ExecutablePath) -in @($appPath, $sensorDirectory)
                 })
                 if (@($running | Where-Object { $_.Name -ne 'bezel-sensors-helper.exe' })) {
-                    throw 'Save and exit Bezel Studio, quit Bezel Light from its tray icon, then retry.'
+                    throw 'Save and exit Bezel Studio, quit Bezel Light from its tray icon, then retry. The sensor helper stops within 30 seconds after its clients exit.'
                 }
                 $locked = @()
                 if (Test-Path -LiteralPath $sensorDirectory) {
@@ -63,7 +63,7 @@ try {
                 }
                 if (-not $running -and -not $locked) { break }
                 if ($timer.Elapsed.TotalSeconds -ge $HelperWaitSeconds) {
-                    throw 'The sensor reader is still using this installation. Keep Studio and Light closed, wait for the reader to finish, then retry. No application was terminated.'
+                    throw 'Save and exit Bezel Studio, quit Bezel Light from its tray icon, then retry. The sensor helper stops within 30 seconds after its clients exit.'
                 }
                 Start-Sleep -Milliseconds 250
             }
