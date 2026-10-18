@@ -34,9 +34,14 @@ era simulato: non dimostravano l'avvio dello strumento in WebView2.
 
 ## Consegna
 
-Changelog preparato per 0.1.43; VERSION ancora 0.1.42 finché non si esegue
-lo script ufficiale. Compilazione release della libreria preparata senza
-sostituire lo Studio aperto (PID 44036, target/release).
-Occorre conferma utente di salvataggio/chiusura per compilare i due eseguibili
-con `scripts/windows/build-evo.ps1 -Version 0.1.43` e avviare direttamente,
-senza setup. Resta da provare interattivamente il prelievo sui due monitor.
+Conferma utente di salvataggio/chiusura ricevuta; nessun processo Bezel prima
+della build. `scripts/windows/build-evo.ps1 -Version 0.1.43` completato in
+1m25s; CLI e metadati FileVersion/ProductVersion Studio riportano 0.1.43.
+Studio avviato direttamente da `F:/Dev/bezel/target/release/bezel-studio.exe`,
+PID 42724, processo rispondente e percorso verificati. Nessun setup,
+installazione o pubblicazione.
+
+SHA256 eseguibile avviato:
+`F493712002108D586ADB9C13CF1C1487B1B160557F9C28EFD996E7BE6055CDD6`.
+Log build: `target/build-evo-0.1.43.log`. Correzione: commit `4748057`.
+Resta da provare interattivamente il prelievo sui due monitor.
