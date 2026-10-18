@@ -1,5 +1,7 @@
 // Italian strings. Keys must match en.js and pt-BR.js (checked by tests/ui/i18n.test.mjs).
 export default {
+  "profiles.transition": "Transizione tra profili",
+  "profiles.transitionHint": "Vale per tutti gli schermi, anche al ritorno ai temi selezionati. Gli schermi lenti mostrano meno fotogrammi. Con Nessuno e con i video riprodotti direttamente dal dispositivo il cambio è immediato.",
   "profiles.title": "Profili e automazioni",
   "profiles.manage": "Gestisci profili",
   "profiles.hint": "Un profilo applica insieme un tema a ciascuno schermo: per esempio Gaming o Musica. Scegli i temi e le eventuali regole automatiche. Vince la priorità maggiore. Il cambio si sospende sul display che modifichi e riprende quando nascondi Studio.",

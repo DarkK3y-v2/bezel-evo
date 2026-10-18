@@ -329,6 +329,12 @@ button.layer-group-title { cursor: pointer; }
 
 .profiles-dialog { width: min(820px, calc(100vw - 32px)); }
 .profile-current h3 { margin: 8px 0; font-size: var(--fs-base); }
+.profile-transition { margin: 12px 0; padding: 12px 0; border-block: 1px solid var(--border); }
+.profile-transition h3 { margin: 0 0 10px; font-size: var(--fs-base); }
+.profile-transition input[type=number] { width: 100px; }
+.profile-transition-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.profile-transition-controls .field { flex: 0 1 180px; margin: 0; }
+.profile-transition-controls .field:has(input) { flex-basis: 112px; }
 .profile-current-displays, .profile-assignments { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
 .profile-current-display { min-width: 0; display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
 .profile-current-display strong { color: var(--dim); font-size: var(--fs-meta); font-weight: 500; overflow-wrap: anywhere; }

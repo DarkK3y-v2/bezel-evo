@@ -1,5 +1,7 @@
 // English strings. Keys must match pt-BR.js (checked by tests/ui/i18n.test.mjs).
 export default {
+  "profiles.transition": "Transition between profiles",
+  "profiles.transitionHint": "Applies to all displays, including the return to selected themes. Slow displays show fewer frames. None and video played directly by the device switch instantly.",
   "profiles.title": "Profiles and automation",
   "profiles.manage": "Manage profiles",
   "profiles.hint": "A profile applies a theme to each display together: for example, Gaming or Music. Choose the themes and optional automatic rules. Higher priorities win. Switching pauses on the display being edited and resumes when Studio is hidden.",

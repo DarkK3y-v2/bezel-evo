@@ -1,5 +1,7 @@
 // Portuguese (Brazil) strings. Keys must match en.js (checked by tests/ui/i18n.test.mjs).
 export default {
+  "profiles.transition": "Transição entre perfis",
+  "profiles.transitionHint": "Vale para todas as telas, incluindo o retorno aos temas selecionados. Telas lentas mostram menos quadros. Nenhum e vídeos reproduzidos diretamente pelo dispositivo trocam imediatamente.",
   "profiles.title": "Perfis e automações",
   "profiles.manage": "Gerenciar perfis",
   "profiles.hint": "Um perfil aplica um tema a cada tela em conjunto: por exemplo, Gaming ou Música. Escolha os temas e regras automáticas opcionais. A maior prioridade vence. A troca pausa na tela em edição e continua ao ocultar o Studio.",

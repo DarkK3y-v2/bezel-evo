@@ -74,6 +74,7 @@ export function createProfilesDialog({ t, bridge, notify }) {
     ]);
   }
   function render() {
+    const transition = config.transition ??= { effect: 'none', direction: 'left', durationMs: 600 };
     const mode = config.automatic ? 'auto' : config.manual ?? 'default';
     const choices = config.profiles.map((p) => [p.id, p.name]);
     const close = () => { if (!busy) dialog.close(); };
@@ -100,6 +101,17 @@ export function createProfilesDialog({ t, bridge, notify }) {
           config.automatic = value === 'auto'; config.manual = value === 'auto' || value === 'default' ? null : value;
         }),
         select(t('profiles.fallback'), [['', baselineName()], ...choices], config.defaultProfile ?? '', (value) => { config.defaultProfile = value || null; }),
+        el('section', { class: 'profile-transition' }, [
+          el('h3', { text: t('profiles.transition') }),
+          el('div', { class: 'profile-transition-controls' }, [
+            select(t('card.effect'), ['none', 'fade', 'slide', 'flip'].map((id) => [id, t(`card.effect.${id}`)]), transition.effect, (value) => { transition.effect = value; render(); }),
+            ...(transition.effect !== 'none' ? [
+              input(`${t('card.duration')} (ms)`, transition.durationMs, (value) => { transition.durationMs = Number(value); }, { type: 'number', min: 150, max: 3000, step: 50, required: true }),
+              ...(['slide', 'flip'].includes(transition.effect) ? [select(t('common.direction'), ['left', 'right', 'up', 'down'].map((id) => [id, t(`card.direction.${id}`)]), transition.direction, (value) => { transition.direction = value; })] : []),
+            ] : []),
+          ]),
+          el('p', { class: 'hint', text: t('profiles.transitionHint') }),
+        ]),
         ...config.profiles.map(profileEditor),
         ...(!config.profiles.length ? [el('p', { class: 'empty-note', text: t('profiles.empty') })] : []),
         button(t('profiles.add'), () => {
