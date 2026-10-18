@@ -66,7 +66,8 @@ O Bezel nunca inventa um número. Um sensor que ele não consegue ler fica
 | Temperatura, ventoinhas, potência da CPU | o leitor de sensores de hardware não está configurado ou não está lendo | rode a opção **Configure hardware sensors** do Setup, depois **Reiniciar Libre** ([acima](#o-estado-dos-sensores)) |
 | FPS de jogos | nenhuma ferramenta está medindo um jogo | veja [FPS de jogos](fps.md) |
 | Ping | ainda sem resposta do destino do ping | confira a rede ou troque o destino (abaixo) |
-| Volume de saída | ainda não suportado | — |
+| Volume, mudo e dispositivo de saída | nenhuma saída padrão disponível | conecte ou selecione uma saída nas configurações de som do Windows |
+| Bateria e autonomia | sem bateria ou sem estimativa do Windows | desktops normalmente não têm bateria; a estimativa pode estar ausente durante a carga |
 
 Um sensor que simplesmente não existe (sem segunda placa de vídeo) também fica
 indisponível.

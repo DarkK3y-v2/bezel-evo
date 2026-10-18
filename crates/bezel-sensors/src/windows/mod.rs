@@ -7,6 +7,7 @@ mod activity;
 mod embedded;
 mod lhm_http;
 mod sys;
+mod system;
 mod wmi;
 
 use crate::provider::Provider;
@@ -20,6 +21,6 @@ pub(crate) fn providers() -> Vec<Box<dyn Provider>> {
         Box::new(sys::Memory::new()),
         Box::new(sys::Disks::new()),
         Box::new(sys::Network::new()),
-        Box::new(sys::System::new()),
+        Box::new(system::System::new()),
     ]
 }

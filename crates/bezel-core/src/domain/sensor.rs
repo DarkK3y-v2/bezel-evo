@@ -188,7 +188,7 @@ pub mod keys {
     pub const UPTIME: &str = "system.uptime";
     /// The machine's host name, text.
     pub const HOSTNAME: &str = "system.hostname";
-    /// Output volume, percent. Not supported yet: always unavailable.
+    /// Default output device volume, percent.
     pub const SYSTEM_VOLUME: &str = "system.volume";
 
     /// Keys themes imported from the vendor app (`.turtheme`) and from

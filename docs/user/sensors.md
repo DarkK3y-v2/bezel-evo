@@ -62,9 +62,17 @@ theme shows `—`, and `bezel sensors` prints the reason next to it.
 | CPU temperature, fans, power | the hardware sensor reader is not configured or not reading | run Setup's **Configure hardware sensors** option, then **Restart Libre** ([above](#the-sensor-status)) |
 | Game FPS | no overlay tool is measuring a game | see [Game FPS](fps.md) |
 | Ping | no answer from the ping target yet | check the network or change the target (below) |
-| Output volume | not supported yet | — |
+| Output volume, mute and audio device | no default output device is available | connect or select an output in Windows sound settings |
+| Battery and remaining time | no battery, or Windows has no estimate | desktop PCs normally have no battery; an estimate may be absent while charging |
 
 A sensor that is simply not there (no second GPU) is unavailable too.
+
+The **System** category groups system information, audio and power. It includes
+uptime, the full host name, Windows version, running process count, default output
+volume, mute state and device name, AC power, battery percentage, charging state
+and estimated remaining seconds. Audio follows changes to the Windows default
+output device. State sensors use 0/1 values for widgets; the sensor list shows
+localized Yes/No labels. Hover a value for its full text or unavailability reason.
 
 ## Ping
 
