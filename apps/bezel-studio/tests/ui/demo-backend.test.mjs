@@ -871,3 +871,12 @@ test('demo font inclusion mirrors catalog identity, bundled refusal and theme as
   assert.equal(asset.name, user.name);
   assert.equal(asset.origin, 'theme');
 });
+
+
+test('demoIsolate: a rotated element gets a canvas of its rotated box', () => {
+  const theme = { elements: [{ id: 1, kind: { type: 'shape' }, frame: { x: 50, y: 45, width: 60, height: 30 }, rotation: 30 }] };
+  const alone = demoIsolate(theme, 1);
+  assert.deepEqual(alone.canvas, { width: 68, height: 56 });
+  assert.deepEqual(alone.elements[0].frame, { x: 4, y: 13, width: 60, height: 30 });
+  assert.equal(alone.elements[0].rotation, 30);
+});

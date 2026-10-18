@@ -1,3 +1,4 @@
+import { appliedRotation, centerOf } from './editor/rotation.js';
 import { boundKey } from './editor/widgets.js';
 import { demoSensorValue } from './demo-sensors.js';
 import { demoColorValue, withValueColor } from './value-color.js';
@@ -259,6 +260,17 @@ function drawSpectrum(ctx, e, seconds) {
 }
 
 function drawElement(ctx, e, t, refresh = 1, motion = true) {
+  const angle = appliedRotation(e);
+  if (!angle) { drawUprightElement(ctx, e, t, refresh, motion); return; }
+  const center = centerOf(e.frame);
+  ctx.save();
+  ctx.translate(center.x, center.y); ctx.rotate(angle * Math.PI / 180); ctx.translate(-center.x, -center.y);
+  ctx.beginPath(); ctx.rect(e.frame.x, e.frame.y, e.frame.width, e.frame.height); ctx.clip();
+  drawUprightElement(ctx, { ...e, rotation: 0 }, t, refresh, motion);
+  ctx.restore();
+}
+
+function drawUprightElement(ctx, e, t, refresh = 1, motion = true) {
   if (e.kind.content?.type === 'spectrum') { drawSpectrum(ctx,e,t); return; }
   const value = shownFraction(e, t, refresh, motion);
   e = withValueColor(e, demoColorValue(e, value, key => demoSensorValue(key, Math.floor(t / refresh) * refresh)));

@@ -79,7 +79,7 @@ Ogni oggetto di un tema (esclusi video di sfondo, Card e loro membri, gruppi e l
   - `demoIsolate` dimensiona il canvas sul bbox ruotato come `element_preview::isolate` (T-3).
 - **Dependencies:** T-4
 - **Test:** `node --test --test-name-pattern="rotated" tests/ui/demo-backend.test.mjs` (test nuovo `demoIsolate: a rotated element gets a canvas of its rotated box`); i pixel del canvas 2D si provano nello spec e2e (T-7)
-- **Status:** pending
+- **Status:** completed
 
 #### T-6: Canvas e inspector: maniglia, campo Rotazione, i18n
 - **Specialist:** jdi-doer-bezel
