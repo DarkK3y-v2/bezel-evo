@@ -68,3 +68,25 @@ Questa analisi non importa codice o asset nel prodotto.
 Proposta per il prossimo lavoro, non ancora autorizzata come implementazione:
 animazioni reattive native e palette di ruolo; poi OSD multischermo e metriche
 gaming. Streaming da trattare come ricerca hardware separata.
+
+## Fattibilità sui dispositivi collegati (seguito utente)
+
+Controllo Windows PnP in sola lettura: `1A86:CA88`, `CT88INCH`, COM4
+(8.8 Rev C seriale); inoltre `1A86:5722` su COM3 e interfaccia SoC
+`0525:A4A7` su COM6. Nessun dispositivo della famiglia bulk USB `1CBE`
+risulta presente. Non aperte porte e non inviati comandi ai pannelli.
+
+La documentazione Libre Panel riferisce i 50 fps al 9.2 USB e i comandi
+121/122 alla famiglia `1CBE`. Il decoder H.264 del Rev C riproduce file
+locali: non prova l'esistenza di un ingresso equivalente per flussi live.
+Bezel contiene già le costanti 121/122 e il trasporto per `1CBE`, ma il
+driver live attuale invia PNG/JPEG completi. Servirebbero encoder persistente,
+delimitazione Annex B per immagine, controllo coda, avvio/arresto e scheduling
+per display, con benchmark CPU/latenza e test hardware sulla famiglia giusta.
+
+Per l'8.8 collegato, percorso supportato: video decorativo locale sul decoder
+più overlay di sensori. Bezel lo supporta già; evoluzione utile sarebbe
+preparare i temi cinetici per quel percorso, spostando il movimento decorativo
+dalle GIF renderizzate sul PC al video del pannello. I dati e lo spectrum
+resterebbero soggetti ai limiti degli aggiornamenti seriali. Nessuna promessa
+di scena intera a 50 fps sul Rev C e nessun driver nuovo implementato qui.
