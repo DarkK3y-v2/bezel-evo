@@ -29,6 +29,10 @@ pub(crate) struct FrameMetrics {
     pub fps: f64,
     pub frametime: Option<f64>,
     pub fps_low_1p: Option<f64>,
+    pub fps_low_01p: Option<f64>,
+    pub fps_min: Option<f64>,
+    pub fps_max: Option<f64>,
+    pub source: Option<String>,
     pub game: Option<String>,
     pub limiter: Option<String>,
 }
@@ -69,9 +73,13 @@ impl Provider for Fps {
             source.push_str(" (not validated on hardware)");
         }
         vec![
-            describe(keys::GPU_FPS, Category::Gpu, "Game frame rate", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS, Category::Gpu, "Game FPS (average)", Quantity::Number, source.clone()),
             describe(keys::GPU_FRAMETIME, Category::Gpu, "Game frame time (ms)", Quantity::Number, source.clone()),
             describe(keys::GPU_FPS_LOW_1P, Category::Gpu, "Game 1% low FPS", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS_LOW_01P, Category::Gpu, "Game 0.1% low FPS", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS_MIN, Category::Gpu, "Game minimum FPS", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS_MAX, Category::Gpu, "Game maximum FPS", Quantity::Number, source.clone()),
+            describe(keys::GPU_FPS_SOURCE, Category::Gpu, "Game FPS source", Quantity::Text, source.clone()),
             describe(keys::GPU_GAME, Category::Gpu, "Game name", Quantity::Text, source.clone()),
             describe(keys::GPU_LIMITER, Category::Gpu, "Frame rate limiter", Quantity::Text, source),
         ]
@@ -102,6 +110,38 @@ impl Provider for Fps {
                 );
                 put(
                     out,
+                    keys::GPU_FPS_LOW_01P,
+                    m.fps_low_01p.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Value,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_FPS_MIN,
+                    m.fps_min.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Value,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_FPS_MAX,
+                    m.fps_max.map_or(
+                        Reading::Unavailable("only Intel PresentMon measures this".into()),
+                        Reading::Value,
+                    ),
+                );
+                put(
+                    out,
+                    keys::GPU_FPS_SOURCE,
+                    m.source.map_or(
+                        Reading::Unavailable("no source is measuring right now".into()),
+                        Reading::Text,
+                    ),
+                );
+                put(
+                    out,
                     keys::GPU_GAME,
                     m.game.map_or(
                         Reading::Unavailable("only Intel PresentMon measures this".into()),
@@ -122,6 +162,10 @@ impl Provider for Fps {
                 put(out, keys::GPU_FPS, Reading::Unavailable(reason.clone()));
                 put(out, keys::GPU_FRAMETIME, Reading::Unavailable(reason.clone()));
                 put(out, keys::GPU_FPS_LOW_1P, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FPS_LOW_01P, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FPS_MIN, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FPS_MAX, Reading::Unavailable(reason.clone()));
+                put(out, keys::GPU_FPS_SOURCE, Reading::Unavailable(reason.clone()));
                 put(out, keys::GPU_GAME, Reading::Unavailable(reason.clone()));
                 put(out, keys::GPU_LIMITER, Reading::Unavailable(reason));
             }
@@ -132,6 +176,10 @@ impl Provider for Fps {
         let wanted_now = wanted.contains(keys::GPU_FPS)
             || wanted.contains(keys::GPU_FRAMETIME)
             || wanted.contains(keys::GPU_FPS_LOW_1P)
+            || wanted.contains(keys::GPU_FPS_LOW_01P)
+            || wanted.contains(keys::GPU_FPS_MIN)
+            || wanted.contains(keys::GPU_FPS_MAX)
+            || wanted.contains(keys::GPU_FPS_SOURCE)
             || wanted.contains(keys::GPU_GAME)
             || wanted.contains(keys::GPU_LIMITER);
 
@@ -218,6 +266,10 @@ mod tests {
                 fps,
                 frametime: None,
                 fps_low_1p: None,
+                fps_low_01p: None,
+                fps_min: None,
+                fps_max: None,
+                source: None,
                 game: None,
                 limiter: None,
             })
@@ -227,7 +279,7 @@ mod tests {
     fn sample(fps: &mut Fps) -> Reading {
         let mut out = Snapshot::default();
         fps.sample(Instant::now(), &mut out);
-        assert_eq!(out.len(), 5);
+        assert_eq!(out.len(), 9);
         out.get(&SensorKey::new(keys::GPU_FPS).unwrap()).clone()
     }
 
@@ -235,7 +287,7 @@ mod tests {
     fn gpu_fps_is_listed_as_not_validated_on_hardware() {
         let fps = Fps::new(Scripted(Ok(60.0)));
         let catalog = fps.catalog();
-        assert_eq!(catalog.len(), 5);
+        assert_eq!(catalog.len(), 9);
         assert_eq!(catalog[0].key.as_str(), keys::GPU_FPS);
         assert_eq!(catalog[0].category, Category::Gpu);
         assert_eq!(catalog[0].quantity, Quantity::Number);
