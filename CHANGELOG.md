@@ -5,6 +5,17 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.32] - 2026-10-18
+
+### Widgets
+- **Audio spectrum source**: each spectrum listens either to the app its
+  Player follows, as before, or to **the whole PC**: everything playing on the
+  output in use, with no Player needed. It is a choice, never a fallback.
+- **Amplitude (×)**: a multiplier from 0.1× to 4× for the height of the bars,
+  for loud sources such as Spotify that keep them near the top.
+- **Transparency midpoint**: a linear transparency can move the point where it
+  is halfway, from 5 % to 95 % across the object.
+
 ## [0.1.31] - 2026-10-17
 
 0.1.30 was a local build; this entry and the one below cover it.
