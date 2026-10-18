@@ -248,6 +248,9 @@ fn dispatch_inner(
     {
         return Err(invalid("unexpected runtime payload"));
     }
+    if matches!(request.op, RuntimeOp::Draft { .. } | RuntimeOp::Inspect { .. } | RuntimeOp::Measure { .. } | RuntimeOp::Cards { .. }) {
+        engine.editing_profile(key);
+    }
     match request.op {
         RuntimeOp::SensorRestarted => {
             light(LightEvent::SensorRestart, 0, 0.0, "reader");

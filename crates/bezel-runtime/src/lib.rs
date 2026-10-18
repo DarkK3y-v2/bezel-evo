@@ -4,6 +4,7 @@
 pub mod element_preview;
 mod images;
 mod presentation;
+pub mod profiles;
 mod sampling;
 mod spectrum;
 mod wake;
@@ -92,8 +93,18 @@ struct Scene {
     frames: u64,
     error: Option<String>,
     cards: bool,
+    profile_restore: Option<Document>,
+    profile_id: Option<String>,
+    profile_edit_at: Option<Instant>,
 }
 impl Scene {
+    fn restore_profile(&mut self) {
+        if let Some(document) = self.profile_restore.take() {
+            self.update(document);
+            self.runtime.automatic_cards(self.cards);
+        }
+        self.profile_id = None;
+    }
     fn update(&mut self, document: Document) {
         if self.runtime.theme() == &document.theme && self.runtime.assets() == &document.assets {
             return;
@@ -137,6 +148,7 @@ type Handoff = (
 
 /// Persistent service. Scene lifetimes do not depend on an editor connection.
 pub struct Engine {
+    profiles: Option<profiles::Service>,
     scenes: BTreeMap<String, Scene>,
     renderer: Box<dyn FrameRenderer>,
     sensors: sampling::Sampler,
@@ -181,6 +193,7 @@ impl Engine {
         let sensors = sampling::Sampler::new(sensors, origin, wake.clone())?;
         let catalog = sensors.latest().catalog.clone();
         Ok(Self {
+            profiles: None,
             scenes: BTreeMap::new(),
             renderer,
             sensors,
@@ -209,6 +222,11 @@ impl Engine {
     /// Inject process capture; consent remains disabled until locally configured.
     pub fn with_audio(mut self, factory: Arc<dyn bezel_core::ports::AudioCaptureFactory>) -> Self {
         self.audio = Some(spectrum::Worker::new(factory, self.wake.clone()));
+        self
+    }
+    /// Local profiles are deliberately outside portable theme documents.
+    pub fn with_profiles(mut self, file: profiles::ProfileFile) -> Self {
+        self.profiles = Some(profiles::Service::new(file));
         self
     }
     /// Apply a locally stored choice; theme JSON can never grant capture permission.
@@ -298,12 +316,14 @@ impl Engine {
             .filter(|(k, _)| k.as_str() != key)
             .map(|(_, s)| {
                 s.runtime.assets().values().map(Vec::len).sum::<usize>() + s.saved.bytes()
+                    + s.profile_restore.as_ref().map_or(0, Document::bytes)
             })
             .sum();
         if other_bytes.saturating_add(document.bytes().saturating_mul(2)) > MAX_ALL_ASSETS {
             return Err(invalid("engine asset budget exceeded"));
         }
         if let Some(scene) = self.scenes.get_mut(key) {
+            scene.restore_profile();
             if saved {
                 scene.saved = document.clone();
             }
@@ -341,6 +361,9 @@ impl Engine {
                     frames: 0,
                     error: None,
                     cards: true,
+                    profile_restore: None,
+                    profile_id: None,
+                    profile_edit_at: None,
                 },
             );
             self.next_id += 1;
@@ -364,6 +387,13 @@ impl Engine {
         let mut periods = Vec::new();
         let mut wanted = Wanted::nothing();
         if !self.suspended {
+            if let Some(profiles) = &self.profiles {
+                let activity = profiles.wanted();
+                if activity != Wanted::nothing() {
+                    wanted = wanted.union(&activity);
+                    periods.push((Duration::from_millis(500), Duration::ZERO));
+                }
+            }
             for scene in self.scenes.values() {
                 wanted = wanted.union(scene.runtime.wanted());
                 periods.push((scene.runtime.refresh(), scene.sample_origin));
@@ -487,6 +517,11 @@ impl Engine {
             return Ok(Duration::from_millis(50));
         }
         let reading = self.sensors.latest();
+        if let Some(mut profiles) = self.profiles.take() {
+            let changed = profiles.tick(self, &reading.snapshot, now);
+            self.profiles = Some(profiles);
+            if changed { self.schedule_sensors(); }
+        }
         if reading.sequence != self.catalog_sequence && !reading.catalog.is_empty() {
             self.catalog = reading.catalog.clone();
             self.catalog_sequence = reading.sequence;
@@ -770,7 +805,7 @@ impl Engine {
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
                 }
-                self.images.publish(
+                if scene.profile_restore.is_none() { self.images.publish(
                     key,
                     images::Snapshot {
                         render_millis,
@@ -778,7 +813,7 @@ impl Engine {
                         sequence: scene.sequence,
                         next_ms: delay.as_millis().clamp(5, 1000) as u32,
                     },
-                );
+                ); }
                 Ok(delay)
             })();
             match result {
@@ -808,6 +843,15 @@ impl Engine {
     }
     pub fn image(&self, key: &str, after: u64, max: u32) -> Result<wire::Image> {
         self.images.latest(key, after, max)
+    }
+    fn editing_profile(&mut self, key: &str) {
+        let mut restored = false;
+        if let Some(scene) = self.scenes.get_mut(key) {
+            restored = scene.profile_restore.is_some();
+            scene.restore_profile();
+            scene.profile_edit_at = Some(Instant::now());
+        }
+        if restored { self.schedule_sensors(); }
     }
     /// Isolated inspector scene, with the runtime's current readings/histories.
     pub fn inspect(&mut self, key: &str, id: ElementId, max: u32, motion: bool) -> Result<Frame> {
@@ -846,6 +890,7 @@ impl Engine {
     }
     /// EOF restores only documents; the scene objects, clocks and links survive.
     pub fn detach(&mut self) -> Result<()> {
+        for scene in self.scenes.values_mut() { scene.restore_profile(); scene.profile_edit_at = None; }
         let unsaved = self
             .scenes
             .values()
@@ -861,6 +906,7 @@ impl Engine {
             "session",
         );
         for scene in self.scenes.values_mut() {
+            scene.restore_profile();
             scene.update(scene.saved.clone());
             scene.revision = 0;
             if !scene.cards {

@@ -183,6 +183,45 @@ fn fixture() -> Fixture {
         key,
     }
 }
+
+#[test]
+fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published_frame() {
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    use crate::profiles::{Config, Profile, ProfileFile, Service};
+    let mut f = fixture();
+    let mut saved = doc(); saved.theme.background = Background::Color(Rgba::BLACK);
+    f.engine.document(&f.key, 1, saved.clone(), true).unwrap();
+    let mut draft = saved.clone(); draft.theme.name = "unsaved editor".into();
+    f.engine.document(&f.key, 2, draft.clone(), false).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let published = f.engine.scenes[&f.key].frame.as_ref().unwrap().as_ref().clone();
+    let directory = std::env::temp_dir().join(format!("bezel-profile-engine-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("music.bezeltheme");
+    let mut music = saved.clone(); music.theme.name = "music profile".into();
+    bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &music.theme, &music.assets).unwrap();
+    let file = ProfileFile(directory.join("profiles.json"));
+    file.save(&Config { profiles: vec![Profile { id: "music".into(), name: "Music".into(), screen: f.key.clone(), theme: path.display().to_string(), rules: vec![] }], automatic: false, manual: Some("music".into()), default_profile: None }).unwrap();
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    let mut service = Service::new(file.clone());
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, "music profile");
+    assert!(scene.saved == saved);
+    assert!(scene.profile_restore.as_ref() == Some(&draft));
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    // Reading the canvas returns the editor's frame, not the live profile.
+    assert!(f.engine.image(&f.key, 0, 2320).unwrap().frame.as_ref() == Some(&published));
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(1));
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, "unsaved editor");
+    assert!(scene.saved == saved);
+    assert_eq!(scene.revision, 2);
+    assert!(scene.profile_restore.is_none());
+    std::fs::remove_file(&file.0).unwrap();
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
         engine.sensors.advance(at);
