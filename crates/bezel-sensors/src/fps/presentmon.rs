@@ -222,6 +222,11 @@ impl PresentMon {
                 if tools.exists() {
                     return Some(tools);
                 }
+                // The portable layout keeps the sensor helper in sensors\.
+                let sensors = dir.join("sensors").join("PresentMon.exe");
+                if sensors.exists() {
+                    return Some(sensors);
+                }
             }
         }
         if let Ok(pf) = std::env::var("ProgramFiles") {
@@ -628,6 +633,19 @@ impl FrameRateSource for PresentMon {
         let mean_slowest = slowest_frames.iter().sum::<f64>() / slowest_frames.len() as f64;
         let fps_low_1p = 1000.0 / mean_slowest;
 
+        // 0.1% lows: the mean of the slowest 0.1% of the same window.
+        let point_one_percent_count = (game_frames_30s.len() as f64 * 0.001).ceil() as usize;
+        let point_one_percent_count = point_one_percent_count.max(1);
+        let slowest_point_one = &game_frames_30s[..point_one_percent_count];
+        let mean_slowest_01p =
+            slowest_point_one.iter().sum::<f64>() / slowest_point_one.len() as f64;
+        let fps_low_01p = 1000.0 / mean_slowest_01p;
+
+        // The fastest and slowest single frame of the window, as FPS. The
+        // vec is sorted slowest-first after the reverse above.
+        let fps_min = 1000.0 / game_frames_30s[0];
+        let fps_max = 1000.0 / game_frames_30s[game_frames_30s.len() - 1];
+
         // The limiter: which side waits for the other, judged on medians.
         let mut cpu_waits = Vec::new();
         let mut gpu_waits = Vec::new();
@@ -675,6 +693,10 @@ impl FrameRateSource for PresentMon {
             fps,
             frametime: Some(frametime),
             fps_low_1p: Some(fps_low_1p),
+            fps_low_01p: Some(fps_low_01p),
+            fps_min: Some(fps_min),
+            fps_max: Some(fps_max),
+            source: Some("PresentMon".to_string()),
             game: Some(game),
             limiter,
         })
