@@ -9,17 +9,33 @@
   "refreshSeconds": 1,
   "background": {
     "type": "color",
-    "color": "#eceee8ff"
+    "color": "#eeeae0ff"
   },
   "elements": [
     {
       "id": 1,
-      "name": "Collection",
+      "name": "Architectural artwork",
       "frame": {
-        "x": 125,
-        "y": 72,
-        "width": 230,
-        "height": 30
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Brand",
+      "frame": {
+        "x": 130,
+        "y": 111,
+        "width": 220,
+        "height": 26
       },
       "kind": {
         "type": "text",
@@ -30,23 +46,23 @@
         "style": {
           "font": {
             "family": "Inter",
-            "weight": 500
+            "weight": 600
           },
           "size": 20,
-          "paint": "#26685dff",
+          "paint": "#222924ff",
           "align": "center",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 2,
+      "id": 3,
       "name": "Clock",
       "frame": {
-        "x": 68,
-        "y": 121,
-        "width": 344,
-        "height": 94
+        "x": 80,
+        "y": 164,
+        "width": 320,
+        "height": 88
       },
       "kind": {
         "type": "text",
@@ -59,21 +75,21 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 76,
-          "paint": "#162c29ff",
+          "size": 73,
+          "paint": "#222924ff",
           "align": "center",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 3,
+      "id": 4,
       "name": "Date",
       "frame": {
-        "x": 96,
-        "y": 219,
-        "width": 288,
-        "height": 34
+        "x": 104,
+        "y": 260,
+        "width": 272,
+        "height": 30
       },
       "kind": {
         "type": "text",
@@ -86,58 +102,48 @@
             "family": "Inter",
             "weight": 500
           },
-          "size": 22,
-          "paint": "#637773ff",
+          "size": 21,
+          "paint": "#222924ff",
           "align": "center",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 4,
-      "name": "CPU history",
+      "id": 5,
+      "name": "CPU label",
       "frame": {
-        "x": 100,
-        "y": 280,
-        "width": 280,
-        "height": 80
+        "x": 110,
+        "y": 338,
+        "width": 104,
+        "height": 20
       },
       "kind": {
-        "type": "graph",
-        "binding": {
-          "key": "cpu.usage",
-          "min": 0,
-          "max": 100
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
         },
-        "history": 90,
-        "intervalSeconds": 1,
-        "style": "area",
-        "color": "#26685dff",
-        "fill": {
-          "angle": 90,
-          "stops": [
-            [
-              0,
-              "#26685d50"
-            ],
-            [
-              1,
-              "#26685d00"
-            ]
-          ]
-        },
-        "lineWidth": 3,
-        "autoscale": false
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
       }
     },
     {
-      "id": 5,
+      "id": 6,
       "name": "CPU value",
       "frame": {
-        "x": 140,
-        "y": 369,
-        "width": 200,
-        "height": 32
+        "x": 110,
+        "y": 360,
+        "width": 104,
+        "height": 40
       },
       "kind": {
         "type": "text",
@@ -154,11 +160,125 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 24,
-          "paint": "#162c29ff",
-          "align": "center",
+          "size": 28,
+          "paint": "#222924ff",
+          "align": "left",
           "valign": "middle"
         }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 7,
+      "name": "CPU fill",
+      "frame": {
+        "x": 110,
+        "y": 406,
+        "width": 104,
+        "height": 4
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#465e50ff",
+        "track": "#b6b7a7ff",
+        "radius": 2
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 8,
+      "name": "GPU label",
+      "frame": {
+        "x": 267,
+        "y": 338,
+        "width": 104,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "GPU value",
+      "frame": {
+        "x": 267,
+        "y": 360,
+        "width": 104,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#222924ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 10,
+      "name": "GPU fill",
+      "frame": {
+        "x": 267,
+        "y": 406,
+        "width": 104,
+        "height": 4
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#465e50ff",
+        "track": "#b6b7a7ff",
+        "radius": 2
       },
       "valueTransition": {
         "mode": "smooth",
@@ -169,19 +289,19 @@
   "palette": [
     {
       "name": "Background",
-      "color": "#eceee8ff"
+      "color": "#eeeae0ff"
     },
     {
       "name": "Accent",
-      "color": "#26685dff"
+      "color": "#d76543ff"
     },
     {
       "name": "Text",
-      "color": "#162c29ff"
+      "color": "#222924ff"
     },
     {
       "name": "Secondary",
-      "color": "#637773ff"
+      "color": "#70736aff"
     }
   ]
 }

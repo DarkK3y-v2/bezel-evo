@@ -9,44 +9,87 @@
   "refreshSeconds": 1,
   "background": {
     "type": "color",
-    "color": "#eceee8ff"
+    "color": "#eeeae0ff"
   },
   "elements": [
     {
       "id": 1,
-      "name": "Collection",
+      "name": "Architectural artwork",
       "frame": {
-        "x": 42,
-        "y": 36,
-        "width": 530,
-        "height": 35
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Brand",
+      "frame": {
+        "x": 32,
+        "y": 25,
+        "width": 392,
+        "height": 48
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "C L A R I T Y  /  W O R K S T A T I O N"
+          "text": "CLARITY"
         },
         "style": {
           "font": {
             "family": "Inter",
-            "weight": 500
+            "weight": 700
           },
-          "size": 22,
-          "paint": "#26685dff",
+          "size": 35,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 2,
+      "id": 3,
+      "name": "Edition",
+      "frame": {
+        "x": 34,
+        "y": 83,
+        "width": 390,
+        "height": 24
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "WORKSTATION / 03"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 16,
+          "paint": "#754831ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
       "name": "Clock",
       "frame": {
-        "x": 38,
-        "y": 110,
-        "width": 460,
-        "height": 124
+        "x": 25,
+        "y": 149,
+        "width": 420,
+        "height": 120
       },
       "kind": {
         "type": "text",
@@ -59,48 +102,75 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 106,
-          "paint": "#162c29ff",
+          "size": 113,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 3,
+      "id": 5,
       "name": "Date",
       "frame": {
-        "x": 44,
-        "y": 245,
-        "width": 450,
-        "height": 40
+        "x": 34,
+        "y": 282,
+        "width": 390,
+        "height": 44
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "clock",
-          "pattern": "%A %d %B"
+          "pattern": "%a %d %b"
         },
         "style": {
           "font": {
             "family": "Inter",
             "weight": 500
           },
-          "size": 25,
-          "paint": "#637773ff",
+          "size": 27,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 4,
+      "id": 6,
+      "name": "Uptime label",
+      "frame": {
+        "x": 34,
+        "y": 377,
+        "width": 390,
+        "height": 22
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "SESSION UPTIME"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 14,
+          "paint": "#754831ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 7,
       "name": "Uptime",
       "frame": {
-        "x": 44,
-        "y": 352,
-        "width": 450,
-        "height": 46
+        "x": 34,
+        "y": 408,
+        "width": 390,
+        "height": 38
       },
       "kind": {
         "type": "text",
@@ -117,8 +187,8 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 32,
-          "paint": "#162c29ff",
+          "size": 27,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
@@ -129,83 +199,39 @@
       }
     },
     {
-      "id": 5,
-      "name": "Uptime label",
-      "frame": {
-        "x": 44,
-        "y": 407,
-        "width": 450,
-        "height": 28
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "static",
-          "text": "UPTIME"
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 500
-          },
-          "size": 18,
-          "paint": "#637773ff",
-          "align": "left",
-          "valign": "middle"
-        }
-      }
-    },
-    {
-      "id": 6,
-      "name": "CPU surface",
-      "frame": {
-        "x": 550,
-        "y": 28,
-        "width": 424,
-        "height": 424
-      },
-      "kind": {
-        "type": "shape",
-        "shape": "rect",
-        "radius": 28,
-        "fill": "#ffffff90",
-        "strokeWidth": 0
-      }
-    },
-    {
-      "id": 7,
-      "name": "CPU label",
-      "frame": {
-        "x": 578,
-        "y": 52,
-        "width": 370,
-        "height": 35
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "static",
-          "text": "CPU"
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 500
-          },
-          "size": 23,
-          "paint": "#637773ff",
-          "align": "left",
-          "valign": "middle"
-        }
-      }
-    },
-    {
       "id": 8,
-      "name": "CPU value",
+      "name": "PROCESSOR label",
       "frame": {
-        "x": 574,
+        "x": 532,
+        "y": 72,
+        "width": 270,
+        "height": 27
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "PROCESSOR"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 17,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "PROCESSOR value",
+      "frame": {
+        "x": 525,
         "y": 111,
-        "width": 370,
+        "width": 300,
         "height": 104
       },
       "kind": {
@@ -223,8 +249,8 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 78,
-          "paint": "#162c29ff",
+          "size": 88,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
@@ -235,13 +261,13 @@
       }
     },
     {
-      "id": 9,
-      "name": "CPU history",
+      "id": 10,
+      "name": "PROCESSOR trace",
       "frame": {
-        "x": 578,
-        "y": 270,
-        "width": 368,
-        "height": 140
+        "x": 850,
+        "y": 107,
+        "width": 446,
+        "height": 110
       },
       "kind": {
         "type": "graph",
@@ -253,17 +279,17 @@
         "history": 90,
         "intervalSeconds": 1,
         "style": "area",
-        "color": "#26685dff",
+        "color": "#455f53ff",
         "fill": {
           "angle": 90,
           "stops": [
             [
               0,
-              "#26685d50"
+              "#455f5350"
             ],
             [
               1,
-              "#26685d00"
+              "#455f5300"
             ]
           ]
         },
@@ -272,56 +298,66 @@
       }
     },
     {
-      "id": 10,
-      "name": "GPU surface",
-      "frame": {
-        "x": 1000,
-        "y": 28,
-        "width": 424,
-        "height": 424
-      },
-      "kind": {
-        "type": "shape",
-        "shape": "rect",
-        "radius": 28,
-        "fill": "#ffffff90",
-        "strokeWidth": 0
-      }
-    },
-    {
       "id": 11,
-      "name": "GPU label",
+      "name": "PROCESSOR time range",
       "frame": {
-        "x": 1028,
-        "y": 52,
-        "width": 370,
-        "height": 35
+        "x": 850,
+        "y": 224,
+        "width": 446,
+        "height": 22
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "GPU"
+          "text": "90 SEC / HISTORY"
         },
         "style": {
           "font": {
-            "family": "Inter",
+            "family": "JetBrains Mono",
             "weight": 500
           },
-          "size": 23,
-          "paint": "#637773ff",
-          "align": "left",
+          "size": 13,
+          "paint": "#70736aff",
+          "align": "right",
           "valign": "middle"
         }
       }
     },
     {
       "id": 12,
-      "name": "GPU value",
+      "name": "GRAPHICS label",
       "frame": {
-        "x": 1024,
-        "y": 111,
-        "width": 370,
+        "x": 532,
+        "y": 286,
+        "width": 270,
+        "height": 27
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GRAPHICS"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 17,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "name": "GRAPHICS value",
+      "frame": {
+        "x": 525,
+        "y": 325,
+        "width": 300,
         "height": 104
       },
       "kind": {
@@ -339,8 +375,8 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 78,
-          "paint": "#162c29ff",
+          "size": 88,
+          "paint": "#222924ff",
           "align": "left",
           "valign": "middle"
         }
@@ -351,13 +387,13 @@
       }
     },
     {
-      "id": 13,
-      "name": "GPU history",
+      "id": 14,
+      "name": "GRAPHICS trace",
       "frame": {
-        "x": 1028,
-        "y": 270,
-        "width": 368,
-        "height": 140
+        "x": 850,
+        "y": 321,
+        "width": 446,
+        "height": 110
       },
       "kind": {
         "type": "graph",
@@ -369,17 +405,17 @@
         "history": 90,
         "intervalSeconds": 1,
         "style": "area",
-        "color": "#26685dff",
+        "color": "#455f53ff",
         "fill": {
           "angle": 90,
           "stops": [
             [
               0,
-              "#26685d50"
+              "#455f5350"
             ],
             [
               1,
-              "#26685d00"
+              "#455f5300"
             ]
           ]
         },
@@ -388,78 +424,55 @@
       }
     },
     {
-      "id": 14,
-      "name": "RAM surface",
-      "frame": {
-        "x": 1450,
-        "y": 28,
-        "width": 424,
-        "height": 424
-      },
-      "kind": {
-        "type": "shape",
-        "shape": "rect",
-        "radius": 28,
-        "fill": "#ffffff90",
-        "strokeWidth": 0
-      }
-    },
-    {
       "id": 15,
-      "name": "RAM label",
+      "name": "GRAPHICS time range",
       "frame": {
-        "x": 1478,
-        "y": 52,
-        "width": 370,
-        "height": 35
+        "x": 850,
+        "y": 438,
+        "width": 446,
+        "height": 22
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "RAM"
+          "text": "90 SEC / HISTORY"
         },
         "style": {
           "font": {
-            "family": "Inter",
+            "family": "JetBrains Mono",
             "weight": 500
           },
-          "size": 23,
-          "paint": "#637773ff",
-          "align": "left",
+          "size": 13,
+          "paint": "#70736aff",
+          "align": "right",
           "valign": "middle"
         }
       }
     },
     {
       "id": 16,
-      "name": "RAM value",
+      "name": "Load arc",
       "frame": {
-        "x": 1474,
-        "y": 111,
-        "width": 370,
-        "height": 104
+        "x": 1360,
+        "y": 54,
+        "width": 214,
+        "height": 214
       },
       "kind": {
-        "type": "text",
-        "content": {
-          "type": "sensor",
+        "type": "ring",
+        "binding": {
           "key": "memory.percent",
-          "format": {
-            "decimals": 0,
-            "showUnit": true
-          }
+          "min": 0,
+          "max": 100
         },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 600
-          },
-          "size": 78,
-          "paint": "#162c29ff",
-          "align": "left",
-          "valign": "middle"
-        }
+        "startAngle": -90,
+        "sweep": 360,
+        "thickness": 13,
+        "clockwise": true,
+        "fill": "#e8ac7eff",
+        "track": "#ffffff12",
+        "roundCaps": true
       },
       "valueTransition": {
         "mode": "smooth",
@@ -468,12 +481,128 @@
     },
     {
       "id": 17,
-      "name": "RAM history",
+      "name": "Memory centre",
       "frame": {
-        "x": 1478,
-        "y": 270,
-        "width": 368,
-        "height": 140
+        "x": 1396,
+        "y": 122,
+        "width": 142,
+        "height": 64
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "memory.percent",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 40,
+          "paint": "#f1eadbff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 18,
+      "name": "Memory title",
+      "frame": {
+        "x": 1610,
+        "y": 80,
+        "width": 240,
+        "height": 35
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "MEMORY"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 22,
+          "paint": "#f1eadbff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "name": "Memory detail",
+      "frame": {
+        "x": 1610,
+        "y": 126,
+        "width": 240,
+        "height": 58
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RAM\nUTILISATION"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 16,
+          "paint": "#a8b4a7ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "name": "Memory cadence",
+      "frame": {
+        "x": 1610,
+        "y": 222,
+        "width": 240,
+        "height": 24
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "1 SEC / SAMPLE"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 13,
+          "paint": "#a8b4a7ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "name": "Memory trace",
+      "frame": {
+        "x": 1362,
+        "y": 320,
+        "width": 494,
+        "height": 82
       },
       "kind": {
         "type": "graph",
@@ -485,41 +614,68 @@
         "history": 90,
         "intervalSeconds": 1,
         "style": "area",
-        "color": "#26685dff",
+        "color": "#e8ac7eff",
         "fill": {
           "angle": 90,
           "stops": [
             [
               0,
-              "#26685d50"
+              "#e8ac7e50"
             ],
             [
               1,
-              "#26685d00"
+              "#e8ac7e00"
             ]
           ]
         },
         "lineWidth": 3,
         "autoscale": false
       }
+    },
+    {
+      "id": 22,
+      "name": "Memory footer",
+      "frame": {
+        "x": 1505,
+        "y": 420,
+        "width": 350,
+        "height": 22
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CLARITY / SYSTEM STUDY"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#a8b4a7ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      }
     }
   ],
   "palette": [
     {
       "name": "Background",
-      "color": "#eceee8ff"
+      "color": "#eeeae0ff"
     },
     {
       "name": "Accent",
-      "color": "#26685dff"
+      "color": "#d76543ff"
     },
     {
       "name": "Text",
-      "color": "#162c29ff"
+      "color": "#222924ff"
     },
     {
       "name": "Secondary",
-      "color": "#637773ff"
+      "color": "#70736aff"
     }
   ]
 }

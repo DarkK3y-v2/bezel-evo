@@ -9,48 +9,47 @@
   "refreshSeconds": 1,
   "background": {
     "type": "color",
-    "color": "#0b0e16ff"
+    "color": "#0a1010ff"
   },
   "elements": [
     {
       "id": 1,
-      "name": "Accent rail",
+      "name": "Architectural artwork",
       "frame": {
-        "x": 32,
-        "y": 40,
-        "width": 5,
-        "height": 400
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 480
       },
       "kind": {
-        "type": "shape",
-        "shape": "rect",
-        "radius": 2,
-        "fill": "#abff63ff",
-        "strokeWidth": 0
-      }
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
     },
     {
       "id": 2,
-      "name": "Collection",
+      "name": "Brand",
       "frame": {
-        "x": 64,
-        "y": 38,
-        "width": 320,
-        "height": 34
+        "x": 32,
+        "y": 16,
+        "width": 160,
+        "height": 48
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "P U L S E  /  G A M I N G"
+          "text": "PULSE"
         },
         "style": {
           "font": {
             "family": "Inter",
-            "weight": 500
+            "weight": 700
           },
-          "size": 22,
-          "paint": "#abff63ff",
+          "size": 37,
+          "paint": "#eff7eaff",
           "align": "left",
           "valign": "middle"
         }
@@ -58,26 +57,26 @@
     },
     {
       "id": 3,
-      "name": "Clock",
+      "name": "Edition",
       "frame": {
-        "x": 60,
-        "y": 100,
-        "width": 350,
-        "height": 110
+        "x": 204,
+        "y": 28,
+        "width": 510,
+        "height": 26
       },
       "kind": {
         "type": "text",
         "content": {
-          "type": "clock",
-          "pattern": "%H:%M"
+          "type": "static",
+          "text": "/  PERFORMANCE INSTRUMENTS"
         },
         "style": {
           "font": {
-            "family": "Inter",
-            "weight": 700
+            "family": "JetBrains Mono",
+            "weight": 500
           },
-          "size": 90,
-          "paint": "#f3f6eeff",
+          "size": 17,
+          "paint": "#8b9e94ff",
           "align": "left",
           "valign": "middle"
         }
@@ -85,39 +84,636 @@
     },
     {
       "id": 4,
-      "name": "Date",
+      "name": "Clock",
       "frame": {
-        "x": 64,
-        "y": 218,
-        "width": 320,
-        "height": 35
+        "x": 1660,
+        "y": 24,
+        "width": 228,
+        "height": 33
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "clock",
-          "pattern": "%a %d %b"
+          "pattern": "%H:%M:%S"
         },
         "style": {
           "font": {
-            "family": "Inter",
+            "family": "JetBrains Mono",
             "weight": 500
           },
-          "size": 24,
-          "paint": "#929cabff",
-          "align": "left",
+          "size": 25,
+          "paint": "#d2ff5aff",
+          "align": "right",
           "valign": "middle"
         }
       }
     },
     {
       "id": 5,
+      "name": "CPU instrument",
+      "frame": {
+        "x": 36,
+        "y": 108,
+        "width": 472,
+        "height": 294
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 0,
+        "fill": "#00000000",
+        "strokeWidth": 0
+      },
+      "card": {
+        "faces": [
+          "Load",
+          "Thermals"
+        ],
+        "rotationSeconds": 12,
+        "transition": {
+          "effect": "slide",
+          "direction": "up",
+          "durationMs": 650
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "CPU channel",
+      "frame": {
+        "x": 60,
+        "y": 120,
+        "width": 390,
+        "height": 28
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "01 / CPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 0
+      }
+    },
+    {
+      "id": 7,
+      "name": "CPU reading",
+      "frame": {
+        "x": 56,
+        "y": 151,
+        "width": 290,
+        "height": 100
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 82,
+          "paint": "#eff7eaff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      },
+      "colorByValue": {
+        "base": "#eff7eaff",
+        "thresholds": [
+          {
+            "value": 80,
+            "color": "#ff9a5bff"
+          },
+          {
+            "value": 95,
+            "color": "#ff5d56ff"
+          }
+        ]
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 0
+      }
+    },
+    {
+      "id": 8,
+      "name": "Load arc",
+      "frame": {
+        "x": 362,
+        "y": 162,
+        "width": 104,
+        "height": 104
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -225,
+        "sweep": 270,
+        "thickness": 6,
+        "clockwise": true,
+        "fill": {
+          "scale": "arc",
+          "start": "#d2ff5aff",
+          "end": "#ffa35cff",
+          "transition": 75
+        },
+        "track": "#ffffff12",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 0
+      }
+    },
+    {
+      "id": 9,
+      "name": "CPU telemetry",
+      "frame": {
+        "x": 60,
+        "y": 280,
+        "width": 416,
+        "height": 92
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#d2ff5aff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#d2ff5a50"
+            ],
+            [
+              1,
+              "#d2ff5a00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 0
+      }
+    },
+    {
+      "id": 10,
+      "name": "History range",
+      "frame": {
+        "x": 60,
+        "y": 375,
+        "width": 416,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "HISTORY / 90 SEC"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 0
+      }
+    },
+    {
+      "id": 11,
+      "name": "CPU channel",
+      "frame": {
+        "x": 60,
+        "y": 120,
+        "width": 390,
+        "height": 28
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "01 / CPU THERMALS"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 1
+      }
+    },
+    {
+      "id": 12,
+      "name": "CPU reading",
+      "frame": {
+        "x": 56,
+        "y": 151,
+        "width": 290,
+        "height": 100
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 82,
+          "paint": "#eff7eaff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      },
+      "colorByValue": {
+        "base": "#eff7eaff",
+        "thresholds": [
+          {
+            "value": 80,
+            "color": "#ff9a5bff"
+          },
+          {
+            "value": 95,
+            "color": "#ff5d56ff"
+          }
+        ]
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 1
+      }
+    },
+    {
+      "id": 13,
+      "name": "Load arc",
+      "frame": {
+        "x": 362,
+        "y": 162,
+        "width": 104,
+        "height": 104
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "cpu.temperature",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -225,
+        "sweep": 270,
+        "thickness": 6,
+        "clockwise": true,
+        "fill": {
+          "scale": "arc",
+          "start": "#d2ff5aff",
+          "end": "#ffa35cff",
+          "transition": 75
+        },
+        "track": "#ffffff12",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 1
+      }
+    },
+    {
+      "id": 14,
+      "name": "CPU telemetry",
+      "frame": {
+        "x": 60,
+        "y": 280,
+        "width": 416,
+        "height": 92
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "cpu.temperature",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#d2ff5aff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#d2ff5a50"
+            ],
+            [
+              1,
+              "#d2ff5a00"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 1
+      }
+    },
+    {
+      "id": 15,
+      "name": "History range",
+      "frame": {
+        "x": 60,
+        "y": 375,
+        "width": 416,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "HISTORY / 90 SEC"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 5,
+        "face": 1
+      }
+    },
+    {
+      "id": 16,
+      "name": "Load arc",
+      "frame": {
+        "x": 665,
+        "y": 85,
+        "width": 334,
+        "height": 334
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -225,
+        "sweep": 270,
+        "thickness": 15,
+        "clockwise": true,
+        "fill": "#d2ff5aff",
+        "track": "#ffffff12",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 17,
+      "name": "Load arc",
+      "frame": {
+        "x": 687,
+        "y": 107,
+        "width": 290,
+        "height": 290
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "gpu.temperature",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -45,
+        "sweep": 270,
+        "thickness": 3,
+        "clockwise": true,
+        "fill": "#ff995fff",
+        "track": "#ffffff12",
+        "roundCaps": true
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 18,
+      "name": "GPU label",
+      "frame": {
+        "x": 707,
+        "y": 160,
+        "width": 250,
+        "height": 30
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU / CORE"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 17,
+          "paint": "#d2ff5aff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "name": "GPU load",
+      "frame": {
+        "x": 695,
+        "y": 194,
+        "width": 274,
+        "height": 102
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 85,
+          "paint": "#eff7eaff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 20,
+      "name": "GPU thermals",
+      "frame": {
+        "x": 732,
+        "y": 295,
+        "width": 200,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 600
+          },
+          "size": 30,
+          "paint": "#ff995fff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 21,
+      "name": "Memory heading",
+      "frame": {
+        "x": 1188,
+        "y": 120,
+        "width": 252,
+        "height": 28
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "02 / MEMORY"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 22,
       "name": "Memory",
       "frame": {
-        "x": 64,
-        "y": 330,
-        "width": 320,
-        "height": 68
+        "x": 1184,
+        "y": 158,
+        "width": 262,
+        "height": 80
       },
       "kind": {
         "type": "text",
@@ -134,8 +730,8 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 48,
-          "paint": "#f3f6eeff",
+          "size": 65,
+          "paint": "#eff7eaff",
           "align": "left",
           "valign": "middle"
         }
@@ -146,224 +742,157 @@
       }
     },
     {
-      "id": 6,
-      "name": "Memory caption",
+      "id": 23,
+      "name": "Memory fill",
       "frame": {
-        "x": 64,
-        "y": 400,
-        "width": 320,
+        "x": 1188,
+        "y": 248,
+        "width": 252,
+        "height": 10
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "memory.percent",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#d2ff5aff",
+        "track": "#ffffff15",
+        "radius": 2
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 24,
+      "name": "Memory history",
+      "frame": {
+        "x": 1188,
+        "y": 289,
+        "width": 252,
+        "height": 83
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "memory.percent",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#8ba990ff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#8ba99050"
+            ],
+            [
+              1,
+              "#8ba99000"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    },
+    {
+      "id": 25,
+      "name": "Memory history label",
+      "frame": {
+        "x": 1188,
+        "y": 378,
+        "width": 252,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "HISTORY / 90 SEC"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "name": "Thermal heading",
+      "frame": {
+        "x": 1516,
+        "y": 120,
+        "width": 344,
         "height": 28
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "MEMORY"
+          "text": "03 / THERMAL ARRAY"
         },
         "style": {
           "font": {
-            "family": "Inter",
+            "family": "JetBrains Mono",
             "weight": 500
           },
           "size": 18,
-          "paint": "#929cabff",
+          "paint": "#8b9e94ff",
           "align": "left",
           "valign": "middle"
         }
       }
     },
     {
-      "id": 7,
-      "name": "CPU card",
-      "frame": {
-        "x": 446,
-        "y": 32,
-        "width": 692,
-        "height": 416
-      },
-      "kind": {
-        "type": "shape",
-        "shape": "rect",
-        "radius": 24,
-        "fill": "#ffffff06",
-        "strokeWidth": 0
-      },
-      "card": {
-        "faces": [
-          "Load",
-          "Thermals"
-        ],
-        "rotationSeconds": 12,
-        "transition": {
-          "effect": "slide",
-          "direction": "up",
-          "durationMs": 600
-        }
-      }
-    },
-    {
-      "id": 8,
+      "id": 27,
       "name": "CPU label",
       "frame": {
-        "x": 478,
-        "y": 58,
-        "width": 550,
-        "height": 36
+        "x": 1516,
+        "y": 170,
+        "width": 100,
+        "height": 30
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "CPU / LOAD"
+          "text": "CPU"
         },
         "style": {
           "font": {
             "family": "Inter",
             "weight": 500
           },
-          "size": 24,
-          "paint": "#929cabff",
+          "size": 21,
+          "paint": "#8b9e94ff",
           "align": "left",
           "valign": "middle"
         }
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 0
       }
     },
     {
-      "id": 9,
-      "name": "CPU value",
+      "id": 28,
+      "name": "CPU temperature",
       "frame": {
-        "x": 476,
-        "y": 108,
-        "width": 620,
-        "height": 112
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "sensor",
-          "key": "cpu.usage",
-          "format": {
-            "decimals": 0,
-            "showUnit": true
-          }
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 600
-          },
-          "size": 90,
-          "paint": "#f3f6eeff",
-          "align": "left",
-          "valign": "middle"
-        }
-      },
-      "valueTransition": {
-        "mode": "smooth",
-        "durationMs": 500
-      },
-      "colorByValue": {
-        "base": "#abff63ff",
-        "thresholds": [
-          {
-            "value": 70,
-            "color": "#ffbc66ff"
-          },
-          {
-            "value": 90,
-            "color": "#ff647cff"
-          }
-        ]
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 0
-      }
-    },
-    {
-      "id": 10,
-      "name": "CPU history",
-      "frame": {
-        "x": 478,
-        "y": 260,
-        "width": 628,
-        "height": 140
-      },
-      "kind": {
-        "type": "graph",
-        "binding": {
-          "key": "cpu.usage",
-          "min": 0,
-          "max": 100
-        },
-        "history": 90,
-        "intervalSeconds": 1,
-        "style": "area",
-        "color": "#abff63ff",
-        "fill": {
-          "angle": 90,
-          "stops": [
-            [
-              0,
-              "#abff6350"
-            ],
-            [
-              1,
-              "#abff6300"
-            ]
-          ]
-        },
-        "lineWidth": 3,
-        "autoscale": false
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 0
-      }
-    },
-    {
-      "id": 11,
-      "name": "CPU label",
-      "frame": {
-        "x": 478,
-        "y": 58,
-        "width": 550,
-        "height": 36
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "static",
-          "text": "CPU / THERMALS"
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 500
-          },
-          "size": 24,
-          "paint": "#929cabff",
-          "align": "left",
-          "valign": "middle"
-        }
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 1
-      }
-    },
-    {
-      "id": 12,
-      "name": "CPU value",
-      "frame": {
-        "x": 476,
-        "y": 108,
-        "width": 620,
-        "height": 112
+        "x": 1640,
+        "y": 154,
+        "width": 220,
+        "height": 64
       },
       "kind": {
         "type": "text",
@@ -380,267 +909,69 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 90,
-          "paint": "#f3f6eeff",
-          "align": "left",
+          "size": 46,
+          "paint": "#ffad78ff",
+          "align": "right",
           "valign": "middle"
         }
       },
       "valueTransition": {
         "mode": "smooth",
         "durationMs": 500
-      },
-      "colorByValue": {
-        "base": "#abff63ff",
-        "thresholds": [
-          {
-            "value": 70,
-            "color": "#ffbc66ff"
-          },
-          {
-            "value": 90,
-            "color": "#ff647cff"
-          }
-        ]
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 1
       }
     },
     {
-      "id": 13,
-      "name": "CPU history",
+      "id": 29,
+      "name": "Thermal divider",
       "frame": {
-        "x": 478,
-        "y": 260,
-        "width": 628,
-        "height": 140
-      },
-      "kind": {
-        "type": "graph",
-        "binding": {
-          "key": "cpu.temperature",
-          "min": 0,
-          "max": 100
-        },
-        "history": 90,
-        "intervalSeconds": 1,
-        "style": "area",
-        "color": "#abff63ff",
-        "fill": {
-          "angle": 90,
-          "stops": [
-            [
-              0,
-              "#abff6350"
-            ],
-            [
-              1,
-              "#abff6300"
-            ]
-          ]
-        },
-        "lineWidth": 3,
-        "autoscale": false
-      },
-      "cardMember": {
-        "parent": 7,
-        "face": 1
-      }
-    },
-    {
-      "id": 14,
-      "name": "GPU card",
-      "frame": {
-        "x": 1170,
-        "y": 32,
-        "width": 692,
-        "height": 416
+        "x": 1516,
+        "y": 235,
+        "width": 344,
+        "height": 1
       },
       "kind": {
         "type": "shape",
         "shape": "rect",
-        "radius": 24,
-        "fill": "#ffffff06",
+        "radius": 0,
+        "fill": "#3a4e43ff",
         "strokeWidth": 0
-      },
-      "card": {
-        "faces": [
-          "Load",
-          "Thermals"
-        ],
-        "rotationSeconds": 12,
-        "transition": {
-          "effect": "slide",
-          "direction": "up",
-          "durationMs": 600
-        }
       }
     },
     {
-      "id": 15,
-      "name": "GPU label",
+      "id": 30,
+      "name": "GPU thermal label",
       "frame": {
-        "x": 1202,
-        "y": 58,
-        "width": 550,
-        "height": 36
+        "x": 1516,
+        "y": 266,
+        "width": 100,
+        "height": 30
       },
       "kind": {
         "type": "text",
         "content": {
           "type": "static",
-          "text": "GPU / LOAD"
+          "text": "GPU"
         },
         "style": {
           "font": {
             "family": "Inter",
             "weight": 500
           },
-          "size": 24,
-          "paint": "#929cabff",
+          "size": 21,
+          "paint": "#8b9e94ff",
           "align": "left",
           "valign": "middle"
         }
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 0
       }
     },
     {
-      "id": 16,
-      "name": "GPU value",
+      "id": 31,
+      "name": "GPU temperature",
       "frame": {
-        "x": 1200,
-        "y": 108,
-        "width": 620,
-        "height": 112
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "sensor",
-          "key": "gpu.usage",
-          "format": {
-            "decimals": 0,
-            "showUnit": true
-          }
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 600
-          },
-          "size": 90,
-          "paint": "#f3f6eeff",
-          "align": "left",
-          "valign": "middle"
-        }
-      },
-      "valueTransition": {
-        "mode": "smooth",
-        "durationMs": 500
-      },
-      "colorByValue": {
-        "base": "#abff63ff",
-        "thresholds": [
-          {
-            "value": 70,
-            "color": "#ffbc66ff"
-          },
-          {
-            "value": 90,
-            "color": "#ff647cff"
-          }
-        ]
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 0
-      }
-    },
-    {
-      "id": 17,
-      "name": "GPU history",
-      "frame": {
-        "x": 1202,
-        "y": 260,
-        "width": 628,
-        "height": 140
-      },
-      "kind": {
-        "type": "graph",
-        "binding": {
-          "key": "gpu.usage",
-          "min": 0,
-          "max": 100
-        },
-        "history": 90,
-        "intervalSeconds": 1,
-        "style": "area",
-        "color": "#abff63ff",
-        "fill": {
-          "angle": 90,
-          "stops": [
-            [
-              0,
-              "#abff6350"
-            ],
-            [
-              1,
-              "#abff6300"
-            ]
-          ]
-        },
-        "lineWidth": 3,
-        "autoscale": false
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 0
-      }
-    },
-    {
-      "id": 18,
-      "name": "GPU label",
-      "frame": {
-        "x": 1202,
-        "y": 58,
-        "width": 550,
-        "height": 36
-      },
-      "kind": {
-        "type": "text",
-        "content": {
-          "type": "static",
-          "text": "GPU / THERMALS"
-        },
-        "style": {
-          "font": {
-            "family": "Inter",
-            "weight": 500
-          },
-          "size": 24,
-          "paint": "#929cabff",
-          "align": "left",
-          "valign": "middle"
-        }
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 1
-      }
-    },
-    {
-      "id": 19,
-      "name": "GPU value",
-      "frame": {
-        "x": 1200,
-        "y": 108,
-        "width": 620,
-        "height": 112
+        "x": 1640,
+        "y": 250,
+        "width": 220,
+        "height": 64
       },
       "kind": {
         "type": "text",
@@ -657,92 +988,61 @@
             "family": "Inter",
             "weight": 600
           },
-          "size": 90,
-          "paint": "#f3f6eeff",
-          "align": "left",
+          "size": 46,
+          "paint": "#ffad78ff",
+          "align": "right",
           "valign": "middle"
         }
       },
       "valueTransition": {
         "mode": "smooth",
         "durationMs": 500
-      },
-      "colorByValue": {
-        "base": "#abff63ff",
-        "thresholds": [
-          {
-            "value": 70,
-            "color": "#ffbc66ff"
-          },
-          {
-            "value": 90,
-            "color": "#ff647cff"
-          }
-        ]
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 1
       }
     },
     {
-      "id": 20,
-      "name": "GPU history",
+      "id": 32,
+      "name": "Bottom caption",
       "frame": {
-        "x": 1202,
-        "y": 260,
-        "width": 628,
-        "height": 140
+        "x": 32,
+        "y": 459,
+        "width": 700,
+        "height": 18
       },
       "kind": {
-        "type": "graph",
-        "binding": {
-          "key": "gpu.temperature",
-          "min": 0,
-          "max": 100
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "P / 01     LOAD \u00b7 THERMALS \u00b7 MEMORY"
         },
-        "history": 90,
-        "intervalSeconds": 1,
-        "style": "area",
-        "color": "#abff63ff",
-        "fill": {
-          "angle": 90,
-          "stops": [
-            [
-              0,
-              "#abff6350"
-            ],
-            [
-              1,
-              "#abff6300"
-            ]
-          ]
-        },
-        "lineWidth": 3,
-        "autoscale": false
-      },
-      "cardMember": {
-        "parent": 14,
-        "face": 1
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#8b9e94ff",
+          "align": "left",
+          "valign": "middle"
+        }
       }
     }
   ],
   "palette": [
     {
       "name": "Background",
-      "color": "#0b0e16ff"
+      "color": "#0a1010ff"
     },
     {
       "name": "Accent",
-      "color": "#abff63ff"
+      "color": "#d2ff5aff"
     },
     {
       "name": "Text",
-      "color": "#f3f6eeff"
+      "color": "#eff7eaff"
     },
     {
       "name": "Secondary",
-      "color": "#929cabff"
+      "color": "#8b9e94ff"
     }
   ]
 }
