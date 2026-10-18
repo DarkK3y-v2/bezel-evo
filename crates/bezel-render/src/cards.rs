@@ -6,6 +6,69 @@ use std::collections::HashMap;
 use std::time::Duration;
 use tiny_skia::Transform;
 
+/// Reuses whole-face geometry, perspective and easing for profile changes.
+pub(crate) fn compose_frames(
+    from: &bezel_core::domain::frame::Frame,
+    to: &bezel_core::domain::frame::Frame,
+    settings: CardTransition,
+    progress: f32,
+) -> bezel_core::Result<bezel_core::domain::frame::Frame> {
+    use tiny_skia::{BlendMode, Pixmap, PixmapPaint};
+    if from.size() != to.size() || progress >= 1.0 || settings.effect == CardEffect::None {
+        return Ok(to.clone());
+    }
+    if progress <= 0.0 {
+        return Ok(from.clone());
+    }
+    let size = to.size();
+    let pixmap = |frame: &bezel_core::domain::frame::Frame| {
+        let mut pixels = frame.as_rgba().to_vec();
+        crate::composite::premultiply(&mut pixels);
+        Pixmap::from_vec(
+            pixels,
+            tiny_skia::IntSize::from_wh(size.width, size.height)?,
+        )
+    };
+    let (Some(old), Some(new), Some(mut canvas)) = (
+        pixmap(from),
+        pixmap(to),
+        Pixmap::new(size.width, size.height),
+    ) else {
+        return Ok(to.clone());
+    };
+    let transition = Transition {
+        from: 0,
+        to: 1,
+        settings,
+        progress,
+    };
+    for pose in transition.poses(BoxF::new(0.0, 0.0, size.width as f32, size.height as f32)) {
+        let source = if pose.face == 0 { &old } else { &new };
+        if let Some(projection) = pose.projection {
+            projection.draw(source, &mut canvas, pose.shade, pose.alpha);
+        } else {
+            canvas.draw_pixmap(
+                0,
+                0,
+                source.as_ref(),
+                &PixmapPaint {
+                    opacity: pose.alpha,
+                    // Add weighted premultiplied colors for a true crossfade.
+                    blend_mode: if settings.effect == CardEffect::Fade {
+                        BlendMode::Plus
+                    } else {
+                        BlendMode::SourceOver
+                    },
+                    ..PixmapPaint::default()
+                },
+                pose.transform,
+                None,
+            );
+        }
+    }
+    Ok(crate::composite::to_frame(&canvas, size))
+}
+
 #[derive(Clone)]
 struct State {
     names: Vec<String>,
@@ -211,6 +274,48 @@ impl Transition {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn whole_screen_effects_share_card_geometry_and_preserve_crossfade_alpha() {
+        use bezel_core::domain::{
+            frame::{Frame, Rgba},
+            geometry::Size,
+        };
+        let size = Size::new(40, 24);
+        let old = Frame::filled(size, Rgba::opaque(240, 0, 0));
+        let new = Frame::filled(size, Rgba::opaque(0, 0, 240));
+        for effect in [CardEffect::Fade, CardEffect::Slide, CardEffect::Flip] {
+            for direction in [
+                CardDirection::Left,
+                CardDirection::Right,
+                CardDirection::Up,
+                CardDirection::Down,
+            ] {
+                let settings = CardTransition {
+                    effect,
+                    direction,
+                    duration_ms: 600,
+                    include_base: true,
+                };
+                assert_eq!(compose_frames(&old, &new, settings, 0.0).unwrap(), old);
+                assert_eq!(compose_frames(&old, &new, settings, 1.0).unwrap(), new);
+                let middle = compose_frames(&old, &new, settings, 0.5).unwrap();
+                assert_ne!(middle, old);
+                assert_ne!(middle, new);
+                if effect == CardEffect::Fade {
+                    let px = middle.pixel(20, 12).unwrap();
+                    assert_eq!(px.a, 255);
+                    assert!((i16::from(px.r) - 120).abs() <= 1);
+                    assert!((i16::from(px.b) - 120).abs() <= 1);
+                }
+                if effect == CardEffect::Slide {
+                    let a = middle.pixel(1, 1).unwrap();
+                    let b = middle.pixel(38, 22).unwrap();
+                    assert_ne!(a, b);
+                    assert!(a == old.pixel(0, 0).unwrap() || a == new.pixel(0, 0).unwrap());
+                }
+            }
+        }
+    }
     fn transition(effect: CardEffect, progress: f32) -> Transition {
         Transition {
             from: 0,

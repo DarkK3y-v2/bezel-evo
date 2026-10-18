@@ -96,9 +96,11 @@ struct Scene {
     profile_restore: Option<Document>,
     profile_id: Option<String>,
     profile_edit_at: Option<Instant>,
+    profile_animation: Option<profiles::Animation>,
 }
 impl Scene {
     fn restore_profile(&mut self) {
+        self.profile_animation = None;
         if let Some(document) = self.profile_restore.take() {
             self.update(document);
             self.runtime.automatic_cards(self.cards);
@@ -364,6 +366,7 @@ impl Engine {
                     profile_restore: None,
                     profile_id: None,
                     profile_edit_at: None,
+                    profile_animation: None,
                 },
             );
             self.next_id += 1;
@@ -649,9 +652,12 @@ impl Engine {
                 let audible = requests
                     .iter()
                     .any(|r| r.key.starts_with(&format!("{}/", scene.id)));
-                // Audio renders follow the physical presenter when it cannot sustain 20 fps.
+                // Audio and profile motion follow the physical presenter's pace.
                 // Its slot and the audio worker both retain only their newest result.
-                if scene.live && audible && scene.presenter.as_ref().is_some_and(|p| !p.idle()) {
+                if scene.live
+                    && (audible || scene.profile_animation.is_some())
+                    && scene.presenter.as_ref().is_some_and(|p| !p.idle())
+                {
                     return Ok(Duration::from_millis(50));
                 }
                 // Spectra draw at most every SPECTRUM_FRAME, a little under the audio
@@ -711,6 +717,9 @@ impl Engine {
                     }
                 }
                 let mut due = scene.runtime.next_due();
+                if scene.profile_animation.is_some() {
+                    due = due.min(scene.rendered_at + Duration::from_millis(50));
+                }
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     due = due.min(scene.rendered_at + Duration::from_secs(1) / HOST_VIDEO_FPS);
                 }
@@ -763,13 +772,28 @@ impl Engine {
                 }
                 self.renderer.set_scene(scene.id);
                 self.renderer.set_motion(true);
+                // Native device video is not available as a host frame to composite.
+                if matches!(scene.runtime.video(), VideoState::OnDevice(_)) {
+                    scene.profile_animation = None;
+                }
                 let render_started = Instant::now();
-                let frame = scene.runtime.render_at(
+                let mut frame = scene.runtime.render_at(
                     self.renderer.as_mut(),
                     time,
                     now,
                     now.saturating_sub(scene.video_started),
                 )?;
+                let animating = scene.profile_animation.is_some();
+                if let Some(animation) = &scene.profile_animation {
+                    let progress = animation.progress(now);
+                    if progress >= 1.0 {
+                        scene.profile_animation = None;
+                    } else {
+                        frame = self.renderer.transition_frame(
+                            &animation.from, &frame, animation.settings, progress,
+                        )?;
+                    }
+                }
                 let render_millis = render_started.elapsed().as_secs_f64() * 1000.0;
                 let frame_changed = scene
                     .frame
@@ -802,10 +826,13 @@ impl Engine {
                 }
                 scene.dirty = false;
                 let mut delay = scene.runtime.next_due().saturating_sub(now);
+                if scene.profile_animation.is_some() {
+                    delay = delay.min(Duration::from_millis(50));
+                }
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
                 }
-                if scene.profile_restore.is_none() { self.images.publish(
+                if scene.profile_restore.is_none() && !animating { self.images.publish(
                     key,
                     images::Snapshot {
                         render_millis,

@@ -103,6 +103,8 @@ impl<'de> Deserialize<'de> for Profile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct Config {
+    /// Shared effect used for manual, automatic and fallback changes.
+    pub transition: TransitionSettings,
     pub profiles: Vec<Profile>,
     pub automatic: bool,
     pub manual: Option<String>,
@@ -111,6 +113,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            transition: TransitionSettings::default(),
             profiles: vec![],
             automatic: true,
             manual: None,
@@ -120,6 +123,7 @@ impl Default for Config {
 }
 impl Config {
     pub fn validate(&self) -> Result<()> {
+        self.transition.card()?;
         let mut ids = BTreeSet::new();
         if self.profiles.len() > 32 {
             return Err(invalid("too many profiles"));
@@ -184,6 +188,67 @@ impl Config {
                 })
             })
             .collect()
+    }
+}
+
+/// Whole-profile animation settings; existing configurations default to no motion.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct TransitionSettings {
+    /// Same effects as card transitions: none, fade, slide, flip.
+    pub effect: String,
+    /// Left, right, up or down.
+    pub direction: String,
+    /// Duration in milliseconds, 150 to 3000.
+    pub duration_ms: u32,
+}
+impl Default for TransitionSettings {
+    fn default() -> Self {
+        Self {
+            effect: "none".into(),
+            direction: "left".into(),
+            duration_ms: 600,
+        }
+    }
+}
+impl TransitionSettings {
+    fn card(&self) -> Result<bezel_core::domain::theme::CardTransition> {
+        use bezel_core::domain::theme::{CardDirection, CardEffect, CardTransition};
+        Ok(CardTransition {
+            effect: match self.effect.as_str() {
+                "none" => CardEffect::None,
+                "fade" => CardEffect::Fade,
+                "slide" => CardEffect::Slide,
+                "flip" => CardEffect::Flip,
+                _ => return Err(invalid("unknown profile transition effect")),
+            },
+            direction: match self.direction.as_str() {
+                "left" => CardDirection::Left,
+                "right" => CardDirection::Right,
+                "up" => CardDirection::Up,
+                "down" => CardDirection::Down,
+                _ => return Err(invalid("unknown profile transition direction")),
+            },
+            duration_ms: if (150..=3000).contains(&self.duration_ms) {
+                self.duration_ms
+            } else {
+                return Err(invalid(
+                    "profile transition duration must be 150 to 3000 ms",
+                ));
+            },
+            include_base: true,
+        })
+    }
+}
+
+pub(crate) struct Animation {
+    pub from: std::sync::Arc<bezel_core::domain::frame::Frame>,
+    pub started: Duration,
+    pub settings: bezel_core::domain::theme::CardTransition,
+}
+impl Animation {
+    pub fn progress(&self, now: Duration) -> f32 {
+        now.saturating_sub(self.started).as_secs_f32() / (self.settings.duration_ms as f32 / 1000.0)
     }
 }
 
@@ -489,6 +554,14 @@ impl Service {
                         .is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
             });
             if config_changed || scene.profile_id != id {
+                let from = scene.frame.clone();
+                let animate = scene.live
+                    && !engine.images.viewed(key)
+                    && (scene.profile_id.is_some() || id.is_some())
+                    && !matches!(
+                        scene.runtime.video(),
+                        bezel_core::app::VideoState::OnDevice(_)
+                    );
                 let before = scene_bytes(scene);
                 scene.restore_profile();
                 budget = budget
@@ -540,6 +613,18 @@ impl Service {
                 } else {
                     changed = true;
                 }
+                if animate
+                    && let Some(from) = from
+                    && from.size() == scene.runtime.theme().canvas
+                    && let Ok(settings) = self.config.transition.card()
+                    && settings.effect != bezel_core::domain::theme::CardEffect::None
+                {
+                    scene.profile_animation = Some(Animation {
+                        from,
+                        started: now,
+                        settings,
+                    });
+                }
             }
         }
         changed
@@ -549,6 +634,27 @@ impl Service {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn transitions_are_backward_compatible_and_bounded() {
+        let mut config: Config = serde_json::from_str("{}").unwrap();
+        assert_eq!(config.transition.effect, "none");
+        for effect in ["none", "fade", "slide", "flip"] {
+            config.transition.effect = effect.into();
+            config.validate().unwrap();
+            let saved = serde_json::to_vec(&config).unwrap();
+            assert_eq!(serde_json::from_slice::<Config>(&saved).unwrap(), config);
+        }
+        config.transition.duration_ms = 149;
+        assert!(config.validate().is_err());
+        config.transition.duration_ms = 3001;
+        assert!(config.validate().is_err());
+        config.transition.duration_ms = 600;
+        config.transition.direction = "invalid".into();
+        assert!(config.validate().is_err());
+        config.transition.direction = "left".into();
+        config.transition.effect = "invalid".into();
+        assert!(config.validate().is_err());
+    }
     #[test]
     fn legacy_single_screen_profiles_migrate_without_losing_their_assignment() {
         let old = r#"{"profiles":[{"id":"gaming","name":"Gaming","screen":"COM3","theme":"wide.bezeltheme","rules":[]}],"automatic":false,"manual":"gaming"}"#;

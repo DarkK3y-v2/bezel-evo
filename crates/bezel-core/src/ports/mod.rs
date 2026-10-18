@@ -510,6 +510,18 @@ pub struct RenderStats {
 
 /// Driven port: draws a theme into a frame of its canvas size.
 pub trait FrameRenderer: Send {
+    /// Composes a whole-screen change using the same effects as card faces.
+    /// Renderers without compositing support immediately show the target.
+    fn transition_frame(
+        &mut self,
+        _from: &Frame,
+        to: &Frame,
+        _settings: crate::domain::theme::CardTransition,
+        _progress: f32,
+    ) -> Result<Frame> {
+        Ok(to.clone())
+    }
+
     /// Renders `theme` with `assets` in `context`.
     fn render(
         &mut self,

@@ -202,7 +202,7 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     let mut music = saved.clone(); music.theme.name = "music profile".into();
     bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &music.theme, &music.assets).unwrap();
     let file = ProfileFile(directory.join("profiles.json"));
-    file.save(&Config { profiles: vec![Profile { id: "music".into(), name: "Music".into(), themes: BTreeMap::from([(f.key.clone(), path.display().to_string())]), rules: vec![] }], automatic: false, manual: Some("music".into()), default_profile: None }).unwrap();
+    file.save(&Config { profiles: vec![Profile { id: "music".into(), name: "Music".into(), themes: BTreeMap::from([(f.key.clone(), path.display().to_string())]), rules: vec![] }], automatic: false, manual: Some("music".into()), default_profile: None, transition: Default::default() }).unwrap();
     f.engine.scenes.get_mut(&f.key).unwrap().live = true;
     let mut service = Service::new(file.clone());
     service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
@@ -244,7 +244,10 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
     round.theme.canvas = Size::new(480, 480); round.theme.orientation = Orientation::Portrait;
     f.engine.document("wide", 1, wide.clone(), true).unwrap();
     f.engine.document("round", 1, round.clone(), true).unwrap();
-    for scene in f.engine.scenes.values_mut() { scene.live = true; }
+    for scene in f.engine.scenes.values_mut() {
+        scene.live = true;
+        scene.frame = Some(Arc::new(Frame::filled(scene.runtime.theme().canvas, Rgba::BLACK)));
+    }
     let directory = std::env::temp_dir().join(format!("bezel-profile-pair-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     let mut themes = BTreeMap::new();
@@ -255,13 +258,14 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
         themes.insert(key.to_owned(), path.display().to_string());
     }
     let file = ProfileFile(directory.join("profiles.json"));
-    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None };
+    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None, transition: crate::profiles::TransitionSettings { effect: "slide".into(), ..Default::default() } };
     file.save(&config).unwrap();
     let mut service = Service::new(file.clone());
     service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
     for key in ["wide", "round"] {
         assert_eq!(f.engine.scenes[key].runtime.theme().name, format!("Gaming {key}"));
         assert_eq!(f.engine.scenes[key].profile_id.as_deref(), Some("gaming"));
+        assert_eq!(f.engine.scenes[key].profile_animation.as_ref().unwrap().started, Duration::ZERO);
     }
     assert!(f.engine.scenes["wide"].saved == wide);
     assert!(f.engine.scenes["round"].saved == round);
@@ -269,8 +273,32 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
     service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(2));
     assert_eq!(f.engine.scenes["wide"].runtime.theme().name, "Selected wide");
     assert_eq!(f.engine.scenes["round"].runtime.theme().name, "Selected round");
+    for key in ["wide", "round"] {
+        assert_eq!(f.engine.scenes[key].profile_animation.as_ref().unwrap().started, Duration::from_secs(2));
+    }
+    f.engine.editing_profile("wide");
+    assert!(f.engine.scenes["wide"].profile_animation.is_none());
     for path in themes.values() { std::fs::remove_file(path).unwrap(); }
     std::fs::remove_file(&file.0).unwrap(); std::fs::remove_dir(directory).unwrap();
+}
+#[test]
+fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_refresh() {
+    use bezel_core::domain::theme::{CardDirection, CardEffect, CardTransition};
+    let mut f = fixture();
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let scene = f.engine.scenes.get_mut(&f.key).unwrap();
+    scene.profile_animation = Some(crate::profiles::Animation {
+        from: scene.frame.clone().unwrap(), started: Duration::ZERO,
+        settings: CardTransition { effect: CardEffect::Fade, direction: CardDirection::Left, duration_ms: 600, include_base: true },
+    });
+    let count = f.seen.lock().unwrap().len();
+    let delay = f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    assert!(delay <= Duration::from_millis(50));
+    assert!(f.seen.lock().unwrap().len() > count);
+    assert!(f.engine.scenes[&f.key].profile_animation.is_some());
+    f.engine.tick_at(Duration::from_millis(600), time()).unwrap();
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
