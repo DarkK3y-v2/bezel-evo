@@ -324,7 +324,8 @@ impl Service {
     }
     pub fn tick(&mut self, engine: &mut Engine, snapshot: &Snapshot, now: Duration) -> bool {
         let mut changed = false;
-        if now >= self.poll {
+        let poll = now >= self.poll;
+        if poll {
             self.poll = now + Duration::from_secs(1);
             let stamp = std::fs::metadata(&self.file.0)
                 .ok()
@@ -339,6 +340,17 @@ impl Service {
                 self.stamp = stamp;
             }
         }
+        // Re-entering a profile after editing must read its freshly saved theme.
+        // Keep only active documents; failed reads retry at most once a second.
+        self.documents.retain(|id, document| {
+            if document.is_none() {
+                return !poll;
+            }
+            engine
+                .scenes
+                .values()
+                .any(|scene| scene.profile_id.as_ref() == Some(id))
+        });
         let config_changed = changed;
         let scene_bytes = |scene: &crate::Scene| {
             scene.runtime.assets().values().map(Vec::len).sum::<usize>()

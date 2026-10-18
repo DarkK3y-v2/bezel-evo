@@ -189,6 +189,7 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     use bezel_core::ports::{ThemeLocation, ThemeStore};
     use crate::profiles::{Config, Profile, ProfileFile, Service};
     let mut f = fixture();
+    let previous_pixels = DISTINCT.with(|d| d.replace(Some(0)));
     let mut saved = doc(); saved.theme.background = Background::Color(Rgba::BLACK);
     f.engine.document(&f.key, 1, saved.clone(), true).unwrap();
     let mut draft = saved.clone(); draft.theme.name = "unsaved editor".into();
@@ -209,7 +210,16 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     assert_eq!(scene.runtime.theme().name, "music profile");
     assert!(scene.saved == saved);
     assert!(scene.profile_restore.as_ref() == Some(&draft));
+    f.engine.editing_profile(&f.key);
+    music.theme.name = "freshly saved music".into();
+    bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &music.theme, &music.assets).unwrap();
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_millis(100));
+    // Simulate the editing grace period expiring without a wall-clock sleep.
+    f.engine.scenes.get_mut(&f.key).unwrap().profile_edit_at = None;
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(1));
+    assert_eq!(f.engine.scenes[&f.key].runtime.theme().name, "freshly saved music");
     f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    assert!(f.engine.scenes[&f.key].frame.as_ref().unwrap().as_ref() != &published);
     // Reading the canvas returns the editor's frame, not the live profile.
     assert!(f.engine.image(&f.key, 0, 2320).unwrap().frame.as_ref() == Some(&published));
     service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(1));
@@ -221,6 +231,7 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     std::fs::remove_file(&file.0).unwrap();
     std::fs::remove_file(path).unwrap();
     std::fs::remove_dir(directory).unwrap();
+    DISTINCT.with(|d| d.set(previous_pixels));
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
