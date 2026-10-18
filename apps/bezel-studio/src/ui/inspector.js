@@ -991,7 +991,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     if (!cards.length) return [summary];
     const parent = cards.find(p => p.id === e.cardMember?.parent);
     return [
-      summary,
+      e.groupParent != null && summary,
       selectField(t('widget.card'), parent ? String(parent.id) : '', [['', t('card.none')], ...cards.map(p => [String(p.id), p.name])], value => {
         const target = cards.find(p => String(p.id) === value);
         store.dispatch('attachCard', { ids: [e.id], parent: target?.id, face: target?.card.activeFace ?? null });
