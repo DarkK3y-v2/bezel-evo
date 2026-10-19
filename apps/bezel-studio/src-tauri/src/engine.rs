@@ -204,6 +204,30 @@ impl EngineBridge {
         self.call(&mut state, key, RuntimeOp::Live { on }, &[])?;
         Ok(())
     }
+    /// Tries a profile cover on every live screen, their themes unchanged.
+    pub fn preview_cover(
+        &self,
+        transition: &bezel_runtime::profiles::TransitionSettings,
+    ) -> Result<()> {
+        let mut state = self.lock()?;
+        let live: Vec<String> = state
+            .live
+            .iter()
+            .filter(|(_, on)| **on)
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in live {
+            self.call(
+                &mut state,
+                &key,
+                RuntimeOp::PreviewCover {
+                    transition: transition.clone(),
+                },
+                &[],
+            )?;
+        }
+        Ok(())
+    }
     pub fn request(&self, key: &str, op: RuntimeOp) -> Result<(Value, Vec<u8>)> {
         {
             let mut state = self.lock()?;

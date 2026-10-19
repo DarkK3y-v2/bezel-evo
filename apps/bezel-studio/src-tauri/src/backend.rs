@@ -598,6 +598,17 @@ impl Backend {
         Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).save(&config)?)
     }
 
+    /// Plays `transition` once on the live screens, as a profile change would,
+    /// without saving it or changing a theme.
+    pub fn preview_transition(&self, transition: bezel_runtime::profiles::TransitionSettings) -> UiResult<()> {
+        let config = bezel_runtime::profiles::Config { transition, ..Default::default() };
+        config.validate()?;
+        if let Some(engine) = &self.engine {
+            engine.preview_cover(&config.transition)?;
+        }
+        Ok(())
+    }
+
     pub fn select_profile(&self, id: Option<&str>, automatic: bool) -> UiResult<()> {
         Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).select(id, automatic)?)
     }
@@ -1967,6 +1978,16 @@ mod tests {
         assert_eq!(overview.displays.iter().find(|d| d.key == "COM9").unwrap().theme_name.as_deref(), Some("Round clock"));
         f.backend.save_profiles(Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: paths.clone(), rules: vec![] }], ..Config::default() }).unwrap();
         assert_eq!(f.backend.profiles().unwrap().config.profiles[0].themes, paths);
+    }
+
+    #[test]
+    fn a_transition_preview_is_checked_and_never_saved() {
+        use bezel_runtime::profiles::TransitionSettings;
+        let f = fixture("transition-preview");
+        let wipe = TransitionSettings { effect: "wipe".into(), direction: "up".into(), duration_ms: 900 };
+        f.backend.preview_transition(wipe).unwrap();
+        assert!(f.backend.preview_transition(TransitionSettings { duration_ms: 20, ..Default::default() }).is_err());
+        assert_eq!(f.backend.profiles().unwrap().config.transition, TransitionSettings::default());
     }
 
     #[test]

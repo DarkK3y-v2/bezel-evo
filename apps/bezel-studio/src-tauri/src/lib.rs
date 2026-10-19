@@ -362,6 +362,7 @@ pub fn run() -> Result<(), tauri::Error> {
             commands::profiles,
             commands::profiles_requested,
             commands::save_profiles,
+            commands::preview_transition,
             commands::set_audio_capture,
             commands::set_debug,
             commands::set_language,

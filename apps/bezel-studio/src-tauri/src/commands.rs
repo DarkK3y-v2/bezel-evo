@@ -692,6 +692,15 @@ pub async fn save_profiles(
     Ok(())
 }
 
+/// Plays a profile transition once on the live screens, unsaved.
+#[tauri::command]
+pub async fn preview_transition(
+    state: State<'_, Shared>,
+    transition: bezel_runtime::profiles::TransitionSettings,
+) -> UiResult<()> {
+    blocking(&state, move |b| b.preview_transition(transition)).await
+}
+
 /// Uses `language` (`pt-BR`, `en`, or `None` for the system's) from now on,
 /// in the tray too.
 #[tauri::command]

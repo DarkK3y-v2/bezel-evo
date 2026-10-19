@@ -63,6 +63,7 @@
     "allow-profiles",
     "allow-profiles-requested",
     "allow-save-profiles",
+    "allow-preview-transition",
     "allow-set-language",
     "allow-set-audio-capture",
     "allow-set-debug",
