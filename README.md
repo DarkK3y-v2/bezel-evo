@@ -40,9 +40,6 @@ build; the [changelog](CHANGELOG.md) has each step.
   towards the selected profile and comes back.
 - **Motion from sensors.** Rotate any object by hand or from a reading, such as
   fan RPM or load, with inertia; values ease with a new **Inertia** option.
-- **Twelve new bundled themes.** Pulse / Gaming, Resonance / Music and
-  Clarity / Monitor for 1920×480 and 480×480, plus six animated graphic-only
-  themes (Synapse, Prism, Morph).
 - **Smoother graphs.** Line, area and bar histories scroll between samples,
   paced per display.
 - **Studio.** A redesigned inspector with one shared order, one searchable
@@ -147,18 +144,6 @@ it also works over video a screen plays itself, on any size or shape. Between
 1500 and 2500 ms the motion is smoothest; slower displays show fewer frames. The
 ▶ button tries the transition towards the selected profile on the live displays
 and comes back, without saving.
-
-The included theme library also offers three coordinated pairs for 1920×480 and
-480×480 displays: **Pulse / Gaming**, **Resonance / Music** and **Clarity / Monitor**.
-They demonstrate rotating Cards, smooth sensor values, colour thresholds, history
-graphs, the media player and live system-audio spectra. Open one from **Themes**
-and save a copy to customise it. See [the template guide](themes/README.md).
-
-Six additional animated **Kinetic** templates explore graphic motion design:
-**Synapse** (orbital signals and telemetry), **Prism** (a moving geometric knot
-and poster typography) and **Morph** (a live sound sculpture). Each has Wide
-and Round layouts, local animation loops and native live widgets, with no
-photographic backgrounds.
 
 **Bezel Light** is the small tray program that owns your screens. It runs the
 themes, reads the sensors, keeps the graph history and clocks, plays the
