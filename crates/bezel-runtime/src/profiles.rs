@@ -3,6 +3,7 @@ use crate::{Document, Engine, invalid};
 use bezel_core::{
     Result,
     domain::{
+        cover::{self, Cover, CoverDirection, CoverEffect, CoverStage},
         playback::{CardTrigger, TriggerSource},
         sensor::{SensorKey, Snapshot, Wanted},
     },
@@ -123,7 +124,7 @@ impl Default for Config {
 }
 impl Config {
     pub fn validate(&self) -> Result<()> {
-        self.transition.card()?;
+        self.transition.cover()?;
         let mut ids = BTreeSet::new();
         if self.profiles.len() > 32 {
             return Err(invalid("too many profiles"));
@@ -191,15 +192,16 @@ impl Config {
     }
 }
 
-/// Whole-profile animation settings; existing configurations default to no motion.
+/// Whole-profile cover settings; existing configurations default to no motion.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct TransitionSettings {
-    /// Same effects as card transitions: none, fade, slide, flip.
+    /// none, curtain, wipe, blinds or mosaic.
+    #[serde(deserialize_with = "effect_name")]
     pub effect: String,
     /// Left, right, up or down.
     pub direction: String,
-    /// Duration in milliseconds, 150 to 3000.
+    /// Closing plus opening in milliseconds, 150 to 3000.
     pub duration_ms: u32,
 }
 impl Default for TransitionSettings {
@@ -207,48 +209,127 @@ impl Default for TransitionSettings {
         Self {
             effect: "none".into(),
             direction: "left".into(),
-            duration_ms: 600,
+            duration_ms: 800,
         }
     }
 }
+/// The whole-scene fade, slide and flip of earlier versions moved pixels the
+/// host never has under a video the screen plays itself; a saved one becomes
+/// the cover closest to it.
+fn effect_name<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<String, D::Error> {
+    let name = String::deserialize(deserializer)?;
+    Ok(match name.as_str() {
+        "fade" => "mosaic",
+        "slide" => "wipe",
+        "flip" => "curtain",
+        other => other,
+    }
+    .to_owned())
+}
 impl TransitionSettings {
-    fn card(&self) -> Result<bezel_core::domain::theme::CardTransition> {
-        use bezel_core::domain::theme::{CardDirection, CardEffect, CardTransition};
-        Ok(CardTransition {
-            effect: match self.effect.as_str() {
-                "none" => CardEffect::None,
-                "fade" => CardEffect::Fade,
-                "slide" => CardEffect::Slide,
-                "flip" => CardEffect::Flip,
-                _ => return Err(invalid("unknown profile transition effect")),
-            },
-            direction: match self.direction.as_str() {
-                "left" => CardDirection::Left,
-                "right" => CardDirection::Right,
-                "up" => CardDirection::Up,
-                "down" => CardDirection::Down,
-                _ => return Err(invalid("unknown profile transition direction")),
-            },
-            duration_ms: if (150..=3000).contains(&self.duration_ms) {
-                self.duration_ms
-            } else {
-                return Err(invalid(
-                    "profile transition duration must be 150 to 3000 ms",
-                ));
-            },
-            include_base: true,
-        })
+    /// The cover to draw, `None` for an immediate change.
+    fn cover(&self) -> Result<Option<Cover>> {
+        let effect = match self.effect.as_str() {
+            "none" => None,
+            "curtain" => Some(CoverEffect::Curtain),
+            "wipe" => Some(CoverEffect::Wipe),
+            "blinds" => Some(CoverEffect::Blinds),
+            "mosaic" => Some(CoverEffect::Mosaic),
+            _ => return Err(invalid("unknown profile transition effect")),
+        };
+        let direction = match self.direction.as_str() {
+            "left" => CoverDirection::Left,
+            "right" => CoverDirection::Right,
+            "up" => CoverDirection::Up,
+            "down" => CoverDirection::Down,
+            _ => return Err(invalid("unknown profile transition direction")),
+        };
+        if !(150..=3000).contains(&self.duration_ms) {
+            return Err(invalid(
+                "profile transition duration must be 150 to 3000 ms",
+            ));
+        }
+        Ok(effect.map(|effect| Cover {
+            effect,
+            direction,
+            panel: cover::DEFAULT_PANEL,
+            accent: cover::DEFAULT_ACCENT,
+        }))
     }
 }
 
+/// Where a profile change stands on one screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Phase {
+    /// The cover closes over the old theme; the new one is not applied yet.
+    Closing,
+    /// Closed: the new theme is applied and its first frame is being drawn.
+    Covered,
+    /// The cover opens on the new theme's frames.
+    Opening,
+}
+
 pub(crate) struct Animation {
-    pub from: std::sync::Arc<bezel_core::domain::frame::Frame>,
+    /// The profile applied once the cover is closed (`None`: the selected themes).
+    pub target: Option<String>,
+    pub phase: Phase,
     pub started: Duration,
-    pub settings: bezel_core::domain::theme::CardTransition,
+    /// Coverage the closing starts from: a cover still moving when another
+    /// profile is chosen closes from where it is.
+    pub base: f32,
+    pub cover: Cover,
+    /// Closing and opening each take half the duration; loading the new theme
+    /// happens in between and shortens neither.
+    pub half: Duration,
 }
 impl Animation {
-    pub fn progress(&self, now: Duration) -> f32 {
-        now.saturating_sub(self.started).as_secs_f32() / (self.settings.duration_ms as f32 / 1000.0)
+    fn closing(
+        target: Option<String>,
+        cover: Cover,
+        duration_ms: u32,
+        now: Duration,
+        base: f32,
+    ) -> Self {
+        Self {
+            target,
+            phase: Phase::Closing,
+            started: now,
+            base: base.clamp(0.0, 1.0),
+            cover,
+            half: Duration::from_millis(u64::from(duration_ms / 2)),
+        }
+    }
+    fn elapsed(&self, now: Duration) -> f32 {
+        now.saturating_sub(self.started).as_secs_f32() / self.half.as_secs_f32().max(0.001)
+    }
+    pub fn coverage(&self, now: Duration) -> f32 {
+        match self.phase {
+            Phase::Closing => self.base + (1.0 - self.base) * cover::ease(self.elapsed(now)),
+            Phase::Covered => 1.0,
+            Phase::Opening => 1.0 - cover::ease(self.elapsed(now)),
+        }
+    }
+    pub fn stage(&self) -> CoverStage {
+        if self.phase == Phase::Opening {
+            CoverStage::Opening
+        } else {
+            CoverStage::Closing
+        }
+    }
+    fn closed(&self, now: Duration) -> bool {
+        self.phase == Phase::Closing && (self.base >= 1.0 || self.elapsed(now) >= 1.0)
+    }
+    /// Starts the opening at the new theme's first frame.
+    pub fn open(&mut self, now: Duration) {
+        if self.phase == Phase::Covered {
+            self.phase = Phase::Opening;
+            self.started = now;
+        }
+    }
+    pub fn finished(&self, now: Duration) -> bool {
+        self.phase == Phase::Opening && self.elapsed(now) >= 1.0
     }
 }
 
@@ -274,24 +355,9 @@ pub struct Overview {
 pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static str; 4] {
     use bezel_core::domain::clock::Language;
     match language {
-        Language::Italian => [
-            "Profili",
-            "Automatico",
-            "Default",
-            "Gestisci profili…",
-        ],
-        Language::PortugueseBr => [
-            "Perfis",
-            "Automático",
-            "Default",
-            "Gerenciar perfis…",
-        ],
-        Language::English => [
-            "Profiles",
-            "Automatic",
-            "Default",
-            "Manage profiles…",
-        ],
+        Language::Italian => ["Profili", "Automatico", "Default", "Gestisci profili…"],
+        Language::PortugueseBr => ["Perfis", "Automático", "Default", "Gerenciar perfis…"],
+        Language::English => ["Profiles", "Automatic", "Default", "Manage profiles…"],
     }
 }
 impl ProfileFile {
@@ -496,24 +562,25 @@ impl Service {
             }
         }
         // Re-entering a profile after editing must read its freshly saved theme.
-        // Keep only active documents; failed reads retry at most once a second.
+        // Keep only active documents (and those a closing cover heads to);
+        // failed reads retry at most once a second.
         self.documents.retain(|(id, screen), document| {
             if document.is_none() {
                 return !poll;
             }
-            engine
-                .scenes
-                .get(screen)
-                .is_some_and(|scene| scene.profile_id.as_ref() == Some(id))
+            engine.scenes.get(screen).is_some_and(|scene| {
+                scene.profile_id.as_ref() == Some(id)
+                    || scene
+                        .profile_animation
+                        .as_ref()
+                        .is_some_and(|a| a.target.as_ref() == Some(id))
+            })
         });
         let config_changed = changed;
-        let scene_bytes = |scene: &crate::Scene| {
-            scene.runtime.assets().values().map(Vec::len).sum::<usize>()
-                + scene.saved.bytes()
-                + scene.profile_restore.as_ref().map_or(0, Document::bytes)
-        };
-        let mut budget: usize = engine.scenes.values().map(&scene_bytes).sum();
+        let mut budget: usize = engine.scenes.values().map(scene_bytes).sum();
         let selected = self.selection.choose(&self.config, snapshot, now);
+        let cover = self.config.transition.cover().ok().flatten();
+        let duration_ms = self.config.transition.duration_ms;
         for (key, scene) in &mut engine.scenes {
             let id = selected.clone().filter(|id| {
                 self.config
@@ -523,89 +590,137 @@ impl Service {
             });
             // Editing pauses profile output. Its pixels never replace the editor's
             // published frame, so reopening Studio first sees its own document.
+            let viewed = engine.images.viewed(key);
             let id = id.filter(|_| {
                 scene.live
-                    && !engine.images.viewed(key)
+                    && !viewed
                     && scene
                         .profile_edit_at
                         .is_none_or(|at| at.elapsed() >= Duration::from_secs(2))
             });
-            if config_changed || scene.profile_id != id {
-                let from = scene.frame.clone();
+            // A closing cover already heads to the profile it will apply.
+            let heading = match &scene.profile_animation {
+                Some(a) if a.phase == Phase::Closing => a.target.clone(),
+                _ => scene.profile_id.clone(),
+            };
+            if config_changed || heading != id {
+                // The cover paints opaque pixels only, so it also hides a video
+                // the screen plays itself. It waits for a theme that can be shown.
                 let animate = scene.live
-                    && !engine.images.viewed(key)
-                    && (scene.profile_id.is_some() || id.is_some())
-                    && !matches!(
-                        scene.runtime.video(),
-                        bezel_core::app::VideoState::OnDevice(_)
-                    );
-                let before = scene_bytes(scene);
-                scene.restore_profile();
-                budget = budget
-                    .saturating_sub(before)
-                    .saturating_add(scene_bytes(scene));
-                if let Some(id) = id {
-                    let cache_key = (id.clone(), key.clone());
-                    if !self.documents.contains_key(&cache_key) {
-                        let document = self
-                            .config
-                            .profiles
-                            .iter()
-                            .find(|p| p.id == id)
-                            .and_then(|p| p.themes.get(key))
-                            .and_then(|path| {
-                                bezel_themes::FsThemeStore
-                                    .load(&ThemeLocation(path.clone()))
-                                    .ok()
-                            })
-                            .map(|(theme, assets)| Document { theme, assets })
-                            .filter(|d| d.validate().is_ok());
-                        let cached_bytes: usize =
-                            self.documents.values().flatten().map(Document::bytes).sum();
-                        let document = document.filter(|d| {
-                            cached_bytes.saturating_add(d.bytes()) <= crate::MAX_ALL_ASSETS / 2
-                        });
-                        self.documents.insert(cache_key.clone(), document);
-                    }
-                    if let Some(Some(document)) = self.documents.get(&cache_key)
-                        && scene
-                            .screen
+                    && !viewed
+                    && scene.frame.is_some()
+                    && (heading.is_some() || id.is_some())
+                    && id
+                        .as_deref()
+                        .is_none_or(|id| self.document(id, key, scene).is_some());
+                match cover.filter(|_| animate) {
+                    Some(cover) => {
+                        let base = scene
+                            .profile_animation
                             .as_ref()
-                            .and_then(|s| s.model())
-                            .map_or(document.theme.canvas == scene.runtime.theme().canvas, |m| {
-                                document.theme.misfit(m.panel).is_none()
-                            })
-                        && budget.saturating_add(document.bytes()) <= crate::MAX_ALL_ASSETS
-                    {
-                        scene.profile_restore = Some(Document {
-                            theme: scene.runtime.theme().clone(),
-                            assets: scene.runtime.assets().clone(),
-                        });
-                        scene.profile_id = Some(id);
-                        scene.update(document.clone());
-                        scene.runtime.automatic_cards(true);
-                        budget += document.bytes();
-                        changed = true;
+                            .map_or(0.0, |a| a.coverage(now));
+                        scene.profile_animation =
+                            Some(Animation::closing(id, cover, duration_ms, now, base));
+                        scene.dirty = true;
                     }
-                } else {
-                    changed = true;
+                    None => changed |= self.apply(key, scene, id, &mut budget),
                 }
-                if animate
-                    && let Some(from) = from
-                    && from.size() == scene.runtime.theme().canvas
-                    && let Ok(settings) = self.config.transition.card()
-                    && settings.effect != bezel_core::domain::theme::CardEffect::None
-                {
-                    scene.profile_animation = Some(Animation {
-                        from,
-                        started: now,
-                        settings,
-                    });
-                }
+            }
+            if scene
+                .profile_animation
+                .as_ref()
+                .is_some_and(|a| a.closed(now))
+                && let Some(mut animation) = scene.profile_animation.take()
+            {
+                changed |= self.apply(key, scene, animation.target.clone(), &mut budget);
+                animation.phase = Phase::Covered;
+                scene.profile_animation = Some(animation);
+                scene.dirty = true;
             }
         }
         changed
     }
+
+    /// The profile's theme for the screen `key`, read once and cached, when
+    /// it fits the screen.
+    fn document(&mut self, id: &str, key: &str, scene: &crate::Scene) -> Option<&Document> {
+        let cache_key = (id.to_owned(), key.to_owned());
+        if !self.documents.contains_key(&cache_key) {
+            let document = self
+                .config
+                .profiles
+                .iter()
+                .find(|p| p.id == id)
+                .and_then(|p| p.themes.get(key))
+                .and_then(|path| {
+                    bezel_themes::FsThemeStore
+                        .load(&ThemeLocation(path.clone()))
+                        .ok()
+                })
+                .map(|(theme, assets)| Document { theme, assets })
+                .filter(|d| d.validate().is_ok());
+            let cached_bytes: usize = self.documents.values().flatten().map(Document::bytes).sum();
+            let document = document
+                .filter(|d| cached_bytes.saturating_add(d.bytes()) <= crate::MAX_ALL_ASSETS / 2);
+            self.documents.insert(cache_key.clone(), document);
+        }
+        self.documents
+            .get(&cache_key)
+            .and_then(Option::as_ref)
+            .filter(|document| {
+                scene
+                    .screen
+                    .as_ref()
+                    .and_then(|s| s.model())
+                    .map_or(document.theme.canvas == scene.runtime.theme().canvas, |m| {
+                        document.theme.misfit(m.panel).is_none()
+                    })
+            })
+    }
+
+    /// Shows the profile `id` (or the selected themes) on the screen at once.
+    /// A cover in progress is kept: it is the one hiding this change.
+    fn apply(
+        &mut self,
+        key: &str,
+        scene: &mut crate::Scene,
+        id: Option<String>,
+        budget: &mut usize,
+    ) -> bool {
+        let animation = scene.profile_animation.take();
+        let before = scene_bytes(scene);
+        scene.restore_profile();
+        *budget = budget
+            .saturating_sub(before)
+            .saturating_add(scene_bytes(scene));
+        let mut changed = false;
+        match id {
+            Some(id) => {
+                if let Some(document) = self.document(&id, key, scene).cloned()
+                    && budget.saturating_add(document.bytes()) <= crate::MAX_ALL_ASSETS
+                {
+                    scene.profile_restore = Some(Document {
+                        theme: scene.runtime.theme().clone(),
+                        assets: scene.runtime.assets().clone(),
+                    });
+                    scene.profile_id = Some(id);
+                    *budget += document.bytes();
+                    scene.update(document);
+                    scene.runtime.automatic_cards(true);
+                    changed = true;
+                }
+            }
+            None => changed = true,
+        }
+        scene.profile_animation = animation;
+        changed
+    }
+}
+
+fn scene_bytes(scene: &crate::Scene) -> usize {
+    scene.runtime.assets().values().map(Vec::len).sum::<usize>()
+        + scene.saved.bytes()
+        + scene.profile_restore.as_ref().map_or(0, Document::bytes)
 }
 
 #[cfg(test)]
@@ -615,11 +730,26 @@ mod tests {
     fn transitions_are_backward_compatible_and_bounded() {
         let mut config: Config = serde_json::from_str("{}").unwrap();
         assert_eq!(config.transition.effect, "none");
-        for effect in ["none", "fade", "slide", "flip"] {
+        for effect in ["none", "curtain", "wipe", "blinds", "mosaic"] {
             config.transition.effect = effect.into();
             config.validate().unwrap();
             let saved = serde_json::to_vec(&config).unwrap();
             assert_eq!(serde_json::from_slice::<Config>(&saved).unwrap(), config);
+        }
+        // Whole-scene effects of earlier versions load as the nearest cover.
+        for (old, new) in [("fade", "mosaic"), ("slide", "wipe"), ("flip", "curtain")] {
+            let saved = format!(
+                r#"{{"transition":{{"effect":"{old}","direction":"down","durationMs":600}}}}"#
+            );
+            let loaded: Config = serde_json::from_str(&saved).unwrap();
+            loaded.validate().unwrap();
+            assert_eq!(
+                (
+                    loaded.transition.effect.as_str(),
+                    loaded.transition.direction.as_str()
+                ),
+                (new, "down")
+            );
         }
         config.transition.duration_ms = 149;
         assert!(config.validate().is_err());
@@ -631,6 +761,38 @@ mod tests {
         config.transition.direction = "left".into();
         config.transition.effect = "invalid".into();
         assert!(config.validate().is_err());
+    }
+    #[test]
+    fn a_cover_closes_and_opens_in_halves_around_the_first_new_frame() {
+        let cover = Cover {
+            effect: CoverEffect::Curtain,
+            direction: CoverDirection::Left,
+            panel: cover::DEFAULT_PANEL,
+            accent: cover::DEFAULT_ACCENT,
+        };
+        let ms = Duration::from_millis;
+        let mut animation =
+            Animation::closing(Some("music".into()), cover, 800, Duration::ZERO, 0.0);
+        assert_eq!(animation.coverage(Duration::ZERO), 0.0);
+        assert!(!animation.closed(ms(399)));
+        assert!(animation.closed(ms(400)));
+        assert_eq!(animation.coverage(ms(400)), 1.0);
+        // Loading the theme takes 600 ms: it stays covered, the opening waits.
+        animation.phase = Phase::Covered;
+        assert_eq!(animation.coverage(ms(1000)), 1.0);
+        animation.open(ms(1000));
+        assert_eq!(
+            (animation.phase, animation.stage()),
+            (Phase::Opening, CoverStage::Opening)
+        );
+        assert_eq!(animation.coverage(ms(1000)), 1.0);
+        assert!(!animation.finished(ms(1399)));
+        assert!(animation.finished(ms(1400)));
+        assert_eq!(animation.coverage(ms(1400)), 0.0);
+        // Another profile chosen mid-opening closes again from where it stands.
+        let again = Animation::closing(None, cover, 800, ms(1200), animation.coverage(ms(1200)));
+        assert!((again.coverage(ms(1200)) - 0.5).abs() < 1e-6);
+        assert!(!again.closed(ms(1200)));
     }
     #[test]
     fn legacy_single_screen_profiles_migrate_without_losing_their_assignment() {

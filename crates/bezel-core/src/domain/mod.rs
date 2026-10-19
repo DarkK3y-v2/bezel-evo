@@ -9,6 +9,7 @@ pub mod archive;
 pub mod catalog;
 pub mod cleanup;
 pub mod clock;
+pub mod cover;
 pub mod device;
 pub mod discovery;
 pub mod error;

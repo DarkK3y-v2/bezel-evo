@@ -793,10 +793,6 @@ impl Engine {
                 }
                 self.renderer.set_scene(scene.id);
                 self.renderer.set_motion(true);
-                // Native device video is not available as a host frame to composite.
-                if matches!(scene.runtime.video(), VideoState::OnDevice(_)) {
-                    scene.profile_animation = None;
-                }
                 let render_started = Instant::now();
                 let mut frame = scene.runtime.render_at(
                     self.renderer.as_mut(),
@@ -805,15 +801,23 @@ impl Engine {
                     now.saturating_sub(scene.video_started),
                 )?;
                 let animating = scene.profile_animation.is_some();
-                if let Some(animation) = &scene.profile_animation {
-                    let progress = animation.progress(now);
-                    if progress >= 1.0 {
-                        scene.profile_animation = None;
-                    } else {
-                        frame = self.renderer.transition_frame(
-                            &animation.from, &frame, animation.settings, progress,
-                        )?;
+                // The cover is painted over the frame, also over a video the
+                // screen plays itself. The opening starts at the new theme's first
+                // frame, so loading it never shortens the motion.
+                let finished = scene.profile_animation.as_mut().is_some_and(|animation| {
+                    animation.open(now);
+                    let finished = animation.finished(now);
+                    if !finished {
+                        animation.cover.paint(
+                            &mut frame,
+                            animation.stage(),
+                            animation.coverage(now),
+                        );
                     }
+                    finished
+                });
+                if finished {
+                    scene.profile_animation = None;
                 }
                 let render_millis = render_started.elapsed().as_secs_f64() * 1000.0;
                 let frame_changed = scene

@@ -288,16 +288,6 @@ impl SkiaRenderer {
 }
 
 impl FrameRenderer for SkiaRenderer {
-    fn transition_frame(
-        &mut self,
-        from: &Frame,
-        to: &Frame,
-        settings: bezel_core::domain::theme::CardTransition,
-        progress: f32,
-    ) -> Result<Frame> {
-        crate::cards::compose_frames(from, to, settings, progress)
-    }
-
     fn measure_element(
         &mut self,
         theme: &Theme,

@@ -259,24 +259,36 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
         themes.insert(key.to_owned(), path.display().to_string());
     }
     let file = ProfileFile(directory.join("profiles.json"));
-    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None, transition: crate::profiles::TransitionSettings { effect: "slide".into(), ..Default::default() } };
+    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None, transition: crate::profiles::TransitionSettings { effect: "wipe".into(), ..Default::default() } };
     file.save(&config).unwrap();
     let mut service = Service::new(file.clone());
+    use crate::profiles::Phase;
+    let phase = |engine: &Engine, key: &str| engine.scenes[key].profile_animation.as_ref().map(|a| a.phase);
+    // The cover closes over the old themes first; nothing is applied yet.
     service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
+    for key in ["wide", "round"] {
+        assert_eq!(f.engine.scenes[key].runtime.theme().name, format!("Selected {key}"));
+        assert_eq!(phase(&f.engine, key), Some(Phase::Closing));
+        assert_eq!(f.engine.scenes[key].profile_animation.as_ref().unwrap().target.as_deref(), Some("gaming"));
+    }
+    // Closed after half the duration: both screens switch under the cover.
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_millis(400));
     for key in ["wide", "round"] {
         assert_eq!(f.engine.scenes[key].runtime.theme().name, format!("Gaming {key}"));
         assert_eq!(f.engine.scenes[key].profile_id.as_deref(), Some("gaming"));
-        assert_eq!(f.engine.scenes[key].profile_animation.as_ref().unwrap().started, Duration::ZERO);
+        assert_eq!(phase(&f.engine, key), Some(Phase::Covered));
     }
     assert!(f.engine.scenes["wide"].saved == wide);
     assert!(f.engine.scenes["round"].saved == round);
     file.select(None, false).unwrap();
     service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(2));
+    // Still fully covered (no frame drawn yet): the change needs no new closing.
+    for key in ["wide", "round"] {
+        assert_eq!(phase(&f.engine, key), Some(Phase::Covered));
+        assert_eq!(f.engine.scenes[key].profile_id, None);
+    }
     assert_eq!(f.engine.scenes["wide"].runtime.theme().name, "Selected wide");
     assert_eq!(f.engine.scenes["round"].runtime.theme().name, "Selected round");
-    for key in ["wide", "round"] {
-        assert_eq!(f.engine.scenes[key].profile_animation.as_ref().unwrap().started, Duration::from_secs(2));
-    }
     f.engine.editing_profile("wide");
     assert!(f.engine.scenes["wide"].profile_animation.is_none());
     for path in themes.values() { std::fs::remove_file(path).unwrap(); }
@@ -284,21 +296,31 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
 }
 #[test]
 fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_refresh() {
-    use bezel_core::domain::theme::{CardDirection, CardEffect, CardTransition};
+    use bezel_core::domain::cover::{Cover, CoverDirection, CoverEffect, DEFAULT_ACCENT, DEFAULT_PANEL};
+    use crate::profiles::{Animation, Phase};
     let mut f = fixture();
     f.engine.document(&f.key, 1, doc(), true).unwrap();
     f.engine.tick_at(Duration::ZERO, time()).unwrap();
     let scene = f.engine.scenes.get_mut(&f.key).unwrap();
-    scene.profile_animation = Some(crate::profiles::Animation {
-        from: scene.frame.clone().unwrap(), started: Duration::ZERO,
-        settings: CardTransition { effect: CardEffect::Fade, direction: CardDirection::Left, duration_ms: 600, include_base: true },
+    // Covered at 0 (the theme was applied); its first frame is drawn at 50 ms.
+    scene.profile_animation = Some(Animation {
+        target: None, phase: Phase::Covered, started: Duration::ZERO, base: 1.0,
+        cover: Cover { effect: CoverEffect::Mosaic, direction: CoverDirection::Left, panel: DEFAULT_PANEL, accent: DEFAULT_ACCENT },
+        half: Duration::from_millis(300),
     });
+    scene.dirty = true;
     let count = f.seen.lock().unwrap().len();
     let delay = f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
     assert!(delay <= Duration::from_millis(50));
     assert!(f.seen.lock().unwrap().len() > count);
+    let animation = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap();
+    // The opening starts at the first frame drawn, not when the theme changed.
+    assert_eq!((animation.phase, animation.started), (Phase::Opening, Duration::from_millis(50)));
+    let covered = f.engine.scenes[&f.key].frame.as_ref().unwrap().clone();
+    assert!(covered.as_rgba().as_chunks::<4>().0.iter().all(|p| *p == [0x12, 0x0b, 0x13, 255]));
+    f.engine.tick_at(Duration::from_millis(349), time()).unwrap();
     assert!(f.engine.scenes[&f.key].profile_animation.is_some());
-    f.engine.tick_at(Duration::from_millis(600), time()).unwrap();
+    f.engine.tick_at(Duration::from_millis(350), time()).unwrap();
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
