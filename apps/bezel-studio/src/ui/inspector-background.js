@@ -156,7 +156,10 @@ export function createBackgroundPanel({ t, store, bridge, video, colorField, vid
       preview(bg, assets, context, facts),
       el('div', { class: 'bg-current-body' }, [
         el('span', { class: 'badge bg-type', dataset: { source: backgroundSource(bg) } }, [icon(ICONS[SOURCE_TEXT[backgroundSource(bg)].icon ?? 'background'], 13), t(text.type)]),
-        el('strong', { class: `bg-name${kind === 'color' ? ' mono' : ''}`, text: backgroundName(bg) }),
+        // A colour is shown once: its own field, where it is also changed.
+        kind === 'color'
+          ? colorField(t('inspector.color'), bg.color, (color) => setBackground({ type: 'color', color }))
+          : el('strong', { class: 'bg-name', text: backgroundName(bg) }),
         el('p', { class: 'hint', text: t(text.hint) }),
         statusLine(bg, context, facts),
         missing && facts?.copy ? el('button', {
@@ -209,7 +212,7 @@ export function createBackgroundPanel({ t, store, bridge, video, colorField, vid
   /** The options of the kind in use, and only those. */
   function options(bg, assets) {
     const [first] = backgroundOptions(bg);
-    if (first === 'color') return [colorField(t('inspector.color'), bg.color, (color) => setBackground({ type: 'color', color }))];
+    if (first === 'color') return [];
     if (first === 'fit') return fitOptions(bg);
     if (first === 'videoStatus') return videoOptions(bg, assets);
     return screenOptions(bg);

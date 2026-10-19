@@ -95,7 +95,7 @@ test('Cancel, Back and Esc change nothing and give the focus back', async ({ pag
   await page.keyboard.press('Escape');
   await expect(chooser(page, t)).toHaveCount(0);
   await expect(changeButton(page, t)).toBeFocused();
-  await expect(card(page, t, 'insp.bgSolid').locator('.bg-name')).toHaveText('#0C0E16');
+  await expect(card(page, t, 'insp.bgSolid').getByRole('button', { name: t('inspector.color'), exact: true })).toContainText('#0c0e16');
 
   // The video from the computer picked, then Back, by keyboard.
   await page.keyboard.press('Enter');
@@ -260,7 +260,7 @@ test('a late file picker does not change a reopened chooser', async ({ page, t }
   await expect(confirm(page, t, 'insp.bgUseColor')).toBeDisabled();
   await expect(page.locator('#undo')).toBeDisabled();
   await page.locator('#bg-cancel').click();
-  await expect(card(page, t, 'insp.bgSolid').locator('.bg-name')).toHaveText('#0C0E16');
+  await expect(card(page, t, 'insp.bgSolid').getByRole('button', { name: t('inspector.color'), exact: true })).toContainText('#0c0e16');
   expect(errors).toEqual([]);
 });
 
