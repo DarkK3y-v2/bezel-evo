@@ -44,8 +44,13 @@ le precedenti esclusioni. Non è un controllo delle ventole fisiche.
 
 - Commit: `5eb0b4b` core/renderer/formato/runtime, `2049fdc` UI e demo;
   ulteriore regressione del ritmo su display lenti verificata in Rust e JS.
-- Pronto per build diretta .53, senza setup; Studio .52 e Light ancora aperti.
-  Preservare i documenti e attendere salvataggio/chiusura prima della sostituzione.
+- Conferma utente di salvataggio/chiusura ricevuta; nessun processo Bezel prima
+  della build ufficiale .53, completata in 1m34s. CLI e metadati Studio verificati.
+  Avvio diretto da target/release, PID 26536 rispondente. Installata resta .45;
+  nessun setup, push o pubblicazione.
+- SHA256 Studio: `D02DB858B00AA485718FF2E2E22B4D4183C4D71EC9BD63E71345A94300AEF024`.
+- SHA256 CLI: `CC9E5018C0353E77D3FC577A8677D73FBB383ABFDE87684D17291381CF32953B`.
+- Regolarizzazione del ritmo sui display lenti: commit `41d9078`.
 - [ ] Prova utente con grafica ventola personalizzata e sensori RPM reali,
   inclusi arresto e ripartenza, lettura assente e due display di tipi diversi.
 - [ ] Valutare altre proprietà reattive dopo la prova della rotazione.

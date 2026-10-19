@@ -2,19 +2,18 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Pronta funzionalità per **0.1.53**, non ancora compilata/consegnata: rotazione
-  di immagini/icone/forme guidata da sensore, con inerzia e arresto a zero,
-  anche in card e gruppi. Test mirati, clippy e UI verdi; Studio .52 aperto,
-  attendere salvataggio/chiusura per build diretta. Vedi
+- Build di sviluppo corrente **0.1.53**, compilata e avviata direttamente dopo
+  conferma salvataggio/chiusura: movimento dai sensori con inerzia, anche su
+  immagini personalizzate e membri di card/gruppi. Test mirati Rust, clippy,
+  117 unitari UI e 20+4 e2e verdi. Vedi
   [movimento dai sensori](todos/2026-10-19-movimento-sensori.md).
 
 - Riepilogo operativo e checklist unica delle verifiche ancora aperte:
-  [ripresa .52](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
+  [checklist aggiornata .46-.53](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
   build sono storici; i relativi PID non descrivono necessariamente la sessione
   attuale. I conteggi dei test sono mirati e sovrapposti, non una suite completa.
 
-- Build di sviluppo corrente **0.1.52**, compilata e avviata direttamente con
-  Studio e Light chiusi: filtro Tipo di oggetto nei Livelli, combinato alla
+- Dalla **0.1.52**: filtro Tipo di oggetto nei Livelli, combinato alla
   ricerca e rispettoso della gerarchia. 71 unitari UI e 16 e2e verdi.
   Vedi [filtro Livelli](todos/2026-10-19-livelli-filtro-tipo.md).
 - Dalla **0.1.51**: descrizioni sorgenti Sensori a capo senza scroll orizzontale.
@@ -39,7 +38,7 @@
   collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
 - Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
   produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
-  Studio al posto dell'utente. Ultima consegna .52 da `target/release`:
+  Studio al posto dell'utente. Ultima consegna .53 da `target/release`:
   non confonderla con la copia installata .45; non sostituirla
   automaticamente durante una semplice ripresa del lavoro.
 - Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
