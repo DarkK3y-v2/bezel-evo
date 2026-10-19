@@ -5,6 +5,20 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.57] - 2026-10-20
+
+### Studio
+- Redesign **Profiles and automation**: choose Automatic (with what shows when
+  no rule holds) or Manual on two cards, pick the base themes or a profile
+  from a list beside its detail, and edit each rule as a sentence. Deleting a
+  profile asks first. "Selected themes" is now **Base themes**.
+- Try the profile transition on the live displays with the ▶ button, without
+  saving it.
+
+### Fixes
+- Profile covers move at up to 60 frames a second instead of 20, paced by
+  what each display takes.
+
 ## [0.1.56] - 2026-10-19
 
 ### Studio
