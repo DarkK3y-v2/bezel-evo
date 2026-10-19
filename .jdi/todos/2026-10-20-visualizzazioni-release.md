@@ -82,3 +82,11 @@ stessa .59. Ultima pubblicata su GitHub .31; origin/main e windows-improvements
 risultavano entrambi antenati del checkout (156 commit indietro al preflight).
 File di lavoro/verifiche in target/logs/visualizations, output temporanei
 in target/scratch/visualizations. Nessuna modifica ai temi/documenti utente.
+
+## Pubblicazione completata
+
+Release Latest https://github.com/jripper77/bezel-evo/releases/tag/v0.1.59,
+non draft/non prerelease, tre asset uploaded con digest SHA256 remoti identici
+ai locali. main e windows-improvements aggiornati fast-forward, tag v0.1.59
+sul commit release d482314. Nessuna installazione automatica. STATE.md registra
+la prossima prova fisica utente e i lavori hardware ancora aperti.
