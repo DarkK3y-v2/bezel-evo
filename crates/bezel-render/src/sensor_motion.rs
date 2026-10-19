@@ -28,7 +28,7 @@ impl Rotor {
         if self.settings != *settings || at < self.at {
             *self = Self::new(settings, at);
         }
-        let dt = at.saturating_sub(self.at).as_secs_f64().min(0.25);
+        let dt = at.saturating_sub(self.at).as_secs_f64();
         self.at = at;
         let target = value.filter(|v| v.is_finite()).unwrap_or(0.).max(0.) / settings.reference;
         let target =
@@ -75,7 +75,9 @@ mod tests {
         };
         let mut fast = advance(20);
         let slow = advance(100);
+        let very_slow = advance(500);
         assert!((fast.phase - slow.phase).abs() < 1e-8);
+        assert!((fast.phase - very_slow.phase).abs() < 1e-8);
         assert!(fast.speed > 0.8 && fast.speed < 1.);
         let before = fast.speed;
         fast.step(&s, Duration::from_millis(1020), Some(0.));

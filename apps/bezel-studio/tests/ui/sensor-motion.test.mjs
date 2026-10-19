@@ -12,6 +12,7 @@ test('rotor inertia follows elapsed time, coasts to zero and handles unavailable
   };
   let fast=advance(20),slow=advance(100);
   assert.ok(Math.abs(fast.phase-slow.phase)<1e-8);
+  assert.ok(Math.abs(fast.phase-advance(500).phase)<1e-8, 'slow displays preserve elapsed-time motion');
   assert.ok(fast.speed>.8 && fast.speed<1);
   const coast=stepRotor(fast,settings,1.02,0);
   assert.ok(coast.speed>0 && coast.speed<fast.speed);

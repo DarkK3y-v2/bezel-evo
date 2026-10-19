@@ -11,7 +11,7 @@ export function defaultSensorMotion(catalog, e) {
 export function stepRotor(previous, settings, at, value) {
   const signature = JSON.stringify(settings);
   const state = previous?.signature === signature && at >= previous.at ? { ...previous } : { signature, at, speed: 0, phase: 0 };
-  const dt = Math.min(.25, Math.max(0, at - state.at));
+  const dt = Math.max(0, at - state.at);
   const ratio = Number.isFinite(value) && settings.reference > 0 ? Math.min(1, Math.max(0, value) / settings.reference) : 0;
   const target = ratio * settings.turnsPerSecond * (settings.reverse ? -1 : 1);
   const tau = settings.inertiaMs / 1000;
