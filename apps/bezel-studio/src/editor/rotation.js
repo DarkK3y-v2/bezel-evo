@@ -10,7 +10,7 @@ export function canRotate(theme, e) {
     && !(e.kind?.type === 'shape' && e.kind.videoWindow);
 }
 
-export const appliedRotation = (e) => canRotate(null, e) ? normalizeDegrees(e.rotation ?? 0) : 0;
+export const appliedRotation = (e) => canRotate(null, e) || (e?.sensorMotion && !e.isGroup && !e.card && !(e.kind?.type === 'shape' && e.kind.videoWindow)) ? normalizeDegrees(e.rotation ?? 0) : 0;
 
 export function rotatePoint(point, center, degrees) {
   const a = degrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);

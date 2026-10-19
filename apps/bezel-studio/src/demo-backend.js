@@ -1,4 +1,6 @@
 import { appliedRotation, rotatedBounds } from './editor/rotation.js';
+import { createSensorMotion, supportsSensorMotion } from './sensor-motion.js';
+import { demoSensorValue } from './demo-sensors.js';
 import { normalizeCardTheme } from './card-config.js';
 import { DEMO_SENSORS, demoValue } from './demo-sensors.js';
 export { DEMO_SENSORS, demoValue } from './demo-sensors.js';
@@ -141,7 +143,13 @@ export function demoIsolate(theme, id) {
     for (const e of theme.elements) if (!kept.has(e.id) && owned(e)) { kept.add(e.id); grew = true; }
   }
   const elements = theme.elements.filter((e) => kept.has(e.id)).map((e) => structuredClone(e));
-  const drawn = elements.filter((e) => !e.isGroup).map((e) => rotatedBounds(e.frame, appliedRotation(e)));
+  const drawn = elements.filter((e) => !e.isGroup).map((e) => {
+    if (e.sensorMotion && supportsSensorMotion(e)) {
+      const side = Math.hypot(e.frame.width, e.frame.height);
+      return { x: e.frame.x + (e.frame.width - side) / 2, y: e.frame.y + (e.frame.height - side) / 2, width: side, height: side };
+    }
+    return rotatedBounds(e.frame, appliedRotation(e));
+  });
   const boxes = drawn.length ? drawn : [root.frame];
   const left = Math.floor(Math.min(...boxes.map((b) => b.x)));
   const top = Math.floor(Math.min(...boxes.map((b) => b.y)));
@@ -1128,6 +1136,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let profileConfig = { profiles: [], automatic: true, manual: null, defaultProfile: null };
   const systemText = { 'system.hostname': 'bezel-demo-workstation', 'system.os': 'Windows 11', 'system.audio.device': 'Demo headphones' };
   const cards = createCardMotion();
+  const sensorMotion = createSensorMotion();
   const cardTimers = createCardTimers();
   let libreFailed = hooks.libre === 'partial' || hooks.libre === 'error';
   let libreOffline = hooks.libre === 'error';
@@ -1441,9 +1450,10 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       const playback = cardTimers.update(next, t * 1000, cardRotation, DEMO_ACTIVITY);
       const video = videoPicture(playback.theme, motion, t * 1000);
       const transitions = cards.update(playback.theme, t * 1000, motion);
-      const frame = renderApprox(playback.theme, t, video, transitions, 1, motion);
+      const rotor = sensorMotion(playback.theme, t, key => demoSensorValue(key, Math.floor(t / (next.refreshSeconds || 1)) * (next.refreshSeconds || 1)), motion, selectedScreen);
+      const frame = renderApprox(rotor.theme, t, video, transitions, 1, motion);
       const easing = valuesDue(playback.theme, t, motion);
-      const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null, easing].filter((ms) => ms !== null);
+      const due = [rotor.nextMs, demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null, easing].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, millis: performance.now() - started, nextMs: due.length ? Math.min(...due) : null });
     },
     /**
@@ -1473,8 +1483,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       }
       const t = now();
       const { width, height } = alone.canvas;
-      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)), motion);
-      const due = [demoNextChange(alone, t * 1000), valuesDue(alone, t, motion, false)].filter((ms) => ms !== null);
+      const rotor = sensorMotion(alone, t, key => demoSensorValue(key, Math.floor(t / (next.refreshSeconds || 1)) * (next.refreshSeconds || 1)), motion, `inspect:${selectedScreen}`);
+      const frame = renderApprox(rotor.theme, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)), motion);
+      const due = [rotor.nextMs, demoNextChange(alone, t * 1000), valuesDue(alone, t, motion, false)].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: due.length ? Math.min(...due) : null, millis: performance.now() - started });
     },
     /** What Auto is for the theme's video background, like `video_auto`. */

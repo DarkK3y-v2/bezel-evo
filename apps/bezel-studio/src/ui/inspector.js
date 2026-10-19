@@ -1,4 +1,5 @@
 import { canRotate, appliedRotation } from '../editor/rotation.js';
+import { defaultSensorMotion, supportsSensorMotion } from '../sensor-motion.js';
 import { applyTextCase, TEXT_CASES } from '../text-case.js';
 import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
@@ -1257,13 +1258,32 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     ]);
   }
 
+  function sensorMotionSection(e) {
+    if (!supportsSensorMotion(e)) return null;
+    const motion = e.sensorMotion;
+    const set = sensorMotion => update(e.id, { sensorMotion });
+    return section('sensor-motion', t('insp.sensorMotion'), [
+      switchRow(t('insp.sensorMotionEnabled'), Boolean(motion), enabled => set(enabled ? defaultSensorMotion(sensors.catalog(), e) : null)),
+      ...(motion ? [
+        selectField(t('insp.motionSource'), motion.sensor,
+          [...new Map([[motion.sensor, motion.sensor], ...sensors.catalog().filter(s => s.quantity !== 'text').map(s => [s.key, s.label])])],
+          sensor => set({ ...motion, sensor })),
+          numberField(t('insp.motionReference'), motion.reference, value => set({ ...motion, reference: Math.max(.001, Math.min(1e12, value)) }), { min: .001, max: 1e12, step: 'any' }),
+          numberField(t('insp.motionSpeed'), motion.turnsPerSecond, value => set({ ...motion, turnsPerSecond: Math.max(.01, Math.min(10, value)) }), { min: .01, max: 10, step: .1 }),
+          numberField(t('insp.motionInertia'), motion.inertiaMs, value => set({ ...motion, inertiaMs: Math.round(Math.max(0, Math.min(10000, value))) }), { min: 0, max: 10000, step: 100 }),
+        switchRow(t('insp.motionReverse'), motion.reverse, reverse => set({ ...motion, reverse })),
+        el('p', { class: 'hint', text: t('insp.motionHint') }),
+      ] : []),
+    ]);
+  }
+
   function panelsOf(e, theme, assets) {
     const kindForms = { text: textForm, bar: barForm, ring: ringForm, needle: needleForm, graph: graphForm, shape: shapeForm };
     const specific = e.isGroup ? {} : e.kind.type === 'image' ? imageForm(e, assets) : kindForms[e.kind.type]?.(e) ?? {};
     // Conditional colour belongs beside the paint it controls. Opacity has a
     // stable group of its own instead of ending up among corners or thresholds.
     const opacity = rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` });
-    const look = [...(specific.look ?? [])].filter(Boolean);
+    const look = [...(specific.look ?? []), sensorMotionSection(e)].filter(Boolean);
     const conditional = valueColorSection(e, assets);
     if (conditional) {
       const paint = look.flatMap(group => [...group.querySelectorAll('.color-field')])[0];
