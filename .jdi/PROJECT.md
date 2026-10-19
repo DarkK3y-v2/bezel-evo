@@ -2,6 +2,12 @@
 
 ## Contesto di ripresa — 2026-10-19
 
+- Riesame transizioni e attesa richiesto dall'utente: 10 test runtime,
+  6 renderer e 4 e2e mirati verdi. Attesa personalizzata per display fattibile
+  dopo il collegamento; coperture a scena ferma e caricamento asincrono da
+  implementare. Distinguere il boot firmware. Vedi
+  [riesame e proposta](todos/2026-10-19-transizioni-attesa-review.md).
+
 - Build di sviluppo **0.1.55** compilata e avviata direttamente: riaggancio del display tramite
   associazione persistente con MCU e profilo base chiamato Default nei due tray
   e nel pannello. Aperture COM3/COM6 e invii su entrambi
