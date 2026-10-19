@@ -2,13 +2,18 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Build di sviluppo **0.1.54** compilata e avviata direttamente: selettore sensori condiviso
+- Build di sviluppo **0.1.55** compilata e avviata direttamente: riaggancio del display tramite
+  associazione persistente con MCU e profilo base chiamato Default nei due tray
+  e nel pannello. Aperture COM3/COM6 e invii su entrambi
+  verificati nei log, nessun ScreenError nel nuovo avvio. Vedi [riaggancio e Default](todos/2026-10-19-riaggancio-default.md).
+
+- Dalla **0.1.54**: selettore sensori condiviso
   e ricercabile, controlli del movimento semplificati e transizione valori con
   inerzia. 141 unitari UI, 56 casi e2e area, test e clippy dei due crate verdi.
   Vedi [selettore e inerzia](todos/2026-10-19-selettore-sensori-inerzia.md).
 
 - Riepilogo operativo e checklist unica delle verifiche ancora aperte:
-  [checklist aggiornata .46-.54](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
+  [checklist aggiornata .46-.55](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
   build sono storici; i relativi PID non descrivono necessariamente la sessione
   attuale. I conteggi dei test sono mirati e sovrapposti, non una suite completa.
 
@@ -37,7 +42,7 @@
   collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
 - Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
   produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
-  Studio al posto dell'utente. Ultima consegna .54 da `target/release`:
+  Studio al posto dell'utente. Ultima consegna .55 da `target/release`:
   non confonderla con la copia installata .45; non sostituirla
   automaticamente durante una semplice ripresa del lavoro.
 - Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
