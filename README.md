@@ -107,7 +107,8 @@ the foreground or media playing.
 Priorities resolve simultaneous rules; a return delay avoids brief switches.
 Manual selection stays in effect until you choose Automatic again. Profiles
 pause on the display being edited and resume when Studio is hidden.
-The selected theme names are shown for each display and in the return choice.
+The base profile is called **Default**; its selected theme names remain visible
+for each display in the profile manager.
 Choose None, Fade, Slide or Flip, with direction and duration, for changes between
 profiles and the return to the selected themes. Displays keep their own pace;
 video played directly by a device switches immediately.
