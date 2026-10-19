@@ -2,10 +2,10 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Build di sviluppo corrente **0.1.47**, compilata e avviata direttamente dopo
-  conferma utente di salvataggio e chiusura: riepilogo per sonda e filtri
-  Sonda/Stato, 69 unitari UI e 28 e2e dell'area verdi. Vedi
-  [sonde e stato sensori](todos/2026-10-19-sonde-stato-sensori.md).
+- Build di sviluppo corrente **0.1.48**, compilata e avviata direttamente dopo
+  conferma utente di salvataggio e chiusura: alias GPU raggruppati per lettore
+  e riavvio locale alla sonda supportata; 70 unitari UI e 28 e2e verdi.
+  Vedi [sonde GPU e riavvio](todos/2026-10-19-sonde-gpu-riavvio.md).
 - Dalla **0.1.46** sono presenti lente, campione e HEX durante il prelievo del colore.
   Superficie congelata temporaneamente per una selezione esatta; nessun setup
   .46 richiesto. Vedi [anteprima e test H264](todos/2026-10-19-contagocce-anteprima-h264.md).
