@@ -1665,8 +1665,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     saveProfiles: (config) => { profileConfig = structuredClone(config); return Promise.resolve(); },
     // No screen to cover in the demo: the request is kept for the page to read,
     // and it answers as the backend would with each demo screen live.
-    previewTransition: (transition) => {
-      globalThis.demoTransitionPreviews = [...(globalThis.demoTransitionPreviews ?? []), structuredClone(transition)];
+    previewTransition: (transition, themes = {}) => {
+      globalThis.demoTransitionPreviews = [...(globalThis.demoTransitionPreviews ?? []), structuredClone({ transition, themes })];
       return Promise.resolve(transition.effect === 'none' ? 0 : devices.screens.length);
     },
     preferences: () => Promise.resolve({

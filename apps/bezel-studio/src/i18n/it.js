@@ -7,7 +7,7 @@ export default {
   "textCase.sentence": "Solo iniziale maiuscola",
   "textCase.title": "Iniziali Di Ogni Parola",
   "profiles.transition": "Transizione tra profili",
-  "profiles.transitionHint": "Un pannello chiude lo schermo, il nuovo tema si prepara sotto e il pannello riapre. Funziona su tutti gli schermi, anche sopra i video riprodotti dallo schermo, e al ritorno ai temi di base. Gli schermi lenti mostrano meno fotogrammi.",
+  "profiles.transitionHint": "Un pannello chiude lo schermo, il nuovo tema si prepara sotto e il pannello riapre. Funziona su tutti gli schermi, anche sopra i video riprodotti dallo schermo. Tra 1500 e 2500 ms il movimento è più fluido; gli schermi lenti mostrano meno fotogrammi. ▶ la prova verso la voce selezionata e poi torna indietro, senza salvare.",
   "profiles.transitionHelp": "Come funziona la transizione",
   "profiles.preview": "Prova la transizione",
   "profiles.previewNone": "Nessuno schermo attivo su cui provarla.",

@@ -28,7 +28,12 @@ test('profiles are managed from Themes and saved independently of the editor', a
   await up.click();
   await expect(up).toHaveAttribute('aria-pressed', 'true');
   await dialog.getByRole('button', { name: t('profiles.preview'), exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.demoTransitionPreviews)).toEqual([{ effect: 'wipe', direction: 'up', durationMs: 850 }]);
+  // With the base themes selected, it tries them: one theme for the one display.
+  const tried = () => page.evaluate(() => window.demoTransitionPreviews);
+  await expect.poll(tried).toHaveLength(1);
+  const [first] = await tried();
+  expect(first.transition).toEqual({ effect: 'wipe', direction: 'up', durationMs: 850 });
+  expect(Object.values(first.themes)).toHaveLength(1);
   const help = dialog.getByRole('button', { name: t('profiles.transitionHelp'), exact: true });
   await help.click();
   await expect(help).toHaveAttribute('aria-expanded', 'true');
@@ -43,6 +48,10 @@ test('profiles are managed from Themes and saved independently of the editor', a
   await dialog.getByRole('spinbutton', { name: t('profiles.returnDelay'), exact: true }).fill('5');
   await expect(item(dialog, 'Music').locator('.pf-item-summary')).toHaveText(t('profiles.summary.mediaIn', { app: 'Spotify' }));
   await expect(item(dialog, 'Music')).toHaveAttribute('aria-current', 'true');
+  // Tried from the profile, unsaved: towards its own themes.
+  await dialog.getByRole('button', { name: t('profiles.preview'), exact: true }).click();
+  await expect.poll(tried).toHaveLength(2);
+  expect((await tried())[1].themes).toEqual(first.themes);
 
   // From Automatic to Manual with that profile.
   await dialog.getByRole('radio', { name: t('profiles.manual'), exact: true }).check();

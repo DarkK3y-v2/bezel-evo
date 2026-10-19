@@ -7,7 +7,7 @@ export default {
   "textCase.sentence": "Primeira letra maiúscula",
   "textCase.title": "Iniciais De Cada Palavra",
   "profiles.transition": "Transição entre perfis",
-  "profiles.transitionHint": "Um painel fecha sobre a tela, o novo tema é preparado por baixo e o painel abre de novo. Funciona em todas as telas, também sobre vídeos que a própria tela reproduz, e no retorno aos temas base. Telas lentas mostram menos quadros.",
+  "profiles.transitionHint": "Um painel fecha sobre a tela, o novo tema é preparado por baixo e o painel abre de novo. Funciona em todas as telas, também sobre vídeos que a própria tela reproduz. Entre 1500 e 2500 ms o movimento fica mais suave; telas lentas mostram menos quadros. ▶ testa em direção ao item selecionado e volta, sem salvar.",
   "profiles.transitionHelp": "Como a transição funciona",
   "profiles.preview": "Testar a transição",
   "profiles.previewNone": "Nenhuma tela ativa para testar.",

@@ -209,6 +209,7 @@ impl EngineBridge {
     pub fn preview_cover(
         &self,
         transition: &bezel_runtime::profiles::TransitionSettings,
+        themes: &std::collections::BTreeMap<String, String>,
     ) -> Result<usize> {
         let mut state = self.lock()?;
         let (reply, _) = self.call(
@@ -216,6 +217,7 @@ impl EngineBridge {
             "__profiles__",
             RuntimeOp::PreviewCover {
                 transition: transition.clone(),
+                themes: themes.clone(),
             },
             &[],
         )?;

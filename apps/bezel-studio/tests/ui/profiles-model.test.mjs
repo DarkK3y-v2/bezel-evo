@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { translator } from '../../src/i18n/index.js';
 import {
-  PROFILE_EFFECTS, directed, firstIncomplete, modeOf, orientationOf, profileIcon, profileSummary, ruleSummary, withMode, withoutProfile,
+  PROFILE_EFFECTS, directed, firstIncomplete, modeOf, orientationOf, profileIcon, profileSummary, ruleSummary, triedThemes, withMode, withoutProfile,
 } from '../../src/profiles-model.js';
 
 const t = translator('it');
@@ -54,6 +54,13 @@ test('icons, orientations and directions follow the profile and the theme', () =
   assert.equal(orientationOf({ canvas: { width: 320, height: 480 } }), 'portrait');
   assert.equal(orientationOf(undefined), 'portrait');
   assert.deepEqual(PROFILE_EFFECTS.filter(directed), ['curtain', 'wipe', 'blinds']);
+});
+
+test('▶ tries the selected profile, or the base themes', () => {
+  const displays = [{ key: 'COM6', theme: 'base-wide.bezeltheme' }, { key: 'COM3', theme: null }];
+  assert.deepEqual(triedThemes(config(), 'music', displays), { COM6: 'r.bezeltheme' });
+  assert.deepEqual(triedThemes(config(), 'base', displays), { COM6: 'base-wide.bezeltheme' });
+  assert.deepEqual(triedThemes(config({ profiles: [{ ...music, themes: { COM6: '' } }] }), 'music', displays), {});
 });
 
 test('the first incomplete profile is found before saving', () => {

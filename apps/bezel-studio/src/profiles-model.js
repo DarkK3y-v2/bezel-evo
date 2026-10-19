@@ -63,6 +63,18 @@ export function firstIncomplete(config, displays) {
   return bad?.id ?? null;
 }
 
+/**
+ * The themes ▶ tries, by display key: the selected profile's (saved or not),
+ * or the base themes when the base item is selected (`id` not a profile).
+ */
+export function triedThemes(config, id, displays) {
+  const profile = config.profiles.find((p) => p.id === id);
+  const entries = profile
+    ? Object.entries(profile.themes)
+    : displays.map((d) => [d.key, d.theme]);
+  return Object.fromEntries(entries.filter(([, path]) => path));
+}
+
 /** One rule in plain words: "when music is playing", "when game.exe is in front". */
 export function ruleSummary(t, rule) {
   const app = rule.app?.trim();

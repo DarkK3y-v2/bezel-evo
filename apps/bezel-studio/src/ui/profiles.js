@@ -6,7 +6,7 @@ import { ICONS } from './icons.js';
 import { askChoice } from './dialog.js';
 import { errorText } from '../messages.js';
 import {
-  PROFILE_EFFECTS, directed, firstIncomplete, modeOf, orientationOf, profileIcon, profileSummary, withMode, withoutProfile,
+  PROFILE_EFFECTS, directed, firstIncomplete, modeOf, orientationOf, profileIcon, profileSummary, triedThemes, withMode, withoutProfile,
 } from '../profiles-model.js';
 
 const BASE = 'base';
@@ -246,7 +246,8 @@ export function createProfilesDialog({ t, bridge, notify }) {
             const duration = dialog.querySelector('#pf-duration');
             if (duration && !duration.reportValidity()) return;
             try {
-              const covered = await bridge.previewTransition({ ...transition });
+              // Towards the item on show, then back: what saving and switching to it would look like.
+              const covered = await bridge.previewTransition({ ...transition }, triedThemes(config, selected, displays));
               if (!covered) notify(t('profiles.previewNone'));
             } catch (error) { notify(errorText(t, error)); }
           } }, [icon(ICONS.play, 16)]),
@@ -295,7 +296,7 @@ export function createProfilesDialog({ t, bridge, notify }) {
     try {
       const [saved, entries, devices] = await Promise.all([bridge.profiles(), bridge.listThemes(), bridge.listDevices()]);
       config = structuredClone(saved.config); displays = saved.displays; themes = entries; screens = devices.screens;
-      config.transition ??= { effect: 'none', direction: 'left', durationMs: 800 };
+      config.transition ??= { effect: 'none', direction: 'left', durationMs: 1500 };
       selected = BASE;
       // Existing single-display profiles inherit the other selected themes in the
       // editable draft; Cancel leaves the stored configuration untouched.

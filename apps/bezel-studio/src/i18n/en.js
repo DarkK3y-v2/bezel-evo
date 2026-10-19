@@ -7,7 +7,7 @@ export default {
   "textCase.sentence": "First letter uppercase",
   "textCase.title": "Capitalize Each Word",
   "profiles.transition": "Transition between profiles",
-  "profiles.transitionHint": "A panel closes over the screen, the new theme is prepared underneath and the panel opens again. It works on every display, also over video the screen plays itself, and on the return to the base themes. Slow displays show fewer frames.",
+  "profiles.transitionHint": "A panel closes over the screen, the new theme is prepared underneath and the panel opens again. It works on every display, also over video the screen plays itself. Between 1500 and 2500 ms the motion is smoothest; slow displays show fewer frames. ▶ tries it towards the selected item and comes back, without saving.",
   "profiles.transitionHelp": "How the transition works",
   "profiles.preview": "Try the transition",
   "profiles.previewNone": "No live display to try it on.",

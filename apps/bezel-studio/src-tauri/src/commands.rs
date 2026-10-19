@@ -697,8 +697,9 @@ pub async fn save_profiles(
 pub async fn preview_transition(
     state: State<'_, Shared>,
     transition: bezel_runtime::profiles::TransitionSettings,
+    themes: std::collections::BTreeMap<String, String>,
 ) -> UiResult<usize> {
-    blocking(&state, move |b| b.preview_transition(transition)).await
+    blocking(&state, move |b| b.preview_transition(transition, themes)).await
 }
 
 /// Uses `language` (`pt-BR`, `en`, or `None` for the system's) from now on,
