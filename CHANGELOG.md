@@ -5,6 +5,12 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.51] - 2026-10-19
+
+### Fixes
+- Wrap long sensor-source descriptions within the Sensors panel, including
+  unbroken hardware paths, so they cannot force horizontal scrolling.
+
 ## [0.1.50] - 2026-10-19
 
 ### Studio
