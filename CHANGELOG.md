@@ -5,6 +5,20 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.44] - 2026-10-19
+
+### Widgets
+- Scroll line, area and bar histories smoothly between real sensor samples,
+  targeting up to 50 frames per second when rendering and the display permit.
+  Preserve sampling intervals, unavailable-reading gaps and saved theme formats.
+- Pace graph animation independently for each display: skip intermediate motion
+  while its device is busy, retain fresh samples and avoid accumulating frames.
+  Respect reduced motion and keep card-face caches from freezing moving graphs.
+- Bound graph motion after suspension to the normal sampling period. Scrolling
+  introduces up to one sample interval of visual delay without predicting values.
+- Include rendering time in the runtime's frame budget instead of adding it to
+  the wait between frames.
+
 ## [0.1.43] - 2026-10-18
 
 ### Fixes
