@@ -5,6 +5,18 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.58] - 2026-10-20
+
+### Studio
+- Rules and profile icons in **Profiles and automation** take the colour of
+  what they watch, music or an app, and the controls inside each rule read as
+  part of the sentence.
+
+### Fixes
+- The ▶ button now tries the transition on every live display, also those
+  Light opened, and says when no display is live.
+- No focus ring around the whole profile dialog after removing a rule.
+
 ## [0.1.57] - 2026-10-20
 
 ### Studio
