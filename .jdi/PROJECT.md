@@ -1,10 +1,12 @@
 # Bezel
 
-## Consegna in corso — 20 ottobre 2026
+## Consegna pubblicata — 20 ottobre 2026
 
 Visualizzazioni native implementate: matrici, archi pixel, quadranti, barre
 arrotondate e grafici speculari a due sorgenti. L'utente autorizza test completi,
 setup e caricamento release .59, includendo il lavoro già salvato da Claude.
+Pubblicata come Latest con setup, portable e checksum verificati. Prova fisica
+e installazione utente restano da fare; nessun setup avviato automaticamente.
 Vedi [intervento e verifica](todos/2026-10-20-visualizzazioni-release.md).
 Gli handoff precedenti sono storici; lo stato di consegna corrente è STATE.md.
 
