@@ -24,6 +24,37 @@ https://github.com/user-attachments/assets/92eaa3a0-b369-4ae0-96b4-934210d99f47
 
 </details>
 
+## What's new in 0.1.59
+
+The first published release since 0.1.31. Everything in between was a local
+build; the [changelog](CHANGELOG.md) has each step.
+
+- **Display profiles.** A profile assigns a theme to every display at once;
+  rules for an app running, an app in front or music playing switch to it, or
+  pick it by hand from Studio or either tray. A redesigned **Profiles and
+  automation** dialog shows who decides (Automatic or Manual), the profiles
+  beside the base themes, and each rule as a sentence.
+- **Transitions that cover the screen.** Curtain, Wipe, Blinds or Mosaic close
+  over the display, swap the theme underneath and open on its first frame, also
+  over video the screen plays itself, at up to 60 frames a second. ▶ tries one
+  towards the selected profile and comes back.
+- **Motion from sensors.** Rotate any object by hand or from a reading, such as
+  fan RPM or load, with inertia; values ease with a new **Inertia** option.
+- **Twelve new bundled themes.** Pulse / Gaming, Resonance / Music and
+  Clarity / Monitor for 1920×480 and 480×480, plus six animated graphic-only
+  themes (Synapse, Prism, Morph).
+- **Smoother graphs.** Line, area and bar histories scroll between samples,
+  paced per display.
+- **Studio.** A redesigned inspector with one shared order, one searchable
+  sensor picker, text case formatting, a native eyedropper with a magnifier,
+  slim scrollbars, Layers filtered by object type, probe health in Sensors, and
+  system sensors for audio output, Windows version, processes and power.
+- **Audio spectra** listen to the player's app or to the whole PC, with an
+  amplitude multiplier.
+- **Fixes.** Setup waits for the sensor reader before updating its files; a
+  sleeping display is found again through its wake controller after Light
+  restarts.
+
 ## A new Studio
 
 Studio has been redesigned from the ground up, in dark and light.
