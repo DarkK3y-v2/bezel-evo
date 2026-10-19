@@ -1,5 +1,11 @@
 # Grafica di attesa Bezel Evo
 
+Aggiornamento operativo: eseguite successivamente prove fisiche su entrambi i
+display. Riproduzione animata confermata dall'utente su 8,8 e 3,5; avvio autonomo
+della nuova clip senza SD non riuscito sull'8,8. Dettagli e ripristino nel
+[rapporto prove](2026-10-19-prove-loading-display.md). Le note «nessun upload»
+qui sotto descrivono soltanto la precedente fase di preparazione degli asset.
+
 Richiesta: sfondo nero, logo, frase e animazione loading. Correzione esplicita
 dell'utente: il marchio scritto deve essere **BEZEL EVO**.
 

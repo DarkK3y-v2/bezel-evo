@@ -2,6 +2,12 @@
 
 ## Contesto di ripresa — 2026-10-19
 
+- Loading BEZEL EVO provato fisicamente su entrambi i display: animazione e
+  orientamento confermati dall'utente. Sul 3,5 riproduzione host (194 frame in
+  23,9 s), nessuno storage; sull'8,8 clip interna funzionante ma non selezionata
+  al boot senza SD. Ripristinato Default e riaperto Studio .55. Nuova sezione
+  Avvio e attesa ancora da implementare. Vedi [prove loading](todos/2026-10-19-prove-loading-display.md).
+
 - Riesame transizioni e attesa richiesto dall'utente: 10 test runtime,
   6 renderer e 4 e2e mirati verdi. Attesa personalizzata per display fattibile
   dopo il collegamento; coperture a scena ferma e caricamento asincrono da
