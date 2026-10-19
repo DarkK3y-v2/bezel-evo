@@ -68,3 +68,27 @@ l'attesa gestita dal PC alle impostazioni persistenti del firmware.
 Solo analisi e verifiche: prodotto corrente .55 invariato, installata .45.
 Nessuna nuova build, setup o pubblicazione. Implementazione e prova visiva
 multimonitor restano aperte. Fase 20 e H264 fisico non sono stati verificati.
+
+## Precisazione da Libre Panel, richiesta dall'utente
+
+Verificato il main pubblico il 19 ottobre 2026, leggendo codice e documentazione:
+
+- [Start screen](https://github.com/syntensa/libre-panel/blob/main/docs/CONFIGURATION.md#the-panels-start-screen)
+  offre realmente logo e clip residenti nel dispositivo, visibili prima dell'app.
+- [panel_files.py](https://github.com/syntensa/libre-panel/blob/main/src/libre_panel/devices/panel_files.py)
+  scrive `usr/data/boot.jpg` e `usr/data/standby.h264`, con limite 1 MiB e verifica
+  dimensione. Comandi 40/98 per scrittura/controllo, 110/125 per clip e avvio;
+  42 rimuove l'override del logo e lascia riapparire quello di fabbrica.
+- Il codice abilita questa funzione ai modelli `usb-turing`, cioè TURZX USB
+  V1.x (VID 1CBE). Il progetto documenta prova reale sul 9,2; gli altri USB
+  condividono il firmware, ma non sono tutti provati.
+- La nuova enumerazione Bezel conferma il display dell'utente come rev C
+  seriale: COM6 0525:a4a7 e MCU COM4 1a86:ca88 CT88INCH. Non è il modello
+  8,8 USB V1.x a cui si riferisce quella funzione. Sul rev C Bezel offre già
+  media autonomi all'avvio con le modalità album/primo video documentate;
+  la sostituzione di uno specifico logo richiede riscontro sul suo protocollo.
+- La precedente risposta era incompleta: il firmware può caricare un file
+  personalizzato residente dove il modello lo supporta. La funzione può essere
+  aggiunta a Bezel per capacità del modello, distinta dall'attesa disegnata dal PC.
+- Nessun programma esterno eseguito e nessuna scrittura al dispositivo. La CLI
+  `devices` fa solo enumerazione. Nessuna nuova compilazione.
