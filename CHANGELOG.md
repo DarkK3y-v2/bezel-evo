@@ -16,10 +16,19 @@ All notable changes to Bezel Evo are documented here. The format follows
 - New transitions default to 1500 ms; the help text recommends 1500 to 2500 ms,
   where the covers move smoothest.
 
+### Widgets
+- Native block matrices, square-pixel arcs, modern dials with scale ticks and
+  endpoint markers, rounded history bars, and mirrored two-sensor graphs.
+- Choose presets in Look → Visualization. Mirrored graphs have an independent
+  lower source and color; automatic scaling shares zero and peak across both
+  series. Missing readings remain gaps. Existing themes keep their appearance.
+
 ### Fixes
 - Smoother covers: the lit edge of Curtain, Wipe and Blinds spills a little
   light onto the scene ahead of it (never over video the screen plays itself),
   and Mosaic tiles grow from their middle instead of appearing at once.
+- Clicking a searchable sensor result keeps the popup open through the native
+  focus change so the selected sensor is actually applied, just like keyboard selection.
 
 ## [0.1.58] - 2026-10-20
 
