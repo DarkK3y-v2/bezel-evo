@@ -1037,11 +1037,27 @@ impl Studio {
 
     /// Names and saved locations of every display document, without selecting it.
     pub fn profile_documents(&self) -> BTreeMap<String, (String, Option<String>)> {
-        let mut documents: BTreeMap<_, _> = self.documents.iter().map(|(key, studio)| {
-            (key.clone(), (studio.theme().name.clone(), studio.location().map(|p| p.0.clone())))
-        }).collect();
+        let mut documents: BTreeMap<_, _> = self
+            .documents
+            .iter()
+            .map(|(key, studio)| {
+                (
+                    key.clone(),
+                    (
+                        studio.theme().name.clone(),
+                        studio.location().map(|p| p.0.clone()),
+                    ),
+                )
+            })
+            .collect();
         if let Some(key) = &self.selected_screen {
-            documents.insert(key.clone(), (self.theme().name.clone(), self.location().map(|p| p.0.clone())));
+            documents.insert(
+                key.clone(),
+                (
+                    self.theme().name.clone(),
+                    self.location().map(|p| p.0.clone()),
+                ),
+            );
         }
         documents
     }

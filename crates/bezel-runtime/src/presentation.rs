@@ -100,10 +100,11 @@ impl Presenter {
                         Some(screen) => {
                             bezel_core::app::reopen_screen(bus.as_ref(), connector.as_ref(), screen)
                         }
-                        None => target.resolve(
-                            bezel_core::app::discover_screens(bus.as_ref()).unwrap_or_default(),
-                        )
-                        .and_then(|s| connector.connect(&s).map(|l| (s, l))),
+                        None => target
+                            .resolve(
+                                bezel_core::app::discover_screens(bus.as_ref()).unwrap_or_default(),
+                            )
+                            .and_then(|s| connector.connect(&s).map(|l| (s, l))),
                     };
                     let result = (|| -> Result<()> {
                         let (screen, mut link) = opened?;
@@ -478,7 +479,9 @@ mod tests {
             1,
             crate::targets::Target {
                 key: "COM3".into(),
-                remembered: Arc::new(crate::targets::Targets::load(std::env::temp_dir().join("bezel-rev-a-addresses.json"))),
+                remembered: Arc::new(crate::targets::Targets::load(
+                    std::env::temp_dir().join("bezel-rev-a-addresses.json"),
+                )),
             },
             bus,
             Arc::new(Connector),

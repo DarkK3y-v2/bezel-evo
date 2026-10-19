@@ -13,9 +13,7 @@ use sysinfo::{
     DiskRefreshKind, Disks as SysDisks, MINIMUM_CPU_UPDATE_INTERVAL, Networks, System as SysSystem,
 };
 
-use crate::provider::{
-    COUNTER_RESET, Provider, WARMING_UP, describe, percent, put, slug,
-};
+use crate::provider::{COUNTER_RESET, Provider, WARMING_UP, describe, percent, put, slug};
 
 /// Why a CPU clock is missing (sysinfo returns 0 when the query failed).
 const NO_CLOCK: &str = "Windows did not report the CPU clock";

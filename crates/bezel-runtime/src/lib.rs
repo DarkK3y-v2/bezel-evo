@@ -333,7 +333,8 @@ impl Engine {
             .iter()
             .filter(|(k, _)| k.as_str() != key)
             .map(|(_, s)| {
-                s.runtime.assets().values().map(Vec::len).sum::<usize>() + s.saved.bytes()
+                s.runtime.assets().values().map(Vec::len).sum::<usize>()
+                    + s.saved.bytes()
                     + s.profile_restore.as_ref().map_or(0, Document::bytes)
             })
             .sum();
@@ -457,7 +458,11 @@ impl Engine {
         };
         let now = self.origin.elapsed();
         let mut covered = 0;
-        for (key, scene) in self.scenes.iter_mut().filter(|(_, s)| s.live && s.frame.is_some()) {
+        for (key, scene) in self
+            .scenes
+            .iter_mut()
+            .filter(|(_, s)| s.live && s.frame.is_some())
+        {
             let show = themes
                 .get(key)
                 .and_then(|path| profiles::load_document(path))
@@ -590,7 +595,9 @@ impl Engine {
         if let Some(mut profiles) = self.profiles.take() {
             let changed = profiles.tick(self, &reading.snapshot, now);
             self.profiles = Some(profiles);
-            if changed { self.schedule_sensors(); }
+            if changed {
+                self.schedule_sensors();
+            }
         }
         if reading.sequence != self.catalog_sequence && !reading.catalog.is_empty() {
             self.catalog = reading.catalog.clone();
@@ -747,9 +754,13 @@ impl Engine {
                 // Audio and profile motion follow the physical presenter's pace.
                 // Its slot and the audio worker both retain only their newest result.
                 if scene.live
-                    && (audible || scene.profile_animation.is_some() || (!scene.dirty && (
-                        scene.runtime.graph_animating(now) || scene.runtime.theme().elements.iter().any(|e| e.sensor_motion.is_some() && scene.runtime.theme().is_visible(e))
-                    )))
+                    && (audible
+                        || scene.profile_animation.is_some()
+                        || (!scene.dirty
+                            && (scene.runtime.graph_animating(now)
+                                || scene.runtime.theme().elements.iter().any(|e| {
+                                    e.sensor_motion.is_some() && scene.runtime.theme().is_visible(e)
+                                }))))
                     && scene.presenter.as_ref().is_some_and(|p| !p.idle())
                 {
                     return Ok(Duration::from_millis(50));
@@ -930,15 +941,17 @@ impl Engine {
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
                 }
-                if scene.profile_restore.is_none() && !animating { self.images.publish(
-                    key,
-                    images::Snapshot {
-                        render_millis,
-                        frame,
-                        sequence: scene.sequence,
-                        next_ms: delay.as_millis().clamp(5, 1000) as u32,
-                    },
-                ); }
+                if scene.profile_restore.is_none() && !animating {
+                    self.images.publish(
+                        key,
+                        images::Snapshot {
+                            render_millis,
+                            frame,
+                            sequence: scene.sequence,
+                            next_ms: delay.as_millis().clamp(5, 1000) as u32,
+                        },
+                    );
+                }
                 Ok(delay)
             })();
             match result {
@@ -976,7 +989,9 @@ impl Engine {
             scene.restore_profile();
             scene.profile_edit_at = Some(Instant::now());
         }
-        if restored { self.schedule_sensors(); }
+        if restored {
+            self.schedule_sensors();
+        }
     }
     /// Isolated inspector scene, with the runtime's current readings/histories.
     pub fn inspect(&mut self, key: &str, id: ElementId, max: u32, motion: bool) -> Result<Frame> {
@@ -1015,7 +1030,10 @@ impl Engine {
     }
     /// EOF restores only documents; the scene objects, clocks and links survive.
     pub fn detach(&mut self) -> Result<()> {
-        for scene in self.scenes.values_mut() { scene.restore_profile(); scene.profile_edit_at = None; }
+        for scene in self.scenes.values_mut() {
+            scene.restore_profile();
+            scene.profile_edit_at = None;
+        }
         let unsaved = self
             .scenes
             .values()

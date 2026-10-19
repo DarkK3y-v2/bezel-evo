@@ -257,7 +257,13 @@ fn dispatch_inner(
     {
         return Err(invalid("unexpected runtime payload"));
     }
-    if matches!(request.op, RuntimeOp::Draft { .. } | RuntimeOp::Inspect { .. } | RuntimeOp::Measure { .. } | RuntimeOp::Cards { .. }) {
+    if matches!(
+        request.op,
+        RuntimeOp::Draft { .. }
+            | RuntimeOp::Inspect { .. }
+            | RuntimeOp::Measure { .. }
+            | RuntimeOp::Cards { .. }
+    ) {
         engine.editing_profile(key);
     }
     match request.op {
@@ -292,7 +298,9 @@ fn dispatch_inner(
             Ok((Value::Null, Vec::new()))
         }
         RuntimeOp::PreviewCover { transition, themes } => {
-            if themes.len() > MAX_SCENES || themes.iter().any(|(k, v)| k.len() > 256 || v.len() > 32768) {
+            if themes.len() > MAX_SCENES
+                || themes.iter().any(|(k, v)| k.len() > 256 || v.len() > 32768)
+            {
                 return Err(invalid("invalid preview themes"));
             }
             let covered = engine.preview_cover(&transition, &themes)?;

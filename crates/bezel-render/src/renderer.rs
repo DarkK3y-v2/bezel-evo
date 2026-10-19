@@ -1540,7 +1540,11 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         return;
     };
     let series = SeriesId::graph(&binding.key, *interval_seconds);
-    let scroll = if motion { context.histories.scroll_offset(&series, context.animation) } else { 0. };
+    let scroll = if motion {
+        context.histories.scroll_offset(&series, context.animation)
+    } else {
+        0.
+    };
     let spec = GraphSpec {
         scroll,
         history: *history,
@@ -1552,7 +1556,9 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         min: binding.min,
         max: binding.max,
     };
-    let values = context.histories.points(&series, usize::from(*history) + usize::from(scroll > 0.));
+    let values = context
+        .histories
+        .points(&series, usize::from(*history) + usize::from(scroll > 0.));
     graph::draw(layer, element.frame, &values, &spec);
 }
 
@@ -1564,15 +1570,30 @@ mod tests {
 
     #[test]
     fn timed_graphs_move_between_samples_in_every_style_and_respect_reduced_motion() {
-        use bezel_core::domain::{history::{Histories, Tick}, sensor::{Reading, Snapshot}};
+        use bezel_core::domain::{
+            history::{Histories, Tick},
+            sensor::{Reading, Snapshot},
+        };
         use std::time::Duration;
         let key = bezel_core::domain::sensor::SensorKey::new("cpu.usage").unwrap();
         for style in [GraphStyle::Line, GraphStyle::Area, GraphStyle::Bars] {
-            let e = element(BoxF::new(8., 8., 112., 64.), ElementKind::Graph {
-                binding: bezel_core::domain::theme::Binding { key: key.clone(), min: 0., max: 100. },
-                history: 4, interval_seconds: None, style, color: Rgba::WHITE,
-                fill: None, line_width: 2., autoscale: false,
-            });
+            let e = element(
+                BoxF::new(8., 8., 112., 64.),
+                ElementKind::Graph {
+                    binding: bezel_core::domain::theme::Binding {
+                        key: key.clone(),
+                        min: 0.,
+                        max: 100.,
+                    },
+                    history: 4,
+                    interval_seconds: None,
+                    style,
+                    color: Rgba::WHITE,
+                    fill: None,
+                    line_width: 2.,
+                    autoscale: false,
+                },
+            );
             let theme = testkit::theme(128, 80, Background::Color(Rgba::BLACK), vec![e]);
             let mut scene = Scene::empty();
             let id = SeriesId::graph(&key, None);
@@ -1580,7 +1601,13 @@ mod tests {
             for (n, v) in [10., 80., 30., 90.].into_iter().enumerate() {
                 let mut snapshot = Snapshot::default();
                 snapshot.insert(key.clone(), Reading::Value(v));
-                scene.histories.push(&snapshot, Tick::At { now: Duration::from_secs(n as u64), refresh: true });
+                scene.histories.push(
+                    &snapshot,
+                    Tick::At {
+                        now: Duration::from_secs(n as u64),
+                        refresh: true,
+                    },
+                );
             }
             let mut renderer = testkit::renderer();
             scene.animation = Duration::from_millis(3000);

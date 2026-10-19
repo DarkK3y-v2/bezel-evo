@@ -49,15 +49,15 @@
 
 pub mod archive;
 pub mod collection;
-pub mod h264;
-pub mod scene_output;
 mod framing;
 mod gif;
+pub mod h264;
 mod mp4;
 pub mod photo;
 mod poster;
 mod probe;
 mod process;
+pub mod scene_output;
 mod stream;
 mod transcode;
 

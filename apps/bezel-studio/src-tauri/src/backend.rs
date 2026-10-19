@@ -563,14 +563,24 @@ impl Backend {
 
     pub fn profiles(&self) -> UiResult<bezel_runtime::profiles::Overview> {
         use bezel_runtime::profiles::Display;
-        let mut overview = bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).overview()?;
+        let mut overview =
+            bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).overview()?;
         for screen in self.devices()?.screens {
             if !overview.displays.iter().any(|d| d.key == screen.key) {
-                overview.displays.push(Display { key: screen.key.clone(), name: screen.key.clone(), theme: None, theme_name: None, connected: true });
+                overview.displays.push(Display {
+                    key: screen.key.clone(),
+                    name: screen.key.clone(),
+                    theme: None,
+                    theme_name: None,
+                    connected: true,
+                });
             }
             if let Some(display) = overview.displays.iter_mut().find(|d| d.key == screen.key) {
                 display.connected = true;
-                display.name = screen.models.first().map_or_else(|| screen.family.to_owned(), |m| m.name.to_owned());
+                display.name = screen
+                    .models
+                    .first()
+                    .map_or_else(|| screen.family.to_owned(), |m| m.name.to_owned());
             }
         }
         for (key, (name, location)) in self.studio().profile_documents() {
@@ -592,7 +602,9 @@ impl Backend {
         // Refuse unreadable themes before persisting a profile the user cannot use.
         for profile in &config.profiles {
             for theme in profile.themes.values() {
-                let _ = self.store.load(&bezel_core::ports::ThemeLocation(theme.clone()))?;
+                let _ = self
+                    .store
+                    .load(&bezel_core::ports::ThemeLocation(theme.clone()))?;
             }
         }
         Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).save(&config)?)
@@ -606,7 +618,10 @@ impl Backend {
         transition: bezel_runtime::profiles::TransitionSettings,
         themes: std::collections::BTreeMap<String, String>,
     ) -> UiResult<usize> {
-        let config = bezel_runtime::profiles::Config { transition, ..Default::default() };
+        let config = bezel_runtime::profiles::Config {
+            transition,
+            ..Default::default()
+        };
         config.validate()?;
         match &self.engine {
             Some(engine) => Ok(engine.preview_cover(&config.transition, &themes)?),
@@ -615,7 +630,10 @@ impl Backend {
     }
 
     pub fn select_profile(&self, id: Option<&str>, automatic: bool) -> UiResult<()> {
-        Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).select(id, automatic)?)
+        Ok(
+            bezel_runtime::profiles::ProfileFile::beside(self.settings.path())
+                .select(id, automatic)?,
+        )
     }
 
     /// Remembers `ping_host` (empty: the default) and rebuilds the sensors
@@ -1969,31 +1987,95 @@ mod tests {
         std::fs::create_dir_all(&f.root).unwrap();
         let mut paths = std::collections::BTreeMap::new();
         for (key, name) in [(KEY, "Wide dashboard"), ("COM9", "Round clock")] {
-            let path = f.root.join(format!("{}.bezeltheme", if key == KEY { "wide" } else { "round" }));
+            let path = f.root.join(format!(
+                "{}.bezeltheme",
+                if key == KEY { "wide" } else { "round" }
+            ));
             let theme = Theme::blank(name, Size::new(480, 1920), Orientation::Portrait);
-            f.backend.store.save(&ThemeLocation(path.display().to_string()), &theme, &Default::default()).unwrap();
+            f.backend
+                .store
+                .save(
+                    &ThemeLocation(path.display().to_string()),
+                    &theme,
+                    &Default::default(),
+                )
+                .unwrap();
             paths.insert(key.to_owned(), path.display().to_string());
         }
         f.backend.settings.update(|s| {
-            s.screen_themes = paths.clone(); s.selected_screen = Some("COM9".into());
+            s.screen_themes = paths.clone();
+            s.selected_screen = Some("COM9".into());
             s.last_theme = Some(paths[KEY].clone()); // Must not override COM9's own choice.
         });
         let overview = f.backend.profiles().unwrap();
-        assert_eq!(overview.displays.iter().find(|d| d.key == KEY).unwrap().theme_name.as_deref(), Some("Wide dashboard"));
-        assert_eq!(overview.displays.iter().find(|d| d.key == "COM9").unwrap().theme_name.as_deref(), Some("Round clock"));
-        f.backend.save_profiles(Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: paths.clone(), rules: vec![] }], ..Config::default() }).unwrap();
-        assert_eq!(f.backend.profiles().unwrap().config.profiles[0].themes, paths);
+        assert_eq!(
+            overview
+                .displays
+                .iter()
+                .find(|d| d.key == KEY)
+                .unwrap()
+                .theme_name
+                .as_deref(),
+            Some("Wide dashboard")
+        );
+        assert_eq!(
+            overview
+                .displays
+                .iter()
+                .find(|d| d.key == "COM9")
+                .unwrap()
+                .theme_name
+                .as_deref(),
+            Some("Round clock")
+        );
+        f.backend
+            .save_profiles(Config {
+                profiles: vec![Profile {
+                    id: "gaming".into(),
+                    name: "Gaming".into(),
+                    themes: paths.clone(),
+                    rules: vec![],
+                }],
+                ..Config::default()
+            })
+            .unwrap();
+        assert_eq!(
+            f.backend.profiles().unwrap().config.profiles[0].themes,
+            paths
+        );
     }
 
     #[test]
     fn a_transition_preview_is_checked_and_never_saved() {
         use bezel_runtime::profiles::TransitionSettings;
         let f = fixture("transition-preview");
-        let wipe = TransitionSettings { effect: "wipe".into(), direction: "up".into(), duration_ms: 900 };
+        let wipe = TransitionSettings {
+            effect: "wipe".into(),
+            direction: "up".into(),
+            duration_ms: 900,
+        };
         // No live screen in the fixture: nothing to cover.
-        assert_eq!(f.backend.preview_transition(wipe, Default::default()).unwrap(), 0);
-        assert!(f.backend.preview_transition(TransitionSettings { duration_ms: 20, ..Default::default() }, Default::default()).is_err());
-        assert_eq!(f.backend.profiles().unwrap().config.transition, TransitionSettings::default());
+        assert_eq!(
+            f.backend
+                .preview_transition(wipe, Default::default())
+                .unwrap(),
+            0
+        );
+        assert!(
+            f.backend
+                .preview_transition(
+                    TransitionSettings {
+                        duration_ms: 20,
+                        ..Default::default()
+                    },
+                    Default::default()
+                )
+                .is_err()
+        );
+        assert_eq!(
+            f.backend.profiles().unwrap().config.transition,
+            TransitionSettings::default()
+        );
     }
 
     #[test]
@@ -2057,7 +2139,10 @@ mod tests {
             .iter()
             .find(|e| e.location == saved.location)
             .unwrap();
-        assert_eq!(entry.models, vec!["turing-8.8", "turing-usb-8.8", "turing-usb-9.2"]);
+        assert_eq!(
+            entry.models,
+            vec!["turing-8.8", "turing-usb-8.8", "turing-usb-9.2"]
+        );
         assert_eq!(entry.diagonal_hundredths, None);
         let first = f.backend.thumbnail(&saved.location, TIME).unwrap();
         assert!(first.unwrap().starts_with("data:image/png;base64,"));

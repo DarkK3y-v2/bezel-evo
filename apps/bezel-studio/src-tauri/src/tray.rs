@@ -5,7 +5,9 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use tauri::menu::{CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItem, MenuItemBuilder, Submenu};
+use tauri::menu::{
+    CheckMenuItem, CheckMenuItemBuilder, MenuBuilder, MenuItem, MenuItemBuilder, Submenu,
+};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter as _, Manager};
 
@@ -116,26 +118,41 @@ pub(crate) struct TrayMenu {
 
 impl TrayMenu {
     pub(crate) fn refresh_profiles(&self, app: &AppHandle) {
-        let Some(backend) = app.try_state::<Shared>() else { return; };
-        let Ok(overview) = backend.profiles() else { return; };
+        let Some(backend) = app.try_state::<Shared>() else {
+            return;
+        };
+        let Ok(overview) = backend.profiles() else {
+            return;
+        };
         let config = &overview.config;
         let text = backend.texts();
         let refresh = || -> tauri::Result<()> {
             self.profiles.set_text(text.profiles)?;
-            for item in self.profiles.items()? { self.profiles.remove(&item)?; }
-            let auto = CheckMenuItemBuilder::with_id("profile:auto", text.automatic).checked(config.automatic).build(app)?;
-            let default = CheckMenuItemBuilder::with_id("profile:default", text.default_profile).checked(!config.automatic && config.manual.is_none()).build(app)?;
+            for item in self.profiles.items()? {
+                self.profiles.remove(&item)?;
+            }
+            let auto = CheckMenuItemBuilder::with_id("profile:auto", text.automatic)
+                .checked(config.automatic)
+                .build(app)?;
+            let default = CheckMenuItemBuilder::with_id("profile:default", text.default_profile)
+                .checked(!config.automatic && config.manual.is_none())
+                .build(app)?;
             self.profiles.append(&auto)?;
             self.profiles.append(&default)?;
             for p in &config.profiles {
                 let item = CheckMenuItemBuilder::with_id(format!("profile:{}", p.id), &p.name)
-                    .checked(!config.automatic && config.manual.as_ref() == Some(&p.id)).build(app)?;
+                    .checked(!config.automatic && config.manual.as_ref() == Some(&p.id))
+                    .build(app)?;
                 self.profiles.append(&item)?;
             }
-            self.profiles.append(&MenuItemBuilder::with_id("profile:manage", text.manage_profiles).build(app)?)?;
+            self.profiles.append(
+                &MenuItemBuilder::with_id("profile:manage", text.manage_profiles).build(app)?,
+            )?;
             Ok(())
         };
-        if refresh().is_err() { diag::report(DiagCode::TrayMenuNotRelabelled); }
+        if refresh().is_err() {
+            diag::report(DiagCode::TrayMenuNotRelabelled);
+        }
     }
     /// The live check item, which follows the session.
     pub(crate) fn live(&self) -> &LiveItem {
@@ -198,16 +215,28 @@ pub(crate) fn create(app: &AppHandle, live: bool, text: &Texts) -> tauri::Result
             id if id.starts_with("profile:") => {
                 if let Some(backend) = app.try_state::<Shared>() {
                     let id = &id[8..];
-                    let result = backend.select_profile(if id == "auto" || id == "default" { None } else { Some(id) }, id == "auto");
-                    if result.is_err() { diag::report(DiagCode::SettingsNotSaved); }
+                    let result = backend.select_profile(
+                        if id == "auto" || id == "default" {
+                            None
+                        } else {
+                            Some(id)
+                        },
+                        id == "auto",
+                    );
+                    if result.is_err() {
+                        diag::report(DiagCode::SettingsNotSaved);
+                    }
                 }
-                if let Some(menu) = app.try_state::<TrayMenu>() { menu.refresh_profiles(app); }
+                if let Some(menu) = app.try_state::<TrayMenu>() {
+                    menu.refresh_profiles(app);
+                }
             }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if matches!(event, TrayIconEvent::Enter { .. })
-                && let Some(menu) = tray.app_handle().try_state::<TrayMenu>() {
+                && let Some(menu) = tray.app_handle().try_state::<TrayMenu>()
+            {
                 menu.refresh_profiles(tray.app_handle());
             }
             if let TrayIconEvent::Click {

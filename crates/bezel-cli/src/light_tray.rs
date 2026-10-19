@@ -13,7 +13,7 @@ use clap::Parser;
 use tao::event::Event;
 use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::platform::run_return::EventLoopExtRunReturn;
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, Submenu, CheckMenuItem};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, Submenu};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
 /// The tray icon's pictures, shared with Studio's tray.
@@ -178,7 +178,10 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     );
     menu.append_items(&[&open, &memory_item, &quit])?;
     let profile_file = match &initial.command {
-        Command::Run { screens_config: Some(path), .. } => Some(bezel_runtime::profiles::ProfileFile::beside(path)),
+        Command::Run {
+            screens_config: Some(path),
+            ..
+        } => Some(bezel_runtime::profiles::ProfileFile::beside(path)),
         _ => None,
     };
     let language = match locale.as_str() {
@@ -188,7 +191,9 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
     };
     let labels = bezel_runtime::profiles::menu_labels(language);
     let profiles_menu = Submenu::new(labels[0], true);
-    if profile_file.is_some() { menu.insert(&profiles_menu, 1)?; }
+    if profile_file.is_some() {
+        menu.insert(&profiles_menu, 1)?;
+    }
     let mut shown_profiles = None;
     let mut profiles_poll = Instant::now();
     let scale = event_loop
@@ -552,7 +557,11 @@ fn make_engine(
         );
     }
     load_saved_documents(&mut engine, cli)?;
-    if let Command::Run { screens_config: Some(path), .. } = &cli.command {
+    if let Command::Run {
+        screens_config: Some(path),
+        ..
+    } = &cli.command
+    {
         engine = engine.with_profiles(bezel_runtime::profiles::ProfileFile::beside(path));
     }
     Ok(engine)

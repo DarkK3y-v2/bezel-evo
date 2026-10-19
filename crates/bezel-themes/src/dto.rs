@@ -1542,14 +1542,27 @@ mod text_case_tests {
             "paint":"#ffffffff","align":"left","valign":"top"});
         let old: TextStyleDto = serde_json::from_value(base.clone()).unwrap();
         let restored = style(&old).unwrap();
-        assert_eq!(restored.casing, bezel_core::domain::text_case::TextCase::Normal);
-        assert!(serde_json::to_value(style_dto(&restored)).unwrap().get("casing").is_none());
+        assert_eq!(
+            restored.casing,
+            bezel_core::domain::text_case::TextCase::Normal
+        );
+        assert!(
+            serde_json::to_value(style_dto(&restored))
+                .unwrap()
+                .get("casing")
+                .is_none()
+        );
         for mode in ["upper", "lower", "sentence", "title"] {
-            let mut json = base.clone(); json["casing"] = mode.into();
+            let mut json = base.clone();
+            json["casing"] = mode.into();
             let dto: TextStyleDto = serde_json::from_value(json).unwrap();
-            assert_eq!(style_dto(&style(&dto).unwrap()).casing.as_deref(), Some(mode));
+            assert_eq!(
+                style_dto(&style(&dto).unwrap()).casing.as_deref(),
+                Some(mode)
+            );
         }
-        let mut invalid = base; invalid["casing"] = "unknown".into();
+        let mut invalid = base;
+        invalid["casing"] = "unknown".into();
         assert!(style(&serde_json::from_value(invalid).unwrap()).is_err());
     }
 }

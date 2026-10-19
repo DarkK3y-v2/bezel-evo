@@ -34,7 +34,8 @@ impl Element {
     pub fn applied_rotation(&self) -> f32 {
         if self.is_group
             || self.card.is_some()
-            || ((self.group_parent.is_some() || self.card_member.is_some()) && self.sensor_motion.is_none())
+            || ((self.group_parent.is_some() || self.card_member.is_some())
+                && self.sensor_motion.is_none())
             || matches!(
                 self.kind,
                 ElementKind::Shape {

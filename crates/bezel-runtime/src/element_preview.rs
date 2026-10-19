@@ -251,7 +251,10 @@ pub(crate) mod tests {
         let mut e = shape(1, BoxF::new(50., 45., 60., 30.), Rgba::WHITE);
         e.sensor_motion = Some(bezel_core::domain::sensor_motion::SensorMotion {
             sensor: bezel_core::domain::sensor::SensorKey::new("gpu.fan").unwrap(),
-            reference: 3000., turns_per_second: 1., inertia_ms: 600, reverse: false,
+            reference: 3000.,
+            turns_per_second: 1.,
+            inertia_ms: 600,
+            reverse: false,
         });
         let alone = isolate(&theme(vec![e]), ElementId(1)).unwrap();
         assert!(alone.canvas.width >= 68 && alone.canvas.height >= 68);

@@ -93,20 +93,44 @@ fn a_sensor_rotor_inside_a_card_rotates_without_turning_the_container() {
     use std::time::Duration;
     let mut rotor = box_element();
     rotor.id = ElementId(2);
-    rotor.card_member = Some(CardMember { parent: ElementId(1), face: Some(0) });
-    rotor.sensor_motion = Some(SensorMotion { sensor: testkit::key("gpu.fan"), reference: 100., turns_per_second: 1., inertia_ms: 0, reverse: false });
+    rotor.card_member = Some(CardMember {
+        parent: ElementId(1),
+        face: Some(0),
+    });
+    rotor.sensor_motion = Some(SensorMotion {
+        sensor: testkit::key("gpu.fan"),
+        reference: 100.,
+        turns_per_second: 1.,
+        inertia_ms: 0,
+        reverse: false,
+    });
     let mut card = box_element();
     card.id = ElementId(1);
-    card.card = Some(Card { faces: vec!["Fan".into()], active_face: 0, triggers: vec![], rotation_seconds: None, transition: None });
+    card.card = Some(Card {
+        faces: vec!["Fan".into()],
+        active_face: 0,
+        triggers: vec![],
+        rotation_seconds: None,
+        transition: None,
+    });
     card.opacity = 0.;
-    let theme = testkit::theme(160, 120, Background::Color(Rgba::default()), vec![card, rotor]);
+    let theme = testkit::theme(
+        160,
+        120,
+        Background::Color(Rgba::default()),
+        vec![card, rotor],
+    );
     // A transparent parent would hide its child, so leave the container's
     // opacity intact and make its own shape transparent instead.
     let mut theme = theme;
     theme.elements[0].opacity = 1.;
-    if let ElementKind::Shape { fill, .. } = &mut theme.elements[0].kind { *fill = None; }
+    if let ElementKind::Shape { fill, .. } = &mut theme.elements[0].kind {
+        *fill = None;
+    }
     let mut scene = Scene::empty();
-    scene.snapshot.insert(testkit::key("gpu.fan"), Reading::Value(100.));
+    scene
+        .snapshot
+        .insert(testkit::key("gpu.fan"), Reading::Value(100.));
     let mut renderer = testkit::renderer();
     let before = testkit::render(&mut renderer, &theme, &scene);
     scene.animation = Duration::from_millis(100);
