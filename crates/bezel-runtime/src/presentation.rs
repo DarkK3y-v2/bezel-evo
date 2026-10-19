@@ -60,7 +60,7 @@ pub(crate) struct Update {
 impl Presenter {
     pub fn start(
         id: u64,
-        key: String,
+        target: crate::targets::Target,
         bus: Arc<dyn DeviceBus + Send + Sync>,
         connector: Arc<dyn ScreenConnector + Send + Sync>,
         handoff: Option<super::Handoff>,
@@ -100,9 +100,8 @@ impl Presenter {
                         Some(screen) => {
                             bezel_core::app::reopen_screen(bus.as_ref(), connector.as_ref(), screen)
                         }
-                        None => bezel_core::app::choose_screen(
+                        None => target.resolve(
                             bezel_core::app::discover_screens(bus.as_ref()).unwrap_or_default(),
-                            Some(&key),
                         )
                         .and_then(|s| connector.connect(&s).map(|l| (s, l))),
                     };
@@ -115,6 +114,9 @@ impl Presenter {
                         }
                         let orientation = theme.orientation;
                         link.set_orientation(orientation)?;
+                        target.remembered.remember(
+                            &bezel_core::app::discover_screens(bus.as_ref()).unwrap_or_default(),
+                        );
                         if previous.is_none()
                             && let Some((store, wall)) = &handoff
                             && let Some(address) = screen.address()
@@ -474,7 +476,10 @@ mod tests {
         }]));
         let presenter = Presenter::start(
             1,
-            "COM3".into(),
+            crate::targets::Target {
+                key: "COM3".into(),
+                remembered: Arc::new(crate::targets::Targets::load(std::env::temp_dir().join("bezel-rev-a-addresses.json"))),
+            },
             bus,
             Arc::new(Connector),
             None,

@@ -7,6 +7,7 @@ mod presentation;
 pub mod profiles;
 mod sampling;
 mod spectrum;
+mod targets;
 mod wake;
 pub use wake::Wake;
 pub mod wire;
@@ -150,6 +151,7 @@ type Handoff = (
 
 /// Persistent service. Scene lifetimes do not depend on an editor connection.
 pub struct Engine {
+    targets: Arc<targets::Targets>,
     profiles: Option<profiles::Service>,
     scenes: BTreeMap<String, Scene>,
     renderer: Box<dyn FrameRenderer>,
@@ -191,10 +193,17 @@ impl Engine {
         clock: fn() -> LocalTime,
     ) -> Result<Self> {
         let origin = Instant::now();
+        let targets = Arc::new(targets::Targets::load(if cache.as_os_str().is_empty() {
+            PathBuf::new()
+        } else {
+            cache.join("screen-addresses.json")
+        }));
+        targets.remember(&bezel_core::app::discover_screens(bus.as_ref()).unwrap_or_default());
         let wake = Wake::default();
         let sensors = sampling::Sampler::new(sensors, origin, wake.clone())?;
         let catalog = sensors.latest().catalog.clone();
         Ok(Self {
+            targets,
             profiles: None,
             scenes: BTreeMap::new(),
             renderer,
@@ -440,7 +449,10 @@ impl Engine {
         } else if on {
             scene.presenter = Some(presentation::Presenter::start(
                 scene.id,
-                key.into(),
+                targets::Target {
+                    key: key.into(),
+                    remembered: self.targets.clone(),
+                },
                 self.bus.clone(),
                 self.connector.clone(),
                 self.handoff.clone(),
@@ -617,7 +629,10 @@ impl Engine {
             if scene.live && scene.presenter.is_none() {
                 scene.presenter = Some(presentation::Presenter::start(
                     scene.id,
-                    key.clone(),
+                    targets::Target {
+                        key: key.clone(),
+                        remembered: self.targets.clone(),
+                    },
                     self.bus.clone(),
                     self.connector.clone(),
                     None,
