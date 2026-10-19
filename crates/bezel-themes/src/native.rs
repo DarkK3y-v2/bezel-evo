@@ -1761,6 +1761,39 @@ mod tests {
     }
 
     #[test]
+    fn value_inertia_roundtrips_with_legacy_smooth_fallback() {
+        let (mut theme, _) = every_kind();
+        theme.elements[0].value_transition = Some(ValueTransition {
+            mode: TransitionMode::Inertia,
+            duration_ms: 800,
+        });
+        let dto = ThemeDto::from(&theme);
+        let mut json = serde_json::to_value(&dto).unwrap();
+        assert_eq!(json["elements"][0]["valueTransition"]["mode"], "smooth");
+        assert_eq!(json["elements"][0]["valueTransition"]["inertia"], true);
+        assert_eq!(
+            Theme::try_from(&dto).unwrap().elements[0]
+                .value_transition
+                .unwrap()
+                .mode,
+            TransitionMode::Inertia
+        );
+        // What an older reader sees when it ignores the new optional flag.
+        json["elements"][0]["valueTransition"]
+            .as_object_mut()
+            .unwrap()
+            .remove("inertia");
+        let old: ThemeDto = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            Theme::try_from(&old).unwrap().elements[0]
+                .value_transition
+                .unwrap()
+                .mode,
+            TransitionMode::Smooth
+        );
+    }
+
+    #[test]
     fn rotation_roundtrip_normalizes_and_rejects_non_finite() {
         let (theme, _) = every_kind();
         let mut dto = ThemeDto::from(&theme);

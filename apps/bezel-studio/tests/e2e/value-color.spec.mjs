@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible, clickAddWidget, colorButton, setColor } from './helpers.mjs';
+import { pickSensor, test, expect, watchErrors, expectAccessible, clickAddWidget, colorButton, setColor } from './helpers.mjs';
 
 test('colour rules edit values and colours, reorder, remove and Undo', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -64,11 +64,11 @@ test('shapes choose a rule sensor; turning the rule off preserves fixed paint', 
   const section = page.locator('[data-section="value-color"]');
   const toggle = section.getByRole('switch', { name: t('insp.colorByValue'), exact: true });
   await toggle.click();
-  await section.getByRole('combobox', { name: t('inspector.sensor'), exact: true }).selectOption('cpu.temperature');
-  await expect(section.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('cpu.temperature');
+  await pickSensor(page, t, section, 'cpu.temperature');
+  await expect(section.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveAttribute('data-sensor-key', 'cpu.temperature');
   await toggle.click();
   await expect(section.locator('select')).toHaveCount(0);
   await page.locator('#undo').click();
-  await expect(section.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('cpu.temperature');
+  await expect(section.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveAttribute('data-sensor-key', 'cpu.temperature');
   await expectAccessible(page);
 });

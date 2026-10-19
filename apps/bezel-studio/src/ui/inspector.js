@@ -1,5 +1,7 @@
 import { canRotate, appliedRotation } from '../editor/rotation.js';
 import { defaultSensorMotion, supportsSensorMotion } from '../sensor-motion.js';
+import { sensorNativeUnit } from '../sensor-picker-model.js';
+import { sensorPicker, closeSensorPicker, refreshSensorPicker } from './sensor-picker.js';
 import { applyTextCase, TEXT_CASES } from '../text-case.js';
 import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
@@ -18,7 +20,7 @@ import { readIcon } from '../icon-catalog.js';
 import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
-  chipButton, colorPicker, dashedHint, fieldGrid, fontPicker, kindIcon, listCard, numberField,
+  chipButton, colorPicker, dashedHint, fieldGrid, fontPicker, kindIcon, numberField,
   adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, switchRow, textField,
 } from './fields.js';
 import { joinColor, splitColor } from '../color-math.js';
@@ -50,8 +52,6 @@ const LOOK_ORDER = Object.freeze([
   'color', 'spectrum-paint', 'fill', 'progress', 'track', 'segments',
   'outline', 'corners', 'shadow', 'transparency', 'preview', 'visibility',
 ]);
-/** A sensor's category drawn on its source card (ui/icons.js names). */
-const CATEGORY_ICON = Object.freeze({ cpu: 'chip', gpu: 'monitor', memory: 'chip', board: 'chip', network: 'download', disk: 'sdCard' });
 // Illustrations of the option tiles (24-unit paths drawn like every icon):
 // the graph's styles, what the player shows and how its bar is cut.
 const ART = Object.freeze({
@@ -174,36 +174,18 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** A colour of the theme: the shared picker (D-2026-10-16-studio-redesign-fidelity-29). */
   const colorField = (label, hex, onChange, opts = {}) => colorPicker(label, hex, onChange, { ...pickers.color(), gesture, ...opts });
 
-  function sensorOptions() {
-    const groups = {};
-    for (const s of sensors.catalog()) {
-      const group = t(`category.${s.category}`);
-      (groups[group] ??= []).push([s.key, s.label]);
-    }
-    return groups;
-  }
-
   /** The last reading of `key`, from the app's last sample (null: none yet). */
   const readingOf = (key) => host.lastSample()?.readings?.[key] ?? null;
   const shownValue = (key) => readingOf(key)?.display ?? '…';
 
   /**
    * The sensor an object reads, as a card (artboards' "Sorgente"): its
-   * icon, name, mono key, value now and chevron, with the native select
-   * over it (keyboard, screen readers and the list of sensors).
+   * icon, name, mono key, value now and chevron. Every context opens the
+   * same searchable picker, with the appropriate numeric/text scope.
    */
-  function sourceCard(id, key, patchFor) {
-    const options = sensorOptions();
-    const known = Object.values(options).flat().some(([k]) => k === key);
-    if (!known) options[t('common.other')] = [[key, key]];
-    const select = selectField(t('inspector.sensor'), key, options, (k) => update(id, patchFor(k))).querySelector('select');
-    select.setAttribute('aria-label', t('inspector.sensor'));
-    const entry = sensors.catalog().find((s) => s.key === key);
-    const card = listCard({ icon: CATEGORY_ICON[entry?.category] ?? 'sensors', title: entry?.label ?? key, subtitle: key, value: shownValue(key) });
-    card.tabIndex = -1;
-    card.setAttribute('aria-hidden', 'true');
-    card.querySelector('.list-card-value').dataset.liveKey = key;
-    return el('div', { class: 'source-card' }, [card, select]);
+  function sourceCard(id, key, patchFor, { numeric = false, label = t('inspector.sensor'), scope = 'source' } = {}) {
+    return sensorPicker({ t, key, label, numeric, scope, catalog: () => sensors.catalog(), readings: () => host.lastSample()?.readings,
+      onChange: key => update(id, patchFor(key)) });
   }
 
   /** Min and max of a binding, mono-prefixed side by side. */
@@ -396,7 +378,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** The source section of an object bound to a sensor: card, Show as, and min/max when it has them. */
   function sourceSection(e, key, patchFor, { range = true } = {}) {
     return section('source', t('insp.source'), [
-      sourceCard(e.id, key, patchFor),
+      sourceCard(e.id, key, patchFor, { numeric: e.kind.type !== 'text' }),
       range && e.kind.binding ? rangeFields(e.id, e.kind.binding) : null,
     ]);
   }
@@ -721,9 +703,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const { mode, durationMs } = transitionOf(e);
     const set = (change) => update(e.id, { valueTransition: transitionPatch(e, change) });
     return section('transition', t('insp.transition'), [
-      segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')]], (next) => set({ mode: next }), { bare: true }),
-      mode === 'smooth' && rangeField(t('card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs, compact: true }),
-      el('p', { class: 'hint', text: t('insp.transitionHint') }),
+      segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')], ['inertia', t('insp.transitionInertia')]], (next) => set({ mode: next }), { bare: true }),
+      mode !== 'none' && rangeField(t(mode === 'inertia' ? 'insp.transitionSettling' : 'card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs, compact: true }),
+      el('p', { class: 'hint', text: t(mode === 'inertia' ? 'insp.transitionInertiaHint' : 'insp.transitionHint') }),
     ]);
   }
 
@@ -1169,6 +1151,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       seenAt = Date.now();
     }
     for (const node of root.querySelectorAll('[data-live-key]')) node.textContent = sample.readings?.[node.dataset.liveKey]?.display ?? '…';
+    refreshSensorPicker();
     const peak = root.querySelector('[data-peak-key]');
     if (peak) {
       const key = peak.dataset.peakKey;
@@ -1240,8 +1223,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       switchRow(t('insp.colorByValue'), Boolean(rule), enabled => set(enabled ? defaultValueColor(e,
         sensors.catalog()[0]?.key ?? '', readIcon(assets.find(a => a.ref === e.kind.asset)?.iconSvg)?.color) : null)),
       ...(rule ? [
-        e.kind.content?.type === 'spectrum' ? el('p', { class: 'hint', text: t('spectrum.levelScale') }) : boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }))
-          : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } })),
+        e.kind.content?.type === 'spectrum' ? el('p', { class: 'hint', text: t('spectrum.levelScale') }) : boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }), { numeric: true, scope: 'color' })
+          : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } }), { numeric: true, scope: 'color' }),
         colorField(t('insp.baseColor'), rule.base, base => set({ ...rule, base })),
         el('p', { class: 'hint', text: t('insp.colorThresholdHint') }),
         ...rows.map((row, i) => el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('insp.colorThresholdRow', { value: i + 1 }), dataset: { colorRow: String(i), focusScope: `color-${i}` } }, [
@@ -1265,12 +1248,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     return section('sensor-motion', t('insp.sensorMotion'), [
       switchRow(t('insp.sensorMotionEnabled'), Boolean(motion), enabled => set(enabled ? defaultSensorMotion(sensors.catalog(), e) : null)),
       ...(motion ? [
-        selectField(t('insp.motionSource'), motion.sensor,
-          [...new Map([[motion.sensor, motion.sensor], ...sensors.catalog().filter(s => s.quantity !== 'text').map(s => [s.key, s.label])])],
-          sensor => set({ ...motion, sensor })),
-          numberField(t('insp.motionReference'), motion.reference, value => set({ ...motion, reference: Math.max(.001, Math.min(1e12, value)) }), { min: .001, max: 1e12, step: 'any' }),
-          numberField(t('insp.motionSpeed'), motion.turnsPerSecond, value => set({ ...motion, turnsPerSecond: Math.max(.01, Math.min(10, value)) }), { min: .01, max: 10, step: .1 }),
-          numberField(t('insp.motionInertia'), motion.inertiaMs, value => set({ ...motion, inertiaMs: Math.round(Math.max(0, Math.min(10000, value))) }), { min: 0, max: 10000, step: 100 }),
+        sourceCard(e.id, motion.sensor, sensor => ({ sensorMotion: { ...motion, sensor } }), { numeric: true, label: t('insp.motionSource'), scope: 'motion' }),
+        numberField(t('insp.motionReference'), motion.reference, value => set({ ...motion, reference: Math.max(.001, Math.min(1e12, value)) }), { min: .001, max: 1e12, step: 'any', unit: sensorNativeUnit(sensors.catalog().find(s => s.key === motion.sensor)?.quantity) }),
+        numberField(t('insp.motionPeriod'), 1 / motion.turnsPerSecond, value => set({ ...motion, turnsPerSecond: 1 / Math.max(.1, Math.min(100, value)) }), { min: .1, max: 100, step: 'any', unit: t('insp.motionSeconds') }),
+        segmented(t('insp.motionResponse'), String(motion.inertiaMs), [
+          ['0', t('insp.motionImmediate')], ['600', t('insp.motionGradual')], ['1500', t('insp.motionSoft')],
+          ...([0, 600, 1500].includes(motion.inertiaMs) ? [] : [[String(motion.inertiaMs), t('insp.motionCustom')]]),
+        ], value => set({ ...motion, inertiaMs: Number(value) })),
+        el('p', { class: 'hint', text: t('insp.motionMapping', { value: motion.reference, unit: sensorNativeUnit(sensors.catalog().find(s => s.key === motion.sensor)?.quantity), seconds: new Intl.NumberFormat(document.documentElement.lang || 'en', { maximumFractionDigits: 2 }).format(1 / motion.turnsPerSecond) }) }),
         switchRow(t('insp.motionReverse'), motion.reverse, reverse => set({ ...motion, reverse })),
         el('p', { class: 'hint', text: t('insp.motionHint') }),
       ] : []),
@@ -1368,6 +1353,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
 
   /** Renders for the current store state. */
   function render(assets = []) {
+    closeSensorPicker();
     // A framing slider under the pointer stays; the form follows at its end.
     if (sliding && store.isGesturing()) return;
     sliding = false;

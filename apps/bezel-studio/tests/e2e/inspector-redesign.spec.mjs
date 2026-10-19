@@ -1,4 +1,4 @@
-import { test, expect, clickAddWidget, expectAccessible, watchErrors } from './helpers.mjs';
+import { pickSensor, test, expect, clickAddWidget, expectAccessible, watchErrors } from './helpers.mjs';
 
 test('all widget inspectors separate navigation from geometry and keep integrated labels readable', async ({ page, t }) => {
   const errors = watchErrors(page);
@@ -38,9 +38,9 @@ test('sensor formatting offers temperature controls only for temperatures and tr
   await clickAddWidget(page, t, 'value');
   const inspector = page.locator('#inspector');
   const source = inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true });
-  await source.selectOption('gpu.usage');
+  await pickSensor(page, t, inspector, 'gpu.usage');
   await expect(inspector.getByRole('switch', { name: t('inspector.fahrenheit'), exact: true })).toHaveCount(0);
-  await source.selectOption('cpu.temperature');
+  await pickSensor(page, t, inspector, 'cpu.temperature');
   await expect(inspector.getByRole('switch', { name: t('inspector.fahrenheit'), exact: true })).toBeVisible();
   const toggle = inspector.getByRole('switch', { name: t('inspector.showUnit'), exact: true });
   expect(await toggle.evaluate(input => ['none', 'normal'].includes(getComputedStyle(input.parentElement.querySelector('span'), '::before').content))).toBe(true);
@@ -50,7 +50,7 @@ test('sensor formatting offers temperature controls only for temperatures and tr
   await transition.getByRole('button', { name: t('fade.none'), exact: true }).click();
   await expect(transition.getByRole('slider')).toHaveCount(0);
   await transition.getByRole('button', { name: t('insp.transitionSmooth'), exact: true }).click();
-  await source.selectOption('gpu.usage');
+  await pickSensor(page, t, inspector, 'gpu.usage');
   for (const tab of ['data', 'look']) {
     await inspector.getByRole('tab', { name: t(`inspector.tab.${tab}`), exact: true }).click();
     await expectAccessible(page);

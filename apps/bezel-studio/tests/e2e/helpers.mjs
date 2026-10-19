@@ -114,6 +114,15 @@ export const colorButton = (scope, label) => scope.getByRole('button', { name: l
 /** The open colour panel. */
 export const colorPanel = (page) => page.locator('.picker-popover:has(.cp-area)');
 
+/** Chooses a sensor through the same searchable popup used by every card. */
+export async function pickSensor(page, t, scope, key, label = t('inspector.sensor')) {
+  await scope.getByRole('combobox', { name: label, exact: true }).click();
+  const popup = page.getByRole('dialog', { name: label, exact: true });
+  await popup.getByRole('searchbox', { name: t('insp.sensorPickerSearch'), exact: true }).fill(key);
+  await popup.locator(`[role="option"][data-key="${key}"]`).click();
+  await expect(popup).toHaveCount(0);
+}
+
 /**
  * Sets the colour picker named `label` in `scope` to `hex` through the
  * panel's hex field, then closes the panel with Escape.

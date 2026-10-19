@@ -1,4 +1,4 @@
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add } from './helpers.mjs';
+import { pickSensor, test, expect, watchErrors, expectAccessible, clickAddWidget as add } from './helpers.mjs';
 
 test('sensor motion animates a custom shape, edits its response, and survives undo', async ({page,t},info) => {
   const errors=watchErrors(page);
@@ -8,10 +8,10 @@ test('sensor motion animates a custom shape, edits its response, and survives un
   const toggle=inspector.getByRole('switch',{name:t('insp.sensorMotionEnabled'),exact:true});
   await toggle.check();
   const source=inspector.getByRole('combobox',{name:t('insp.motionSource'),exact:true});
-  await source.selectOption('cpu.usage');
+  await pickSensor(page, t, inspector, 'cpu.usage', t('insp.motionSource'));
   const reference=inspector.getByRole('spinbutton',{name:t('insp.motionReference'),exact:true});
   await reference.fill('100'); await reference.press('Tab');
-  await expect(source).toHaveValue('cpu.usage');
+  await expect(source).toHaveAttribute('data-sensor-key', 'cpu.usage');
   const pixels=()=>inspector.locator('.inspector-preview canvas').evaluate(canvas=>canvas.toDataURL());
   await expect(inspector.locator('.inspector-preview canvas')).toBeVisible();
   const first=await pixels();

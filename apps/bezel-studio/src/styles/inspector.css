@@ -201,11 +201,6 @@
 .graph-ruler-labels { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--muted); }
 .graph-ruler-labels .graph-points { color: var(--text-2); }
 
-/* The sensor a widget reads: a list card with the native select over it. */
-.source-card { position: relative; }
-.source-card:hover .list-card { border-color: var(--accent); }
-.source-card:has(select:focus-visible) .list-card { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
-
 /* The ring's arc in small, beside its start and sweep. */
 .arc-row { display: flex; align-items: center; gap: 14px; }
 .arc-row .fld-grid { flex: 1 1 auto; min-width: 0; }

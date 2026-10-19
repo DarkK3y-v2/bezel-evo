@@ -117,7 +117,7 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   // The source card shows the sensor's key and value now over its select.
   await expect(inspector.locator('.source-card .list-card-sub')).toHaveText('cpu.usage');
   await expect(inspector.locator('.source-card .list-card-value')).toHaveText(/%$/);
-  await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('cpu.usage');
+  await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveAttribute('data-sensor-key', 'cpu.usage');
   const arc = inspector.locator('.arc-preview .arc-fill');
   const beforeArc = await arc.getAttribute('d');
   const sweep = inspector.getByRole('spinbutton', { name: t('inspector.sweep'), exact: true });

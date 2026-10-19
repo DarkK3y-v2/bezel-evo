@@ -448,6 +448,9 @@ fn color_by_value(rule: &ColorByValueDto) -> R<ColorByValue> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValueTransitionDto {
+    /// Optional pursuit response; old readers fall back to ordinary smooth motion.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub inertia: bool,
     /// `none` or `smooth`.
     pub mode: TransitionModeDto,
     /// Milliseconds a smooth transition lasts (read within
@@ -464,6 +467,8 @@ pub enum TransitionModeDto {
     None,
     /// Eases.
     Smooth,
+    /// Retains momentum while pursuing new readings.
+    Inertia,
 }
 
 fn value_transition_dto(t: Option<ValueTransition>) -> Option<ValueTransitionDto> {
@@ -471,8 +476,10 @@ fn value_transition_dto(t: Option<ValueTransition>) -> Option<ValueTransitionDto
         mode: match t.mode {
             TransitionMode::None => TransitionModeDto::None,
             TransitionMode::Smooth => TransitionModeDto::Smooth,
+            TransitionMode::Inertia => TransitionModeDto::Smooth,
         },
         duration_ms: t.duration_ms,
+        inertia: t.mode == TransitionMode::Inertia,
     })
 }
 
@@ -480,7 +487,9 @@ fn value_transition(t: Option<ValueTransitionDto>) -> Option<ValueTransition> {
     t.map(|t| ValueTransition {
         mode: match t.mode {
             TransitionModeDto::None => TransitionMode::None,
+            TransitionModeDto::Smooth if t.inertia => TransitionMode::Inertia,
             TransitionModeDto::Smooth => TransitionMode::Smooth,
+            TransitionModeDto::Inertia => TransitionMode::Inertia,
         },
         duration_ms: match t.duration_ms {
             0 => 0,

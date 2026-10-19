@@ -149,6 +149,24 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
    (ui/popover.js). Tokens dress the chrome; the colours being edited (the
    area, the bars, the swatches) are the picker's own data. */
 .picker-popover { position: fixed; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: 320px; max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.source-card { min-width: 0; }
+.source-card:hover .list-card, .source-card [aria-expanded="true"] { border-color: var(--accent); }
+.sensor-picker-popover { width: 460px; max-height: min(600px, calc(100vh - 16px)); grid-template-rows: auto auto auto minmax(0, 1fr); overflow: hidden; }
+.sensor-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sensor-picker-count { margin: 0; font-size: var(--fs-meta); }
+.sensor-picker-list { min-height: 0; overflow: auto; overscroll-behavior: contain; padding-right: 8px; scrollbar-gutter: stable; }
+.sensor-picker-category { padding: 12px 6px 5px; font-size: var(--fs-caps); color: var(--muted); text-transform: uppercase; letter-spacing: var(--caps-spacing); }
+.sensor-choice { display: grid; grid-template-columns: 8px minmax(0, 1fr) minmax(65px, auto); align-items: center; gap: 10px; width: 100%; margin-bottom: 4px; padding: 9px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+.sensor-choice:hover, .sensor-choice:focus-visible { background: var(--surface-3); }
+.sensor-choice[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.sensor-choice-text { min-width: 0; display: grid; gap: 3px; }
+.sensor-choice-text > strong { overflow-wrap: anywhere; font-size: var(--fs-compact); }
+.sensor-choice-text > span { overflow-wrap: anywhere; font-size: var(--fs-meta); color: var(--dim); }
+.sensor-choice-value { max-width: 110px; font-family: var(--font-mono); font-size: var(--fs-meta); text-align: right; overflow-wrap: anywhere; }
+.sensor-choice[data-state="unavailable"] .sensor-choice-value { color: var(--warn); }
+.sensor-choice[data-state="pending"] .sensor-choice-value { color: var(--dim); }
+.sensor-choice:is(:hover, :focus-visible, [aria-selected="true"]) .sensor-choice-text > span,
+.sensor-choice[data-state="pending"]:is(:hover, :focus-visible, [aria-selected="true"]) .sensor-choice-value { color: var(--text-2); }
 .font-picker { display: grid; gap: 8px; }
 .font-picker > .field, .color-field { margin: 0; }
 .font-picker > .field > label, .color-field > label { font-size: 0.85rem; color: var(--muted); }
@@ -370,7 +388,7 @@ button.pill:hover { border-color: var(--accent); }
 /* Shared layouts and control states used across panels. */
 .connect-device-list, .layer-groups { list-style: none; margin: 0; padding: 0; }
 .libre-popover-head { display: flex; align-items: center; gap: 10px; }
-.source-card select, .screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .choice-cards, .screen-advanced, .boot-section, .storage-files-head, .standby { display: flex; flex-direction: column; gap: 8px; }
 .sensor-row .label, .file-main .file-name, .bg-option-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-card strong, .media-item .media-name > span, .job-title, .stored-file .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
