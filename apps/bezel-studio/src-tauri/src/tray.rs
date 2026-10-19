@@ -124,7 +124,7 @@ impl TrayMenu {
             self.profiles.set_text(text.profiles)?;
             for item in self.profiles.items()? { self.profiles.remove(&item)?; }
             let auto = CheckMenuItemBuilder::with_id("profile:auto", text.automatic).checked(config.automatic).build(app)?;
-            let default = CheckMenuItemBuilder::with_id("profile:default", overview.baseline_label(text.default_profile)).checked(!config.automatic && config.manual.is_none()).build(app)?;
+            let default = CheckMenuItemBuilder::with_id("profile:default", text.default_profile).checked(!config.automatic && config.manual.is_none()).build(app)?;
             self.profiles.append(&auto)?;
             self.profiles.append(&default)?;
             for p in &config.profiles {

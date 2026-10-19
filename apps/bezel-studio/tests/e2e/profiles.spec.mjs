@@ -15,7 +15,7 @@ test('profiles are managed from Themes and saved independently of the editor', a
   await dialog.getByRole('spinbutton', { name: `${t('card.duration')} (ms)`, exact: true }).fill('850');
   await dialog.getByRole('combobox', { name: t('common.direction'), exact: true }).selectOption('up');
   await expect(dialog.locator('.profile-current-theme')).toHaveText(['Demo']);
-  await expect(dialog.getByRole('combobox', { name: t('profiles.fallback'), exact: true }).locator('option').first()).toHaveText('Demo');
+  await expect(dialog.getByRole('combobox', { name: t('profiles.fallback'), exact: true }).locator('option').first()).toHaveText(t('profiles.default'));
   await expect(dialog.getByText(t('profiles.empty'))).toBeVisible();
   await dialog.getByRole('button', { name: t('profiles.add'), exact: true }).click();
   let profile = dialog.locator('.profile-editor');
@@ -63,7 +63,7 @@ test('one profile keeps a separate theme assignment for each of two displays', a
   }
   let dialog = await openProfiles(page, t);
   await expect(dialog.locator('.profile-current-theme')).toHaveText(['Demo', roundName]);
-  await expect(dialog.getByRole('combobox', { name: t('profiles.fallback'), exact: true }).locator('option').first()).toHaveText(`Demo · ${roundName}`);
+  await expect(dialog.getByRole('combobox', { name: t('profiles.fallback'), exact: true }).locator('option').first()).toHaveText(t('profiles.default'));
   await dialog.getByRole('button', { name: t('profiles.add'), exact: true }).click();
   let gaming = dialog.locator('.profile-editor').first();
   await gaming.getByRole('textbox', { name: t('common.name'), exact: true }).fill('Gaming');

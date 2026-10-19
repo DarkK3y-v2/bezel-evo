@@ -268,7 +268,7 @@ pub(super) fn run(arguments: Vec<OsString>) -> anyhow::Result<String> {
                 let config = &overview.config;
                 while profiles_menu.remove_at(0).is_some() {}
                 let automatic = CheckMenuItem::with_id("profile:auto", labels[1], true, config.automatic, None);
-                let default = CheckMenuItem::with_id("profile:default", overview.baseline_label(labels[2]), true, !config.automatic && config.manual.is_none(), None);
+                let default = CheckMenuItem::with_id("profile:default", labels[2], true, !config.automatic && config.manual.is_none(), None);
                 let _ = profiles_menu.append_items(&[&automatic, &default]);
                 for p in &config.profiles {
                     let item = CheckMenuItem::with_id(format!("profile:{}", p.id), &p.name, true, !config.automatic && config.manual.as_ref() == Some(&p.id), None);

@@ -27,6 +27,7 @@ export default {
   "profiles.mode": "Selection",
   "profiles.automatic": "Automatic",
   "profiles.unassigned": "No theme selected",
+  "profiles.default": "Default",
   "profiles.currentThemes": "Selected themes",
   "profiles.chooseTheme": "Choose a saved theme",
   "profiles.disconnected": "Display disconnected; its assignment is preserved.",

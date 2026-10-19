@@ -18,7 +18,6 @@ export function createProfilesDialog({ t, bridge, notify }) {
     ?? path?.split(/[\\/]/).pop()?.replace(/\.bezeltheme$/i, '') ?? t('profiles.unassigned');
   const displayName = (display) => display.name === display.key ? display.name : `${display.name} · ${display.key}`;
   const currentDisplays = () => displays.some((d) => d.connected) ? displays.filter((d) => d.connected) : displays;
-  const baselineName = () => currentDisplays().map((d) => d.themeName ?? t('profiles.unassigned')).join(' · ') || t('profiles.unassigned');
   const compatibleThemes = (display) => {
     const screen = screens.find((s) => s.key === display.key);
     return themes.filter((theme) => !screen || screen.models.some((model) => theme.models.includes(model.id)));
@@ -97,10 +96,10 @@ export function createProfilesDialog({ t, bridge, notify }) {
             el('span', { class: 'profile-current-theme', text: display.themeName ?? t('profiles.unassigned') }),
           ]))),
         ]),
-        select(t('profiles.mode'), [['auto', t('profiles.automatic')], ['default', baselineName()], ...choices], mode, (value) => {
+        select(t('profiles.mode'), [['auto', t('profiles.automatic')], ['default', t('profiles.default')], ...choices], mode, (value) => {
           config.automatic = value === 'auto'; config.manual = value === 'auto' || value === 'default' ? null : value;
         }),
-        select(t('profiles.fallback'), [['', baselineName()], ...choices], config.defaultProfile ?? '', (value) => { config.defaultProfile = value || null; }),
+        select(t('profiles.fallback'), [['', t('profiles.default')], ...choices], config.defaultProfile ?? '', (value) => { config.defaultProfile = value || null; }),
         el('section', { class: 'profile-transition' }, [
           el('h3', { text: t('profiles.transition') }),
           el('div', { class: 'profile-transition-controls' }, [

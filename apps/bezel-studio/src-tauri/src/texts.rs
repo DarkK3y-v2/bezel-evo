@@ -37,7 +37,7 @@ pub fn texts(language: Language) -> Texts {
     match language {
         Language::PortugueseBr => Texts {
             manage_profiles: "Gerenciar perfis…",
-            profiles: "Perfis", automatic: "Automático", default_profile: "Nenhum tema selecionado",
+            profiles: "Perfis", automatic: "Automático", default_profile: "Default",
             show: "Abrir o Bezel",
             hide: "Ocultar a janela",
             live: "Ao vivo na tela",
@@ -50,7 +50,7 @@ pub fn texts(language: Language) -> Texts {
         },
         Language::Italian => Texts {
             manage_profiles: "Gestisci profili…",
-            profiles: "Profili", automatic: "Automatico", default_profile: "Nessun tema selezionato",
+            profiles: "Profili", automatic: "Automatico", default_profile: "Default",
             show: "Apri Bezel",
             hide: "Nascondi finestra",
             live: "In diretta sullo schermo",
@@ -63,7 +63,7 @@ pub fn texts(language: Language) -> Texts {
         },
         Language::English => Texts {
             manage_profiles: "Manage profiles…",
-            profiles: "Profiles", automatic: "Automatic", default_profile: "No theme selected",
+            profiles: "Profiles", automatic: "Automatic", default_profile: "Default",
             show: "Open Bezel",
             hide: "Hide the window",
             live: "Live on the screen",

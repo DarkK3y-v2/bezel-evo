@@ -270,29 +270,6 @@ pub struct Overview {
     pub config: Config,
     pub displays: Vec<Display>,
 }
-impl Overview {
-    pub fn baseline_label(&self, unassigned: &str) -> String {
-        let connected = self.displays.iter().any(|d| d.connected);
-        let names = self
-            .displays
-            .iter()
-            .filter(|d| {
-                if connected {
-                    d.connected
-                } else {
-                    d.theme_name.is_some()
-                }
-            })
-            .map(|d| d.theme_name.as_deref().unwrap_or(unassigned))
-            .collect::<Vec<_>>();
-        if names.is_empty() {
-            unassigned.into()
-        } else {
-            names.join(" · ")
-        }
-    }
-}
-
 /// Native tray strings, also used while no WebView is running.
 pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static str; 4] {
     use bezel_core::domain::clock::Language;
@@ -300,19 +277,19 @@ pub fn menu_labels(language: bezel_core::domain::clock::Language) -> [&'static s
         Language::Italian => [
             "Profili",
             "Automatico",
-            "Nessun tema selezionato",
+            "Default",
             "Gestisci profili…",
         ],
         Language::PortugueseBr => [
             "Perfis",
             "Automático",
-            "Nenhum tema selecionado",
+            "Default",
             "Gerenciar perfis…",
         ],
         Language::English => [
             "Profiles",
             "Automatic",
-            "No theme selected",
+            "Default",
             "Manage profiles…",
         ],
     }
