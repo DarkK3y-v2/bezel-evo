@@ -132,9 +132,14 @@ struct Fixture {
     owner: Owner,
     seen: Arc<Mutex<Vec<Seen>>>,
     key: String,
+    // Drop after the engine so media handles are closed before cleanup on Windows.
+    _directory: tempfile::TempDir,
 }
 fn fixture() -> Fixture {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let directory = tempfile::Builder::new()
+        .prefix("bezel-test-engine-")
+        .tempdir()
+        .unwrap();
     let bus = Arc::new(FakeBus::turing_88());
     let key = bezel_core::app::discover_screens(bus.as_ref()).unwrap()[0]
         .address()
@@ -167,11 +172,7 @@ fn fixture() -> Fixture {
         bus,
         Arc::new(owner.client(true)),
         Language::English,
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-            "../../target/engine-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )),
+        directory.path().to_path_buf(),
         time,
     )
     .unwrap();
@@ -182,6 +183,26 @@ fn fixture() -> Fixture {
         owner,
         seen,
         key,
+        _directory: directory,
+    }
+}
+
+#[test]
+fn fixture_removes_its_files_after_success_and_unwinding() {
+    for unwind in [false, true] {
+        let mut path = None;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let f = fixture();
+            path = Some(f._directory.path().to_path_buf());
+            let nested = f._directory.path().join("nested");
+            std::fs::create_dir(&nested).unwrap();
+            std::fs::write(nested.join("clip.mp4"), b"test media").unwrap();
+            if unwind {
+                std::panic::resume_unwind(Box::new("simulated test failure"));
+            }
+        }));
+        assert_eq!(result.is_err(), unwind);
+        assert!(!path.unwrap().exists());
     }
 }
 
@@ -197,8 +218,8 @@ fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published
     f.engine.document(&f.key, 2, draft.clone(), false).unwrap();
     f.engine.tick_at(Duration::ZERO, time()).unwrap();
     let published = f.engine.scenes[&f.key].frame.as_ref().unwrap().as_ref().clone();
-    let directory = std::env::temp_dir().join(format!("bezel-profile-engine-{}", std::process::id()));
-    std::fs::create_dir_all(&directory).unwrap();
+    let directory = f._directory.path().join("profile-engine");
+    std::fs::create_dir(&directory).unwrap();
     let path = directory.join("music.bezeltheme");
     let mut music = saved.clone(); music.theme.name = "music profile".into();
     bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &music.theme, &music.assets).unwrap();
@@ -249,8 +270,8 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
         scene.live = true;
         scene.frame = Some(Arc::new(Frame::filled(scene.runtime.theme().canvas, Rgba::BLACK)));
     }
-    let directory = std::env::temp_dir().join(format!("bezel-profile-pair-{}", std::process::id()));
-    std::fs::create_dir_all(&directory).unwrap();
+    let directory = f._directory.path().join("profile-pair");
+    std::fs::create_dir(&directory).unwrap();
     let mut themes = BTreeMap::new();
     for (key, base) in [("wide", &wide), ("round", &round)] {
         let mut gaming = base.clone(); gaming.theme.name = format!("Gaming {key}");
