@@ -33,6 +33,86 @@ fn rotation_zero_keeps_pixels_identical() {
     zero.rotation = 360.;
     assert_eq!(plain, draw(zero));
 }
+
+#[test]
+fn sensor_rotors_render_real_pixels_stop_and_keep_scenes_independent() {
+    use bezel_core::{
+        domain::{sensor::Reading, sensor_motion::SensorMotion},
+        ports::FrameRenderer,
+    };
+    use std::time::Duration;
+    let mut e = box_element();
+    e.sensor_motion = Some(SensorMotion {
+        sensor: testkit::key("gpu.fan"),
+        reference: 100.,
+        turns_per_second: 1.,
+        inertia_ms: 0,
+        reverse: false,
+    });
+    let theme = testkit::theme(160, 120, Background::Color(Rgba::default()), vec![e]);
+    let mut scene = Scene::empty();
+    scene
+        .snapshot
+        .insert(testkit::key("gpu.fan"), Reading::Value(100.));
+    let mut renderer = testkit::renderer();
+    renderer.set_scene(1);
+    let upright = testkit::render(&mut renderer, &theme, &scene);
+    assert_eq!(renderer.next_change(), Some(Duration::from_millis(20)));
+    scene.animation = Duration::from_millis(100);
+    let moving = testkit::render(&mut renderer, &theme, &scene);
+    assert_ne!(upright, moving);
+    renderer.set_scene(2);
+    assert_eq!(
+        testkit::render(&mut renderer, &theme, &scene),
+        upright,
+        "new display has its own phase"
+    );
+    renderer.set_scene(1);
+    scene.animation = Duration::from_millis(200);
+    scene
+        .snapshot
+        .insert(testkit::key("gpu.fan"), Reading::Value(0.));
+    assert_eq!(
+        testkit::render(&mut renderer, &theme, &scene),
+        moving,
+        "zero holds its final angle"
+    );
+    assert_eq!(renderer.next_change(), None);
+    renderer.set_motion(false);
+    assert_eq!(testkit::render(&mut renderer, &theme, &scene), upright);
+    assert_eq!(renderer.next_change(), None);
+    assert_eq!(
+        theme.elements[0].rotation, 0.,
+        "presentation never edits the theme"
+    );
+}
+
+#[test]
+fn a_sensor_rotor_inside_a_card_rotates_without_turning_the_container() {
+    use bezel_core::domain::{sensor::Reading, sensor_motion::SensorMotion};
+    use std::time::Duration;
+    let mut rotor = box_element();
+    rotor.id = ElementId(2);
+    rotor.card_member = Some(CardMember { parent: ElementId(1), face: Some(0) });
+    rotor.sensor_motion = Some(SensorMotion { sensor: testkit::key("gpu.fan"), reference: 100., turns_per_second: 1., inertia_ms: 0, reverse: false });
+    let mut card = box_element();
+    card.id = ElementId(1);
+    card.card = Some(Card { faces: vec!["Fan".into()], active_face: 0, triggers: vec![], rotation_seconds: None, transition: None });
+    card.opacity = 0.;
+    let theme = testkit::theme(160, 120, Background::Color(Rgba::default()), vec![card, rotor]);
+    // A transparent parent would hide its child, so leave the container's
+    // opacity intact and make its own shape transparent instead.
+    let mut theme = theme;
+    theme.elements[0].opacity = 1.;
+    if let ElementKind::Shape { fill, .. } = &mut theme.elements[0].kind { *fill = None; }
+    let mut scene = Scene::empty();
+    scene.snapshot.insert(testkit::key("gpu.fan"), Reading::Value(100.));
+    let mut renderer = testkit::renderer();
+    let before = testkit::render(&mut renderer, &theme, &scene);
+    scene.animation = Duration::from_millis(100);
+    assert_ne!(testkit::render(&mut renderer, &theme, &scene), before);
+    assert_eq!(theme.elements[0].applied_rotation(), 0.);
+}
 #[test]
 fn rotation_90_turns_box_around_center() {
     let mut e = box_element();

@@ -579,7 +579,11 @@ impl Backend {
                 display.theme = location;
             }
         }
-        overview.displays.sort_by(|a, b| b.connected.cmp(&a.connected).then_with(|| a.key.cmp(&b.key)));
+        overview.displays.sort_by(|a, b| {
+            b.connected
+                .cmp(&a.connected)
+                .then_with(|| a.key.cmp(&b.key))
+        });
         Ok(overview)
     }
 
@@ -1808,6 +1812,7 @@ mod tests {
             card_member: None,
             card: None,
             value_transition: None,
+            sensor_motion: None,
             color_by_value: None,
             kind: ElementKind::Text {
                 content: TextContent::Static("Portable".into()),
@@ -2025,8 +2030,8 @@ mod tests {
             .iter()
             .find(|e| e.location == saved.location)
             .unwrap();
-        assert_eq!(entry.models, vec!["turing-8.8", "turing-usb-8.8"]);
-        assert_eq!(entry.diagonal_hundredths, Some(880));
+        assert_eq!(entry.models, vec!["turing-8.8", "turing-usb-8.8", "turing-usb-9.2"]);
+        assert_eq!(entry.diagonal_hundredths, None);
         let first = f.backend.thumbnail(&saved.location, TIME).unwrap();
         assert!(first.unwrap().starts_with("data:image/png;base64,"));
         let kept = || std::fs::read_dir(f.backend.thumbnails.dir()).map_or(0, Iterator::count);
@@ -2316,6 +2321,7 @@ mod tests {
         let bar = |max: f64| Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             rotation: 0.0,
             is_group: false,
             group_parent: None,

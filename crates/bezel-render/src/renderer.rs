@@ -125,6 +125,8 @@ pub struct SkiaRenderer {
     card_scene: u64,
     font_poll_due: Option<std::time::Duration>,
     card_scenes: HashMap<u64, crate::cards::Cards>,
+    rotors: HashMap<(u64, ElementId), crate::sensor_motion::Rotor>,
+    rotor_due: Option<std::time::Duration>,
 }
 
 /// Where an element sits in its theme: z-index and id.
@@ -158,7 +160,7 @@ const FACE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 /// Elements whose pixels depend on nothing but themselves (no sensor, no
 /// clock, no asset), so their layer can be kept between frames.
 fn is_static(element: &Element) -> bool {
-    if element.color_by_value.is_some() {
+    if element.color_by_value.is_some() || element.sensor_motion.is_some() {
         return false;
     }
     match &element.kind {
@@ -211,6 +213,8 @@ impl SkiaRenderer {
             card_scene: 0,
             font_poll_due: None,
             card_scenes: HashMap::new(),
+            rotors: HashMap::new(),
+            rotor_due: None,
         }
     }
 }
@@ -397,10 +401,10 @@ impl FrameRenderer for SkiaRenderer {
         self.render_stats
     }
     fn next_change(&self) -> Option<std::time::Duration> {
-        match (self.cards.next, self.font_poll_due) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        }
+        [self.cards.next, self.font_poll_due, self.rotor_due]
+            .into_iter()
+            .flatten()
+            .min()
     }
     fn set_motion(&mut self, allowed: bool) {
         self.cards.motion = allowed;
@@ -412,6 +416,11 @@ impl FrameRenderer for SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: RenderContext<'_>,
     ) -> Result<Frame> {
+        self.rotor_due = None;
+        if self.rotors.len() > 4096 {
+            self.rotors
+                .retain(|(scene, _), _| *scene == self.card_scene);
+        }
         let changed = self.text.refresh_user_fonts();
         if self.text.retain_assets(&theme.assets()) || changed {
             self.layers.clear();
@@ -865,13 +874,26 @@ impl SkiaRenderer {
                     .collect();
                 // Animated image faces take the original drawing path. Static icons
                 // and all sensor/text widgets may reuse surfaces until inputs change.
-                let animated = selected.iter().any(|(_, e)| match &e.kind {
-                    ElementKind::Graph { binding, interval_seconds, .. } => self.cards.motion && context.histories.scroll_offset(&SeriesId::graph(&binding.key, *interval_seconds), context.animation) > 0.,
-                    ElementKind::Image { asset, .. } => self
-                        .images
-                        .timeline(asset, assets, &mut self.diagnostics)
-                        .is_some(),
-                    _ => false,
+                let animated = selected.iter().any(|(_, e)| {
+                    e.sensor_motion.is_some()
+                        || match &e.kind {
+                            ElementKind::Graph {
+                                binding,
+                                interval_seconds,
+                                ..
+                            } => {
+                                self.cards.motion
+                                    && context.histories.scroll_offset(
+                                        &SeriesId::graph(&binding.key, *interval_seconds),
+                                        context.animation,
+                                    ) > 0.
+                            }
+                            ElementKind::Image { asset, .. } => self
+                                .images
+                                .timeline(asset, assets, &mut self.diagnostics)
+                                .is_some(),
+                            _ => false,
+                        }
                 });
                 let key = (self.card_scene, parent.id, pose.face, include, has_windows);
                 let cached = self.face_cache.get(&key).filter(|face| {
@@ -1037,6 +1059,30 @@ impl SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: &RenderContext<'_>,
     ) {
+        let mut moving;
+        let element = if self.cards.motion
+            && element.supports_sensor_motion()
+            && let Some(settings) = element.sensor_motion.as_ref().filter(|s| s.is_valid())
+        {
+            let rotor = self
+                .rotors
+                .entry((self.card_scene, element.id))
+                .or_insert_with(|| crate::sensor_motion::Rotor::new(settings, context.animation));
+            let (phase, active) = rotor.step(
+                settings,
+                context.animation,
+                context.snapshot.get(&settings.sensor).value(),
+            );
+            if active {
+                self.rotor_due = Some(context.animation + std::time::Duration::from_millis(20));
+            }
+            moving = element.clone();
+            moving.rotation =
+                bezel_core::domain::rotation::normalize_degrees(element.applied_rotation() + phase);
+            &moving
+        } else {
+            element
+        };
         let opacity = opacity_of(element.opacity);
         let Some(canvas_rect) = IntRect::from_xywh(0, 0, canvas.width(), canvas.height()) else {
             return;

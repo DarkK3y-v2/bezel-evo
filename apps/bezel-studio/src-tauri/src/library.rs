@@ -491,8 +491,8 @@ mod tests {
             |theme: &Theme| -> Vec<&str> { fitting_models(theme).iter().map(|m| m.id.0).collect() };
         let wide = Theme::blank("w", Size::new(480, 1920), Orientation::Landscape);
         assert_eq!(wide.canvas, Size::new(1920, 480));
-        assert_eq!(ids(&wide), vec!["turing-8.8", "turing-usb-8.8"]);
-        assert_eq!(made_for(&fitting_models(&wide)), Some(880));
+        assert_eq!(ids(&wide), vec!["turing-8.8", "turing-usb-8.8", "turing-usb-9.2"]);
+        assert_eq!(made_for(&fitting_models(&wide)), None);
         // One panel size shared by several diagonals: only the pixels tell.
         let square = Theme::blank("s", Size::new(480, 480), Orientation::Portrait);
         assert!(ids(&square).contains(&"turing-2.1"));

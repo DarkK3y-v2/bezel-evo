@@ -40,4 +40,5 @@ pub mod spectrum;
 pub mod value_color;
 
 pub mod rotation;
+pub mod sensor_motion;
 pub mod text_case;

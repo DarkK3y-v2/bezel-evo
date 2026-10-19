@@ -384,6 +384,7 @@ pub fn theme() -> Option<Theme> {
         .map(|(i, (frame, kind))| Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
             rotation: 0.0,
             is_group: false,

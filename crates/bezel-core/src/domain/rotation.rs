@@ -30,12 +30,11 @@ pub fn rotated_bounds(frame: BoxF, degrees: f32) -> BoxF {
 }
 
 impl Element {
-    /// Effective angle; containers, their members and video windows stay upright.
+    /// Effective angle; ordinary members stay upright unless sensor-driven.
     pub fn applied_rotation(&self) -> f32 {
         if self.is_group
-            || self.group_parent.is_some()
             || self.card.is_some()
-            || self.card_member.is_some()
+            || ((self.group_parent.is_some() || self.card_member.is_some()) && self.sensor_motion.is_none())
             || matches!(
                 self.kind,
                 ElementKind::Shape {
@@ -48,6 +47,19 @@ impl Element {
         } else {
             normalize_degrees(self.rotation)
         }
+    }
+
+    /// Containers and device-video cutouts cannot be visual rotors.
+    pub fn supports_sensor_motion(&self) -> bool {
+        !self.is_group
+            && self.card.is_none()
+            && !matches!(
+                self.kind,
+                ElementKind::Shape {
+                    video_window: true,
+                    ..
+                }
+            )
     }
 }
 

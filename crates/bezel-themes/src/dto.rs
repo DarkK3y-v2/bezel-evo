@@ -300,6 +300,9 @@ fn is_fade_midpoint(v: &f32) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementDto {
+    /// Optional sensor-driven visual rotation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor_motion: Option<SensorMotionDto>,
     /// Clockwise degrees; omitted for unchanged themes.
     #[serde(default, skip_serializing_if = "is_zero_f32")]
     pub rotation: f32,
@@ -340,6 +343,43 @@ pub struct ElementDto {
     pub color_by_value: Option<ColorByValueDto>,
     /// Kind.
     pub kind: KindDto,
+}
+
+/// Sensor-driven visual rotation; speed is deliberately distinct from fan RPM.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SensorMotionDto {
+    /// Source key.
+    pub sensor: String,
+    /// Source reading at maximum visual speed.
+    pub reference: f64,
+    /// Maximum visual revolutions per second.
+    pub turns_per_second: f64,
+    /// Response time in milliseconds.
+    pub inertia_ms: u32,
+    /// Counterclockwise when true.
+    pub reverse: bool,
+}
+
+fn sensor_motion(
+    d: &Option<SensorMotionDto>,
+) -> R<Option<bezel_core::domain::sensor_motion::SensorMotion>> {
+    d.as_ref()
+        .map(|d| {
+            let motion = bezel_core::domain::sensor_motion::SensorMotion {
+                sensor: SensorKey::new(&d.sensor)
+                    .ok_or_else(|| DtoError("invalid motion sensor".into()))?,
+                reference: d.reference,
+                turns_per_second: d.turns_per_second,
+                inertia_ms: d.inertia_ms,
+                reverse: d.reverse,
+            };
+            if !motion.is_valid() {
+                return err("invalid sensor motion settings");
+            }
+            Ok(motion)
+        })
+        .transpose()
 }
 
 /// Sensor-driven step colours, in the sensor's native units.
@@ -2092,6 +2132,13 @@ impl From<&Theme> for ThemeDto {
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value_dto),
                     value_transition: value_transition_dto(e.value_transition),
+                    sensor_motion: e.sensor_motion.as_ref().map(|m| SensorMotionDto {
+                        sensor: m.sensor.to_string(),
+                        reference: m.reference,
+                        turns_per_second: m.turns_per_second,
+                        inertia_ms: m.inertia_ms,
+                        reverse: m.reverse,
+                    }),
                     kind: kind_dto(&e.kind),
                 })
                 .collect(),
@@ -2245,10 +2292,14 @@ impl TryFrom<&ThemeDto> for Theme {
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value).transpose()?,
                     value_transition: value_transition(e.value_transition),
+                    sensor_motion: sensor_motion(&e.sensor_motion)?,
                     kind: kind(&e.kind)
                         .map_err(|x| DtoError(format!("element {} ({}): {}", e.id, e.name, x.0)))?,
                 };
                 element.rotation = element.applied_rotation();
+                if !element.supports_sensor_motion() {
+                    element.sensor_motion = None;
+                }
                 Ok(element)
             })
             .collect::<R<Vec<_>>>()?;

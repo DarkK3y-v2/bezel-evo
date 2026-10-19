@@ -105,6 +105,7 @@ fn doc() -> Document {
         card: None,
         color_by_value: None,
         value_transition: None,
+        sensor_motion: None,
         kind: ElementKind::Graph {
             binding: Binding {
                 key: SensorKey::new("cpu.usage").unwrap(),
@@ -186,8 +187,8 @@ fn fixture() -> Fixture {
 
 #[test]
 fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published_frame() {
-    use bezel_core::ports::{ThemeLocation, ThemeStore};
     use crate::profiles::{Config, Profile, ProfileFile, Service};
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
     let mut f = fixture();
     let previous_pixels = DISTINCT.with(|d| d.replace(Some(0)));
     let mut saved = doc(); saved.theme.background = Background::Color(Rgba::BLACK);

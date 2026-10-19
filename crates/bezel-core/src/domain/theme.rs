@@ -434,6 +434,8 @@ pub enum ElementKind {
 /// One thing drawn on the canvas.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Element {
+    /// Optional sensor-driven visual rotation with inertia.
+    pub sensor_motion: Option<super::sensor_motion::SensorMotion>,
     /// Clockwise degrees around the frame center, normalized to (-180, 180].
     pub rotation: f32,
     /// Invisible ordinary group container.
@@ -774,6 +776,7 @@ impl Theme {
             .filter_map(|e| e.bound_sensor().cloned())
             .collect();
         for e in self.elements.iter().filter(|e| self.is_sampled(e)) {
+            keys.extend(e.sensor_motion.as_ref().map(|motion| motion.sensor.clone()));
             keys.extend(e.color_sensor().cloned());
             if let ElementKind::Text {
                 content: TextContent::Weather(weather),
@@ -871,6 +874,7 @@ mod tests {
         Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
             rotation: 0.0,
             is_group: false,

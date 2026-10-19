@@ -244,6 +244,7 @@ mod tests {
         Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
             rotation: 0.0,
             is_group: false,
@@ -1719,6 +1720,44 @@ mod tests {
         );
         let loaded = Theme::try_from(&dto).unwrap();
         assert_eq!(serde_json::to_vec(&ThemeDto::from(&loaded)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn sensor_motion_roundtrip_validation_and_sampling() {
+        let (theme, _) = every_kind();
+        let mut dto = ThemeDto::from(&theme);
+        assert!(
+            serde_json::to_value(&dto).unwrap()["elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("sensorMotion").is_none())
+        );
+        let motion = crate::dto::SensorMotionDto {
+            sensor: "board.custom.fan".into(),
+            reference: 3000.,
+            turns_per_second: 1.5,
+            inertia_ms: 600,
+            reverse: true,
+        };
+        dto.elements[0].sensor_motion = Some(motion.clone());
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert!(loaded.sensor_keys().contains(&key("board.custom.fan")));
+        assert_eq!(
+            ThemeDto::from(&loaded).elements[0].sensor_motion,
+            Some(motion)
+        );
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = 0.;
+        assert!(Theme::try_from(&dto).is_err());
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = f64::NAN;
+        assert!(Theme::try_from(&dto).is_err());
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = 3000.;
+        dto.elements[0]
+            .sensor_motion
+            .as_mut()
+            .unwrap()
+            .turns_per_second = 100.;
+        assert!(Theme::try_from(&dto).is_err());
     }
 
     #[test]

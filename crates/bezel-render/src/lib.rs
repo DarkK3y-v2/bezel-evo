@@ -27,6 +27,7 @@ mod paint;
 mod path;
 mod player;
 mod renderer;
+mod sensor_motion;
 mod shape;
 mod spectrum;
 mod svg;

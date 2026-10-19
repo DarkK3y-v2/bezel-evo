@@ -64,6 +64,7 @@ fn theme() -> (Theme, BTreeMap<AssetRef, Vec<u8>>) {
     theme.elements.push(Element {
         color_by_value: None,
         value_transition: None,
+        sensor_motion: None,
         card: None,
         rotation: 0.0,
         is_group: false,

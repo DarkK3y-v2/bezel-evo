@@ -47,6 +47,7 @@ fn theme() -> Theme {
     theme.elements.push(Element {
         color_by_value: None,
         value_transition: None,
+        sensor_motion: None,
         id: ElementId(1),
         name: "Card".into(),
         frame: BoxF::new(0.0, 0.0, 100.0, 100.0),

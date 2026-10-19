@@ -2463,6 +2463,7 @@ mod tests {
         theme.elements.push(Element {
             color_by_value: None,
             value_transition: Some(ValueTransition::smooth(400)),
+            sensor_motion: None,
             id: ElementId(1),
             name: "CPU".into(),
             frame: BoxF::new(20.0, 20.0, 200.0, 20.0),
@@ -2607,6 +2608,7 @@ mod tests {
         theme.elements.push(Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             id: ElementId(1),
             name: "Card".into(),
             frame: BoxF::new(20.0, 20.0, 100.0, 100.0),
@@ -3099,6 +3101,7 @@ mod tests {
         theme.elements.push(Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
             rotation: 0.0,
             is_group: false,
@@ -3382,6 +3385,7 @@ mod tests {
         theme.elements.push(Element {
             color_by_value: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
             rotation: 0.0,
             is_group: false,

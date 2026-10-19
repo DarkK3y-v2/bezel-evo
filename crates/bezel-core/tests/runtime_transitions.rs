@@ -75,6 +75,7 @@ impl FrameRenderer for Recorder {
 
 fn bar(transition: Option<ValueTransition>) -> Element {
     Element {
+        sensor_motion: None,
         rotation: 0.0,
         is_group: false,
         group_parent: None,
