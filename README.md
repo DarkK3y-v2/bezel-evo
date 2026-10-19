@@ -35,7 +35,8 @@ Studio has been redesigned from the ground up, in dark and light.
   of itself, drawn on its own at the top of the panel, and its settings split
   into **Data** and **Look** tabs.
 - **One colour picker everywhere.** Colour area, hue, opacity, hex code and an
-  eyedropper, plus **Theme colours** you save once and reuse, the colours already
+  eyedropper with a magnified pixel preview, swatch and HEX beside the cursor,
+  plus **Theme colours** you save once and reuse, the colours already
   **used in this theme**, and recent ones.
 - **A real font picker.** Search, filter Sans/Serif/Mono, each name written in its
   own font, a preview with the object's real text, and only the weights the font
