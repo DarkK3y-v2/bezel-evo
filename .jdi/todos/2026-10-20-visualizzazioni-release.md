@@ -60,9 +60,19 @@ questo turno; installazione automatica non richiesta.
   chiavi verificata dagli unitari. Non dichiarare una prova e2e italiana.
 - Commit c8fedd6 (selettore), 338de13 (aspettative UI), 5ecefb9 (visualizzazioni).
 
-Lo script ufficiale package-evo.ps1 -Version 0.1.59 è in esecuzione. La verifica
-fisica della resa sui due schermi e l'installazione restano distinte dai test
-automatici; nessun setup è stato avviato sul PC dell'utente.
+Script ufficiale package-evo.ps1 -Version 0.1.59 riuscito: compilazione release
+2m21s, autotest helper sensori passato, NSIS e portable prodotti. CLI e metadati
+Studio verificati .59; 101 file payload verificati per SHA256 dentro il portable
+e contro lo staging. Copie binari identiche a target/release, checksum esterni
+setup/zip verificati. Installer 18.395.978 B, portable 29.299.568 B.
+
+SHA256 Studio: 3aaaf90d10ac6c1409e45a44b99299c2078025ca962315b25bf52c8f463fe5f0.
+SHA256 CLI: 1467eaf442d0ca0ca205acb5461b2d9e44385d4e8db0922fbe20f61cacda56a6.
+Artefatti e note in dist/Bezel-Evo-0.1.59-*; note complete dalla .31, includono
+le build locali .32-.58. Stato pubblicazione aggiornato in STATE.md.
+
+La verifica fisica della resa sui due schermi e l'installazione restano distinte
+dai test automatici; nessun setup è stato avviato sul PC dell'utente.
 
 ## Stato operativo
 
