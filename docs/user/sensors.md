@@ -55,8 +55,11 @@ its state and sensor counts. Click the probe to open its sensors, or its
 available/unavailable count to open that filtered view. Overall counts work the
 same way. Hardware paths and individual values stay in the Sensors panel.
 
-The last-reading time and **Restart Libre** remain available. Restart affects
-only the LibreHardwareMonitor reader. Filters continue checking their selected
+GPU aliases belong to their actual reader (for example NVML), including
+unsupported metrics; they do not appear as separate probes.
+The last-reading time remains available. **Restart** appears on each probe
+that supports it: currently only the managed LibreHardwareMonitor reader.
+Windows and NVML do not expose a restart action. Filters continue checking their selected
 scope so a recovered sensor leaves the unavailable view automatically.
 **Open Sensors** clears the filters and opens the whole catalog.
 

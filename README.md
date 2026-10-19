@@ -72,7 +72,7 @@ Studio has been redesigned from the ground up, in dark and light.
   double-clicking an object fits its frame to its content.
 - **Status at a glance.** The sensor chip summarizes probes and their available,
   unavailable and unchecked sensor counts. Click a count to open Sensors with
-  matching probe/status filters. **Restart Libre** stays one click away; a memory
+  matching probe/status filters. Restart is available on supported probe rows; a memory
   chip shows how much Bezel uses, per process; **Preferences → Logs** opens the
   logs folder.
 
