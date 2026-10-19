@@ -18,6 +18,9 @@ test('compact status shows probes and counts without hardware details', async ({
   await expect(libre).toContainText(t('sensorChip.sensorsMany', { count: 3 }));
   await expect(libre.locator('button[data-status="available"]')).toHaveText(t('sensorChip.count.available', { count: 2 }));
   await expect(libre.locator('button[data-status="unavailable"]')).toHaveText(t('sensorChip.count.unavailable', { count: 1 }));
+  await expect(libre.getByRole('button', { name: t('sensorChip.restartProbe', { name: 'LibreHardwareMonitor' }), exact: true })).toBeVisible();
+  await expect(popup.locator('.probe-restart')).toHaveCount(1);
+  await expect(popup.locator('.libre-popover-actions .probe-restart')).toHaveCount(0);
   await expect(popup).not.toContainText('Corsair');
   await expect(popup).not.toContainText('lhm.');
   await expectAccessible(page);
@@ -77,20 +80,20 @@ test('probe, state, category and search combine and generic open resets filters'
 test('restart, dismissal and other probes work without Libre', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88&libre=error');
-  const quick = page.locator('#status-libre-restart');
-  await expect(quick).toBeVisible();
   const popup = await openStatus(page, t);
-  await popup.getByRole('button', { name: t('status.libreRestart'), exact: true }).click();
+  const restart = popup.locator('.probe-row[data-probe="LibreHardwareMonitor"] .probe-restart');
+  await restart.click();
   await expect(page.locator('#status-libre-label')).toHaveText(t('sensorChip.restarting'));
+  await expect(restart).toBeDisabled();
   await expect(page.locator('#status-libre-label')).toHaveText(/\d+ ms/);
-  await expect(quick).toBeHidden();
+  await expect(restart).toBeEnabled();
   await expectAccessible(page);
   await page.locator('#status-main').click();
   await expect(popup).toBeHidden();
   await page.goto('/index.html?demo=turing88');
   const other = await openStatus(page, t);
   await expect(other.getByRole('listitem')).toHaveCount(1);
-  await expect(page.locator('#restart-libre')).toBeHidden();
+  await expect(other.locator('.probe-restart')).toHaveCount(0);
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });

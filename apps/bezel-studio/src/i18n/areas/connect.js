@@ -7,6 +7,8 @@ export const PREFIXES = Object.freeze(['connectView.', 'sensorChip.']);
 
 export default {
   en: {
+    "sensorChip.restart": "Restart",
+    "sensorChip.restartProbe": "Restart {name}",
     "sensorChip.probeState.ok": "Operational",
     "sensorChip.probeState.partial": "Degraded",
     "sensorChip.probeState.error": "No readings",
@@ -31,6 +33,8 @@ export default {
     'sensorChip.lastReading': 'last reading {ago}',
   },
   'pt-BR': {
+    "sensorChip.restart": "Reiniciar",
+    "sensorChip.restartProbe": "Reiniciar {name}",
     "sensorChip.probeState.ok": "Ativa",
     "sensorChip.probeState.partial": "Parcial",
     "sensorChip.probeState.error": "Sem leituras",
@@ -55,6 +59,8 @@ export default {
     'sensorChip.lastReading': 'última leitura {ago}',
   },
   it: {
+    "sensorChip.restart": "Riavvia",
+    "sensorChip.restartProbe": "Riavvia {name}",
     "sensorChip.probeState.ok": "Operativa",
     "sensorChip.probeState.partial": "Parziale",
     "sensorChip.probeState.error": "Nessuna lettura",

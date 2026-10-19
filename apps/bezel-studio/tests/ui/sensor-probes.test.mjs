@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { probeOf, probeRows, probeTotals, readingState } from '../../src/sensor-probes.js';
+import { canRestartProbe, probeOf, probeRows, probeTotals, readingState } from '../../src/sensor-probes.js';
 import { sensorChip } from '../../src/libre-status.js';
 import { catalogKeysInView, groupSensors } from '../../src/ui/library.js';
 
@@ -12,6 +12,26 @@ const catalog = [
   { key: 'net.ping', category: 'network', label: 'Ping', source: 'Windows', quantity: 'milliseconds' },
 ];
 const readings = { 'cpu.usage': { value: 0 }, 'system.hostname': { text: 'workstation' }, 'cpu.temperature': { value: 45, unavailable: 'stale' }, 'board.fan': { value: 0 } };
+
+test('GPU aliases and unsupported metrics belong to their actual reader, including multiple adapters', () => {
+  const gpu = [
+    { key: 'gpu.usage', source: 'gpu.0.usage (NVML)', category: 'gpu' },
+    { key: 'gpu.voltage', source: 'gpu.0.voltage', category: 'gpu' },
+    { key: 'gpu.fan', source: 'gpu.0.fan (NVML)', category: 'gpu' },
+    { key: 'gpu.0.usage', source: 'NVML', category: 'gpu' },
+    { key: 'gpu.1.usage', source: 'Windows', category: 'gpu' },
+    { key: 'gpu.1.temperature.alias', source: 'gpu.1.temperature', category: 'gpu' },
+    { key: 'gpu.unknown', source: 'gpu.2.voltage', category: 'gpu' },
+  ];
+  const values = Object.fromEntries(gpu.map(s => [s.key, s.source.endsWith('voltage') ? { unavailable: 'not supported' } : { value: 0 }]));
+  assert.deepEqual(probeRows(gpu, values).map(({ id, total, unavailable }) => ({ id, total, unavailable })), [
+    { id: 'NVML', total: 4, unavailable: 1 }, { id: 'Windows', total: 2, unavailable: 0 }, { id: 'unassigned', total: 1, unavailable: 1 },
+  ]);
+  assert.deepEqual(groupSensors(gpu, '', 'all', { probe: 'NVML', status: 'unavailable', readings: values })[0][1].map(s => s.key), ['gpu.voltage']);
+  assert.deepEqual(catalogKeysInView(gpu, '', true, 'all', { probe: 'Windows' }), ['gpu.1.usage', 'gpu.1.temperature.alias']);
+  assert.equal(canRestartProbe('LibreHardwareMonitor'), true);
+  for (const id of ['Windows', 'NVML', 'unassigned']) assert.equal(canRestartProbe(id), false);
+});
 
 test('one row per probe merges Windows sources and Libre device paths, with exact counts', () => {
   const rows = probeRows(catalog, readings);

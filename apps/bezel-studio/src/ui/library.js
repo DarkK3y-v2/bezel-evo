@@ -44,7 +44,7 @@ export function groupSensors(catalog, filter = '', category = ALL_CATEGORIES, op
   const q = filter.trim().toLowerCase();
   const groups = new Map();
   for (const s of catalog) {
-    if (!matchesSensor(s, options)) continue;
+    if (!matchesSensor(s, { ...options, catalog })) continue;
     if (category !== ALL_CATEGORIES && s.category !== category) continue;
     if (q && !`${s.label} ${s.key}`.toLowerCase().includes(q)) continue;
     if (!groups.has(s.category)) groups.set(s.category, []);
@@ -245,7 +245,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   function sensorRow(s) {
     const r = sensorError ? { unavailable: t('sensorsPanel.status.unavailable') } : readings[s.key];
     const value = el('span', { class: `value${r?.unavailable ? ' unavailable' : ''}`, dataset: { valueFor: s.key }, text: sensorValue(s.key, r), title: sensorValueTitle(r) });
-    const row = el('button', { type: 'button', class: `sensor-row${s.quantity === 'text' ? ' sensor-row-text' : ''}${s.category === 'system' ? ' sensor-row-system' : ''}`, dataset: { key: s.key, probe: probeOf(s), status: readingState(s, readings, sensorError) }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
+    const row = el('button', { type: 'button', class: `sensor-row${s.quantity === 'text' ? ' sensor-row-text' : ''}${s.category === 'system' ? ' sensor-row-system' : ''}`, dataset: { key: s.key, probe: probeOf(s, catalog), status: readingState(s, readings, sensorError) }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
       el('span', { class: 'sensor-text' }, [
         el('span', { class: 'label', text: s.label }),
         el('span', { class: 'key', text: s.key }),
@@ -339,10 +339,9 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     ])] : []));
   }
 
-  /** The statusbar's restart (ui/sensor-status.js) is the only one: the notice uses it. */
+  /** Share the probe action's progress and duplicate-click guard with the notice. */
   function restartLibre() {
     if (actions.restartLibre) actions.restartLibre();
-    else $('restart-libre')?.click();
   }
 
   /**
@@ -381,7 +380,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   $('sensor-probe-filters').replaceChildren(probeField, statusField);
   let filterSignature = '';
   function renderProbeFilters() {
-    const probes = [...new Set(catalog.map(probeOf))].sort();
+    const probes = [...new Set(catalog.map(sensor => probeOf(sensor, catalog)))].sort();
     if (sensorProbe !== 'all' && !probes.includes(sensorProbe)) sensorProbe = 'all';
     const statuses = ['all', 'available', 'unavailable', 'pending'];
     const signature = JSON.stringify([probes, ...statuses.map(s => t(`sensorsPanel.status.${s}`)), t('sensorsPanel.probeUnknown'), t('sensorsPanel.probe')]);

@@ -206,6 +206,7 @@ const library = createLibrary({
       if (name === 'collection') void collection.show();
     },
     showSensors: reportShownSensors,
+    restartLibre: () => sensorStatus.restartLibre(),
     themeThumbnail: (location) => bridge.themeThumbnail(location),
     rememberThemeFilter: ({ scope, axis }) => bridge.setThemeFilter(scope, axis).catch(() => {}),
     duplicateTheme: (location, name) => bridge.duplicateTheme(location, name).then(() => refreshThemes()).catch((e) => fail(e)),

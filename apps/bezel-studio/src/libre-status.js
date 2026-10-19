@@ -62,12 +62,16 @@ export function sensorChip({ health, counts = null, error = null, restarting = f
 }
 
 /**
- * The program that reads a sensor, as the popover shows it: the first word of
- * its source ("LibreHardwareMonitor Voltage /lpc/…" → "LibreHardwareMonitor").
- * A source that names no program ("none") is not shown.
+ * The program that reads a sensor, stripping GPU target aliases and provider
+ * details. A bare GPU target or "none" does not identify a program.
  */
 export function sourceProgram(source) {
-  const word = String(source ?? '').trim().split(/\s+/)[0] ?? '';
+  let value = String(source ?? '').trim();
+  // Primary GPU aliases carry the target key followed by its real reader.
+  // Unsupported metrics carry only the target key: that is not a program.
+  while (/^gpu\.\d+\.[\w.]+\s+\(.+\)$/.test(value)) value = value.slice(value.indexOf('(') + 1, -1).trim();
+  if (/^gpu\.\d+\./.test(value)) return null;
+  const word = value.split(/\s+/)[0] ?? '';
   return word && word !== 'none' ? word : null;
 }
 
