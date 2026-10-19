@@ -51,6 +51,13 @@ Language**.
 With several objects selected, the alignment buttons line them up on the first
 one you selected; with one, they align it on the screen.
 
+In **Layers**, combine the name/sensor search with **Object type** to find
+text, values, clocks, graphs, images, cards, groups or other widget types.
+**All types** clears the type filter. Matching children keep their card/group
+ancestry visible; folded containers expand temporarily, then return to their
+previous fold state when filters are cleared. A matching card or group shows
+its complete contents. Filtering leaves the document and selection unchanged.
+
 ## The inspector
 
 With nothing selected, the inspector shows the **theme**: its name, **Vertical**

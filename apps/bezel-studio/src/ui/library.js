@@ -7,7 +7,7 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { chipButton, dashedHint, kindIcon, pill, searchField, screenThumb, sectionTitle, selectField } from './fields.js';
 import { makeDraggable } from './dragdrop.js';
-import { defaultRange, widgetOf } from '../editor/widgets.js';
+import { defaultRange, widgetOf, WIDGETS } from '../editor/widgets.js';
 import { canGroup } from '../editor/cards.js';
 import { backgroundOf, fileNameOf, mediaItems, moves, videoFacts } from '../editor/background.js';
 import { warningText } from '../messages.js';
@@ -94,6 +94,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   let screenArgs = [[], null];
   let widgetQuery = '';
   let layerQuery = '';
+  let layerType = 'all';
   let themeQuery = '';
 
   /** A search box (the primitive) in `slot`, relabelled when the language changes. */
@@ -503,12 +504,12 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
       });
       if (card.isGroup) return el('li', { class: 'layer-card', dataset: { groupId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-list layer-children', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, renderNodes(children, els)),
+        el('ul', { class: 'layer-list layer-children', hidden: !layerQuery.trim() && layerType === 'all' && collapsedLayers.has(card.id) }, renderNodes(children, els)),
       ]);
       if (!groups.length) return row;
       return el('li', { class: 'layer-card', dataset: { cardId: card.id } }, [
         el('ul', { class: 'layer-list' }, [row]),
-        el('ul', { class: 'layer-groups', hidden: !layerQuery.trim() && collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
+        el('ul', { class: 'layer-groups', hidden: !layerQuery.trim() && layerType === 'all' && collapsedLayers.has(card.id) }, groups.map(({ face, elements, nodes: members }) => {
           const active = face !== null && card.card.activeFace === face;
           const drop = { dropCard: card.id, dropFace: face === null ? 'base' : face };
           return el('li', { class: `layer-group${active ? ' active-face' : ''}`, dataset: { face: face === null ? 'base' : face } }, [
@@ -553,7 +554,8 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     const els = store.getState().theme.elements;
     const list = $('layer-list');
     renderSelectionBar();
-    const nodes = filterLayers(layerGroups(els), layerQuery, (e) => t(`widget.${widgetOf(e)}`));
+    renderLayerTypeFilter();
+    const nodes = filterLayers(layerGroups(els), layerQuery, (e) => t(`widget.${widgetOf(e)}`), layerType);
     $('layer-front').replaceChildren(sectionTitle(t('layersPanel.front'), { count: els.length ? objectsText(countLayers(nodes)) : null }));
     if (els.length === 0) {
       list.replaceChildren(el('li', { class: 'empty-note', text: t('layers.empty') }));
@@ -568,6 +570,22 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   }
 
   mountSearch('layer-search', 'layersPanel.filter', (q) => { layerQuery = q; renderLayers(); }, { id: 'layer-filter' });
+  const layerTypeField = selectField(t('layersPanel.type'), layerType, [], value => { layerType = value; renderLayers(); });
+  const layerTypeSelect = layerTypeField.querySelector('select');
+  layerTypeSelect.id = 'layer-type-filter';
+  layerTypeField.htmlFor = layerTypeSelect.id;
+  $('layer-type').replaceChildren(layerTypeField);
+  let layerTypesSignature = '';
+  function renderLayerTypeFilter() {
+    const options = [['all', t('layersPanel.allTypes')], ...[...WIDGETS, 'group'].map(type => [type, t(`widget.${type}`)])];
+    const signature = JSON.stringify([t('layersPanel.type'), options]);
+    if (signature !== layerTypesSignature) {
+      layerTypesSignature = signature;
+      layerTypeField.querySelector('span').textContent = t('layersPanel.type');
+      layerTypeSelect.replaceChildren(...options.map(([value, text]) => el('option', { value, text })));
+    }
+    layerTypeSelect.value = layerType;
+  }
   $('layers-expand').addEventListener('click', () => { collapsedLayers.clear(); renderLayers(); });
   $('layers-collapse').addEventListener('click', () => {
     for (const id of containers()) collapsedLayers.add(id);
