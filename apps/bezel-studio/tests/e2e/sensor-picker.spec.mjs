@@ -1,4 +1,17 @@
-import { test, expect, watchErrors, expectAccessible, clickAddWidget as add } from './helpers.mjs';
+import { test, expect, watchErrors, expectAccessible, pickSensor, clickAddWidget as add } from './helpers.mjs';
+
+test('pointer selection survives native focus moving from search into a result',async({page,t})=>{
+  const errors=watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await add(page,t,'value');
+  const detail=page.locator('#inspector');
+  const source=detail.getByRole('combobox',{name:t('inspector.sensor'),exact:true});
+  await pickSensor(page,t,detail,'cpu.temperature');
+  await expect(source).toHaveAttribute('data-sensor-key','cpu.temperature');
+  await pickSensor(page,t,detail,'cpu.usage');
+  await expect(source).toHaveAttribute('data-sensor-key','cpu.usage');
+  expect(errors).toEqual([]);
+});
 
 test('shared sensor picker searches names, keys and probes and supports keyboard selection', async ({page,t},info)=>{
   const errors=watchErrors(page);

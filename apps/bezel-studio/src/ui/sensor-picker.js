@@ -88,9 +88,14 @@ export function sensorPicker({ t, key, catalog, readings, onChange, label, numer
     });
     close = openPopover({ node: panel, anchor: card, label, onClose: () => { activePicker = null; card.removeAttribute('aria-controls'); } });
     activePicker = { close, refresh, node: panel };
-    panel.addEventListener('focusout', () => queueMicrotask(() => {
-      if (activePicker?.node === panel && !panel.contains(document.activeElement) && document.activeElement !== card) close('dismiss');
-    }));
+    panel.addEventListener('focusout', event => {
+      // Native pointer focus can pass through body between blur and focus.
+      // Keep the option mounted until its click when focus stays in the popup.
+      if (event.relatedTarget && (panel.contains(event.relatedTarget) || event.relatedTarget === card)) return;
+      queueMicrotask(() => {
+        if (activePicker?.node === panel && !panel.contains(document.activeElement) && document.activeElement !== card) close('dismiss');
+      });
+    });
     render();
     list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
     input.focus();
