@@ -86,6 +86,14 @@ wrap within the panel rather than forcing horizontal scrolling.
 
 ![The inspector of a CPU ring, Look tab, with the colour picker open](../images/studio-color-picker.png)
 
+### Choosing a sensor
+
+Click the source card to open the same sensor picker used for widget data,
+colour rules and sensor-driven motion. Search by name, key, category or probe.
+Results are grouped by category and show the probe, current reading and status;
+pending or unavailable readings remain visible. Numeric controls exclude text
+sensors. Use the arrow keys and Enter to choose, or Escape to cancel.
+
 ### Sensor-driven motion
 
 Select an image, icon, shape or another ordinary widget and open **Look →
@@ -93,12 +101,13 @@ Sensor-driven motion**. Turn on **Rotate with the sensor**, then choose a
 numeric sensor. Containers and device-video cutouts do not offer this control;
 ordinary objects inside cards and groups do.
 
-For a fan graphic, choose its RPM sensor, set **Reading at maximum speed** to
-3000, **Maximum speed** to 1 turn/s and **Inertia** to 600 ms. A reading of
-1500 approaches half that visual speed. This is a visual scale: the animation
+For a fan graphic, choose its RPM sensor, set **Full speed at** to
+3000 RPM, **One turn every** to 1 s and **Start and stop** to **Gradual**.
+A reading of 1500 approaches one turn every 2 s. This is a visual scale: the animation
 does not try to reproduce thousands of physical revolutions per minute.
 
-**Inertia** softens acceleration and deceleration; 0 changes speed immediately.
+**Start and stop** offers **Immediate**, **Gradual** and **Soft** responses.
+Existing custom inertia settings are preserved and shown as **Custom**.
 Zero, negative or unavailable readings slow the graphic to a stop, holding its
 last angle. **Counterclockwise** reverses the direction. Motion applies around
 the frame centre, so centre the artwork within its image for a balanced rotor.
@@ -152,7 +161,10 @@ from and how to pack one inside a theme.
 
 Rings, bars, needles and values can glide to each new reading instead of
 jumping. In **Look → Transition**, pick **Smooth** and a duration (100 to
-2000 ms). New objects start smooth at 400 ms; themes made before keep jumping
+2000 ms), or **Inertia** and a settling time. Inertia preserves the current
+position and velocity when a new reading arrives, then slows towards the new
+target. **None** updates immediately. Older Bezel builds open inertial themes
+using a smooth transition. New objects start smooth at 400 ms; themes made before keep jumping
 until you turn it on. Studio and Light send extra frames only while something
 moves, and fewer to a slow screen; if a screen cannot keep up, it shows the new
 value at once. The editor honours Windows' reduced-motion setting.

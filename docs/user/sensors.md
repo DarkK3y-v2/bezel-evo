@@ -14,6 +14,10 @@ out of the managed catalog. Valid zero values and text readings are available;
 not checked yet means no reading has arrived, rather than a failed sensor.
 Long source descriptions and hardware paths wrap within the panel.
 
+Widget source cards, colour-by-value rules and sensor-driven motion use the
+same [searchable sensor picker](studio-editing.md#choosing-a-sensor). Search
+names, keys, categories or probes; results show live readings and availability.
+
 From a terminal:
 
 ```powershell

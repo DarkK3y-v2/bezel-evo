@@ -35,6 +35,8 @@ Studio has been redesigned from the ground up, in dark and light.
 - **An inspector that shows what you change.** Every object gets a live preview
   of itself, drawn on its own at the top of the panel, followed by membership,
   position and size, then **Data** and **Look** tabs for its other settings.
+- **One sensor picker everywhere.** Search names, keys, categories or probes,
+  with grouped results, live readings, availability and keyboard navigation.
 - **One colour picker everywhere.** Colour area, hue, opacity, hex code and an
   eyedropper with a magnified pixel preview, swatch and HEX beside the cursor,
   plus **Theme colours** you save once and reuse, the colours already
@@ -50,7 +52,8 @@ Studio has been redesigned from the ground up, in dark and light.
   (fade, slide or flip) and **timed triggers** ("every 30 s, the next face")
   next to the app and media triggers.
 - **Values that glide.** Rings, bars, needles and numbers move smoothly to each
-  new reading instead of jumping, without flooding the screen with frames.
+  new reading instead of jumping, with smooth easing or inertia that preserves
+  movement when the target changes, without flooding the screen with frames.
 - **Movement driven by sensors.** Rotate custom images, icons and shapes with
   fan RPM or another reading, with adjustable visual speed, inertia and direction.
   Zero or missing readings slow them to a stop, also inside cards and groups.
