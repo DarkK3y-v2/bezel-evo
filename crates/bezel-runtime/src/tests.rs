@@ -306,7 +306,7 @@ fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_r
     scene.profile_animation = Some(Animation {
         target: None, phase: Phase::Covered, started: Duration::ZERO, base: 1.0,
         cover: Cover { effect: CoverEffect::Mosaic, direction: CoverDirection::Left, panel: DEFAULT_PANEL, accent: DEFAULT_ACCENT },
-        half: Duration::from_millis(300),
+        half: Duration::from_millis(300), apply: true,
     });
     scene.dirty = true;
     let count = f.seen.lock().unwrap().len();
@@ -322,6 +322,39 @@ fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_r
     assert!(f.engine.scenes[&f.key].profile_animation.is_some());
     f.engine.tick_at(Duration::from_millis(350), time()).unwrap();
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+}
+#[test]
+fn a_cover_preview_closes_and_opens_on_the_same_theme() {
+    use crate::profiles::{Phase, TransitionSettings};
+    let mut f = fixture();
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let shown = f.engine.scenes[&f.key].frame.clone().unwrap();
+    let name = f.engine.scenes[&f.key].runtime.theme().name.clone();
+    let curtain = TransitionSettings { effect: "curtain".into(), ..Default::default() };
+    // Nothing to try on a screen that is not live, or without a cover.
+    f.engine.preview_cover(&f.key, &curtain).unwrap();
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    f.engine.preview_cover(&f.key, &TransitionSettings::default()).unwrap();
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+    assert!(f.engine.preview_cover(&f.key, &TransitionSettings { effect: "spin".into(), ..Default::default() }).is_err());
+    f.engine.preview_cover(&f.key, &curtain).unwrap();
+    let started = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap().started;
+    let phase = |f: &Fixture| f.engine.scenes[&f.key].profile_animation.as_ref().map(|a| a.phase);
+    advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();
+    assert_eq!(phase(&f), Some(Phase::Closing));
+    assert!(f.engine.scenes[&f.key].frame.as_ref().unwrap() != &shown);
+    // Closed at half the 800 ms: it opens at once on the same theme.
+    advance(&mut f.engine, started + Duration::from_millis(400), time()).unwrap();
+    assert_eq!(phase(&f), Some(Phase::Opening));
+    let covered = f.engine.scenes[&f.key].frame.clone().unwrap();
+    assert!(covered.as_rgba().as_chunks::<4>().0.iter().all(|p| *p == [0x12, 0x0b, 0x13, 255]));
+    advance(&mut f.engine, started + Duration::from_millis(800), time()).unwrap();
+    assert_eq!(phase(&f), None);
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, name);
+    assert!(scene.profile_id.is_none() && scene.profile_restore.is_none());
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {

@@ -230,7 +230,7 @@ fn effect_name<'de, D: serde::Deserializer<'de>>(
 }
 impl TransitionSettings {
     /// The cover to draw, `None` for an immediate change.
-    fn cover(&self) -> Result<Option<Cover>> {
+    pub(crate) fn cover(&self) -> Result<Option<Cover>> {
         let effect = match self.effect.as_str() {
             "none" => None,
             "curtain" => Some(CoverEffect::Curtain),
@@ -283,6 +283,8 @@ pub(crate) struct Animation {
     /// Closing and opening each take half the duration; loading the new theme
     /// happens in between and shortens neither.
     pub half: Duration,
+    /// False for a preview: it closes and opens on the same theme.
+    pub apply: bool,
 }
 impl Animation {
     fn closing(
@@ -299,6 +301,21 @@ impl Animation {
             base: base.clamp(0.0, 1.0),
             cover,
             half: Duration::from_millis(u64::from(duration_ms / 2)),
+            apply: true,
+        }
+    }
+    /// The cover the profile manager tries out: it closes over what the
+    /// screen shows and opens on it again, heading to the profile shown.
+    pub fn preview(
+        shown: Option<String>,
+        cover: Cover,
+        duration_ms: u32,
+        now: Duration,
+        base: f32,
+    ) -> Self {
+        Self {
+            apply: false,
+            ..Self::closing(shown, cover, duration_ms, now, base)
         }
     }
     fn elapsed(&self, now: Duration) -> f32 {
@@ -318,7 +335,7 @@ impl Animation {
             CoverStage::Closing
         }
     }
-    fn closed(&self, now: Duration) -> bool {
+    pub fn closed(&self, now: Duration) -> bool {
         self.phase == Phase::Closing && (self.base >= 1.0 || self.elapsed(now) >= 1.0)
     }
     /// Starts the opening at the new theme's first frame.
@@ -629,7 +646,7 @@ impl Service {
             if scene
                 .profile_animation
                 .as_ref()
-                .is_some_and(|a| a.closed(now))
+                .is_some_and(|a| a.apply && a.closed(now))
                 && let Some(mut animation) = scene.profile_animation.take()
             {
                 changed |= self.apply(key, scene, animation.target.clone(), &mut budget);

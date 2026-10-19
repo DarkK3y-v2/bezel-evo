@@ -54,6 +54,10 @@ pub enum RuntimeOp {
         element: u32,
     },
     Thumbnail,
+    /// Tries a profile cover on the scene's screen without changing its theme.
+    PreviewCover {
+        transition: crate::profiles::TransitionSettings,
+    },
     Sensors {
         listed: Option<Vec<String>>,
     },
@@ -280,6 +284,10 @@ fn dispatch_inner(
         }
         RuntimeOp::Live { on } => {
             engine.live(key, on)?;
+            Ok((Value::Null, Vec::new()))
+        }
+        RuntimeOp::PreviewCover { transition } => {
+            engine.preview_cover(key, &transition)?;
             Ok((Value::Null, Vec::new()))
         }
         RuntimeOp::Image { after, max, .. } => {

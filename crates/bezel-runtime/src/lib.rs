@@ -41,6 +41,9 @@ pub const MAX_DOCUMENT: usize = 64 * 1024 * 1024;
 const MAX_ALL_ASSETS: usize = 256 * 1024 * 1024;
 /// Shortest interval between two spectrum frames, under the audio worker's 50 ms step.
 const SPECTRUM_FRAME: Duration = Duration::from_millis(40);
+/// Step between the frames of a profile cover: up to 60 a second, as fast as
+/// the screen takes them (its presenter keeps only the newest).
+const COVER_FRAME: Duration = Duration::from_millis(16);
 /// A complete document, with asset bytes outside the wire JSON.
 #[derive(Clone, PartialEq)]
 pub struct Document {
@@ -431,6 +434,38 @@ impl Engine {
         }
     }
     /// Attach a physical display once, preserving the runtime and its clocks.
+    /// Tries a profile cover on `key`'s screen: it closes over what the screen
+    /// shows and opens on it again, theme unchanged. Nothing to try on a
+    /// screen that is not live or shows nothing yet, or with no cover chosen.
+    pub fn preview_cover(
+        &mut self,
+        key: &str,
+        transition: &profiles::TransitionSettings,
+    ) -> Result<()> {
+        let cover = transition.cover()?;
+        let now = self.origin.elapsed();
+        let scene = self
+            .scenes
+            .get_mut(key)
+            .ok_or_else(|| invalid("unknown scene"))?;
+        let Some(cover) = cover.filter(|_| scene.live && scene.frame.is_some()) else {
+            return Ok(());
+        };
+        let base = scene
+            .profile_animation
+            .as_ref()
+            .map_or(0.0, |a| a.coverage(now));
+        scene.profile_animation = Some(profiles::Animation::preview(
+            scene.profile_id.clone(),
+            cover,
+            transition.duration_ms,
+            now,
+            base,
+        ));
+        scene.dirty = true;
+        self.wake.notify();
+        Ok(())
+    }
     pub fn live(&mut self, key: &str, on: bool) -> Result<()> {
         let scene = self
             .scenes
@@ -739,7 +774,7 @@ impl Engine {
                 }
                 let mut due = scene.runtime.next_due();
                 if scene.profile_animation.is_some() {
-                    due = due.min(scene.rendered_at + Duration::from_millis(50));
+                    due = due.min(scene.rendered_at + COVER_FRAME);
                 }
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     due = due.min(scene.rendered_at + Duration::from_secs(1) / HOST_VIDEO_FPS);
@@ -805,6 +840,10 @@ impl Engine {
                 // screen plays itself. The opening starts at the new theme's first
                 // frame, so loading it never shortens the motion.
                 let finished = scene.profile_animation.as_mut().is_some_and(|animation| {
+                    // A preview applies nothing: closed, it opens on the same theme.
+                    if !animation.apply && animation.closed(now) {
+                        animation.phase = profiles::Phase::Covered;
+                    }
                     animation.open(now);
                     let finished = animation.finished(now);
                     if !finished {
@@ -852,7 +891,7 @@ impl Engine {
                 scene.dirty = false;
                 let mut delay = scene.runtime.next_due().saturating_sub(now);
                 if scene.profile_animation.is_some() {
-                    delay = delay.min(Duration::from_millis(50));
+                    delay = delay.min(COVER_FRAME);
                 }
                 if matches!(scene.runtime.video(), VideoState::Host) {
                     delay = delay.min(Duration::from_secs(1) / HOST_VIDEO_FPS);
