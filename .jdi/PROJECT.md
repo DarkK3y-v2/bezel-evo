@@ -2,14 +2,13 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Build di sviluppo corrente **0.1.53**, compilata e avviata direttamente dopo
-  conferma salvataggio/chiusura: movimento dai sensori con inerzia, anche su
-  immagini personalizzate e membri di card/gruppi. Test mirati Rust, clippy,
-  117 unitari UI e 20+4 e2e verdi. Vedi
-  [movimento dai sensori](todos/2026-10-19-movimento-sensori.md).
+- Build di sviluppo **0.1.54** compilata e avviata direttamente: selettore sensori condiviso
+  e ricercabile, controlli del movimento semplificati e transizione valori con
+  inerzia. 141 unitari UI, 56 casi e2e area, test e clippy dei due crate verdi.
+  Vedi [selettore e inerzia](todos/2026-10-19-selettore-sensori-inerzia.md).
 
 - Riepilogo operativo e checklist unica delle verifiche ancora aperte:
-  [checklist aggiornata .46-.53](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
+  [checklist aggiornata .46-.54](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
   build sono storici; i relativi PID non descrivono necessariamente la sessione
   attuale. I conteggi dei test sono mirati e sovrapposti, non una suite completa.
 
@@ -38,7 +37,7 @@
   collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
 - Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
   produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
-  Studio al posto dell'utente. Ultima consegna .53 da `target/release`:
+  Studio al posto dell'utente. Ultima consegna .54 da `target/release`:
   non confonderla con la copia installata .45; non sostituirla
   automaticamente durante una semplice ripresa del lavoro.
 - Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
