@@ -2,12 +2,11 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Sorgenti **.47 pronti**: riepilogo per sonda e filtri Sonda/Stato, 69 unitari
-  UI e 28 e2e dell'area verdi. La build attende la conferma di salvataggio e
-  chiusura dello Studio .46 richiesta all'utente. Vedi
+- Build di sviluppo corrente **0.1.47**, compilata e avviata direttamente dopo
+  conferma utente di salvataggio e chiusura: riepilogo per sonda e filtri
+  Sonda/Stato, 69 unitari UI e 28 e2e dell'area verdi. Vedi
   [sonde e stato sensori](todos/2026-10-19-sonde-stato-sensori.md).
-- Build di sviluppo corrente: **0.1.46**, compilata e avviata direttamente da
-  `target/release`, con lente, campione e HEX durante il prelievo del colore.
+- Dalla **0.1.46** sono presenti lente, campione e HEX durante il prelievo del colore.
   Superficie congelata temporaneamente per una selezione esatta; nessun setup
   .46 richiesto. Vedi [anteprima e test H264](todos/2026-10-19-contagocce-anteprima-h264.md).
 - Versione installata: **0.1.45**, setup locale creato, avviato su richiesta e

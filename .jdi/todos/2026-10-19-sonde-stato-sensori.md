@@ -45,6 +45,12 @@ numerosità dei sensori. Aprire Sensori al clic con filtri per sonda e stato.
 
 ## Consegna
 
-Codice pronto per la .47. Richiesta conferma di salvataggio/chiusura dello Studio
-prima di compilare: la .46 in `target/release` è aperta. Nessun setup o push
-richiesto. La copia installata resta .45; aggiornare qui l'esito della build.
+Conferma utente di salvataggio e chiusura ricevuta. Nessun processo Bezel aperto
+prima della build. `scripts/windows/build-evo.ps1 -Version 0.1.47` completato
+in 1m20s; versione CLI e metadati Studio .47 verificati. Studio avviato
+direttamente da `target/release`, PID 59296 rispondente. Nessun setup o push;
+la copia installata resta .45. Resta prova visiva utente con le sonde reali.
+
+- SHA256 Studio: `6BF3FEA58FD835F9C8BB78D3161D1274218D588E97EE8F32BBECBA397E1ED436`.
+- SHA256 CLI: `8744EACACF1DFDA766154DB1F903B2E3F2173565880ED4DBFA1C88ABBFAC4BDF`.
+- Commit implementazione: `f61414c`; documentazione e screenshot: `8e0939e`.
