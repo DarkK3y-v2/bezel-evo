@@ -5,7 +5,7 @@
 // base.css); what the panels compute lives in library-model.js.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { chipButton, dashedHint, kindIcon, pill, searchField, screenThumb, sectionTitle } from './fields.js';
+import { chipButton, dashedHint, kindIcon, pill, searchField, screenThumb, sectionTitle, selectField } from './fields.js';
 import { makeDraggable } from './dragdrop.js';
 import { defaultRange, widgetOf } from '../editor/widgets.js';
 import { canGroup } from '../editor/cards.js';
@@ -19,6 +19,7 @@ import { layerGroups } from '../editor/layers.js';
 import { wireLayerDrag } from './layer-drag.js';
 import { countLayers, createHistory, filterLayers, layerMeta, mediaTotals, sensorDropTarget, sharedSource, sparkPath, updateSeconds, widgetGroups } from '../library-model.js';
 import { libreStatus } from '../libre-status.js';
+import { matchesSensor, probeOf, readingState } from '../sensor-probes.js';
 import { timeAgo } from '../relative-time.js';
 
 export { axisOf };
@@ -39,10 +40,11 @@ export function sensorCategories(catalog) {
  * Groups catalog entries by category, in display order, filtered by text
  * and, unless `category` is ALL_CATEGORIES, by one category.
  */
-export function groupSensors(catalog, filter = '', category = ALL_CATEGORIES) {
+export function groupSensors(catalog, filter = '', category = ALL_CATEGORIES, options = {}) {
   const q = filter.trim().toLowerCase();
   const groups = new Map();
   for (const s of catalog) {
+    if (!matchesSensor(s, options)) continue;
     if (category !== ALL_CATEGORIES && s.category !== category) continue;
     if (q && !`${s.label} ${s.key}`.toLowerCase().includes(q)) continue;
     if (!groups.has(s.category)) groups.set(s.category, []);
@@ -57,9 +59,11 @@ export function groupSensors(catalog, filter = '', category = ALL_CATEGORIES) {
  * app measures them with the theme's; `net.ping` sends packets only while
  * something shown uses it (D-2026-09-30-release-polish-11).
  */
-export function catalogKeysInView(catalog, filter, open, category = ALL_CATEGORIES) {
+export function catalogKeysInView(catalog, filter, open, category = ALL_CATEGORIES, options = {}) {
   if (!open) return [];
-  return groupSensors(catalog, filter, category).flatMap(([, items]) => items.map((s) => s.key));
+  // Read the whole probe/category/search scope even when a state filter hides
+  // rows, so failed readings can recover and healthy readings can later fail.
+  return groupSensors(catalog, filter, category, { probe: options.probe }).flatMap(([, items]) => items.map((s) => s.key));
 }
 
 const SVG = 'http://www.w3.org/2000/svg';
@@ -78,6 +82,9 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   let editing = null;
   // The hardware the Sensors panel shows (one category or all of them).
   let sensorCategory = ALL_CATEGORIES;
+  let sensorProbe = 'all';
+  let sensorStatus = 'all';
+  let sensorError = false;
   const collapsedLayers = new Set();
   const history = createHistory();
   // What each panel shows, to draw it again in another language.
@@ -236,9 +243,9 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
     : key.startsWith('system.battery.') || key.startsWith('system.power.') ? 'power' : 'system';
 
   function sensorRow(s) {
-    const r = readings[s.key];
+    const r = sensorError ? { unavailable: t('sensorsPanel.status.unavailable') } : readings[s.key];
     const value = el('span', { class: `value${r?.unavailable ? ' unavailable' : ''}`, dataset: { valueFor: s.key }, text: sensorValue(s.key, r), title: sensorValueTitle(r) });
-    const row = el('button', { type: 'button', class: `sensor-row${s.quantity === 'text' ? ' sensor-row-text' : ''}${s.category === 'system' ? ' sensor-row-system' : ''}`, dataset: { key: s.key }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
+    const row = el('button', { type: 'button', class: `sensor-row${s.quantity === 'text' ? ' sensor-row-text' : ''}${s.category === 'system' ? ' sensor-row-system' : ''}`, dataset: { key: s.key, probe: probeOf(s), status: readingState(s, readings, sensorError) }, 'aria-label': t('library.addSensor', { name: s.label }) }, [
       el('span', { class: 'sensor-text' }, [
         el('span', { class: 'label', text: s.label }),
         el('span', { class: 'key', text: s.key }),
@@ -270,7 +277,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   let reported = null;
   function reportShown() {
     const open = !$('panel-sensors').hidden && document.visibilityState !== 'hidden';
-    const keys = catalogKeysInView(catalog, sensorSearch.value, open, shownCategory());
+    const keys = catalogKeysInView(catalog, sensorSearch.value, open, shownCategory(), { probe: sensorProbe });
     if (keys.join(' ') === reported) return;
     reported = keys.join(' ');
     actions.showSensors(keys);
@@ -291,10 +298,14 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   }
 
   function renderSensors() {
+    renderProbeFilters();
+    renderLibre();
     reportShown();
     renderSensorFilter();
     const list = $('sensor-list');
-    const groups = groupSensors(catalog, sensorSearch.value, shownCategory());
+    const groups = groupSensors(catalog, sensorSearch.value, shownCategory(), { probe: sensorProbe, status: sensorStatus, readings, error: sensorError });
+    const resultText = t('sensorsPanel.results', { shown: groups.reduce((n, [, items]) => n + items.length, 0), total: catalog.length });
+    if ($('sensor-result-count').textContent !== resultText) $('sensor-result-count').textContent = resultText;
     if (groups.length === 0) {
       list.replaceChildren(el('p', { class: 'empty-note', text: t('library.noSensors') }));
       return;
@@ -318,7 +329,7 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   let libreShown = null;
   function renderLibre() {
     const health = libreStatus(catalog, readings);
-    const missing = health && health.state !== 'ok' ? health.failed.join(', ') : '';
+    const missing = (sensorProbe === 'all' || sensorProbe === 'LibreHardwareMonitor') && health && health.state !== 'ok' ? health.failed.join(', ') : '';
     if (missing === libreShown) return;
     libreShown = missing;
     $('sensor-libre').replaceChildren(...(missing ? [el('section', { class: 'notice sensor-libre', 'aria-labelledby': 'sensor-libre-title' }, [
@@ -339,8 +350,16 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
    * taken: the sparklines' history and the update rate come from it.
    */
   function updateReadings(next, at = null) {
+    const visibleKeys = () => groupSensors(catalog, sensorSearch.value, shownCategory(), { probe: sensorProbe, status: sensorStatus, readings, error: sensorError }).flatMap(([, items]) => items.map(s => s.key)).join(' ');
+    const before = sensorStatus !== 'all' ? visibleKeys() : null;
+    sensorError = false;
     readings = next;
     history.push(next, at);
+    if (before !== null && before !== visibleKeys()) renderSensors();
+    else for (const row of document.querySelectorAll('.sensor-row[data-key]')) {
+      const sensor = catalog.find(s => s.key === row.dataset.key);
+      if (sensor) row.dataset.status = readingState(sensor, readings);
+    }
     for (const span of document.querySelectorAll('[data-value-for]')) {
       const r = readings[span.dataset.valueFor];
       span.textContent = sensorValue(span.dataset.valueFor, r);
@@ -353,6 +372,29 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
   }
 
   const sensorSearch = mountSearch('sensor-search-box', 'library.searchSensors', () => renderSensors(), { id: 'sensor-search', placeholderKey: 'sensorsPanel.search' });
+  const probeField = selectField(t('sensorsPanel.probe'), 'all', [], value => { sensorProbe = value; renderSensors(); });
+  const statusField = selectField(t('sensorsPanel.status'), 'all', [], value => { sensorStatus = value; renderSensors(); });
+  const probeSelect = probeField.querySelector('select');
+  const statusSelect = statusField.querySelector('select');
+  probeSelect.dataset.sensorFilter = 'probe';
+  statusSelect.dataset.sensorFilter = 'status';
+  $('sensor-probe-filters').replaceChildren(probeField, statusField);
+  let filterSignature = '';
+  function renderProbeFilters() {
+    const probes = [...new Set(catalog.map(probeOf))].sort();
+    if (sensorProbe !== 'all' && !probes.includes(sensorProbe)) sensorProbe = 'all';
+    const statuses = ['all', 'available', 'unavailable', 'pending'];
+    const signature = JSON.stringify([probes, ...statuses.map(s => t(`sensorsPanel.status.${s}`)), t('sensorsPanel.probeUnknown'), t('sensorsPanel.probe')]);
+    if (signature !== filterSignature) {
+      filterSignature = signature;
+      probeField.querySelector('span').textContent = t('sensorsPanel.probe');
+      statusField.querySelector('span').textContent = t('sensorsPanel.status');
+      probeSelect.replaceChildren(...['all', ...probes].map(value => el('option', { value, text: value === 'all' ? t('sensorsPanel.allProbes') : value === 'unassigned' ? t('sensorsPanel.probeUnknown') : value })));
+      statusSelect.replaceChildren(...statuses.map(value => el('option', { value, text: t(`sensorsPanel.status.${value}`) })));
+    }
+    probeSelect.value = sensorProbe;
+    statusSelect.value = sensorStatus;
+  }
 
   // -------------------------------------------------------------- layers --
   const layerDrag = wireLayerDrag($('layer-list'), store);
@@ -842,6 +884,16 @@ export function createLibrary({ store, canvas, stage, t, pickers, locale = () =>
       renderLibre();
     },
     updateReadings,
+    setSensorError(error) { sensorError = Boolean(error); renderSensors(); },
+    openSensors({ probe = 'all', status = 'all' } = {}) {
+      sensorProbe = probe;
+      sensorStatus = status;
+      sensorCategory = ALL_CATEGORIES;
+      sensorSearch.value = '';
+      renderSensors();
+      selectTab(tabs.find(tab => tab.dataset.tab === 'sensors'));
+      probeSelect.focus();
+    },
     renderLayers,
     renderThemes,
     showImportReport,

@@ -604,13 +604,14 @@ async function sampleLoop() {
     lastSample = s;
     sensorStatus.update({ health: libreStatus(state.catalog, s.readings), sampleMillis: s.sampleMillis, sampledAt: Date.now(), readings: s.readings, catalog: state.catalog, error: null });
   } catch (e) {
+    library.setSensorError(e);
     sensorStatus.update({ health: libreStatus(state.catalog, null), readings: null, catalog: state.catalog, error: e });
   }
   setTimeout(sampleLoop, 1000);
 }
 
 // The sensors chip, the Libre dot, its popover and the restart (artboard SensorStatus).
-const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: () => library.selectTab('sensors') });
+const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: filters => library.openSensors(filters) });
 
 // Memory is independent of hardware polling/errors and never sampled while
 // the document is hidden. The backend also caches reads from other callers.

@@ -1,97 +1,96 @@
-import { test, expect, expectAccessible, watchErrors } from './helpers.mjs';
+﻿import { test, expect, expectAccessible, watchErrors } from './helpers.mjs';
 
-// The sensors chip (artboard SensorStatus): four states, a dialog with a row
-// per hardware, the last reading, and the restart of the Libre reader only.
+const openStatus = async (page, t) => {
+  await page.locator('#status-libre-toggle').click();
+  const popup = page.getByRole('dialog', { name: t('sensorChip.probesTitle') });
+  await expect(popup).toBeVisible();
+  return popup;
+};
 
-test('Libre status detects a failed PSU and restarts the reader', async ({ page, t }) => {
+test('compact status shows probes and counts without hardware details', async ({ page, t }, info) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88&libre=partial');
   await expect(page.locator('#status-libre-label')).toHaveText(t('sensorChip.missingOne', { count: 1 }));
-  await expect(page.locator('#status-libre-dot')).toHaveAttribute('data-state', 'partial');
-  const dot = page.locator('#status-libre-toggle');
-  await expect(dot).toHaveAttribute('data-tone', 'warn');
-  await expect(dot).toHaveAttribute('title', /Corsair/);
-  await expect(dot).toHaveAttribute('aria-expanded', 'false');
-  await dot.click();
-  await expect(dot).toHaveAttribute('aria-expanded', 'true');
-  const popover = page.getByRole('dialog', { name: t('sensorChip.title.partialOne', { count: 1 }) });
-  await expect(popover).toBeVisible();
-  const hardware = popover.getByRole('list', { name: t('sensorChip.hardware') }).getByRole('listitem');
-  // A row per hardware: the PSU's board is missing, the others show a value and their source.
-  await expect(hardware.filter({ hasText: t('category.board') })).toContainText(t('sensorStatus.missing'));
-  await expect(hardware.filter({ hasText: t('category.cpu') })).toContainText('LibreHardwareMonitor');
-  await expect(hardware.filter({ hasText: t('category.cpu') })).toContainText(/\d/);
-  await expect(hardware.filter({ hasText: t('category.memory') })).not.toContainText(t('sensorStatus.missing'));
-  await expect(popover).toContainText(/Corsair/);
-  await expect(popover).toContainText(t('sensorChip.lastReading', { ago: '' }).trim());
+  const popup = await openStatus(page, t);
+  await expect(popup.getByRole('listitem')).toHaveCount(2);
+  const libre = popup.locator('.probe-row[data-probe="LibreHardwareMonitor"]');
+  await expect(libre).toHaveAttribute('data-state', 'partial');
+  await expect(libre).toContainText(t('sensorChip.sensorsMany', { count: 3 }));
+  await expect(libre.locator('button[data-status="available"]')).toHaveText(t('sensorChip.count.available', { count: 2 }));
+  await expect(libre.locator('button[data-status="unavailable"]')).toHaveText(t('sensorChip.count.unavailable', { count: 1 }));
+  await expect(popup).not.toContainText('Corsair');
+  await expect(popup).not.toContainText('lhm.');
   await expectAccessible(page);
-  await popover.getByRole('button', { name: t('status.libreRestart'), exact: true }).click();
-  await expect(page.locator('#restart-libre')).toBeDisabled();
-  await expect(page.locator('#status-libre-label')).toHaveText(t('sensorChip.restarting'));
-  await expect(dot).toHaveAttribute('data-tone', 'info');
-  await expect(page.locator('#status-libre-label')).toHaveText(/\d+ ms/);
-  await expect(page.locator('#status-libre-dot')).toHaveAttribute('data-state', 'ok');
-  await expect(dot).toHaveAttribute('data-tone', 'ok');
-  await expect(page.locator('#restart-libre')).toBeEnabled();
-  await expect(popover).toBeHidden();
-  await expect(page.getByRole('dialog', { name: t('sensorChip.title.ok') })).toBeVisible();
-  await expectAccessible(page);
+  await popup.screenshot({ path: info.outputPath('sensor-probes.png') });
   await page.keyboard.press('Escape');
-  await expect(page.locator('#libre-popover')).toBeHidden();
-  await expect(dot).toHaveAttribute('aria-expanded', 'false');
-  await expect(dot).toBeFocused();
+  await expect(popup).toBeHidden();
+  await expect(page.locator('#status-libre-toggle')).toBeFocused();
   expect(errors).toEqual([]);
 });
 
-test('the Libre dialog opens Sensors and closes on a click outside', async ({ page, t }) => {
+test('failed count opens the filtered library and still detects recovery', async ({ page, t }) => {
   const errors = watchErrors(page);
-  await page.goto('/index.html?demo=turing88&libre=error');
-  const dot = page.locator('#status-libre-toggle');
-  await expect(page.locator('#status-libre-dot')).toHaveAttribute('data-state', 'error');
-  await dot.press('Enter');
-  const popover = page.locator('#libre-popover');
-  await expect(popover).toBeVisible();
-  await expect(page.locator('#restart-libre')).toBeFocused();
-  await expect(popover).toContainText(t('sensorStatus.hint', { hardware: '' }).split(':')[0]);
-  await page.locator('#status-main').click();
-  await expect(popover).toBeHidden();
-  await dot.click();
-  await popover.getByRole('button', { name: t('sensorStatus.openSensors') }).click();
-  await expect(popover).toBeHidden();
-  await expect(page.getByRole('tab', { name: t('common.sensors') })).toHaveAttribute('aria-selected', 'true');
-  expect(errors).toEqual([]);
-});
-
-test('Libre stopped is red with the restart beside the chip; other providers stay green', async ({ page, t }) => {
-  const errors = watchErrors(page);
-  await page.goto('/index.html?demo=turing88&libre=error');
-  await expect(page.locator('#status-libre-label')).toHaveText(t('sensorChip.stopped'));
-  await expect(page.locator('#status-libre-dot')).toHaveAttribute('data-state', 'error');
-  await expect(page.locator('#status-libre-toggle')).toHaveAttribute('data-tone', 'danger');
-  // Nothing reads: the restart is one click away, without opening the dialog.
-  const quick = page.locator('#status-libre').getByRole('button', { name: t('status.libreRestart'), exact: true });
-  await expect(quick).toBeVisible();
+  await page.goto('/index.html?demo=turing88&libre=partial');
+  const popup = await openStatus(page, t);
+  await popup.locator('.probe-row[data-probe="LibreHardwareMonitor"] button[data-status="unavailable"]').click();
+  await expect(popup).toBeHidden();
+  const panel = page.locator('#panel-sensors');
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('combobox', { name: t('sensorsPanel.probe'), exact: true })).toHaveValue('LibreHardwareMonitor');
+  await expect(panel.getByRole('combobox', { name: t('sensorsPanel.status'), exact: true })).toHaveValue('unavailable');
+  await expect(panel.locator('.sensor-row')).toHaveCount(1);
+  await expect(panel.locator('.sensor-row')).toHaveAttribute('data-key', 'lhm.psu.corsair.0.voltage.3');
+  await panel.getByRole('button', { name: t('sensorsPanel.startLibre'), exact: true }).click();
+  await expect(panel.locator('.sensor-row')).toHaveCount(0);
+  await expect(panel.locator('#sensor-result-count')).toHaveText(t('sensorsPanel.results', { shown: 0, total: 23 }));
+  await panel.getByRole('combobox', { name: t('sensorsPanel.status'), exact: true }).selectOption('available');
+  await expect(panel.locator('.sensor-row')).toHaveCount(3);
   await expectAccessible(page);
-  await quick.click();
+  expect(errors).toEqual([]);
+});
+
+test('probe, state, category and search combine and generic open resets filters', async ({ page, t }, info) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88&libre=partial');
+  let popup = await openStatus(page, t);
+  await popup.locator('.probe-row[data-probe="LibreHardwareMonitor"] .probe-main').click();
+  const panel = page.locator('#panel-sensors');
+  const rows = panel.locator('.sensor-row');
+  await expect(rows).toHaveCount(3);
+  await panel.getByRole('combobox', { name: t('sensorsPanel.status'), exact: true }).selectOption('available');
+  await expect(rows).toHaveCount(2);
+  await panel.locator('#sensor-filter button[data-category="cpu"]').click();
+  await expect(rows).toHaveCount(1);
+  await panel.getByRole('searchbox').fill('not-a-sensor');
+  await expect(rows).toHaveCount(0);
+  popup = await openStatus(page, t);
+  await popup.getByRole('button', { name: t('sensorStatus.openSensors'), exact: true }).click();
+  await expect(panel.getByRole('searchbox')).toHaveValue('');
+  await expect(panel.getByRole('combobox', { name: t('sensorsPanel.probe'), exact: true })).toHaveValue('all');
+  await expect(panel.getByRole('combobox', { name: t('sensorsPanel.status'), exact: true })).toHaveValue('all');
+  await expect(rows).toHaveCount(23);
+  await openStatus(page, t);
+  await page.screenshot({ path: info.outputPath('sensor-filters-overview.png') });
+  expect(errors).toEqual([]);
+});
+
+test('restart, dismissal and other probes work without Libre', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88&libre=error');
+  const quick = page.locator('#status-libre-restart');
+  await expect(quick).toBeVisible();
+  const popup = await openStatus(page, t);
+  await popup.getByRole('button', { name: t('status.libreRestart'), exact: true }).click();
+  await expect(page.locator('#status-libre-label')).toHaveText(t('sensorChip.restarting'));
   await expect(page.locator('#status-libre-label')).toHaveText(/\d+ ms/);
   await expect(quick).toBeHidden();
-  await expect(page.locator('#libre-popover')).toBeHidden();
-
-  // Without LibreHardwareMonitor: the green chip with the sample's time and
-  // a row per hardware, but nothing to restart (D-2026-10-09-studio-redesign-10).
+  await expectAccessible(page);
+  await page.locator('#status-main').click();
+  await expect(popup).toBeHidden();
   await page.goto('/index.html?demo=turing88');
-  await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  await expect(page.locator('#status-libre')).toBeVisible();
-  await expect(page.locator('#status-libre-label')).toHaveText(/\d+ ms/);
-  await expect(page.locator('#status-libre-dot')).toHaveAttribute('data-state', 'ok');
-  await expect(page.locator('#status-sensors')).toBeHidden();
-  await page.locator('#status-libre-toggle').click();
-  const popover = page.getByRole('dialog', { name: t('sensorChip.title.ok') });
-  await expect(popover.getByRole('listitem')).toHaveCount(7);
+  const other = await openStatus(page, t);
+  await expect(other.getByRole('listitem')).toHaveCount(1);
   await expect(page.locator('#restart-libre')).toBeHidden();
-  await expect(page.locator('#status-libre-restart')).toBeHidden();
-  await expect(popover.getByRole('button', { name: t('dialog.close') })).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('#status-libre-toggle')).toBeFocused();
+  await expectAccessible(page);
   expect(errors).toEqual([]);
 });
