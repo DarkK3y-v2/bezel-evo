@@ -5,6 +5,15 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.52] - 2026-10-19
+
+### Studio
+- Filter Layers by object type alongside name or sensor search. Distinguish
+  text, values, clocks and other widgets; keep matching objects' card/group
+  ancestry visible and temporarily expand folded containers while filtering.
+- Keep complete contents when a card or group itself matches the filters.
+  Filtering does not change the theme, selection or saved fold state.
+
 ## [0.1.51] - 2026-10-19
 
 ### Fixes
