@@ -85,6 +85,8 @@ Studio has been redesigned from the ground up, in dark and light.
 - **Movement driven by sensors.** Rotate custom images, icons and shapes with
   fan RPM or another reading, with adjustable visual speed, inertia and direction.
   Zero or missing readings slow them to a stop, also inside cards and groups.
+- **Native visualization presets.** Block matrices, pixel arcs, modern dials,
+  rounded bars and mirrored two-sensor graphs. [See the styles](docs/user/visualizations.md).
 - **Graphs that scroll smoothly.** Line, area and bar histories move between
   real samples, up to 50 fps where rendering and the display allow. Each screen
   follows its own output pace. Sampling stays unchanged; scrolling uses up to

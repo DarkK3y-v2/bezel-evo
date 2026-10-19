@@ -22,6 +22,9 @@ has three parts:
 
 ## Using Bezel
 
+- [Visualization presets](visualizations.md): pixel arcs, block matrices, modern
+  dials, rounded bars and independent mirrored histories.
+
 - [Editing in Studio](studio-editing.md): the workspace, the inspector and its
   live preview, colours, fonts, Cards, the media player, backgrounds, layers
   and saving.
