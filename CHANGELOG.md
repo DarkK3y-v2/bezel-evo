@@ -5,6 +5,18 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.47] - 2026-10-19
+
+### Studio
+- Summarize sensor health by probe instead of listing physical hardware and
+  individual values. Show managed, available, unavailable and not-yet-checked
+  sensor counts, with direct links to the corresponding Sensors view.
+- Filter Sensors by probe and reading state alongside category and search.
+  Keep checking the selected probe's scope so recovered readings leave the
+  failed view automatically without disrupting unchanged rows or dragging.
+- Count text readings and valid zeros as available; distinguish unread sensors
+  from failed readings. Preserve Libre-only restart and keyboard navigation.
+
 ## [0.1.46] - 2026-10-19
 
 ### Studio
