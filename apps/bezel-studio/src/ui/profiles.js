@@ -3,6 +3,10 @@ import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
 import { errorText } from '../messages.js';
 
+// Covers painted over the whole screen (crates/bezel-core/src/domain/cover.rs);
+// the runtime loads the earlier fade, slide and flip as mosaic, wipe and curtain.
+const PROFILE_EFFECTS = ['none', 'curtain', 'wipe', 'blinds', 'mosaic'];
+
 export function createProfilesDialog({ t, bridge, notify }) {
   let dialog = null;
   let config, themes, screens, displays;
@@ -73,7 +77,7 @@ export function createProfilesDialog({ t, bridge, notify }) {
     ]);
   }
   function render() {
-    const transition = config.transition ??= { effect: 'none', direction: 'left', durationMs: 600 };
+    const transition = config.transition ??= { effect: 'none', direction: 'left', durationMs: 800 };
     const mode = config.automatic ? 'auto' : config.manual ?? 'default';
     const choices = config.profiles.map((p) => [p.id, p.name]);
     const close = () => { if (!busy) dialog.close(); };
@@ -103,10 +107,10 @@ export function createProfilesDialog({ t, bridge, notify }) {
         el('section', { class: 'profile-transition' }, [
           el('h3', { text: t('profiles.transition') }),
           el('div', { class: 'profile-transition-controls' }, [
-            select(t('card.effect'), ['none', 'fade', 'slide', 'flip'].map((id) => [id, t(`card.effect.${id}`)]), transition.effect, (value) => { transition.effect = value; render(); }),
+            select(t('card.effect'), PROFILE_EFFECTS.map((id) => [id, t(id === 'none' ? 'fade.none' : `profiles.effect.${id}`)]), transition.effect, (value) => { transition.effect = value; render(); }),
             ...(transition.effect !== 'none' ? [
               input(`${t('card.duration')} (ms)`, transition.durationMs, (value) => { transition.durationMs = Number(value); }, { type: 'number', min: 150, max: 3000, step: 50, required: true }),
-              ...(['slide', 'flip'].includes(transition.effect) ? [select(t('common.direction'), ['left', 'right', 'up', 'down'].map((id) => [id, t(`card.direction.${id}`)]), transition.direction, (value) => { transition.direction = value; })] : []),
+              ...(transition.effect !== 'mosaic' ? [select(t('common.direction'), ['left', 'right', 'up', 'down'].map((id) => [id, t(`card.direction.${id}`)]), transition.direction, (value) => { transition.direction = value; })] : []),
             ] : []),
           ]),
           el('p', { class: 'hint', text: t('profiles.transitionHint') }),

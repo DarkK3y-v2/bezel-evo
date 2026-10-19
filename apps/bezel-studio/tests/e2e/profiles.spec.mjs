@@ -11,7 +11,7 @@ test('profiles are managed from Themes and saved independently of the editor', a
   await page.goto('/index.html?demo=turing88');
   const original = await page.locator('#theme-name').inputValue();
   let dialog = await openProfiles(page, t);
-  await dialog.getByRole('combobox', { name: t('card.effect'), exact: true }).selectOption('slide');
+  await dialog.getByRole('combobox', { name: t('card.effect'), exact: true }).selectOption('wipe');
   await dialog.getByRole('spinbutton', { name: `${t('card.duration')} (ms)`, exact: true }).fill('850');
   await dialog.getByRole('combobox', { name: t('common.direction'), exact: true }).selectOption('up');
   await expect(dialog.locator('.profile-current-theme')).toHaveText(['Demo']);
@@ -33,7 +33,7 @@ test('profiles are managed from Themes and saved independently of the editor', a
   await expect(dialog).not.toBeVisible();
   await expect(page.locator('#theme-name')).toHaveValue(original);
   dialog = await openProfiles(page, t);
-  await expect(dialog.getByRole('combobox', { name: t('card.effect'), exact: true })).toHaveValue('slide');
+  await expect(dialog.getByRole('combobox', { name: t('card.effect'), exact: true })).toHaveValue('wipe');
   await expect(dialog.getByRole('spinbutton', { name: `${t('card.duration')} (ms)`, exact: true })).toHaveValue('850');
   await expect(dialog.getByRole('combobox', { name: t('common.direction'), exact: true })).toHaveValue('up');
   profile = dialog.locator('.profile-editor');
