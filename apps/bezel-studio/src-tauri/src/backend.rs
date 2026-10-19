@@ -599,14 +599,14 @@ impl Backend {
     }
 
     /// Plays `transition` once on the live screens, as a profile change would,
-    /// without saving it or changing a theme.
-    pub fn preview_transition(&self, transition: bezel_runtime::profiles::TransitionSettings) -> UiResult<()> {
+    /// without saving it or changing a theme; answers how many screens it covers.
+    pub fn preview_transition(&self, transition: bezel_runtime::profiles::TransitionSettings) -> UiResult<usize> {
         let config = bezel_runtime::profiles::Config { transition, ..Default::default() };
         config.validate()?;
-        if let Some(engine) = &self.engine {
-            engine.preview_cover(&config.transition)?;
+        match &self.engine {
+            Some(engine) => Ok(engine.preview_cover(&config.transition)?),
+            None => Ok(0),
         }
-        Ok(())
     }
 
     pub fn select_profile(&self, id: Option<&str>, automatic: bool) -> UiResult<()> {
@@ -1985,7 +1985,8 @@ mod tests {
         use bezel_runtime::profiles::TransitionSettings;
         let f = fixture("transition-preview");
         let wipe = TransitionSettings { effect: "wipe".into(), direction: "up".into(), duration_ms: 900 };
-        f.backend.preview_transition(wipe).unwrap();
+        // No live screen in the fixture: nothing to cover.
+        assert_eq!(f.backend.preview_transition(wipe).unwrap(), 0);
         assert!(f.backend.preview_transition(TransitionSettings { duration_ms: 20, ..Default::default() }).is_err());
         assert_eq!(f.backend.profiles().unwrap().config.transition, TransitionSettings::default());
     }

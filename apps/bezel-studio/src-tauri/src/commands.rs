@@ -697,7 +697,7 @@ pub async fn save_profiles(
 pub async fn preview_transition(
     state: State<'_, Shared>,
     transition: bezel_runtime::profiles::TransitionSettings,
-) -> UiResult<()> {
+) -> UiResult<usize> {
     blocking(&state, move |b| b.preview_transition(transition)).await
 }
 

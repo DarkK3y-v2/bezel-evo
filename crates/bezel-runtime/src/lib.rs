@@ -434,37 +434,36 @@ impl Engine {
         }
     }
     /// Attach a physical display once, preserving the runtime and its clocks.
-    /// Tries a profile cover on `key`'s screen: it closes over what the screen
-    /// shows and opens on it again, theme unchanged. Nothing to try on a
-    /// screen that is not live or shows nothing yet, or with no cover chosen.
-    pub fn preview_cover(
-        &mut self,
-        key: &str,
-        transition: &profiles::TransitionSettings,
-    ) -> Result<()> {
-        let cover = transition.cover()?;
-        let now = self.origin.elapsed();
-        let scene = self
-            .scenes
-            .get_mut(key)
-            .ok_or_else(|| invalid("unknown scene"))?;
-        let Some(cover) = cover.filter(|_| scene.live && scene.frame.is_some()) else {
-            return Ok(());
+    /// Tries a profile cover on every live screen, whoever opened its scene
+    /// (Light's saved themes or Studio's drafts): it closes over what the
+    /// screen shows and opens on it again, theme unchanged. Screens that show
+    /// nothing yet are left alone, and nothing moves with no cover chosen.
+    /// Answers how many screens it covers.
+    pub fn preview_cover(&mut self, transition: &profiles::TransitionSettings) -> Result<usize> {
+        let Some(cover) = transition.cover()? else {
+            return Ok(0);
         };
-        let base = scene
-            .profile_animation
-            .as_ref()
-            .map_or(0.0, |a| a.coverage(now));
-        scene.profile_animation = Some(profiles::Animation::preview(
-            scene.profile_id.clone(),
-            cover,
-            transition.duration_ms,
-            now,
-            base,
-        ));
-        scene.dirty = true;
-        self.wake.notify();
-        Ok(())
+        let now = self.origin.elapsed();
+        let mut covered = 0;
+        for scene in self.scenes.values_mut().filter(|s| s.live && s.frame.is_some()) {
+            let base = scene
+                .profile_animation
+                .as_ref()
+                .map_or(0.0, |a| a.coverage(now));
+            scene.profile_animation = Some(profiles::Animation::preview(
+                scene.profile_id.clone(),
+                cover,
+                transition.duration_ms,
+                now,
+                base,
+            ));
+            scene.dirty = true;
+            covered += 1;
+        }
+        if covered > 0 {
+            self.wake.notify();
+        }
+        Ok(covered)
     }
     pub fn live(&mut self, key: &str, on: bool) -> Result<()> {
         let scene = self

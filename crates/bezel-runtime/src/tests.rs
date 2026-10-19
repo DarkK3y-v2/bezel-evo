@@ -333,13 +333,13 @@ fn a_cover_preview_closes_and_opens_on_the_same_theme() {
     let name = f.engine.scenes[&f.key].runtime.theme().name.clone();
     let curtain = TransitionSettings { effect: "curtain".into(), ..Default::default() };
     // Nothing to try on a screen that is not live, or without a cover.
-    f.engine.preview_cover(&f.key, &curtain).unwrap();
+    assert_eq!(f.engine.preview_cover(&curtain).unwrap(), 0);
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
     f.engine.scenes.get_mut(&f.key).unwrap().live = true;
-    f.engine.preview_cover(&f.key, &TransitionSettings::default()).unwrap();
+    assert_eq!(f.engine.preview_cover(&TransitionSettings::default()).unwrap(), 0);
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
-    assert!(f.engine.preview_cover(&f.key, &TransitionSettings { effect: "spin".into(), ..Default::default() }).is_err());
-    f.engine.preview_cover(&f.key, &curtain).unwrap();
+    assert!(f.engine.preview_cover(&TransitionSettings { effect: "spin".into(), ..Default::default() }).is_err());
+    assert_eq!(f.engine.preview_cover(&curtain).unwrap(), 1);
     let started = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap().started;
     let phase = |f: &Fixture| f.engine.scenes[&f.key].profile_animation.as_ref().map(|a| a.phase);
     advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();

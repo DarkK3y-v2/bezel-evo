@@ -54,7 +54,8 @@ pub enum RuntimeOp {
         element: u32,
     },
     Thumbnail,
-    /// Tries a profile cover on the scene's screen without changing its theme.
+    /// Tries a profile cover on every live screen without changing a theme
+    /// (the scene named is ignored); answers `{"screens": n}`.
     PreviewCover {
         transition: crate::profiles::TransitionSettings,
     },
@@ -287,8 +288,8 @@ fn dispatch_inner(
             Ok((Value::Null, Vec::new()))
         }
         RuntimeOp::PreviewCover { transition } => {
-            engine.preview_cover(key, &transition)?;
-            Ok((Value::Null, Vec::new()))
+            let covered = engine.preview_cover(&transition)?;
+            Ok((json!({ "screens": covered }), Vec::new()))
         }
         RuntimeOp::Image { after, max, .. } => {
             let next = engine.image(key, after, max)?;
