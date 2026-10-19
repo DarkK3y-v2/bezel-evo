@@ -73,8 +73,8 @@ pub const DEFAULT_ACCENT: Rgba = Rgba::opaque(0xf2, 0x8c, 0x28);
 
 /// Delay of the last strip of a blind, as a share of the closing.
 const BLINDS_STAGGER: f32 = 0.7;
-/// Share of the closing during which a mosaic tile shows the accent.
-const MOSAIC_FRONT: f32 = 0.12;
+/// Share of the motion over which a mosaic tile grows, lit with the accent.
+const MOSAIC_FRONT: f32 = 0.2;
 
 /// Smooth start and end (cubic), for `t` in 0..=1.
 pub fn ease(t: f32) -> f32 {
@@ -194,6 +194,46 @@ impl<'a> Painter<'a> {
             self.band(horizontal, near.min(far), near.max(far), color);
         }
         self.band(horizontal, line_start, line_start + line, self.accent);
+        // The light spills a little onto the scene ahead of the edge.
+        let (outside, sign) = match inside {
+            Inside::Before => (at, 1.0),
+            Inside::After => (at, -1.0),
+        };
+        let spill = glow * 1.5;
+        for (step, amount) in [0.35, 0.18, 0.07].into_iter().enumerate() {
+            let near = outside + sign * spill * step as f32 / 3.0;
+            let far = outside + sign * spill * (step + 1) as f32 / 3.0;
+            self.glaze(horizontal, near.min(far), near.max(far), amount);
+        }
+    }
+
+    /// Tints `start..end` along the axis with the accent by `amount`, on the
+    /// host's opaque pixels only: where the screen's own video shows through
+    /// (alpha below 255) nothing changes, since the host never has its pixels.
+    fn glaze(&mut self, horizontal: bool, start: f32, end: f32, amount: f32) {
+        let a = start.round().max(0.0) as u32;
+        let b = (end.round().max(0.0) as u32).min(self.length(horizontal) as u32);
+        if b <= a {
+            return;
+        }
+        let width = self.width as usize;
+        let (columns, rows) = if horizontal {
+            (a as usize..b as usize, 0..self.height as usize)
+        } else {
+            (0..width, a as usize..b as usize)
+        };
+        let accent = self.accent;
+        let pixels = self.frame.as_rgba_mut();
+        for y in rows {
+            for x in columns.clone() {
+                let i = (y * width + x) * 4;
+                let p = &mut pixels[i..i + 4];
+                if p[3] == 255 {
+                    let tinted = mix(Rgba::opaque(p[0], p[1], p[2]), accent, amount);
+                    p[..3].copy_from_slice(&[tinted.r, tinted.g, tinted.b]);
+                }
+            }
+        }
     }
 
     fn curtain(&mut self, direction: CoverDirection, c: f32) {
@@ -264,22 +304,33 @@ impl<'a> Painter<'a> {
             },
         );
         for (cell, &order) in rank.iter().enumerate() {
-            let threshold = order as f32 / count as f32;
+            // Each tile grows from its middle over MOSAIC_FRONT of the motion,
+            // lit while it grows; the last one is whole when the cover is.
+            let threshold = order as f32 / count as f32 * (1.0 - MOSAIC_FRONT);
             if c <= threshold {
                 continue;
             }
-            let color = if c - threshold < MOSAIC_FRONT {
-                self.accent
-            } else {
-                self.panel
-            };
+            let grown = ((c - threshold) / MOSAIC_FRONT).min(1.0);
+            let color = if grown < 1.0 { self.accent } else { self.panel };
+            let scale = ease(0.5 + grown / 2.0) * 2.0 - 1.0;
             let (column, row) = (cell % columns, cell / columns);
-            let x0 = (column as f32 * self.width / columns as f32).round() as u32;
-            let x1 = ((column + 1) as f32 * self.width / columns as f32).round() as u32;
-            let y0 = (row as f32 * self.height / rows as f32).round() as u32;
-            let y1 = ((row + 1) as f32 * self.height / rows as f32).round() as u32;
+            let x0 = column as f32 * self.width / columns as f32;
+            let x1 = (column + 1) as f32 * self.width / columns as f32;
+            let y0 = row as f32 * self.height / rows as f32;
+            let y1 = (row + 1) as f32 * self.height / rows as f32;
+            let (dx, dy) = (
+                (x1 - x0) * (1.0 - scale) / 2.0,
+                (y1 - y0) * (1.0 - scale) / 2.0,
+            );
+            let (left, top) = ((x0 + dx).round() as u32, (y0 + dy).round() as u32);
+            let (right, bottom) = ((x1 - dx).round() as u32, (y1 - dy).round() as u32);
             self.frame.fill_rect(
-                Rect::new(x0, y0, x1.saturating_sub(x0), y1.saturating_sub(y0)),
+                Rect::new(
+                    left,
+                    top,
+                    right.saturating_sub(left),
+                    bottom.saturating_sub(top),
+                ),
                 color,
             );
         }
@@ -450,6 +501,42 @@ mod tests {
                 assert_eq!(corner, opposite);
             }
         }
+    }
+
+    #[test]
+    fn the_edge_light_spills_on_the_hosts_pixels_never_on_the_screens_video() {
+        let size = Size::new(1920, 480);
+        let wipe = cover(CoverEffect::Wipe, CoverDirection::Left);
+        // Left half drawn by the host (opaque), right half the screen's video (alpha 0).
+        let mut frame = Frame::filled(size, SCENE);
+        frame.fill_rect(Rect::new(960, 0, 960, 480), Rgba { a: 0, ..SCENE });
+        wipe.paint(&mut frame, CoverStage::Closing, 0.6);
+        // The edge stands at 768 (1920 * 0.4), the panel to its right.
+        let ahead = frame.pixel(760, 100).unwrap();
+        assert_eq!(ahead.a, 255);
+        assert_ne!(ahead, SCENE, "the opaque scene ahead of the edge is lit");
+        assert_eq!(
+            frame.pixel(600, 100),
+            Some(SCENE),
+            "far from the edge it is untouched"
+        );
+        let mut video = Frame::filled(size, Rgba { a: 0, ..SCENE });
+        wipe.paint(&mut video, CoverStage::Closing, 0.6);
+        assert_eq!(video.pixel(760, 100), Some(Rgba { a: 0, ..SCENE }));
+    }
+
+    #[test]
+    fn a_mosaic_tile_grows_from_its_middle() {
+        let size = Size::new(480, 480);
+        let mosaic = cover(CoverEffect::Mosaic, CoverDirection::Left);
+        // 4 x 4 tiles of 120 px; the first in order starts at 0.
+        let first = scattered(16, 0x2026).iter().position(|&r| r == 0).unwrap();
+        let (x, y) = ((first % 4) as u32 * 120, (first / 4) as u32 * 120);
+        let half = painted(size, &mosaic, CoverStage::Closing, 0.1);
+        assert_eq!(half.pixel(x + 60, y + 60), Some(DEFAULT_ACCENT));
+        assert_eq!(half.pixel(x + 1, y + 1).unwrap().a, 0);
+        let whole = painted(size, &mosaic, CoverStage::Closing, 0.2);
+        assert_eq!(whole.pixel(x + 1, y + 1).map(|p| p.a), Some(255));
     }
 
     #[test]
