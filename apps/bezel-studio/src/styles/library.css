@@ -32,14 +32,14 @@
 /* -------------------------------------------------------------- sensors -- */
 .panel-rate:empty { display: none; }
 .panel-head .panel-rate { margin-left: auto; }
-.sensor-list { display: grid; gap: 14px; }
+.sensor-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .sensor-probe-filters .field { min-width: 0; }
 .sensor-probe-filters select { min-width: 0; width: 100%; }
 .sensor-result-count { margin: -4px 0 0; font-size: var(--fs-meta); }
 .sensor-list > .empty-note { margin: 0; }
-.sensor-group { display: grid; gap: 2px; }
-.sensor-group .section-head { margin: 0; padding: 0 4px 6px; }
-.sensor-group .section-head .count { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sensor-group { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.sensor-group .section-head { flex-wrap: wrap; gap: 4px 8px; margin: 0; padding: 0 4px 6px; }
+.sensor-group .section-head .count { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .sensor-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) var(--spark-width) 80px; align-items: center; column-gap: 10px; text-align: left; padding: 10px 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: grab; touch-action: none; user-select: none; }
 .sensor-row:hover, .sensor-row:focus-visible { border-color: var(--border); background: var(--surface-2); }
 .sensor-text { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
