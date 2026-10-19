@@ -5,6 +5,16 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.46] - 2026-10-19
+
+### Studio
+- Preview desktop colour picks with a magnified pixel grid, marked centre pixel,
+  colour swatch and HEX value beside the cursor. Keep the preview on the pointed
+  monitor, including negative monitor origins and high-DPI displays.
+- Freeze the selection surface temporarily so the magnifier and selected colour
+  match exactly and the preview cannot sample itself. Keep captures only in
+  memory for the duration of the pick; Escape and right-click still cancel.
+
 ## [0.1.45] - 2026-10-19
 
 0.1.44 was a local build; this entry and the one below cover it.
