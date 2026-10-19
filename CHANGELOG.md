@@ -5,7 +5,7 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
-## [Unreleased]
+## [0.1.56] - 2026-10-19
 
 ### Studio
 - Profile changes now use one of four covers: **Curtain**, **Wipe**, **Blinds**
