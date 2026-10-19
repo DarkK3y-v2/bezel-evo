@@ -58,6 +58,10 @@ pub enum RuntimeOp {
     /// (the scene named is ignored); answers `{"screens": n}`.
     PreviewCover {
         transition: crate::profiles::TransitionSettings,
+        /// The theme to try on each screen, by screen key (the profile
+        /// selected in the manager, saved or not).
+        #[serde(default)]
+        themes: BTreeMap<String, String>,
     },
     Sensors {
         listed: Option<Vec<String>>,
@@ -287,8 +291,11 @@ fn dispatch_inner(
             engine.live(key, on)?;
             Ok((Value::Null, Vec::new()))
         }
-        RuntimeOp::PreviewCover { transition } => {
-            let covered = engine.preview_cover(&transition)?;
+        RuntimeOp::PreviewCover { transition, themes } => {
+            if themes.len() > MAX_SCENES || themes.iter().any(|(k, v)| k.len() > 256 || v.len() > 32768) {
+                return Err(invalid("invalid preview themes"));
+            }
+            let covered = engine.preview_cover(&transition, &themes)?;
             Ok((json!({ "screens": covered }), Vec::new()))
         }
         RuntimeOp::Image { after, max, .. } => {

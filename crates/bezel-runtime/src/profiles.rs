@@ -209,7 +209,7 @@ impl Default for TransitionSettings {
         Self {
             effect: "none".into(),
             direction: "left".into(),
-            duration_ms: 800,
+            duration_ms: 1500,
         }
     }
 }
@@ -260,6 +260,34 @@ impl TransitionSettings {
     }
 }
 
+/// What a screen trying a profile from the profile manager says it shows; no
+/// saved profile has this id (ids are letters, digits and `-`).
+pub(crate) const PREVIEW_ID: &str = "__preview__";
+/// How long a tried profile stays on show before the screen returns to what
+/// it should show, with the same cover.
+pub(crate) const PREVIEW_HOLD: Duration = Duration::from_secs(3);
+
+/// The theme at `path` as a document the engine accepts.
+pub(crate) fn load_document(path: &str) -> Option<Document> {
+    bezel_themes::FsThemeStore
+        .load(&ThemeLocation(path.to_owned()))
+        .ok()
+        .map(|(theme, assets)| Document { theme, assets })
+        .filter(|d| d.validate().is_ok())
+}
+
+/// Whether `document` can be shown on `scene`'s screen (its canvas, when the
+/// screen is not known yet).
+pub(crate) fn fits(scene: &crate::Scene, document: &Document) -> bool {
+    scene
+        .screen
+        .as_ref()
+        .and_then(|s| s.model())
+        .map_or(document.theme.canvas == scene.runtime.theme().canvas, |m| {
+            document.theme.misfit(m.panel).is_none()
+        })
+}
+
 /// Where a profile change stands on one screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Phase {
@@ -283,8 +311,10 @@ pub(crate) struct Animation {
     /// Closing and opening each take half the duration; loading the new theme
     /// happens in between and shortens neither.
     pub half: Duration,
-    /// False for a preview: it closes and opens on the same theme.
+    /// False for a preview: no profile is applied when it closes.
     pub apply: bool,
+    /// A preview's theme to show once closed (`None`: it opens on the same).
+    pub show: Option<Document>,
 }
 impl Animation {
     fn closing(
@@ -302,19 +332,23 @@ impl Animation {
             cover,
             half: Duration::from_millis(u64::from(duration_ms / 2)),
             apply: true,
+            show: None,
         }
     }
     /// The cover the profile manager tries out: it closes over what the
-    /// screen shows and opens on it again, heading to the profile shown.
+    /// screen shows and opens on `show` (or the same theme), heading to the
+    /// profile shown so that the service does not step in while it moves.
     pub fn preview(
         shown: Option<String>,
         cover: Cover,
         duration_ms: u32,
         now: Duration,
         base: f32,
+        show: Option<Document>,
     ) -> Self {
         Self {
             apply: false,
+            show,
             ..Self::closing(shown, cover, duration_ms, now, base)
         }
     }
@@ -599,6 +633,10 @@ impl Service {
         let cover = self.config.transition.cover().ok().flatten();
         let duration_ms = self.config.transition.duration_ms;
         for (key, scene) in &mut engine.scenes {
+            // A profile being tried stays on show for its hold, then returns.
+            if scene.preview_until.is_some_and(|until| now < until) {
+                continue;
+            }
             let id = selected.clone().filter(|id| {
                 self.config
                     .profiles
@@ -669,13 +707,7 @@ impl Service {
                 .iter()
                 .find(|p| p.id == id)
                 .and_then(|p| p.themes.get(key))
-                .and_then(|path| {
-                    bezel_themes::FsThemeStore
-                        .load(&ThemeLocation(path.clone()))
-                        .ok()
-                })
-                .map(|(theme, assets)| Document { theme, assets })
-                .filter(|d| d.validate().is_ok());
+                .and_then(|path| load_document(path));
             let cached_bytes: usize = self.documents.values().flatten().map(Document::bytes).sum();
             let document = document
                 .filter(|d| cached_bytes.saturating_add(d.bytes()) <= crate::MAX_ALL_ASSETS / 2);
@@ -684,15 +716,7 @@ impl Service {
         self.documents
             .get(&cache_key)
             .and_then(Option::as_ref)
-            .filter(|document| {
-                scene
-                    .screen
-                    .as_ref()
-                    .and_then(|s| s.model())
-                    .map_or(document.theme.canvas == scene.runtime.theme().canvas, |m| {
-                        document.theme.misfit(m.panel).is_none()
-                    })
-            })
+            .filter(|document| fits(scene, document))
     }
 
     /// Shows the profile `id` (or the selected themes) on the screen at once.

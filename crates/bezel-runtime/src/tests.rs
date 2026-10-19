@@ -280,7 +280,7 @@ fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
         themes.insert(key.to_owned(), path.display().to_string());
     }
     let file = ProfileFile(directory.join("profiles.json"));
-    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None, transition: crate::profiles::TransitionSettings { effect: "wipe".into(), ..Default::default() } };
+    let config = Config { profiles: vec![Profile { id: "gaming".into(), name: "Gaming".into(), themes: themes.clone(), rules: vec![] }], automatic: false, manual: Some("gaming".into()), default_profile: None, transition: crate::profiles::TransitionSettings { effect: "wipe".into(), duration_ms: 800, ..Default::default() } };
     file.save(&config).unwrap();
     let mut service = Service::new(file.clone());
     use crate::profiles::Phase;
@@ -327,7 +327,7 @@ fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_r
     scene.profile_animation = Some(Animation {
         target: None, phase: Phase::Covered, started: Duration::ZERO, base: 1.0,
         cover: Cover { effect: CoverEffect::Mosaic, direction: CoverDirection::Left, panel: DEFAULT_PANEL, accent: DEFAULT_ACCENT },
-        half: Duration::from_millis(300), apply: true,
+        half: Duration::from_millis(300), apply: true, show: None,
     });
     scene.dirty = true;
     let count = f.seen.lock().unwrap().len();
@@ -352,15 +352,15 @@ fn a_cover_preview_closes_and_opens_on_the_same_theme() {
     f.engine.tick_at(Duration::ZERO, time()).unwrap();
     let shown = f.engine.scenes[&f.key].frame.clone().unwrap();
     let name = f.engine.scenes[&f.key].runtime.theme().name.clone();
-    let curtain = TransitionSettings { effect: "curtain".into(), ..Default::default() };
+    let curtain = TransitionSettings { effect: "curtain".into(), duration_ms: 800, ..Default::default() };
     // Nothing to try on a screen that is not live, or without a cover.
-    assert_eq!(f.engine.preview_cover(&curtain).unwrap(), 0);
+    assert_eq!(f.engine.preview_cover(&curtain, &BTreeMap::new()).unwrap(), 0);
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
     f.engine.scenes.get_mut(&f.key).unwrap().live = true;
-    assert_eq!(f.engine.preview_cover(&TransitionSettings::default()).unwrap(), 0);
+    assert_eq!(f.engine.preview_cover(&TransitionSettings::default(), &BTreeMap::new()).unwrap(), 0);
     assert!(f.engine.scenes[&f.key].profile_animation.is_none());
-    assert!(f.engine.preview_cover(&TransitionSettings { effect: "spin".into(), ..Default::default() }).is_err());
-    assert_eq!(f.engine.preview_cover(&curtain).unwrap(), 1);
+    assert!(f.engine.preview_cover(&TransitionSettings { effect: "spin".into(), ..Default::default() }, &BTreeMap::new()).is_err());
+    assert_eq!(f.engine.preview_cover(&curtain, &BTreeMap::new()).unwrap(), 1);
     let started = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap().started;
     let phase = |f: &Fixture| f.engine.scenes[&f.key].profile_animation.as_ref().map(|a| a.phase);
     advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();
@@ -376,6 +376,53 @@ fn a_cover_preview_closes_and_opens_on_the_same_theme() {
     let scene = &f.engine.scenes[&f.key];
     assert_eq!(scene.runtime.theme().name, name);
     assert!(scene.profile_id.is_none() && scene.profile_restore.is_none());
+}
+#[test]
+fn a_tried_profile_shows_under_the_cover_then_the_screen_returns() {
+    use crate::profiles::{Config, Phase, ProfileFile, Service, TransitionSettings, PREVIEW_HOLD, PREVIEW_ID};
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    let mut f = fixture();
+    let base = doc();
+    f.engine.document(&f.key, 1, base.clone(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    let directory = std::env::temp_dir().join(format!("bezel-profile-try-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("tried.bezeltheme");
+    let mut tried = base.clone(); tried.theme.name = "tried, unsaved profile".into();
+    bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &tried.theme, &tried.assets).unwrap();
+    let wipe = TransitionSettings { effect: "wipe".into(), duration_ms: 800, ..Default::default() };
+    let file = ProfileFile(directory.join("profiles.json"));
+    file.save(&Config { transition: wipe.clone(), automatic: false, ..Default::default() }).unwrap();
+    let mut service = Service::new(file.clone());
+    let themes = BTreeMap::from([(f.key.clone(), path.display().to_string()), ("absent".into(), "x".into())]);
+    assert_eq!(f.engine.preview_cover(&wipe, &themes).unwrap(), 1);
+    let started = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap().started;
+    let name = |f: &Fixture| f.engine.scenes[&f.key].runtime.theme().name.clone();
+    let phase = |f: &Fixture| f.engine.scenes[&f.key].profile_animation.as_ref().map(|a| a.phase);
+    // Closing over the base theme; the service leaves the scene alone.
+    service.tick(&mut f.engine, &Snapshot::default(), started + Duration::from_millis(200));
+    advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();
+    assert_eq!((name(&f), phase(&f)), (base.theme.name.clone(), Some(Phase::Closing)));
+    // Closed: the tried theme is under the cover, and it opens on it.
+    advance(&mut f.engine, started + Duration::from_millis(400), time()).unwrap();
+    assert_eq!((name(&f).as_str(), phase(&f)), ("tried, unsaved profile", Some(Phase::Opening)));
+    assert_eq!(f.engine.scenes[&f.key].profile_id.as_deref(), Some(PREVIEW_ID));
+    let shown_at = started + Duration::from_millis(400);
+    // Held on show: the service waits.
+    service.tick(&mut f.engine, &Snapshot::default(), shown_at + PREVIEW_HOLD - Duration::from_millis(1));
+    assert_eq!(name(&f), "tried, unsaved profile");
+    // Then it closes again over it and returns to the base theme.
+    let back = shown_at + PREVIEW_HOLD;
+    service.tick(&mut f.engine, &Snapshot::default(), back);
+    assert_eq!(phase(&f), Some(Phase::Closing));
+    service.tick(&mut f.engine, &Snapshot::default(), back + Duration::from_millis(400));
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, base.theme.name);
+    assert!(scene.profile_id.is_none() && scene.profile_restore.is_none() && scene.preview_until.is_none());
+    std::fs::remove_file(&file.0).unwrap();
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(directory).unwrap();
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {

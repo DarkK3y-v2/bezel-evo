@@ -101,10 +101,14 @@ struct Scene {
     profile_id: Option<String>,
     profile_edit_at: Option<Instant>,
     profile_animation: Option<profiles::Animation>,
+    /// Until when a tried profile stays on show; the profile service then
+    /// covers it again and returns to what the screen should show.
+    preview_until: Option<Duration>,
 }
 impl Scene {
     fn restore_profile(&mut self) {
         self.profile_animation = None;
+        self.preview_until = None;
         if let Some(document) = self.profile_restore.take() {
             self.update(document);
             self.runtime.automatic_cards(self.cards);
@@ -379,6 +383,7 @@ impl Engine {
                     profile_id: None,
                     profile_edit_at: None,
                     profile_animation: None,
+                    preview_until: None,
                 },
             );
             self.next_id += 1;
@@ -435,17 +440,28 @@ impl Engine {
     }
     /// Attach a physical display once, preserving the runtime and its clocks.
     /// Tries a profile cover on every live screen, whoever opened its scene
-    /// (Light's saved themes or Studio's drafts): it closes over what the
-    /// screen shows and opens on it again, theme unchanged. Screens that show
-    /// nothing yet are left alone, and nothing moves with no cover chosen.
-    /// Answers how many screens it covers.
-    pub fn preview_cover(&mut self, transition: &profiles::TransitionSettings) -> Result<usize> {
+    /// (Light's saved themes or Studio's drafts). It closes over what the
+    /// screen shows, opens on the theme `themes` names for that screen (the
+    /// profile tried, saved or not; the same theme for a screen it does not
+    /// name or whose theme cannot be shown there), and after
+    /// [`profiles::PREVIEW_HOLD`] the profile service covers it again and
+    /// returns. Screens that show nothing yet are left alone, and nothing
+    /// moves with no cover chosen. Answers how many screens it covers.
+    pub fn preview_cover(
+        &mut self,
+        transition: &profiles::TransitionSettings,
+        themes: &BTreeMap<String, String>,
+    ) -> Result<usize> {
         let Some(cover) = transition.cover()? else {
             return Ok(0);
         };
         let now = self.origin.elapsed();
         let mut covered = 0;
-        for scene in self.scenes.values_mut().filter(|s| s.live && s.frame.is_some()) {
+        for (key, scene) in self.scenes.iter_mut().filter(|(_, s)| s.live && s.frame.is_some()) {
+            let show = themes
+                .get(key)
+                .and_then(|path| profiles::load_document(path))
+                .filter(|document| profiles::fits(scene, document));
             let base = scene
                 .profile_animation
                 .as_ref()
@@ -456,6 +472,7 @@ impl Engine {
                 transition.duration_ms,
                 now,
                 base,
+                show,
             ));
             scene.dirty = true;
             covered += 1;
@@ -694,6 +711,28 @@ impl Engine {
                 }
             }
             let result = (|| -> Result<Duration> {
+                // A tried cover, closed: it shows the profile tried (if any) under
+                // it, before the video and the frame of this tick, and opens on it.
+                let tried = scene
+                    .profile_animation
+                    .as_mut()
+                    .filter(|a| !a.apply && a.closed(now))
+                    .map(|a| {
+                        a.phase = profiles::Phase::Covered;
+                        a.show.take()
+                    });
+                if let Some(Some(document)) = tried {
+                    if scene.profile_restore.is_none() {
+                        scene.profile_restore = Some(Document {
+                            theme: scene.runtime.theme().clone(),
+                            assets: scene.runtime.assets().clone(),
+                        });
+                    }
+                    scene.profile_id = Some(profiles::PREVIEW_ID.into());
+                    scene.update(document);
+                    scene.runtime.automatic_cards(true);
+                    scene.preview_until = Some(now + profiles::PREVIEW_HOLD);
+                }
                 if reading.sequence > 0
                     && scene.runtime.sample_on_time(
                         &mut sampling::Latest(reading.clone()),
@@ -839,10 +878,6 @@ impl Engine {
                 // screen plays itself. The opening starts at the new theme's first
                 // frame, so loading it never shortens the motion.
                 let finished = scene.profile_animation.as_mut().is_some_and(|animation| {
-                    // A preview applies nothing: closed, it opens on the same theme.
-                    if !animation.apply && animation.closed(now) {
-                        animation.phase = profiles::Phase::Covered;
-                    }
                     animation.open(now);
                     let finished = animation.finished(now);
                     if !finished {
