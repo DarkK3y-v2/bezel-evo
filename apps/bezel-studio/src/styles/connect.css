@@ -48,7 +48,7 @@
 .libre-popover[hidden] { display: none; }
 .libre-popover-head .status-dot { width: 10px; height: 10px; }
 .libre-popover-head h2 { flex: 1; margin: 0; font-size: var(--fs-heading); font-weight: 600; }
-.libre-hardware { list-style: none; margin: 0 -6px; padding: 0; display: grid; gap: 2px; }
+.libre-hardware { list-style: none; margin: 0 -6px; padding: 0 8px 0 0; display: grid; gap: 2px; }
 .libre-row { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 8px; border-radius: 8px; }
 .libre-row:hover { background: var(--surface-3); }
 .libre-row-name { flex: 1; min-width: 0; display: grid; line-height: 1.2; }
@@ -78,7 +78,7 @@
 .probe-count:hover { color: var(--accent-ink); }
 .libre-popover-note.probe-summary { display: flex; flex-wrap: wrap; gap: 3px 10px; padding: 0 0 8px; background: transparent; border: 0; border-bottom: 1px solid var(--border); }
 .probe-summary strong { flex: 1 0 100%; font-size: var(--fs-compact); }
-.libre-hardware { max-height: min(55vh, 420px); overflow-y: auto; }
+.libre-hardware { max-height: min(55vh, 420px); overflow-y: auto; scrollbar-gutter: stable; }
 .libre-popover-actions .primary-button:disabled { cursor: wait; }
 
 
