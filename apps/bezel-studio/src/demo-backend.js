@@ -1663,6 +1663,11 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     profilesRequested: () => Promise.resolve(false),
     onProfilesRequested: () => Promise.resolve(() => {}),
     saveProfiles: (config) => { profileConfig = structuredClone(config); return Promise.resolve(); },
+    // No screen to cover in the demo: the request is kept for the page to read.
+    previewTransition: (transition) => {
+      globalThis.demoTransitionPreviews = [...(globalThis.demoTransitionPreviews ?? []), structuredClone(transition)];
+      return Promise.resolve();
+    },
     preferences: () => Promise.resolve({
       debug, debugShowReadings, debugCorner, debugLogPath: "Demo: no file logging",
       audioCapture,

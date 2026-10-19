@@ -599,6 +599,7 @@ function tauriBridge(invoke, tauri = {}) {
     profilesRequested: () => invoke('profiles_requested'),
     onProfilesRequested: (cb) => (typeof tauri.event?.listen === 'function' ? tauri.event.listen('profiles-requested', cb) : Promise.resolve(() => {})),
     saveProfiles: (config) => invoke('save_profiles', { config }),
+    previewTransition: (transition) => invoke('preview_transition', { transition }),
     setDebug: (on, showReadings, corner) => invoke('set_debug', { on, showReadings, corner }),
     setAudioCapture: (on) => invoke('set_audio_capture', { on }),
     setLanguage: (language) => invoke('set_language', { language }),
