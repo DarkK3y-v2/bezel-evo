@@ -5,6 +5,18 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.55] - 2026-10-19
+
+### Fixes
+- Remember the association between a display port and its wake controller.
+  After Light restarts, a sleeping display can be found through the same wake
+  controller even when its saved display port is absent or has changed.
+  Recovery never falls back to another available monitor.
+
+### Studio
+- Name the base profile **Default** in the profile manager and tray, while
+  keeping its individual display assignments visible.
+
 ## [0.1.54] - 2026-10-19
 
 ### Studio
