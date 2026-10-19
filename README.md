@@ -102,16 +102,20 @@ Studio has been redesigned from the ground up, in dark and light.
 **Display profiles** switch the complete configuration from the Studio or Light
 tray. Manage them from **Themes → Profiles and automation**: each profile, such
 as Gaming or Music, assigns a saved theme to each display. A single selection
-applies the profile across your screens. Add rules for an app running, an app in
-the foreground or media playing.
-Priorities resolve simultaneous rules; a return delay avoids brief switches.
-Manual selection stays in effect until you choose Automatic again. Profiles
-pause on the display being edited and resume when Studio is hidden.
-The base profile is called **Default**; its selected theme names remain visible
-for each display in the profile manager.
-Choose None, Fade, Slide or Flip, with direction and duration, for changes between
-profiles and the return to the selected themes. Displays keep their own pace;
-video played directly by a device switches immediately.
+applies the profile across your screens. Choose who decides: **Automatic**, where
+rules for an app running, an app in the foreground or media playing pick the
+profile (and a fallback shows when none holds), or **Manual**, which always shows
+the base themes or the profile you pick. Each rule reads as a sentence with its
+own priority and return delay. Profiles pause on the display being edited and
+resume when Studio is hidden. The **base themes** are the ones chosen in Studio.
+
+Profile changes, and the return to the base themes, use one of four covers:
+**Curtain**, **Wipe**, **Blinds** or **Mosaic**. A panel closes over the screen,
+the new theme is prepared underneath and the panel opens on its first frame, so
+it also works over video a screen plays itself, on any size or shape. Between
+1500 and 2500 ms the motion is smoothest; slower displays show fewer frames. The
+▶ button tries the transition towards the selected profile on the live displays
+and comes back, without saving.
 
 The included theme library also offers three coordinated pairs for 1920×480 and
 480×480 displays: **Pulse / Gaming**, **Resonance / Music** and **Clarity / Monitor**.

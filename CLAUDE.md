@@ -1,12 +1,17 @@
 # JDI — Instrucoes Claude Code
 
-## Ripresa operativa — 19 ottobre 2026
+## Ripresa operativa — 20 ottobre 2026
 
-Leggere [il passaggio aggiornato](.jdi/HANDOFF-CLAUDE.md), AGENTS.md e
-.jdi/STATE.md. Priorità: selezione della schermata di avvio dell'8,8 dalla flash
-interna. Upload/playback funzionano; la SD NON è un requisito dimostrato.
-Sviluppo .55, installata .45; preservare i documenti Studio. Le vecchie
-istruzioni di worktree nelle fasi sono storiche; ripresa in `F:\Dev\bezel`.
+Leggere AGENTS.md, .jdi/STATE.md e [il riepilogo profili](.jdi/phases/profiles-dialog-ux/SUMMARY.md).
+Ultimo lavoro: transizioni profili a copertura (Sipario/Tendina/Persiane/Mosaico,
+`crates/bezel-core/src/domain/cover.rs`), dialogo «Profili e automazioni» rifatto,
+▶ che prova la transizione verso la voce selezionata. Release 0.1.59 in
+preparazione (prima pubblicazione dalla 0.1.31); push solo su richiesta.
+Aperti: prova visiva su 8,8/3,5, stato «attivo ora» non esposto dal runtime,
+schermata di avvio dell'8,8 dalla flash interna ([passaggio](.jdi/HANDOFF-CLAUDE.md):
+la foto TURZX non è un video interno; prova senza Bezel rimandata). ChatGPT può
+lavorare in parallelo nello stesso repository: controllare `git log` prima di
+formattare o fare commit ampi. Ripresa in `F:\Dev\bezel`.
 
 Este projeto usa o JDI (Just Do It) como workflow de desenvolvimento. JDI eh um workflow enxuto: 6 comandos no loop principal, 5 agents core + 2 per-project specialists.
 

@@ -1,5 +1,25 @@
 # Passaggio a Claude — 19 ottobre 2026
 
+## Aggiornamento 20 ottobre 2026
+
+- **Transizioni profili**: chiuse le richieste. Coperture opache al posto di
+  Fade/Slide/Flip, funzionano anche sopra i video del dispositivo; 16 ms per
+  fotogramma; ▶ prova verso la voce selezionata e torna dopo 3 s. Dialogo rifatto.
+  Dettagli in `.jdi/phases/profiles-dialog-ux/SUMMARY.md`. Prova visiva aperta.
+- **Avvio 8,8, indagine**: i primi fotogrammi dei sette video interni (copie
+  locali identiche in `Desktop/TURZX-V3.1.0-ENG/video/4801920`) NON corrispondono
+  alla foto rosa/azzurra TURZX: probabile schermata di serie del firmware.
+  Il «video del template» dopo il riavvio era quasi certamente `earth.mp4` del
+  tema Midnight rilanciato da Bezel, quindi la prova del 19 non dice cosa fa il
+  firmware da solo con start mode 2 senza SD. In `TURZX.exe` (stringhe cifrate
+  XOR fra i due byte di ogni carattere, flusso offuscato) esistono `SelectBootLogo`,
+  `SelectBootVideo`, `StrPathBootVideo`, pulsanti `SwitchLogoBtn`/`BootVideoButton`:
+  comando e famiglia di dispositivi ancora ignoti. Il catalogo alle 19:50 dice
+  avvio = `bezel_loading_88.mp4`, start mode 2, dopo il ripristino delle 19:39:
+  stato reale dello schermo non verificabile. Prossimo passo concordato con
+  l'utente solo quando lo chiede: prova senza Bezel (Default → riavvio; video
+  interno → riavvio; eventuale copia `00_bezel_loading.mp4` per l'ordine per nome).
+
 Leggere prima AGENTS.md, questo documento, STATE.md e PROJECT.md.
 Repository corrente `F:\Dev\bezel`, branch `windows-improvements`. Il vecchio
 HANDOFF object-rotation riguarda un worktree storico, fase già integrata

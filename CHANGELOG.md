@@ -5,6 +5,22 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.59] - 2026-10-20
+
+0.1.32 to 0.1.58 were local builds; this entry and the ones below cover them.
+
+### Studio
+- The ▶ button in **Profiles and automation** now tries the transition towards
+  the selected profile (or the base themes), saved or not, holds it for three
+  seconds on the live displays and comes back the same way.
+- New transitions default to 1500 ms; the help text recommends 1500 to 2500 ms,
+  where the covers move smoothest.
+
+### Fixes
+- Smoother covers: the lit edge of Curtain, Wipe and Blinds spills a little
+  light onto the scene ahead of it (never over video the screen plays itself),
+  and Mosaic tiles grow from their middle instead of appearing at once.
+
 ## [0.1.58] - 2026-10-20
 
 ### Studio
