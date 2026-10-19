@@ -16,20 +16,28 @@ impl System {
         let catalog = [
             (keys::UPTIME, "Uptime", Quantity::Seconds),
             (keys::HOSTNAME, "Host name", Quantity::Text),
-            ("system.os", "Windows version", Quantity::Text),
-            ("system.processes", "Running processes", Quantity::Number),
-            (keys::SYSTEM_VOLUME, "Output volume", Quantity::Percent),
-            ("system.audio.muted", "Output muted", Quantity::Number),
-            ("system.audio.device", "Output device", Quantity::Text),
-            ("system.power.ac", "Connected to power", Quantity::Number),
-            ("system.battery.percent", "Battery", Quantity::Percent),
+            (keys::SYSTEM_OS, "Windows version", Quantity::Text),
             (
-                "system.battery.charging",
+                keys::SYSTEM_PROCESSES,
+                "Running processes",
+                Quantity::Number,
+            ),
+            (keys::SYSTEM_VOLUME, "Output volume", Quantity::Percent),
+            (keys::SYSTEM_AUDIO_MUTED, "Output muted", Quantity::Number),
+            (keys::SYSTEM_AUDIO_DEVICE, "Output device", Quantity::Text),
+            (
+                keys::SYSTEM_POWER_AC,
+                "Connected to power",
+                Quantity::Number,
+            ),
+            (keys::SYSTEM_BATTERY_PERCENT, "Battery", Quantity::Percent),
+            (
+                keys::SYSTEM_BATTERY_CHARGING,
                 "Battery charging",
                 Quantity::Number,
             ),
             (
-                "system.battery.remaining",
+                keys::SYSTEM_BATTERY_REMAINING,
                 "Battery time remaining",
                 Quantity::Seconds,
             ),
@@ -64,7 +72,7 @@ impl Provider for System {
         );
         put(
             out,
-            "system.os",
+            keys::SYSTEM_OS,
             text(SysSystem::long_os_version(), "Windows version unavailable"),
         );
         self.processes.refresh_processes_specifics(
@@ -74,7 +82,7 @@ impl Provider for System {
         );
         put(
             out,
-            "system.processes",
+            keys::SYSTEM_PROCESSES,
             Reading::Value(self.processes.processes().len() as f64),
         );
         match audio() {
@@ -86,16 +94,16 @@ impl Provider for System {
                 );
                 put(
                     out,
-                    "system.audio.muted",
+                    keys::SYSTEM_AUDIO_MUTED,
                     Reading::Value(f64::from(u8::from(muted))),
                 );
-                put(out, "system.audio.device", device);
+                put(out, keys::SYSTEM_AUDIO_DEVICE, device);
             }
             Err(_) => {
                 for key in [
                     keys::SYSTEM_VOLUME,
-                    "system.audio.muted",
-                    "system.audio.device",
+                    keys::SYSTEM_AUDIO_MUTED,
+                    keys::SYSTEM_AUDIO_DEVICE,
                 ] {
                     put(
                         out,
@@ -132,13 +140,13 @@ fn power_readings(
     let no_battery = || Reading::Unavailable("no battery or battery status unavailable".into());
     vec![
         (
-            "system.power.ac",
+            keys::SYSTEM_POWER_AC,
             status
                 .filter(|s| s.ACLineStatus <= 1)
                 .map_or_else(missing, |s| Reading::Value(f64::from(s.ACLineStatus))),
         ),
         (
-            "system.battery.percent",
+            keys::SYSTEM_BATTERY_PERCENT,
             battery
                 .filter(|s| s.BatteryLifePercent <= 100)
                 .map_or_else(no_battery, |s| {
@@ -146,13 +154,13 @@ fn power_readings(
                 }),
         ),
         (
-            "system.battery.charging",
+            keys::SYSTEM_BATTERY_CHARGING,
             battery.map_or_else(no_battery, |s| {
                 Reading::Value(f64::from(u8::from(s.BatteryFlag & 8 != 0)))
             }),
         ),
         (
-            "system.battery.remaining",
+            keys::SYSTEM_BATTERY_REMAINING,
             battery
                 .filter(|s| s.BatteryLifeTime != u32::MAX)
                 .map_or_else(

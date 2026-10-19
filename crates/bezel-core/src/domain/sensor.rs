@@ -190,6 +190,22 @@ pub mod keys {
     pub const HOSTNAME: &str = "system.hostname";
     /// Default output device volume, percent.
     pub const SYSTEM_VOLUME: &str = "system.volume";
+    /// The operating system's name and version, text.
+    pub const SYSTEM_OS: &str = "system.os";
+    /// Processes running, count.
+    pub const SYSTEM_PROCESSES: &str = "system.processes";
+    /// Whether the default output device is muted, 0 or 1.
+    pub const SYSTEM_AUDIO_MUTED: &str = "system.audio.muted";
+    /// The default output device's name, text.
+    pub const SYSTEM_AUDIO_DEVICE: &str = "system.audio.device";
+    /// Whether the computer runs on mains power, 0 or 1.
+    pub const SYSTEM_POWER_AC: &str = "system.power.ac";
+    /// Battery charge, percent.
+    pub const SYSTEM_BATTERY_PERCENT: &str = "system.battery.percent";
+    /// Whether the battery is charging, 0 or 1.
+    pub const SYSTEM_BATTERY_CHARGING: &str = "system.battery.charging";
+    /// Battery time remaining, seconds.
+    pub const SYSTEM_BATTERY_REMAINING: &str = "system.battery.remaining";
 
     /// Keys themes imported from the vendor app (`.turtheme`) and from
     /// turing-smart-screen-python bind to that Bezel's own themes did not
