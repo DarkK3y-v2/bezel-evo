@@ -10,6 +10,7 @@ export default {
   "profiles.transitionHint": "Um painel fecha sobre a tela, o novo tema é preparado por baixo e o painel abre de novo. Funciona em todas as telas, também sobre vídeos que a própria tela reproduz, e no retorno aos temas base. Telas lentas mostram menos quadros.",
   "profiles.transitionHelp": "Como a transição funciona",
   "profiles.preview": "Testar a transição",
+  "profiles.previewNone": "Nenhuma tela ativa para testar.",
   "profiles.durationMs": "Duração da transição (ms)",
   "profiles.effect.curtain": "Cortina",
   "profiles.effect.wipe": "Varredura",

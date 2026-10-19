@@ -41,7 +41,8 @@ export function createProfilesDialog({ t, bridge, notify }) {
     dialog.replaceChildren(form());
     const detail = dialog.querySelector('.pf-detail');
     if (detail) detail.scrollTop = scroll;
-    if (focused) document.getElementById(focused)?.focus();
+    // A control drawn away (a removed rule) hands the focus to the selected item, never to the dialog itself.
+    if (focused) (document.getElementById(focused) ?? dialog.querySelector('.pf-item[aria-current="true"]'))?.focus();
   }
 
   // ------------------------------------------------------------ mode --
@@ -137,7 +138,7 @@ export function createProfilesDialog({ t, bridge, notify }) {
     const id = `pf-rule-${profile.id}-${index}`;
     const number = (suffix, label, value, change, max) => el('input', { type: 'number', id: `${id}-${suffix}`, class: 'pf-number', 'aria-label': label,
       value: String(value), min: 0, max, required: true, oninput: (e) => change(Number(e.target.value)) });
-    return el('article', { class: 'pf-rule', dataset: { rule: String(index) } }, [
+    return el('article', { class: 'pf-rule', dataset: { rule: String(index), kind: rule.source === 'mediaPlaying' ? 'media' : 'app' } }, [
       el('div', { class: 'pf-rule-line' }, [
         el('span', { class: 'pf-word', text: t('cardInsp.when') }),
         select(t('profiles.event'), ['mediaPlaying', 'foreground', 'process'].map((s) => [s, t(`profiles.${s}`)]), rule.source,
@@ -244,7 +245,10 @@ export function createProfilesDialog({ t, bridge, notify }) {
           onclick: async () => {
             const duration = dialog.querySelector('#pf-duration');
             if (duration && !duration.reportValidity()) return;
-            try { await bridge.previewTransition({ ...transition }); } catch (error) { notify(errorText(t, error)); }
+            try {
+              const covered = await bridge.previewTransition({ ...transition });
+              if (!covered) notify(t('profiles.previewNone'));
+            } catch (error) { notify(errorText(t, error)); }
           } }, [icon(ICONS.play, 16)]),
       ] : []),
       el('button', { type: 'button', id: 'pf-help', class: 'icon-button pf-help', 'aria-label': t('profiles.transitionHelp'), title: t('profiles.transitionHelp'),

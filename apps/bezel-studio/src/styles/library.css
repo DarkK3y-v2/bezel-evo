@@ -333,8 +333,14 @@ button.layer-group-title { cursor: pointer; }
 /* Profiles and automation: who decides, the list beside its detail, the transition. */
 .profiles-dialog { width: min(1080px, calc(100vw - 32px)); max-width: none; }
 .profiles-dialog > form { display: flex; flex-direction: column; height: min(760px, calc(100dvh - 32px)); min-height: 0; }
-.pf-head { flex-shrink: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.pf-head h2 { margin: 0; }
+/* What a rule watches gives its colour: the rule's card and its profile's icon. */
+.profiles-dialog { --pf-media: #d946ef; --pf-app: #84cc16; }
+/* The dialog is no control: focus rings belong to what is inside it. */
+.profiles-dialog:focus, .profiles-dialog:focus-visible { outline: none; }
+.profiles-dialog select, .profiles-dialog input[type="text"], .profiles-dialog input[type="number"] { min-height: 30px; padding: 4px 8px; border: 1px solid var(--border-2); border-radius: 7px; background: var(--well); color: var(--text); }
+.profiles-dialog select:disabled { cursor: default; }
+.pf-head { flex-shrink: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; }
+.pf-head h2 { flex: none; margin: 0; }
 .pf-subtitle { flex: 1; min-width: 200px; color: var(--dim); font-size: var(--fs-small); text-align: left; }
 .pf-sect { margin: 0; font-size: var(--fs-caps); font-weight: 600; letter-spacing: var(--caps-spacing); text-transform: uppercase; color: var(--dim); }
 .pf-word { color: var(--dim); font-size: var(--fs-small); }
@@ -356,6 +362,8 @@ button.layer-group-title { cursor: pointer; }
 .pf-item:hover { background: var(--surface-2); }
 .pf-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .pf-item-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: var(--surface-3); color: var(--text-2); }
+.pf-item-icon[data-glyph="player"] { background: color-mix(in srgb, var(--pf-media) 18%, var(--surface)); color: color-mix(in srgb, var(--pf-media) 75%, var(--text)); }
+.pf-item-icon[data-glyph="chip"] { background: color-mix(in srgb, var(--pf-app) 18%, var(--surface)); color: color-mix(in srgb, var(--pf-app) 75%, var(--text)); }
 .pf-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pf-item-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pf-item-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: var(--fs-meta); }
@@ -367,8 +375,8 @@ button.layer-group-title { cursor: pointer; }
 .pf-detail { flex: 1 1 420px; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 22px; padding: 18px 22px; overflow-y: auto; }
 .pf-detail-title { margin: 0; font-size: var(--fs-title); }
 .pf-detail-title:focus { outline: none; }
-.pf-name { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 700; }
-.pf-name:hover, .pf-name:focus { border-color: var(--border); background: var(--surface-2); }
+.profiles-dialog .pf-name { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: var(--fs-title); font-weight: 700; }
+.profiles-dialog .pf-name:hover, .profiles-dialog .pf-name:focus { border-color: var(--border); background: var(--surface-2); }
 .pf-block { display: flex; flex-direction: column; gap: 10px; }
 .pf-themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
 .pf-theme { min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
@@ -379,14 +387,16 @@ button.layer-group-title { cursor: pointer; }
 .pf-theme-body .hint { margin: 0; }
 .pf-theme-display { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dim); overflow-wrap: anywhere; }
 .pf-theme-current { overflow-wrap: anywhere; }
-.pf-rule { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
+.pf-rule { --pf-kind: var(--pf-app); display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--pf-kind) 40%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--pf-kind) 7%, var(--surface-2)); }
+.pf-rule[data-kind="media"] { --pf-kind: var(--pf-media); }
+.pf-rule select, .pf-rule input { border-color: color-mix(in srgb, var(--pf-kind) 30%, var(--border-2)); }
 .pf-rule-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pf-rule .pf-app { flex: 1 1 140px; min-width: 120px; }
 .pf-number { width: 72px; font-family: var(--font-mono); }
 .pf-remove-rule { margin-left: auto; width: 28px; min-height: 28px; border-color: transparent; background: transparent; color: var(--dim); }
 .pf-note { margin: 0; color: var(--dim); font-size: var(--fs-meta); line-height: 1.45; }
 .pf-danger { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border); }
-.pf-delete { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; border: 1px solid var(--danger); border-radius: 8px; background: transparent; color: var(--danger); font: inherit; font-weight: 600; cursor: pointer; }
+.pf-delete { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px; border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border)); border-radius: 8px; background: transparent; color: var(--danger); font: inherit; font-weight: 600; cursor: pointer; }
 .pf-delete:hover { background: var(--danger); color: var(--danger-text); }
 .pf-foot { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface-2); }
 .pf-duration { display: inline-flex; align-items: center; gap: 6px; }

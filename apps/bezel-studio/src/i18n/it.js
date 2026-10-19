@@ -10,6 +10,7 @@ export default {
   "profiles.transitionHint": "Un pannello chiude lo schermo, il nuovo tema si prepara sotto e il pannello riapre. Funziona su tutti gli schermi, anche sopra i video riprodotti dallo schermo, e al ritorno ai temi di base. Gli schermi lenti mostrano meno fotogrammi.",
   "profiles.transitionHelp": "Come funziona la transizione",
   "profiles.preview": "Prova la transizione",
+  "profiles.previewNone": "Nessuno schermo attivo su cui provarla.",
   "profiles.durationMs": "Durata della transizione (ms)",
   "profiles.effect.curtain": "Sipario",
   "profiles.effect.wipe": "Tendina",

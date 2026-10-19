@@ -10,6 +10,7 @@ export default {
   "profiles.transitionHint": "A panel closes over the screen, the new theme is prepared underneath and the panel opens again. It works on every display, also over video the screen plays itself, and on the return to the base themes. Slow displays show fewer frames.",
   "profiles.transitionHelp": "How the transition works",
   "profiles.preview": "Try the transition",
+  "profiles.previewNone": "No live display to try it on.",
   "profiles.durationMs": "Transition duration (ms)",
   "profiles.effect.curtain": "Curtain",
   "profiles.effect.wipe": "Wipe",
