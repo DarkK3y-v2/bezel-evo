@@ -5,6 +5,12 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.50] - 2026-10-19
+
+### Studio
+- Give the probe summary's scrollbar more breathing room beside labels and
+  restart buttons, keeping its space reserved as the list changes.
+
 ## [0.1.49] - 2026-10-19
 
 ### Studio
