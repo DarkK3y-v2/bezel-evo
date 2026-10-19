@@ -10,5 +10,10 @@
   lista lunga e scrollbar realmente visibili: trascinamento verificato nei due
   temi (scrollTop 119), screenshot controllati in target/scrollbar-preview.
   Nessun test aggiunto per questa modifica CSS; nessuna suite completa.
-- Pronto per .49; Studio .48 e Light ancora aperti in target/release.
-  Attesa conferma salvataggio e chiusura per build diretta, senza setup.
+- Conferma salvataggio/chiusura ricevuta; nessun processo Bezel prima della build.
+  `build-evo.ps1 -Version 0.1.49` riuscito in 1m31s; CLI e metadati Studio
+  verificati. Studio avviato direttamente da target/release, PID 11632
+  rispondente. Installata resta .45; nessun setup, push o pubblicazione.
+- SHA256 Studio: `3DD7155362B0EE8441949E9D12D50FB02F76966B8C80BA3977CD3DA05D76DDEA`.
+- SHA256 CLI: `8194E3C904F5AEB19A992B7E7172AEFF810B6FC6460492FADDB0B34BA7230400`.
+- Commit stile condiviso: `c8f450c`. Resta prova visiva utente sullo Studio reale.

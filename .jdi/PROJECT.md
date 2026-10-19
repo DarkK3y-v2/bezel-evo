@@ -2,8 +2,11 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Build di sviluppo corrente **0.1.48**, compilata e avviata direttamente dopo
-  conferma utente di salvataggio e chiusura: alias GPU raggruppati per lettore
+- Build di sviluppo corrente **0.1.49**, compilata e avviata direttamente dopo
+  conferma utente di salvataggio e chiusura: scrollbar condivise sottili e
+  arrotondate, 16 statici UI e quattro e2e verdi, drag chiaro/scuro verificato.
+  Vedi [scrollbar](todos/2026-10-19-scrollbar-studio.md).
+- Dalla **0.1.48**: alias GPU raggruppati per lettore
   e riavvio locale alla sonda supportata; 70 unitari UI e 28 e2e verdi.
   Vedi [sonde GPU e riavvio](todos/2026-10-19-sonde-gpu-riavvio.md).
 - Dalla **0.1.46** sono presenti lente, campione e HEX durante il prelievo del colore.
