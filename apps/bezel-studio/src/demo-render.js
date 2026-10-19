@@ -1,4 +1,5 @@
 import { appliedRotation, centerOf } from './editor/rotation.js';
+import { drawVisualization } from './demo-visualization.js';
 import { applyTextCase } from './text-case.js';
 import { boundKey } from './editor/widgets.js';
 import { demoSensorValue } from './demo-sensors.js';
@@ -304,6 +305,7 @@ function drawUprightElement(ctx, e, t, refresh = 1, motion = true) {
   const frac = value;
   ctx.save();
   ctx.globalAlpha = e.opacity ?? 1;
+  if (drawVisualization(ctx,e,frac,k.type==='graph'?demoGraphPoints(k,refresh,t,e.id):null,k.type==='graph'&&e.visualization?.secondary?demoGraphPoints({...k,binding:e.visualization.secondary},refresh,t,e.id+197):null)) { ctx.restore(); return; }
   switch (k.type) {
     case 'text':
       drawText(ctx, e, t, frac);

@@ -1845,6 +1845,7 @@ mod tests {
             group_parent: None,
             card_member: None,
             card: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             color_by_value: None,
@@ -2432,6 +2433,7 @@ mod tests {
         let fill = Rgba::opaque(0, 200, 0);
         let bar = |max: f64| Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             rotation: 0.0,

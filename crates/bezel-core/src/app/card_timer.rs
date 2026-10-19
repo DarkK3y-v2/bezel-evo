@@ -182,6 +182,7 @@ mod tests {
         let mut t = Theme::blank("rules", Size::new(480, 1920), Orientation::Portrait);
         t.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             id: ElementId(1),

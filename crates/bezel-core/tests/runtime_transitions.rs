@@ -88,6 +88,7 @@ fn bar(transition: Option<ValueTransition>) -> Element {
         visible: true,
         locked: false,
         color_by_value: None,
+        visualization: None,
         value_transition: transition,
         kind: ElementKind::Bar {
             binding: Binding {

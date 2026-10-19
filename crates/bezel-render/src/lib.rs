@@ -32,6 +32,7 @@ mod shape;
 mod spectrum;
 mod svg;
 mod text;
+mod visualization;
 
 #[cfg(test)]
 mod golden;

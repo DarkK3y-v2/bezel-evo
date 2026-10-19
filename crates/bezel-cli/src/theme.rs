@@ -357,6 +357,7 @@ mod tests {
         theme.background = bezel_core::domain::theme::Background::Color(Rgba::opaque(1, 2, 3));
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,

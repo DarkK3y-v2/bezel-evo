@@ -776,6 +776,7 @@ fn centered_image(name: &str, orientation: Orientation, asset: &str) -> (Theme, 
     let (left, top) = ((canvas.width - 400) / 2, (canvas.height - 400) / 2);
     theme.elements.push(Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
         sensor_motion: None,
         card: None,

@@ -46,6 +46,7 @@ fn theme() -> Theme {
     theme.refresh_seconds = 60.0;
     theme.elements.push(Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
         sensor_motion: None,
         id: ElementId(1),

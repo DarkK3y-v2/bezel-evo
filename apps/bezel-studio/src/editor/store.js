@@ -239,7 +239,7 @@ export const commands = {
 
   /** Replaces an element's kind (e.g. show a sensor as a ring instead of text). */
   setKind(theme, { id, kind }) {
-    return { theme: mapElements(theme, [id], (e) => ({ ...e, kind: clone(kind) })) };
+    return { theme: mapElements(theme, [id], (e) => ({ ...e, kind: clone(kind), ...(e.visualization ? { visualization: null } : {}) })) };
   },
 
   /** Merges theme properties; a new background replaces the old one whole. */

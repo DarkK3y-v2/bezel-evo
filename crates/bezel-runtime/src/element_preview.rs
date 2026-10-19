@@ -203,6 +203,7 @@ pub(crate) mod tests {
     pub(crate) fn shape(id: u32, frame: BoxF, color: Rgba) -> Element {
         Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             rotation: 0.0,

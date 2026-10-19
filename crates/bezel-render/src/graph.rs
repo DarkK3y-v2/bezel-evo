@@ -11,7 +11,14 @@ use crate::paint::{paint_for, solid};
 use crate::path::{positive, rect};
 
 /// How a graph looks and scales.
+#[derive(Clone, Copy)]
 pub(crate) struct GraphSpec<'a> {
+    /// Rounded bar geometry.
+    pub rounded: bool,
+    /// Explicit bar gap, or original proportional spacing.
+    pub gap: Option<f32>,
+    /// Draw from the top baseline downwards for a lower series.
+    pub reverse: bool,
     /// Remaining fraction of a sample entering from the right.
     pub scroll: f32,
     /// Samples across the width.
@@ -72,7 +79,14 @@ fn runs(
         match (f, out.last_mut()) {
             (Some(f), Some(run)) => {
                 let x = right - (values.len() - 1 - i) as f32 * step + spec.scroll * step;
-                run.push((x, bottom - f as f32 * span));
+                run.push((
+                    x,
+                    if spec.reverse {
+                        area.y + inset + f as f32 * span
+                    } else {
+                        bottom - f as f32 * span
+                    },
+                ));
             }
             _ => out.push(Vec::new()),
         }
@@ -174,7 +188,11 @@ fn draw_area(layer: &mut Layer<'_>, area: BoxF, runs: &[Vec<(f32, f32)>], spec: 
     let Some(paint) = paint_for(spec.fill.unwrap_or(&faded), area) else {
         return;
     };
-    let base = area.y + area.height;
+    let base = if spec.reverse {
+        area.y
+    } else {
+        area.y + area.height
+    };
     let mut pb = PathBuilder::new();
     for run in runs.iter().filter(|r| r.len() >= 2) {
         let (Some(first), Some(last)) = (run.first(), run.last()) else {
@@ -201,7 +219,10 @@ fn draw_bars(
 ) {
     let slots = usize::from(spec.history).max(1);
     let slot = area.width / slots as f32;
-    let gap = if slot >= 4.0 { slot * 0.2 } else { 0.0 };
+    let gap = spec
+        .gap
+        .unwrap_or(if slot >= 4.0 { slot * 0.2 } else { 0.0 })
+        .clamp(0., slot * 0.8);
     let right = area.x + area.width;
     let bottom = area.y + area.height;
     let mut pb = PathBuilder::new();
@@ -213,7 +234,17 @@ fn draw_bars(
         let x = right - (values.len() - i) as f32 * slot + gap / 2.0 + spec.scroll * slot;
         let left = x.max(area.x);
         let width = (x + slot - gap).min(right) - left;
-        if let Some(bar) = rect(left, bottom - height, width, height) {
+        let y = if spec.reverse {
+            area.y
+        } else {
+            bottom - height
+        };
+        let shape = if spec.rounded {
+            crate::path::rounded_rect(left, y, width, height, width / 2.)
+        } else {
+            rect(left, y, width, height)
+        };
+        if let Some(bar) = shape {
             pb.push_path(&bar);
         }
     }
@@ -251,6 +282,9 @@ mod tests {
 
     fn spec(autoscale: bool) -> GraphSpec<'static> {
         GraphSpec {
+            rounded: false,
+            gap: None,
+            reverse: false,
             scroll: 0.,
             history: 4,
             style: GraphStyle::Line,

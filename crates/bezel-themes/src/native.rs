@@ -243,6 +243,7 @@ mod tests {
     fn el(id: u32, kind: ElementKind) -> Element {
         Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,
@@ -430,6 +431,30 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("bezel-themes-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn optional_visualizations_round_trip_and_reject_unbounded_geometry() {
+        use bezel_core::domain::visualization::{VisualStyle, Visualization};
+        let (mut theme, _) = every_kind();
+        for style in [
+            VisualStyle::Matrix,
+            VisualStyle::Pixel,
+            VisualStyle::Dial,
+            VisualStyle::Rounded,
+            VisualStyle::Mirrored,
+        ] {
+            theme.elements[0].visualization = Some(Visualization::new(style));
+            let dto = ThemeDto::from(&theme);
+            assert_eq!(Theme::try_from(&dto).unwrap(), theme);
+        }
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        json["elements"][0]["visualization"]["rows"] = serde_json::json!(65535);
+        let bad: ThemeDto = serde_json::from_value(json).unwrap();
+        assert!(Theme::try_from(&bad).is_err());
+        theme.elements[0].visualization = None;
+        let old = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        assert!(old["elements"][0].get("visualization").is_none());
     }
 
     /// The interval of the theme's graph after a trip through JSON where

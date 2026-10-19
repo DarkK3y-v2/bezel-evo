@@ -474,6 +474,7 @@ mod tests {
             visible: true,
             locked: false,
             color_by_value: None,
+            visualization: None,
             value_transition: transition,
             kind,
         }

@@ -77,6 +77,7 @@ impl FrameRenderer for Clockwork {
 fn image(id: u32, asset: &str) -> Element {
     Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
         sensor_motion: None,
         card: None,

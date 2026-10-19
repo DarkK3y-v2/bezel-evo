@@ -2478,6 +2478,7 @@ mod tests {
         let key = SensorKey::new("cpu.usage").unwrap();
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: Some(ValueTransition::smooth(400)),
             sensor_motion: None,
             id: ElementId(1),
@@ -2623,6 +2624,7 @@ mod tests {
         theme.refresh_seconds = 1.0;
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             id: ElementId(1),
@@ -3116,6 +3118,7 @@ mod tests {
     fn graphing(mut theme: Theme) -> Theme {
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,
@@ -3400,6 +3403,7 @@ mod tests {
         let mut theme = s.theme().clone();
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,

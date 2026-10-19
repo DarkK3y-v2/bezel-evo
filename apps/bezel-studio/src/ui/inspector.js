@@ -1,4 +1,5 @@
 import { canRotate, appliedRotation } from '../editor/rotation.js';
+import { visualization, visualStyles } from '../visualization.js';
 import { defaultSensorMotion, supportsSensorMotion } from '../sensor-motion.js';
 import { sensorNativeUnit } from '../sensor-picker-model.js';
 import { sensorPicker, closeSensorPicker, refreshSensorPicker } from './sensor-picker.js';
@@ -48,7 +49,7 @@ const ALIGN_EDGES = Object.freeze([['left', 'alignLeft'], ['centerX', 'alignCent
 // The same reading order for every object's Look tab: structure/type,
 // typography, paint, edges, then effects. A kind omits what it does not use.
 const LOOK_ORDER = Object.freeze([
-  'show', 'shape', 'style', 'spectrum-bars', 'arc', 'spacing', 'appearance', 'font',
+  'show', 'shape', 'visualization', 'style', 'spectrum-bars', 'arc', 'spacing', 'appearance', 'font',
   'color', 'spectrum-paint', 'fill', 'progress', 'track', 'segments',
   'outline', 'corners', 'shadow', 'transparency', 'preview', 'visibility',
 ]);
@@ -879,7 +880,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       dashedHint([t('insp.historyHint')], { iconName: 'info' }),
     ];
     // Look (artboard GraphLook): the style, the color, the fill of an area and the line.
-    const style = (value, text) => ({ text, art: ART[value], pressed: k.style === value, onClick: () => k.style !== value && update(e.id, { kind: { style: value } }) });
+    const style = (value, text) => ({ text, art: ART[value], pressed: k.style === value, onClick: () => k.style !== value && update(e.id, { kind: { style: value }, ...(e.visualization?.style === 'rounded' && value !== 'bars' ? { visualization:null } : {}) }) });
     const { rgb } = splitColor(k.color);
     const fillAlpha = typeof k.fill === 'string' ? splitColor(k.fill).alpha : 25;
     const look = [
@@ -1268,7 +1269,24 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     // Conditional colour belongs beside the paint it controls. Opacity has a
     // stable group of its own instead of ending up among corners or thresholds.
     const opacity = rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` });
-    const look = [...(specific.look ?? []), sensorMotionSection(e)].filter(Boolean);
+    const look = [visualizationFields(e), ...(specific.look ?? []).filter(group => {
+      if (['matrix','pixel'].includes(e.visualization?.style) && group?.dataset.section === 'segments') return false;
+      return !(e.visualization?.style === 'matrix' && group?.dataset.section === 'corners');
+    }), sensorMotionSection(e)].filter(Boolean);
+    if (e.kind.type === 'graph' && e.visualization?.style === 'mirrored') {
+      const v = e.visualization;
+      const set = patch => update(e.id, { visualization: { ...v, ...patch } });
+      const b = v.secondary;
+      (specific.data ??= []).splice(1, 0, section('secondary-source', t('visual.secondary'), [
+        sourceCard(e.id, b?.key ?? '', key => ({ visualization: { ...v, secondary: { key, min: b?.min ?? 0, max: b?.max ?? 100 } } }), { numeric: true, label: t('visual.secondary'), scope: 'secondary-source' }),
+        b && !e.kind.autoscale && fieldGrid([
+          prefixedField(t('insp.minPrefix'), t('inspector.min'), b.min, min => set({ secondary: { ...b, min: Math.min(min,b.max-0.001) } }), { step:'any' }),
+          prefixedField(t('insp.maxPrefix'), t('inspector.max'), b.max, max => set({ secondary: { ...b, max: Math.max(max,b.min+0.001) } }), { step:'any' }),
+        ]),
+        colorField(t('visual.secondaryColor'), v.secondaryColor, secondaryColor => set({ secondaryColor })),
+        el('p', { class:'hint', text:t('visual.mirroredHint') }),
+      ]));
+    }
     const conditional = valueColorSection(e, assets);
     if (conditional) {
       const paint = look.flatMap(group => [...group.querySelectorAll('.color-field')])[0];
@@ -1287,6 +1305,22 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       data: specific.data ?? [],
       look,
     };
+  }
+
+  function visualizationFields(e) {
+    const styles = visualStyles(e.kind.type);
+    if (!styles.length || e.isGroup) return null;
+    const v = e.visualization;
+    const set = patch => update(e.id, { visualization: { ...v, ...patch } });
+    const n = (key, value, min, max) => numberField(t(`visual.${key}`), value, x => set({ [key]: Math.min(max,Math.max(min,Math.round(x))) }), { min,max });
+    return section('visualization', t('visual.title'), [
+      selectField(t('visual.preset'), v?.style ?? 'standard', styles.map(s => [s,t(`visual.${s}`)]), style => update(e.id, { visualization: visualization(style,v ?? {}), ...(style === 'rounded' ? { kind: { style:'bars' } } : {}) })),
+      v?.style === 'matrix' && fieldGrid([n('columns',v.columns,1,64),n('rows',v.rows,1,32)]),
+      ['matrix','rounded','mirrored'].includes(v?.style) && numberField(t('visual.gap'),v.gap,gap=>set({gap:Math.max(0,Math.min(32,gap))}),{min:0,max:32,unit:'px'}),
+      ['matrix','pixel'].includes(v?.style) && numberField(t('visual.radius'),v.radius,radius=>set({radius:Math.max(0,Math.min(32,radius))}),{min:0,max:32,unit:'px'}),
+      ['pixel','dial'].includes(v?.style) && n('ticks',v.ticks,2,120),
+      v?.style === 'dial' && switchRow(t('visual.marker'),v.marker,marker=>set({marker})),
+    ]);
   }
 
   function elementForm(e, theme, assets) {

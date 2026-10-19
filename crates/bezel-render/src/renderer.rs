@@ -1394,6 +1394,20 @@ impl SkiaRenderer {
                     radius: *radius,
                     segments: *segments,
                 };
+                if let Some(v) = element
+                    .visualization
+                    .as_ref()
+                    .filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Matrix)
+                {
+                    crate::visualization::matrix(
+                        layer,
+                        area,
+                        value_fraction(element.id, binding, context),
+                        &style,
+                        v,
+                    );
+                    return;
+                }
                 gauges::draw_bar(
                     layer,
                     area,
@@ -1513,16 +1527,32 @@ fn draw_ring(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'
         cap: *cap,
         segments: *segments,
     };
+    let value = if *test_full {
+        Some(1.)
+    } else {
+        value_fraction(element.id, binding, context)
+    };
+    let visual = element.visualization.as_ref();
+    if let Some(v) =
+        visual.filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Pixel)
+    {
+        crate::visualization::pixel_arc(layer, element.frame, value, &style, v);
+        return;
+    }
+    let dial = visual.filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Dial);
     gauges::draw_ring(
         layer,
-        element.frame,
-        if *test_full {
-            Some(1.0)
+        if dial.is_some() {
+            crate::visualization::dial_area(element.frame)
         } else {
-            value_fraction(element.id, binding, context)
+            element.frame
         },
+        value,
         &style,
     );
+    if let Some(v) = dial {
+        crate::visualization::dial(layer, element.frame, value, &style, v);
+    }
 }
 
 fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'_>, motion: bool) {
@@ -1546,6 +1576,15 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         0.
     };
     let spec = GraphSpec {
+        rounded: element.visualization.as_ref().is_some_and(|v| {
+            matches!(
+                v.style,
+                bezel_core::domain::visualization::VisualStyle::Rounded
+                    | bezel_core::domain::visualization::VisualStyle::Mirrored
+            )
+        }),
+        gap: element.visualization.as_ref().map(|v| v.gap),
+        reverse: false,
         scroll,
         history: *history,
         style: *style,
@@ -1559,7 +1598,63 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
     let values = context
         .histories
         .points(&series, usize::from(*history) + usize::from(scroll > 0.));
-    graph::draw(layer, element.frame, &values, &spec);
+    if let Some(v) = element
+        .visualization
+        .as_ref()
+        .filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Mirrored)
+    {
+        let half = (element.frame.height - 2.).max(0.) / 2.;
+        let top = BoxF::new(element.frame.x, element.frame.y, element.frame.width, half);
+        let bottom = BoxF::new(
+            element.frame.x,
+            element.frame.y + half + 2.,
+            element.frame.width,
+            half,
+        );
+        let lower = v
+            .secondary
+            .as_ref()
+            .map(|b| {
+                context.histories.points(
+                    &SeriesId::graph(&b.key, *interval_seconds),
+                    usize::from(*history) + usize::from(scroll > 0.),
+                )
+            })
+            .unwrap_or_default();
+        let mut upper_spec = spec;
+        let mut lower_spec = GraphSpec {
+            reverse: true,
+            color: v.secondary_color,
+            fill: None,
+            ..spec
+        };
+        if let Some(b) = &v.secondary {
+            lower_spec.min = b.min;
+            lower_spec.max = b.max;
+        }
+        if spec.autoscale {
+            // Both series share the same zero baseline and peak; preserve their relative magnitudes.
+            let peak = values
+                .iter()
+                .chain(lower.iter())
+                .flatten()
+                .copied()
+                .filter(|v| v.is_finite())
+                .fold(0_f64, f64::max)
+                .max(1.)
+                * 1.1;
+            upper_spec.autoscale = false;
+            upper_spec.min = 0.;
+            upper_spec.max = peak;
+            lower_spec.autoscale = false;
+            lower_spec.min = 0.;
+            lower_spec.max = peak;
+        }
+        graph::draw(layer, top, &values, &upper_spec);
+        graph::draw(layer, bottom, &lower, &lower_spec);
+    } else {
+        graph::draw(layer, element.frame, &values, &spec);
+    }
 }
 
 #[cfg(test)]

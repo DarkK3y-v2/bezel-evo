@@ -30,6 +30,7 @@ pub mod standby;
 pub mod storage;
 pub mod theme;
 pub mod transition;
+pub mod visualization;
 
 pub mod weather;
 

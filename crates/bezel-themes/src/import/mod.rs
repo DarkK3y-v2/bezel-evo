@@ -252,6 +252,7 @@ impl Builder {
         let id = ElementId(u32::try_from(self.elements.len()).unwrap_or(u32::MAX - 1) + 1);
         self.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,

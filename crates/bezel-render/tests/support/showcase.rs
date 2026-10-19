@@ -383,6 +383,7 @@ pub fn theme() -> Option<Theme> {
         .enumerate()
         .map(|(i, (frame, kind))| Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             card: None,

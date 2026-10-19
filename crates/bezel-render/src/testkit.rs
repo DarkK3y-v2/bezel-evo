@@ -54,6 +54,7 @@ pub(crate) fn key(k: &str) -> SensorKey {
 pub(crate) fn element(frame: BoxF, kind: ElementKind) -> Element {
     Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
         sensor_motion: None,
         card: None,

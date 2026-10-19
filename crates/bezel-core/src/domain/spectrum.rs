@@ -221,6 +221,7 @@ mod tests {
             is_group: false,
             group_parent: None,
             card_member: None,
+            visualization: None,
             value_transition: None,
             sensor_motion: None,
             color_by_value: None,

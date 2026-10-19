@@ -104,6 +104,7 @@ fn doc() -> Document {
         card_member: None,
         card: None,
         color_by_value: None,
+        visualization: None,
         value_transition: None,
         sensor_motion: None,
         kind: ElementKind::Graph {

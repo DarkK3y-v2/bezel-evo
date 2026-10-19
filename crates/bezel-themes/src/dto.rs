@@ -300,6 +300,9 @@ fn is_fade_midpoint(v: &f32) -> bool {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementDto {
+    /// Optional native widget geometry; absent preserves older themes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visualization: Option<VisualizationDto>,
     /// Optional sensor-driven visual rotation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sensor_motion: Option<SensorMotionDto>,
@@ -343,6 +346,92 @@ pub struct ElementDto {
     pub color_by_value: Option<ColorByValueDto>,
     /// Kind.
     pub kind: KindDto,
+}
+
+/// Portable optional visualization settings, with bounded defaults.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct VisualizationDto {
+    /// matrix, pixel, dial, rounded or mirrored.
+    pub style: String,
+    /// Matrix columns.
+    pub columns: u16,
+    /// Matrix rows.
+    pub rows: u16,
+    /// Cell/bar spacing in pixels.
+    pub gap: f32,
+    /// Cell corners or marker radius.
+    pub radius: f32,
+    /// Dial tick count.
+    pub ticks: u16,
+    /// Show endpoint marker.
+    pub marker: bool,
+    /// Independent lower history source.
+    pub secondary: Option<BindingDto>,
+    /// Lower history color.
+    pub secondary_color: String,
+}
+impl Default for VisualizationDto {
+    fn default() -> Self {
+        Self {
+            style: "matrix".into(),
+            columns: 16,
+            rows: 6,
+            gap: 3.,
+            radius: 2.,
+            ticks: 31,
+            marker: true,
+            secondary: None,
+            secondary_color: "#e879a4ff".into(),
+        }
+    }
+}
+fn visualization(d: &VisualizationDto) -> R<bezel_core::domain::visualization::Visualization> {
+    use bezel_core::domain::visualization::{VisualStyle, Visualization};
+    let style = match d.style.as_str() {
+        "matrix" => VisualStyle::Matrix,
+        "pixel" => VisualStyle::Pixel,
+        "dial" => VisualStyle::Dial,
+        "rounded" => VisualStyle::Rounded,
+        "mirrored" => VisualStyle::Mirrored,
+        _ => return err(format!("unknown visualization {:?}", d.style)),
+    };
+    let v = Visualization {
+        style,
+        columns: d.columns,
+        rows: d.rows,
+        gap: d.gap,
+        radius: d.radius,
+        ticks: d.ticks,
+        marker: d.marker,
+        secondary: d.secondary.as_ref().map(binding).transpose()?,
+        secondary_color: color(&d.secondary_color)?,
+    };
+    if !v.valid() {
+        return err("visualization settings out of range");
+    }
+    Ok(v)
+}
+fn visualization_dto(v: &bezel_core::domain::visualization::Visualization) -> VisualizationDto {
+    use bezel_core::domain::visualization::VisualStyle;
+    VisualizationDto {
+        style: match v.style {
+            VisualStyle::Matrix => "matrix",
+            VisualStyle::Pixel => "pixel",
+            VisualStyle::Dial => "dial",
+            VisualStyle::Rounded => "rounded",
+            VisualStyle::Mirrored => "mirrored",
+        }
+        .into(),
+        columns: v.columns,
+        rows: v.rows,
+        gap: v.gap,
+        radius: v.radius,
+        ticks: v.ticks,
+        marker: v.marker,
+        secondary: v.secondary.as_ref().map(binding_dto),
+        secondary_color: to_hex(v.secondary_color),
+    }
 }
 
 /// Sensor-driven visual rotation; speed is deliberately distinct from fan RPM.
@@ -2153,6 +2242,7 @@ impl From<&Theme> for ThemeDto {
                     visible: e.visible,
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value_dto),
+                    visualization: e.visualization.as_ref().map(visualization_dto),
                     value_transition: value_transition_dto(e.value_transition),
                     sensor_motion: e.sensor_motion.as_ref().map(|m| SensorMotionDto {
                         sensor: m.sensor.to_string(),
@@ -2313,6 +2403,7 @@ impl TryFrom<&ThemeDto> for Theme {
                     visible: e.visible,
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value).transpose()?,
+                    visualization: e.visualization.as_ref().map(visualization).transpose()?,
                     value_transition: value_transition(e.value_transition),
                     sensor_motion: sensor_motion(&e.sensor_motion)?,
                     kind: kind(&e.kind)
