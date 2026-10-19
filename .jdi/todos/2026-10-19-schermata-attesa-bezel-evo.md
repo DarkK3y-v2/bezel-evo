@@ -20,3 +20,18 @@ identici e stati intermedi differenti; GIF 100 frame/5000 ms/loop 0; ffprobe
 H.264 Constrained Baseline, 480×1920, yuv420p, 30 fps, 5 s; decodifica completa
 ffmpeg senza errori; angoli del PNG nero RGB 0. Nessuna modifica, upload, riavvio
 o configurazione degli schermi. Nessuna nuova build o pubblicazione.
+
+## Revisione dal riferimento SVG dell'utente
+
+Variante preferita in `dist/bezel-start-screen/pixel/`: logo sopra il nome,
+IBM Plex Mono, barra di 24 pixel. Copia originale reference.svg conservata,
+SVG ripulito con font locali incorporati e nuova esportazione PNG/GIF/MP4.
+Su esplicita correzione dell'utente, la scritta finale è solo **LOADING**.
+Clip nativa 480×1920 circa 49 KB, H.264 Constrained Baseline 30 fps, 5 secondi;
+decodifica integrale senza errori e PNG ispezionato. Loop continuo verificato.
+La variante precedente è conservata nella cartella padre.
+
+L'utente chiede dove applicarla: proposta confermata di Schermo → Avvio e attesa,
+per singolo display, con anteprima, scelta contenuto e Applica allo schermo;
+esporre le capacità effettive del modello. La nuova sezione non è ancora codice
+di prodotto, .55 resta invariata e nessun file è stato trasferito al dispositivo.
