@@ -5,6 +5,20 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.54] - 2026-10-19
+
+### Studio
+- Use one searchable sensor picker for widget sources, colour rules and motion.
+  Search names, keys, categories or probes; grouped results show live readings
+  and availability, with keyboard navigation and numeric-only choices where needed.
+- Configure sensor rotation with **Full speed at**, **One turn every** and
+  **Start and stop** presets, including native sensor units.
+
+### Widgets
+- Add **Inertia** to value transitions: readings retain their velocity as the
+  target changes, then settle within the selected time. Reduced motion still
+  snaps to the reading; older builds fall back to the smooth transition.
+
 ## [0.1.53] - 2026-10-19
 
 ### Widgets
