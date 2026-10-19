@@ -33,6 +33,14 @@
 
 ## Conseguenze per la funzione
 
+Precisazione finale utente: foto `C:\Users\danie\Desktop\20261019_194043.jpg`,
+immagine astratta rosa/azzurra con TURZX in alto a destra durante il caricamento.
+La flash interna esiste ed è usata per video; NON è dimostrato che serva una SD.
+Il tentativo non ha selezionato la clip, ma non esclude un diverso comando o
+percorso interno. Origine/selezione della foto da identificare, distinguendo
+boot firmware da ripresa del tema Bezel. La precedente frase «serve una SD» era
+troppo categorica ed è stata corretta. Vedi [handoff Claude](../HANDOFF-CLAUDE.md).
+
 Schermo → Avvio e attesa resta da implementare. Sul 3,5 il loading deve essere
 inviato dal PC dopo il collegamento; non promettere animazione autonoma prima
 di Bezel. Sull'8,8 distinguere attesa host, media residenti e selezione boot

@@ -1,5 +1,10 @@
 # Riesame transizioni profili e schermata di attesa
 
+Aggiornamento di consegna: implementazione ancora aperta; eseguite nel frattempo
+prove loading su entrambi i display, documentate nel [rapporto fisico](2026-10-19-prove-loading-display.md).
+Sull'8,8 flash e playback interno funzionano; selezione al boot da indagare,
+senza assumere SD obbligatoria. Vedi [handoff Claude](../HANDOFF-CLAUDE.md).
+
 ## Richiesta e chiarimento
 
 Riverificare le transizioni tra profili, renderle più raffinate anche con

@@ -1,0 +1,107 @@
+# Passaggio a Claude — 19 ottobre 2026
+
+Leggere prima AGENTS.md, questo documento, STATE.md e PROJECT.md.
+Repository corrente `F:\Dev\bezel`, branch `windows-improvements`. Il vecchio
+HANDOFF object-rotation riguarda un worktree storico, fase già integrata
+(2e813e7): non riprendere da quelle istruzioni operative.
+
+## Priorità: avvio personalizzato dell'8,8 dalla memoria interna
+
+L'utente ricorda correttamente che il display ha flash interna, già utilizzata
+per i video. NON è dimostrato che occorra una SD: la precedente risposta troppo
+categorica è stata corretta. Upload e playback interno funzionano; manca la
+selezione autonoma della nuova clip al boot.
+
+Ultima foto utente: `C:\Users\danie\Desktop\20261019_194043.jpg`. Immagine
+astratta rosa/azzurra, TURZX in alto a destra. Sequenza riferita: prima una
+schermata, poi questa foto, poi il video del template. La foto non dimostra
+origine, percorso o comando di selezione. Distinguere logo boot, attesa firmware
+e video riattivato dal PC. Non promettere la sostituzione finché non verificata.
+
+## Prove fisiche concluse
+
+- 8,8 COM6: Rev C seriale 0525:a4a7, MCU COM4 1a86:ca88 CT88INCH;
+  firmware osservato `chs_88inch.dev1_rom1.90`. Non è TURZX USB VID1CBE.
+- Nessuna SD, confermata CLI/utente. Flash totale 69.132.288 B; sette video
+  personali preesistenti. Nessuno cancellato, rinominato o sostituito.
+- Upload `dist/bezel-start-screen/pixel/bezel_loading_88.mp4` in
+  `internal/video/bezel_loading_88.mp4`, 48.589 B, dimensione verificata.
+  Utente conferma riproduzione corretta e animata.
+- `storage boot internal/video/bezel_loading_88.mp4 --screen COM6 --yes`, poi
+  `restart --screen COM6`: nuova clip NON selezionata visivamente al riavvio.
+  Il messaggio CLI «boots with» è troppo assertivo; impostare il modo video
+  non prova la selezione persistente di quel file. Non inferire impossibilità
+  generale dell'avvio interno dal fallimento di questo tentativo.
+- Ripristinato `storage boot default --screen COM6 --yes`: startMode 0,
+  standby off e timer 5 minuti. Clip conservata. Backup catalogo precedente:
+  `dist/bezel-start-screen/pixel/before_apply_catalog.json`.
+- 3,5 COM3: Rev A 1a86:5722 USB35INCHIPSV2, nessuno storage esposto.
+  PNG verticale 320x480 centrato e loading animato dal PC confermati dall'utente.
+  Tema temporaneo `dist/bezel-start-screen/pixel/probe-35`, FFmpeg host,
+  194 frame/23,9 s (~8,1 invii/s, non refresh ottico). Terminato con Ctrl+C.
+- Studio riaperto .55: COM3 e COM6 aperte, Present su entrambi, zero ScreenError
+  nel nuovo avvio. PID osservati Studio 25532 e Light 55264, da ricontrollare.
+
+## Grafica approvata e file locali
+
+Preferita `dist/bezel-start-screen/pixel/`, ignorata da Git. Sfondo nero,
+logo Pixel ufficiale sopra BEZEL EVO, EVO arancione, barra 24 quadratini,
+sola scritta LOADING; loop 5 secondi senza percentuali inventate.
+`reference.svg` è il riferimento dell'utente; `bezel_loading.svg` incorpora IBM
+Plex Mono locale. PNG/GIF/MP4 orizzontali e MP4 nativo 480x1920 ruotato 90°
+orario, orientamento fisico confermato. Generatori `render_reference.mjs` e
+`build_pixel_loop.py`. Asset 3,5 `bezel_loading_35.png/.gif`; video in probe-35.
+Variante precedente conservata nel padre, non confonderla con quella approvata.
+Log delle prove `target/start-screen-*.log`.
+
+## Indagine da continuare
+
+1. Identificare come ROM1.90 seleziona la foto TURZX e gli eventuali media interni
+   autonomi: comandi/percorso del protocollo seriale, SDK o cattura app vendor.
+2. Libre Panel usa `usr/data/boot.jpg` e `usr/data/standby.h264`, comandi
+   40/98/110/125, per usb-turing VID1CBE. Non inviare quei comandi alla diversa
+   famiglia seriale assumendo compatibilità. Le prove SD storiche non escludono
+   un percorso interno differente.
+3. Snapshot Libre `target/research/libre-panel`; app vendor offuscata
+   `C:\Users\danie\Desktop\TURZX-V3.1.0-ENG\TURZX.exe`, solo analisi statica
+   finora. Firmware MIPS turzx_88inch_0015 NON è ROM1.90 seriale, non caricarlo.
+4. Non forzare l'ordine dei video personali: diversi non hanno copie locali.
+   Nessun flashing o comando firmware sconosciuto è stato eseguito.
+
+Rapporti: `todos/2026-10-19-prove-loading-display.md`,
+`todos/2026-10-19-avvio-88-revc.md`,
+`todos/2026-10-19-schermata-attesa-bezel-evo.md`.
+Protocollo `docs/reverse-engineering/protocol-turing-rev-c.md`, sezione 19.
+
+## Richieste ancora NON implementate
+
+- Schermo → Avvio e attesa per display, anteprima, scelta contenuto e Applica,
+  capacità reali del modello; separare attesa host e boot residente.
+- Transizioni profili moderne Copertura/Rivelazione/Tendina a scena ferma.
+  Chiusura → attesa primo frame pronto → apertura, caricamento asincrono limitato.
+  Service::tick oggi carica sincronicamente e Animation.started precede il
+  caricamento/primo render: può consumare il tempo visibile dell'effetto.
+  Oggi None/Fade/Slide/Flip; i video nativi saltano la transizione host.
+- Audit verde 10 runtime profili, 6 renderer cards, 4 e2e profili; non prova
+  visiva hardware. Automazioni sospese sul display in modifica: nascondere
+  Studio per verificarle. Report `todos/2026-10-19-transizioni-attesa-review.md`.
+
+## Stato prodotto e vincoli
+
+- Sviluppo 0.1.55, installata 0.1.45. Nessuna nuova build/setup/push/tag/release
+  per il loading. .55 mapping display/MCU persistente e profilo base Default;
+  .54 selettore sensori condiviso/ricercabile e Inerzia; .53 rotazione da sensori.
+- Checklist `todos/2026-10-19-ripresa-0.1.52.md`: standby completo/riaggancio,
+  sensori reali, inerzia/rotazione manuale, DoD fase20 e /jdi-verify aperti.
+  H264 fisico NON validato: nessun 1CBE presente; 50 invii/s sparsi su Rev C
+  non equivalgono a streaming H264 o refresh ottico.
+- Preservare documenti Studio, chiedere salvataggio/chiusura prima di accesso
+  esclusivo. Mai terminazione forzata. La CLI storage apre direttamente la porta.
+  Stop Light cooperativo: file `bezel-light-quit` sotto
+  `%LOCALAPPDATA%\io.github.slipalison.bezel\runtime\2542278d3672e447`.
+- Log in `%LOCALAPPDATA%\io.github.slipalison.bezel\logs`; catalogo storage in
+  `%APPDATA%\bezel\storage\catalog.json`, impostazioni app separate sotto
+  `%APPDATA%\io.github.slipalison.bezel`. Non sovrascrivere col vecchio backup.
+- Build ufficiale/versione nuova per binari modificati, avvio target/release;
+  setup solo se chiesto. Preservare dist. Test solo area toccata, suite completa
+  prima del push/verify. Questo handoff modifica solo documentazione.

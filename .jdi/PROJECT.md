@@ -2,6 +2,11 @@
 
 ## Contesto di ripresa — 2026-10-19
 
+- Passaggio a Claude: [handoff completo](HANDOFF-CLAUDE.md). Ultima precisazione:
+  l'8,8 ha flash interna già usata per video; foto del contenuto TURZX iniziale
+  in `C:\Users\danie\Desktop\20261019_194043.jpg`. SD non è un requisito
+  dimostrato: identificare comando/percorso di selezione dell'avvio interno.
+
 - Loading BEZEL EVO provato fisicamente su entrambi i display: animazione e
   orientamento confermati dall'utente. Sul 3,5 riproduzione host (194 frame in
   23,9 s), nessuno storage; sull'8,8 clip interna funzionante ma non selezionata

@@ -1,5 +1,13 @@
 # JDI — Instrucoes Claude Code
 
+## Ripresa operativa — 19 ottobre 2026
+
+Leggere [il passaggio aggiornato](.jdi/HANDOFF-CLAUDE.md), AGENTS.md e
+.jdi/STATE.md. Priorità: selezione della schermata di avvio dell'8,8 dalla flash
+interna. Upload/playback funzionano; la SD NON è un requisito dimostrato.
+Sviluppo .55, installata .45; preservare i documenti Studio. Le vecchie
+istruzioni di worktree nelle fasi sono storiche; ripresa in `F:\Dev\bezel`.
+
 Este projeto usa o JDI (Just Do It) como workflow de desenvolvimento. JDI eh um workflow enxuto: 6 comandos no loop principal, 5 agents core + 2 per-project specialists.
 
 ## Loop canonico
