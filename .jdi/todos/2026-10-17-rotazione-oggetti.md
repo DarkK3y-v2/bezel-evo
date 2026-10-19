@@ -1,5 +1,10 @@
 # Rotazione degli oggetti (2026-10-17)
 
+> Aggiornamento 2026-10-19: implementata e integrata nella fase 20
+> (`2e813e7`); vedere `../phases/object-rotation/SUMMARY.md`. Restano
+> conferma visiva sul dispositivo e `/jdi-verify`. La richiesta e i punti da
+> decidere qui sotto sono il testo storico, non attività ancora da implementare.
+
 Richiesta dell'utente: nessun oggetto del tema può essere ruotato. Oggi `Element` non ha un campo di rotazione;
 le "rotation" presenti nel codice sono l'orientamento dello schermo e i turni delle Card.
 

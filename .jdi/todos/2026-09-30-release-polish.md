@@ -1,4 +1,4 @@
 - [backlog 1.x] Sign the Windows releases (Authenticode for the setup.exe/portable zip) when a certificate exists (D-2026-09-30-release-polish-2); Linux packages are out of scope since D-2026-10-16-studio-redesign-fidelity-27
-- [backlog 1.x] system.volume sensor on Windows (Core Audio endpoint volume; today the key is always unavailable) (D-2026-09-30-release-polish-5)
+- [completato, riallineamento 2026-10-19] `system.volume` su Windows implementato tramite Core Audio in `crates/bezel-sensors/src/windows/system.rs`, insieme a mute e nome dispositivo. Nessun endpoint predefinito resta un caso legittimo di indisponibilità (D-2026-09-30-release-polish-5).
 - [backlog 1.x] Split long functions (net.rs, disk.rs, amdgpu.rs, importers), NRBF tag constants, reasons for `let _` in windows/wmi.rs (D-2026-09-30-release-polish-9)
-- [release-polish] Repin the CI pipeline to @main if slipalison/github-workflows#15 reached main by release time; Sonar stays waived until the project and token exist (D-2026-09-30-foundation-2)
+- [superato] Il precedente riallineamento della CI non è più applicabile: CI automatica rimossa, piattaforma solo Windows e packaging manuale, come da AGENTS.md. Restano da eseguire suite completa e coverage prima di un push autorizzato.

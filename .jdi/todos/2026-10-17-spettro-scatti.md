@@ -1,5 +1,10 @@
 # Spettro audio — scatti residui (2026-10-17) — RISOLTO
 
+> Nota di ripresa 2026-10-19: questo rapporto conserva le misure del 17 ottobre.
+> Le versioni citate sotto sono storiche; oggi sviluppo .52, installata .45.
+> Non riprendere il packaging .30: usare il riepilogo corrente
+> [ripresa .52](2026-10-19-ripresa-0.1.52.md).
+
 ## Stato
 - Branch `windows-improvements`, nulla pubblicato su GitHub dopo v0.1.26. Ultima release locale: 0.1.29 (installata),
   poi correzioni non ancora impacchettate: `dfc586c` (spettri su tutte le facce delle Card + finestra 40 ms

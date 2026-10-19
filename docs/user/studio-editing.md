@@ -58,6 +58,8 @@ ancestry visible; folded containers expand temporarily, then return to their
 previous fold state when filters are cleared. A matching card or group shows
 its complete contents. Filtering leaves the document and selection unchanged.
 
+![Layers filtered to rings, retaining their parent group](../images/studio-layers-filter.png)
+
 ## The inspector
 
 With nothing selected, the inspector shows the **theme**: its name, **Vertical**
@@ -66,17 +68,21 @@ or **Horizontal**, the [background](#the-background) and how often it refreshes
 
 With an object selected, it shows from top to bottom:
 
-- a **header** with the object's name, kind and layer, and buttons to hide it,
-  lock it and open more actions;
+- a **header** with the object's name, kind and layer, a visible object-type
+  selector, and buttons to hide it, lock it and open more actions;
 - a **live preview** of the object on its own, drawn by the same renderer as the
   screen, with its real readings: you see each change at once, even when the
   object is small on the canvas;
-- the **Data** tab: position and size, then what it shows (sensor and range,
-  text, clock format, weather location, graph window, media app);
+- **Membership**, then **Position and size**, including rotation for supported
+  independent objects; these stay above the tabs;
+- the **Data** tab: what it shows (sensor and range, text, clock format,
+  weather location, graph window, media app);
 - the **Look** tab: colours, font, corners, thickness, transitions and the
   other visual settings.
 
 Number fields take the arrow keys and keep their focus while you step.
+Scrollable panels use slim rounded scrollbars; source descriptions in Sensors
+wrap within the panel rather than forcing horizontal scrolling.
 
 ![The inspector of a CPU ring, Look tab, with the colour picker open](../images/studio-color-picker.png)
 

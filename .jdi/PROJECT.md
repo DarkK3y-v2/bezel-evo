@@ -2,6 +2,11 @@
 
 ## Contesto di ripresa — 2026-10-19
 
+- Riepilogo operativo e checklist unica delle verifiche ancora aperte:
+  [ripresa .52](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
+  build sono storici; i relativi PID non descrivono necessariamente la sessione
+  attuale. I conteggi dei test sono mirati e sovrapposti, non una suite completa.
+
 - Build di sviluppo corrente **0.1.52**, compilata e avviata direttamente con
   Studio e Light chiusi: filtro Tipo di oggetto nei Livelli, combinato alla
   ricerca e rispettoso della gerarchia. 71 unitari UI e 16 e2e verdi.
@@ -28,8 +33,8 @@
   collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
 - Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
   produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
-  Studio al posto dell'utente. Sessione osservata dopo l'installazione ancora da
-  `target/release`: non confonderla con la copia installata; non sostituirla
+  Studio al posto dell'utente. Ultima consegna .52 da `target/release`:
+  non confonderla con la copia installata .45; non sostituirla
   automaticamente durante una semplice ripresa del lavoro.
 - Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
   [grafici fluidi](todos/2026-10-19-grafici-fluidi.md),

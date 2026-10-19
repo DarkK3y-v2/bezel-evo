@@ -26,7 +26,7 @@
   l'ingombro anche quando non serve lo scorrimento.
 - 16 controlli statici e quattro e2e del popover verdi; screenshot della lista
   lunga controllato e drag nei due temi verificato (scrollTop 119).
-- Studio gi? chiuso al controllo; Light da target/release chiuso tramite
+- Studio già chiuso al controllo; Light da target/release chiuso tramite
   richiesta cooperativa bezel-light-quit, nessun processo terminato forzatamente.
 - Build ufficiale .50 riuscita in 1m26s, CLI e metadati Studio verificati.
   Studio avviato direttamente, PID 27352 rispondente. Nessun setup o push.

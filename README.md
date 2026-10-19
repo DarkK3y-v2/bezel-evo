@@ -30,10 +30,11 @@ Studio has been redesigned from the ground up, in dark and light.
 
 - **A calmer workspace.** An icon rail for Widgets, Sensors, Layers, Themes, Media
   and Screen; floating tool bars over a dot-grid canvas; library and properties
-  panels you can resize. In English, Italian and Portuguese.
+  panels you can resize. Layers filter by object type alongside name or sensor
+  search, preserving card and group context. In English, Italian and Portuguese.
 - **An inspector that shows what you change.** Every object gets a live preview
-  of itself, drawn on its own at the top of the panel, and its settings split
-  into **Data** and **Look** tabs.
+  of itself, drawn on its own at the top of the panel, followed by membership,
+  position and size, then **Data** and **Look** tabs for its other settings.
 - **One colour picker everywhere.** Colour area, hue, opacity, hex code and an
   eyedropper with a magnified pixel preview, swatch and HEX beside the cursor,
   plus **Theme colours** you save once and reuse, the colours already

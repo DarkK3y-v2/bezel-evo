@@ -12,6 +12,7 @@ LibreHardwareMonitor, NVML or another reader) and **Status**: all, available,
 unavailable or not checked yet. The result count shows how many sensors match
 out of the managed catalog. Valid zero values and text readings are available;
 not checked yet means no reading has arrived, rather than a failed sensor.
+Long source descriptions and hardware paths wrap within the panel.
 
 From a terminal:
 
@@ -72,7 +73,7 @@ theme shows `—`, and `bezel sensors` prints the reason next to it.
 
 | Sensor | Why it is unavailable | What to do |
 |---|---|---|
-| CPU temperature, fans, power | the hardware sensor reader is not configured or not reading | run Setup's **Configure hardware sensors** option, then **Restart Libre** ([above](#the-sensor-status)) |
+| CPU temperature, fans, power | the hardware sensor reader is not configured or not reading | run Setup's **Configure hardware sensors** option, then **Restart** on the LibreHardwareMonitor row ([above](#the-sensor-status)) |
 | Game FPS | no overlay tool is measuring a game | see [Game FPS](fps.md) |
 | Ping | no answer from the ping target yet | check the network or change the target (below) |
 | Output volume, mute and audio device | no default output device is available | connect or select an output in Windows sound settings |
