@@ -2,7 +2,11 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Versione corrente: **0.1.45**, setup locale creato, avviato su richiesta e
+- Build di sviluppo corrente: **0.1.46**, compilata e avviata direttamente da
+  `target/release`, con lente, campione e HEX durante il prelievo del colore.
+  Superficie congelata temporaneamente per una selezione esatta; nessun setup
+  .46 richiesto. Vedi [anteprima e test H264](todos/2026-10-19-contagocce-anteprima-h264.md).
+- Versione installata: **0.1.45**, setup locale creato, avviato su richiesta e
   installazione verificata in `%LOCALAPPDATA%/Bezel Evo`. Versione nel registro
   Windows e hash di CLI/Studio installati corrispondono alla build del pacchetto.
   Nessun push, tag o rilascio GitHub eseguito per questi aggiornamenti.

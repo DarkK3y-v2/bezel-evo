@@ -79,7 +79,8 @@ Every colour in Studio opens the same **colour picker**:
 
 - a saturation and brightness area, a hue bar and an opacity bar (all usable with
   the arrow keys), the **hex code** and the opacity in %;
-- an **eyedropper** to pick a colour anywhere on your screen;
+- an **eyedropper** to pick a colour on any monitor, with a magnifier, marked
+  centre pixel, colour swatch and HEX value beside the cursor;
 - **Theme colours**: click **Save** to keep the current colour in the theme, then
   click a swatch to use it again. **Manage** renames, reorders and deletes them.
   A saved colour is a starting point: changing it does not repaint what already
@@ -88,6 +89,11 @@ Every colour in Studio opens the same **colour picker**:
 - **Recent**: the colours you picked lately.
 
 Each change is one undo step; dragging in the area is one step too.
+
+During a desktop pick, the selection surface freezes temporarily so the preview
+and selected pixel match exactly. Move to inspect pixels and click to select;
+Escape or right-click cancels. The capture stays in memory only until the pick
+ends. The existing opacity is preserved.
 
 ### Fonts
 

@@ -1,7 +1,7 @@
 # Whole-scene H.264 experiment (Windows)
 
 This is a development prototype, not a Studio preference or an enabled runtime
-mode. The installed/running Studio is unchanged. No physical 50 fps result is
+mode. It does not enable H.264 in the installed Studio. No physical 50 fps result is
 claimed for Bezel. Native serial and USB outputs continue using their existing
 drivers unless an experimental caller explicitly requests the new capability.
 
@@ -49,6 +49,19 @@ deliberately delayed native output completed 449 frames (14.96 host fps). No
 fallback occurred on the H.264 path. These results establish a software baseline
 for this scene and machine, not performance on a physical USB panel or on every
 theme. The encoded preview contains all 1,496 pictures at a declared 50 fps.
+
+The software run repeated on 2026-10-19 completed 396 H.264 pictures in 8.0004 s
+(49.50 host fps, 5.74 ms mean render, 7.92 ms encode/output). The independent
+65 ms delayed native sink completed 120 frames (14.89 host fps). The real-encoder
+decode regression and per-link failure fallback regression passed; the USB
+driver's opt-in, bounded-picture and queue-pressure tests also passed. Artifacts:
+`dist/h264-test-0.1.46/report.json` and `wide-preview.mp4` (396 frames,
+1920x480, declared 50 fps).
+
+Physical enumeration on that date found COM3 Rev A and COM6 CT88 Rev C serial
+(COM4 wake MCU), with no compatible USB 1CBE display connected. **No physical
+H.264 stream was tested.** Stored H.264 video playback on a serial panel is
+different from the new whole-scene streaming input and does not validate it.
 
 ## Adapter design
 

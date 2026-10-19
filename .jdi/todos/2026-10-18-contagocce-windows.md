@@ -1,5 +1,10 @@
 # Contagocce Windows
 
+Aggiornamento: la .46 aggiunge lente, campione colore e HEX durante il prelievo,
+con superficie congelata soltanto per la selezione. Il comportamento quasi
+trasparente descritto sotto riguarda la correzione storica .43. Vedi
+[anteprima e prova H264](2026-10-19-contagocce-anteprima-h264.md).
+
 L'utente segnala il color picker e precisa che non funziona il contagocce.
 Il vecchio codice usava esclusivamente `window.EyeDropper` e ignorava tutti
 gli errori. I sei scenari e2e precedenti erano verdi, ma il prelievo positivo
