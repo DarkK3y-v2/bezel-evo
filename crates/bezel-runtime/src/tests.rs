@@ -386,8 +386,8 @@ fn a_tried_profile_shows_under_the_cover_then_the_screen_returns() {
     f.engine.document(&f.key, 1, base.clone(), true).unwrap();
     f.engine.tick_at(Duration::ZERO, time()).unwrap();
     f.engine.scenes.get_mut(&f.key).unwrap().live = true;
-    let directory = std::env::temp_dir().join(format!("bezel-profile-try-{}", std::process::id()));
-    std::fs::create_dir_all(&directory).unwrap();
+    let temporary = tempfile::Builder::new().prefix("bezel-profile-try-").tempdir().unwrap();
+    let directory = temporary.path();
     let path = directory.join("tried.bezeltheme");
     let mut tried = base.clone(); tried.theme.name = "tried, unsaved profile".into();
     bezel_themes::FsThemeStore.save(&ThemeLocation(path.display().to_string()), &tried.theme, &tried.assets).unwrap();
@@ -420,9 +420,6 @@ fn a_tried_profile_shows_under_the_cover_then_the_screen_returns() {
     let scene = &f.engine.scenes[&f.key];
     assert_eq!(scene.runtime.theme().name, base.theme.name);
     assert!(scene.profile_id.is_none() && scene.profile_restore.is_none() && scene.preview_until.is_none());
-    std::fs::remove_file(&file.0).unwrap();
-    std::fs::remove_file(path).unwrap();
-    std::fs::remove_dir(directory).unwrap();
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
