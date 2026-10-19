@@ -2,6 +2,12 @@
 
 ## Contesto di ripresa — 2026-10-19
 
+- Pronta funzionalità per **0.1.53**, non ancora compilata/consegnata: rotazione
+  di immagini/icone/forme guidata da sensore, con inerzia e arresto a zero,
+  anche in card e gruppi. Test mirati, clippy e UI verdi; Studio .52 aperto,
+  attendere salvataggio/chiusura per build diretta. Vedi
+  [movimento dai sensori](todos/2026-10-19-movimento-sensori.md).
+
 - Riepilogo operativo e checklist unica delle verifiche ancora aperte:
   [ripresa .52](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
   build sono storici; i relativi PID non descrivono necessariamente la sessione

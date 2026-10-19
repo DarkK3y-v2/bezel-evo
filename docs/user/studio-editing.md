@@ -86,6 +86,29 @@ wrap within the panel rather than forcing horizontal scrolling.
 
 ![The inspector of a CPU ring, Look tab, with the colour picker open](../images/studio-color-picker.png)
 
+### Sensor-driven motion
+
+Select an image, icon, shape or another ordinary widget and open **Look →
+Sensor-driven motion**. Turn on **Rotate with the sensor**, then choose a
+numeric sensor. Containers and device-video cutouts do not offer this control;
+ordinary objects inside cards and groups do.
+
+For a fan graphic, choose its RPM sensor, set **Reading at maximum speed** to
+3000, **Maximum speed** to 1 turn/s and **Inertia** to 600 ms. A reading of
+1500 approaches half that visual speed. This is a visual scale: the animation
+does not try to reproduce thousands of physical revolutions per minute.
+
+**Inertia** softens acceleration and deceleration; 0 changes speed immediately.
+Zero, negative or unavailable readings slow the graphic to a stop, holding its
+last angle. **Counterclockwise** reverses the direction. Motion applies around
+the frame centre, so centre the artwork within its image for a balanced rotor.
+
+The live preview uses the same motion as the display, with enough transparent
+space for every angle. Reduced motion shows the authored static orientation.
+Sensor sampling stays unchanged; each display renders at its own output pace,
+requesting up to 50 frames/s while the graphic moves, subject to rendering and
+transfer costs. The stored rotation and object frame are not changed by playback.
+
 ### Colours
 
 Every colour in Studio opens the same **colour picker**:

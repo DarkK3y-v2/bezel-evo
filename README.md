@@ -51,6 +51,9 @@ Studio has been redesigned from the ground up, in dark and light.
   next to the app and media triggers.
 - **Values that glide.** Rings, bars, needles and numbers move smoothly to each
   new reading instead of jumping, without flooding the screen with frames.
+- **Movement driven by sensors.** Rotate custom images, icons and shapes with
+  fan RPM or another reading, with adjustable visual speed, inertia and direction.
+  Zero or missing readings slow them to a stop, also inside cards and groups.
 - **Graphs that scroll smoothly.** Line, area and bar histories move between
   real samples, up to 50 fps where rendering and the display allow. Each screen
   follows its own output pace. Sampling stays unchanged; scrolling uses up to
