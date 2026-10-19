@@ -5,6 +5,14 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.45] - 2026-10-19
+
+0.1.44 was a local build; this entry and the one below cover it.
+
+### Packaging
+- Provide Windows x64 installer and portable packages with smooth native graph
+  scrolling, independent display pacing and the rendering frame-budget fix.
+
 ## [0.1.44] - 2026-10-19
 
 ### Widgets
