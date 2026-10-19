@@ -70,8 +70,9 @@ Studio has been redesigned from the ground up, in dark and light.
   a video already stored on the screen, and nothing changes until you confirm.
 - **Quick hands.** Mouse wheel zooms around the pointer, the middle button pans,
   double-clicking an object fits its frame to its content.
-- **Status at a glance.** The sensor chip opens a popover with each piece of
-  hardware and its last reading, with **Restart Libre** one click away; a memory
+- **Status at a glance.** The sensor chip summarizes probes and their available,
+  unavailable and unchecked sensor counts. Click a count to open Sensors with
+  matching probe/status filters. **Restart Libre** stays one click away; a memory
   chip shows how much Bezel uses, per process; **Preferences → Logs** opens the
   logs folder.
 
@@ -85,7 +86,7 @@ Studio has been redesigned from the ground up, in dark and light.
 | **Card faces and one transition** | **A media player you compose** |
 | [![A Card selected: its two faces in a list with Edit buttons, the shared background row and a slide transition of 650 ms](docs/images/studio-card-faces.png)](docs/images/studio-card-faces.png) | [![The media player's What to show tiles and its progress bar options: fill, track, thickness, round ends, knob, segments and times at the sides](docs/images/studio-player.png)](docs/images/studio-player.png) |
 | **Change the background** | **Sensor status** |
-| [![The Change background panel with three sources: solid colour in use, from this computer opened with Choose a file, and video from the screen](docs/images/studio-background.png)](docs/images/studio-background.png) | [![Sensors panel with live sparklines and the sensor status popover listing each piece of hardware, one of them missing, with Restart Libre](docs/images/studio-sensors.png)](docs/images/studio-sensors.png) |
+| [![The Change background panel with three sources: solid colour in use, from this computer opened with Choose a file, and video from the screen](docs/images/studio-background.png)](docs/images/studio-background.png) | [![Sensors panel with probe and status filters, compact probe counts and Restart Libre](docs/images/studio-sensor-probes.png)](docs/images/studio-sensor-probes.png) |
 | **Light theme** | **On the screen** |
 | [![Studio in its light theme: Layers with a Card's faces and the CPU ring's colour-by-value thresholds at 70 and 90](docs/images/studio-light.png)](docs/images/studio-light.png) | [![Illustrative portrait USB screen showing the Ember example; not a product photograph](docs/images/screen-render.png)](docs/images/screen-render.png) |
 

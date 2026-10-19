@@ -7,6 +7,12 @@ disks, network, motherboard and fans. In Studio they are in the **Sensors**
 panel, grouped by category, each with its current value and a small history
 line. Drag one onto the canvas to show it, or onto a widget to bind it.
 
+Combine the search and category choices with **Probe** (Windows,
+LibreHardwareMonitor, NVML or another reader) and **Status**: all, available,
+unavailable or not checked yet. The result count shows how many sensors match
+out of the managed catalog. Valid zero values and text readings are available;
+not checked yet means no reading has arrived, rather than a failed sensor.
+
 From a terminal:
 
 ```powershell
@@ -40,17 +46,21 @@ The **sensor chip** in Studio's status bar shows how the readings go:
 
 - **sensors · 3 ms**, with a green dot: everything reads (the time is how long the
   last reading took);
-- **sensors · 1 missing**, yellow: at least one piece of hardware gives no
-  readings;
-- **sensors stopped**, red: no hardware readings at all.
+- **sensors · 1 missing**, yellow: at least one sensor reading is unavailable;
+- a red state: none of the checked sensors can be read, or sampling failed;
+- **sensors not checked yet**: no checked readings are available yet.
 
-Click it for the details: each piece of hardware with its source, number of
-sensors and a sample value, the time of the last reading, and **Restart Libre**,
-which restarts the hardware sensor reader. A restart can recover a device whose
-readings stopped (a Corsair power supply over USB, for example). **Open
-Sensors** shows the panel.
+Click it for a compact **Probes and sensors** summary. One row per probe shows
+its state and sensor counts. Click the probe to open its sensors, or its
+available/unavailable count to open that filtered view. Overall counts work the
+same way. Hardware paths and individual values stay in the Sensors panel.
 
-![The sensor status popover with one missing device and Restart Libre](../images/studio-sensors.png)
+The last-reading time and **Restart Libre** remain available. Restart affects
+only the LibreHardwareMonitor reader. Filters continue checking their selected
+scope so a recovered sensor leaves the unavailable view automatically.
+**Open Sensors** clears the filters and opens the whole catalog.
+
+![Sensors with probe and status filters and the compact probe summary](../images/studio-sensor-probes.png)
 
 ## When a value is unavailable
 
@@ -82,8 +92,9 @@ Bezel measures once a second, and only while something you see uses the ping:
 
 - a theme with a `net.ping` element, shown by Light, `bezel run` or Studio (live
   on the screen, or in the editor);
-- Studio's sensor list, while it shows the ping (its panel open, the ping not
-  filtered out by the search);
+- Studio's sensor list while its panel is open and ping is in the selected
+  search/category/probe scope. A status filter keeps checking that scope to
+  detect failures and recovery;
 - `bezel sensors`, which lists every sensor.
 
 Otherwise nothing is sent to the ping target, and `net.ping` reads unavailable
