@@ -1,5 +1,15 @@
 # Prototipo di scene H.264 e uscite eterogenee
 
+## Stato corrente — 2026-10-19
+
+Lo scorrimento dei grafici sul percorso **nativo** è ora integrato dalla .44,
+incluso nel setup .45 e installato localmente. Vedi
+[grafici fluidi](2026-10-19-grafici-fluidi.md) e
+[setup .45](2026-10-19-setup-0.1.45.md). H264 rimane separato e non abilitato nel
+prodotto: la prova sul CT88 seriale ha misurato il percorso nativo, non H264.
+Le sezioni di seguito riportano lo sviluppo dell'esperimento e i risultati
+storici; la vecchia indicazione «integrare i grafici» è stata soddisfatta.
+
 ## Richiesta
 
 L'utente vuole provare l'evoluzione verso grafici e scena completa fluidi,

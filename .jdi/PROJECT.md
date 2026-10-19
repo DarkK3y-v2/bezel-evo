@@ -1,5 +1,30 @@
 # Bezel
 
+## Contesto di ripresa — 2026-10-19
+
+- Versione corrente: **0.1.45**, setup locale creato, avviato su richiesta e
+  installazione verificata in `%LOCALAPPDATA%/Bezel Evo`. Versione nel registro
+  Windows e hash di CLI/Studio installati corrispondono alla build del pacchetto.
+  Nessun push, tag o rilascio GitHub eseguito per questi aggiornamenti.
+- Grafici nativi fluidi integrati dalla .44: scorrimento di linea, area e barre,
+  massimo richiesto 50 fps, cadenza indipendente per display e campionamento
+  invariato. Ritardo visivo fino a un intervallo di campionamento. Sul tema reale
+  Midnight dell'8.8 misurati 32,96 invii/s: non è una misura ottica del refresh.
+- H264 è un esperimento separato, non attivato nel prodotto. Il CT88 Rev C
+  collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
+- Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
+  produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
+  Studio al posto dell'utente. Sessione osservata dopo l'installazione ancora da
+  `target/release`: non confonderla con la copia installata; non sostituirla
+  automaticamente durante una semplice ripresa del lavoro.
+- Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
+  [grafici fluidi](todos/2026-10-19-grafici-fluidi.md),
+  [setup .45](todos/2026-10-19-setup-0.1.45.md),
+  [prototipo H264 e prove fisiche](todos/2026-10-18-prototipo-streaming-scene.md).
+- Restano la valutazione visiva dell'utente sui due display, la verifica manuale
+  della fase rotazione e gli eventuali miglioramenti dei temi più pesanti.
+  Non segnare la fase verificata o pubblicare senza le relative richieste.
+
 ## Vision
 Controlar pelo software **tudo** que as telas USB "smart screen" (Turing/TURZX e clones: XuanFang, Kipye, WeAct, UsbMonitor, 0x43A8/0x1CBE) oferecem — imagem, vídeo, cartão SD, brilho, rotação, sensores do PC — no Windows, com um editor de temas drag-and-drop numa janela única e medições corretas.
 

@@ -105,6 +105,14 @@ there is no global frame rate tied to the slowest device. Actual frame rates
 depend on scene rendering and native transfer cost. Card-face caching excludes
 moving graphs; reduced-motion rendering shows the latest static graph.
 
+The native graph implementation ships in the local 0.1.45 Windows package.
+With the user's actual Midnight wide scene (seven graphs and an audio spectrum),
+a ten-second Light diagnostics window on 0.1.44 recorded 329 partial transfers,
+32.96 completed transfers/s and 5.75 ms mean native present time. The second
+display continued independently with its own non-graph scene. These are host
+completion measurements, not optical refresh measurements or a 50 fps guarantee.
+The 0.1.45 package changes packaging/version metadata without changing graph code.
+
 ### Physical native-path baseline (2026-10-18)
 
 The connected CT88INCH Rev C 8.8 panel (COM6, firmware

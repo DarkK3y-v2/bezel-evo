@@ -1,5 +1,13 @@
 # Grafici fluidi nel runtime nativo
 
+## Aggiornamento di consegna
+
+La build diretta .44 è stata seguita dal setup locale **.45**, creato e avviato
+su richiesta dell'utente. Installazione verificata tramite registro Windows e
+hash degli eseguibili installati. Vedi [setup .45](2026-10-19-setup-0.1.45.md).
+I risultati fisici sotto riportati appartengono alla misura sulla .44; .45
+impacchetta lo stesso comportamento senza ulteriori modifiche al codice.
+
 ## Richiesta e perimetro
 
 Dopo il prototipo H264 e la prova sul CT88 seriale, integrare la fluidità dei
