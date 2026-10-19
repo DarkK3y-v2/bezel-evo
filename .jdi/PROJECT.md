@@ -2,10 +2,12 @@
 
 ## Contesto di ripresa — 2026-10-19
 
-- Build di sviluppo corrente **0.1.51**, compilata e avviata direttamente dopo
-  conferma salvataggio e chiusura: descrizioni delle sorgenti Sensori a capo
-  senza scroll orizzontale. 23 unitari UI e 12 e2e verdi, tre larghezze
-  verificate in chiaro/scuro. Vedi [descrizioni](todos/2026-10-19-sensori-descrizione-wrap.md).
+- Build di sviluppo corrente **0.1.52**, compilata e avviata direttamente con
+  Studio e Light chiusi: filtro Tipo di oggetto nei Livelli, combinato alla
+  ricerca e rispettoso della gerarchia. 71 unitari UI e 16 e2e verdi.
+  Vedi [filtro Livelli](todos/2026-10-19-livelli-filtro-tipo.md).
+- Dalla **0.1.51**: descrizioni sorgenti Sensori a capo senza scroll orizzontale.
+  Vedi [descrizioni](todos/2026-10-19-sensori-descrizione-wrap.md).
 - Dalla **0.1.50**: scrollbar condivise sottili e arrotondate, padding di 8 px
   nella lista sonde e gutter stabile. Vedi [scrollbar](todos/2026-10-19-scrollbar-studio.md).
 - Dalla **0.1.48**: alias GPU raggruppati per lettore
