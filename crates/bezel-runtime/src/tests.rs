@@ -402,6 +402,21 @@ fn graph_frames_follow_twenty_ms_clock_without_more_sensor_samples() {
     assert_eq!(seen.last().unwrap().clock, Duration::from_millis(1020));
     assert_eq!(seen.last().unwrap().history.len(), 2, "animation must not sample");
 }
+
+#[test]
+fn rendering_that_exhausts_the_frame_budget_does_not_add_another_wait() {
+    struct Slow;
+    impl FrameRenderer for Slow {
+        fn render(&mut self, theme: &Theme, _: &BTreeMap<AssetRef, Vec<u8>>, _: RenderContext<'_>) -> Result<Frame> {
+            std::thread::sleep(Duration::from_millis(60));
+            Ok(Frame::filled(theme.canvas, Rgba::BLACK))
+        }
+    }
+    let mut f = fixture();
+    f.engine.renderer = Box::new(Slow);
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    assert_eq!(f.engine.tick().unwrap(), Duration::ZERO);
+}
 #[test]
 fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
     let mut f = fixture();

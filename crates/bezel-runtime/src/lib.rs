@@ -509,7 +509,11 @@ impl Engine {
     }
     /// Run at the engine's own monotonic time, independent of canvas requests.
     pub fn tick(&mut self) -> Result<Duration> {
-        self.tick_at(self.origin.elapsed(), (self.clock)())
+        let began = Instant::now();
+        let delay = self.tick_at(self.origin.elapsed(), (self.clock)())?;
+        // Deadlines are relative to the beginning of the tick. Rendering is
+        // part of the frame budget, not extra sleep after every frame.
+        Ok(delay.saturating_sub(began.elapsed()))
     }
     /// Deterministic clock entry for tests and the same loop's scheduling.
     pub fn tick_at(&mut self, now: Duration, time: LocalTime) -> Result<Duration> {
