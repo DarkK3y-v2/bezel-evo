@@ -5,6 +5,18 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [Unreleased]
+
+### Studio
+- Profile changes now use one of four covers: **Curtain**, **Wipe**, **Blinds**
+  or **Mosaic**. A panel closes over the screen, the new theme is prepared
+  underneath and the panel opens on its first frame, so loading never shortens
+  the motion. Covers work on every display size and shape, also over a video
+  the screen plays itself. Saved Fade, Slide and Flip settings become Mosaic,
+  Wipe and Curtain.
+- Show a solid background colour once in the theme inspector, as the field
+  that changes it.
+
 ## [0.1.55] - 2026-10-19
 
 ### Fixes
