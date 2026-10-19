@@ -5,6 +5,13 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.49] - 2026-10-19
+
+### Studio
+- Use slim rounded scrollbars throughout Studio, with transparent tracks,
+  no arrow buttons and clearer hover/drag feedback in light and dark themes.
+  Preserve native scrollbars in Windows forced-colour mode.
+
 ## [0.1.48] - 2026-10-19
 
 ### Studio
