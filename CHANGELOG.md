@@ -5,6 +5,21 @@ All notable changes to Bezel Evo are documented here. The format follows
 [Semantic Versioning](https://semver.org/). The version is the one in the
 `VERSION` file, set when a Windows release is built.
 
+## [0.1.53] - 2026-10-19
+
+### Widgets
+- Drive visual rotation from a numeric sensor: fan RPM, load or another reading.
+  Set the reference reading, maximum visual turns per second, inertia and direction.
+  Zero, negative or unavailable readings decelerate to a stop at the last angle.
+- Apply motion to custom images, icons, shapes and other ordinary widgets,
+  including card/group members. Each scene keeps its own motion state;
+  output follows each display's pace without increasing sensor sampling.
+
+### Studio
+- Configure sensor-driven motion in Look. The isolated preview animates with
+  room for every angle; reduced motion shows the original static orientation.
+- Keep motion optional in theme files, preserving unchanged older themes.
+
 ## [0.1.52] - 2026-10-19
 
 ### Studio
