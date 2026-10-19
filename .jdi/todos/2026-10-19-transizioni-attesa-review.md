@@ -92,3 +92,5 @@ Verificato il main pubblico il 19 ottobre 2026, leggendo codice e documentazione
   aggiunta a Bezel per capacità del modello, distinta dall'attesa disegnata dal PC.
 - Nessun programma esterno eseguito e nessuna scrittura al dispositivo. La CLI
   `devices` fa solo enumerazione. Nessuna nuova compilazione.
+
+Approfondimento specifico del display seriale: [avvio 8,8 Rev C](2026-10-19-avvio-88-revc.md). Attesa autonoma album/video confermata nelle prove esistenti; logo firmware ancora non confermato.
