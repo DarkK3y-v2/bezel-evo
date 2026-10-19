@@ -21,6 +21,17 @@ h1, h2, h3, h4, b, strong, th { font-weight: 600; }
 code, kbd, samp, pre { font-family: var(--font-mono); }
 
 * { box-sizing: border-box; }
+/* Shared Windows/WebView2 scrollbars: a quiet rounded thumb with no arrows.
+   Keep native controls in forced-colour mode. The wider transparent hit area
+   remains draggable while the visible thumb stays compact. */
+@media (forced-colors: none) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { min-height: 32px; min-width: 32px; border: 3px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--dim) 55%, transparent); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { border-width: 2px; background-color: var(--dim); }
+  ::-webkit-scrollbar-thumb:active { background-color: var(--text-2); }
+  ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }
