@@ -2,16 +2,14 @@
 //! This is OS/process information, not a core sensor or renderer concern.
 //! No CPU counters, command lines, modules, network or hardware are refreshed.
 
-#[cfg(any(windows, test))]
 use std::collections::{BTreeMap, BTreeSet};
-#[cfg(any(windows, test))]
+
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-#[cfg(windows)]
 #[allow(unsafe_code)] // Read-only Win32 queries, each with its safety rationale.
 mod windows;
 
@@ -99,7 +97,6 @@ pub fn light_label(report: &MemoryReport, locale: &str) -> String {
 }
 
 /// The inexpensive topology from a single process snapshot.
-#[cfg(any(windows, test))]
 #[derive(Clone, Debug)]
 struct Process {
     pid: u32,
@@ -108,7 +105,6 @@ struct Process {
 }
 
 /// Verified identity and measurement, read only for plausible Bezel processes.
-#[cfg(any(windows, test))]
 #[derive(Clone)]
 struct Details {
     path: PathBuf,
@@ -116,13 +112,11 @@ struct Details {
     bytes: Option<u64>,
 }
 
-#[cfg(any(windows, test))]
 trait Enumerator {
     fn processes(&mut self) -> Option<Vec<Process>>;
     fn details(&mut self, pid: u32) -> Option<Details>;
 }
 
-#[cfg(any(windows, test))]
 fn same_path(a: &Path, b: &Path) -> bool {
     // Windows executable paths are case insensitive. Inputs from the OS are
     // canonicalized, so junctions and the extended-path prefix agree too.
@@ -140,7 +134,6 @@ fn report(processes: Vec<ProcessMemory>) -> MemoryReport {
     }
 }
 
-#[cfg(any(windows, test))]
 fn aggregate(enumerator: &mut impl Enumerator, directory: &Path) -> MemoryReport {
     let Some(processes) = enumerator.processes() else {
         return MemoryReport::unavailable();
@@ -245,7 +238,6 @@ pub fn sample(scope: Scope) -> MemoryReport {
 }
 
 fn system_report() -> MemoryReport {
-    #[cfg(windows)]
     {
         let Ok(executable) = std::env::current_exe().and_then(std::fs::canonicalize) else {
             return MemoryReport::unavailable();
@@ -258,8 +250,6 @@ fn system_report() -> MemoryReport {
         };
         aggregate(&mut enumerator, directory)
     }
-    #[cfg(not(windows))]
-    MemoryReport::unavailable()
 }
 
 #[cfg(test)]

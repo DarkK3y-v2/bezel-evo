@@ -16,5 +16,6 @@ export function sampledSensorKeys(libraryKeys, { theme, selection }, visible = t
   if (!visible) return [];
   const element = selection.length === 1 ? theme.elements.find(e => e.id === selection[0]) : null;
   const activity = inspectorShown && element && (widgetOf(element) === 'player' || element.card?.triggers?.some(r => r.source !== 'timer'));
-  return [...new Set([...libraryKeys, ...(activity ? ACTIVITY_KEYS : [])])];
+  const motion = inspectorShown && element?.sensorMotion ? [element.sensorMotion.sensor] : [];
+  return [...new Set([...libraryKeys, ...motion, ...(activity ? ACTIVITY_KEYS : [])])];
 }

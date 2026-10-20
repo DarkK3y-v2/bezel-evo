@@ -1,3 +1,4 @@
+import { canRotate, normalizeDegrees } from './rotation.js';
 import { normalizeCardTheme } from '../card-config.js';
 // The editor store: the theme being edited (theme.json shape), the
 // selection, and an undo/redo history. Every change goes through a command;
@@ -13,6 +14,12 @@ import { layerDropIndex, layerPlacement } from './layers.js';
 export const HISTORY_LIMIT = 200;
 
 const clone = (v) => structuredClone(v);
+
+function withoutRotation(e, clear = true) {
+  if (!clear) return e;
+  const { rotation, ...rest } = e;
+  return rest;
+}
 
 function nextId(theme) {
   return theme.elements.reduce((max, e) => Math.max(max, e.id), 0) + 1;
@@ -106,9 +113,19 @@ export const commands = {
     };
   },
 
-  setFrame(theme, { id, frame }) {
+  rotate(theme, { id, rotation }) {
+    if (!Number.isFinite(rotation)) return { theme };
+    return { theme: mapElements(theme, [id], e => {
+      if (!canRotate(theme, e) || owners(theme, e).some(p => p.locked)) return e;
+      const { rotation: old, ...rest } = e;
+      const angle = normalizeDegrees(rotation);
+      return angle ? { ...rest, rotation: angle } : rest;
+    }) };
+  },
+
+  setFrame(theme, { id, frame, precise = false }) {
     const e = theme.elements.find(e => e.id === id);
-    return { theme: e && !owners(theme, e).some(p => p.locked) ? transformCard(theme, id, roundBox(frame)) : theme };
+    return { theme: e && !owners(theme, e).some(p => p.locked) ? transformCard(theme, id, precise ? frame : roundBox(frame)) : theme };
   },
 
   cardFace(theme, { id, face }) {
@@ -161,7 +178,7 @@ export const commands = {
     const members = new Set(withChildren(theme, [...rootIds]));
     // A card cannot itself be nested inside another card.
     if (theme.elements.some(e => members.has(e.id) && e.card)) return { theme };
-    const next = mapElements(theme, [...members], e => ({ ...e,
+    const next = mapElements(theme, [...members], e => ({ ...withoutRotation(e, !!card),
       ...(rootIds.has(e.id) ? { groupParent: null } : {}),
       cardMember: card ? { parent, face } : null,
     }));
@@ -181,7 +198,7 @@ export const commands = {
       frame: unionBox(members.map(e => e.frame)), opacity: 1, visible: true, locked: false,
       kind: { type: 'shape', shape: 'rect', radius: 0, fill: null, stroke: null } };
     const direct = new Set(members.map(e => e.id)), all = new Set(withChildren(theme, [...direct]));
-    const block = theme.elements.filter(e => all.has(e.id)).map(e => direct.has(e.id) ? { ...e, groupParent: id } : e);
+    const block = theme.elements.filter(e => all.has(e.id)).map(e => direct.has(e.id) ? { ...withoutRotation(e), groupParent: id } : e);
     const elements = theme.elements.filter(e => !all.has(e.id));
     const anchor = theme.elements.findIndex(e => e.id === first.id);
     const index = theme.elements.slice(0, anchor).filter(e => !all.has(e.id)).length;
@@ -222,7 +239,7 @@ export const commands = {
 
   /** Replaces an element's kind (e.g. show a sensor as a ring instead of text). */
   setKind(theme, { id, kind }) {
-    return { theme: mapElements(theme, [id], (e) => ({ ...e, kind: clone(kind) })) };
+    return { theme: mapElements(theme, [id], (e) => ({ ...e, kind: clone(kind), ...(e.visualization ? { visualization: null } : {}) })) };
   },
 
   /** Merges theme properties; a new background replaces the old one whole. */

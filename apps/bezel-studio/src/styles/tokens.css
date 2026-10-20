@@ -5,6 +5,14 @@
 :root {
   color-scheme: light dark;
   --accent: #FF9248;
+  --brand-light: #F2EDE6;
+  --live: #34D399;
+  /* What a profile rule watches, tinted with color-mix in both schemes. */
+  --rule-media: #D946EF;
+  --rule-app: #84CC16;
+  --control-height: 34px;
+  --control-radius: 8px;
+  --inspector-tabs-gap: 28px;
   --accent-text: #1A0E05;
   --accent-soft: #FFE6D4;
   --accent-ink: #A6460F;
@@ -105,7 +113,7 @@
     --surface-3: #1D2227;
     --chrome: #101316;
     --well: #0F1214;
-    --text: #E8EAED;
+    --text: var(--brand-light);
     --text-2: #D5D9DE;
     --text-3: #AEB5BD;
     --muted: #8B939C;
@@ -114,7 +122,7 @@
     --border: #262B31;
     --line: #1D2227;
     --border-2: #23282E;
-    --ok: #34D399;
+    --ok: var(--live);
     --ok-soft: #0F2219;
     --ok-ink: #6EE7B7;
     --ok-line: #1F4D3B;

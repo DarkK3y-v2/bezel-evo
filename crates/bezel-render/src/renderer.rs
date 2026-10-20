@@ -125,6 +125,8 @@ pub struct SkiaRenderer {
     card_scene: u64,
     font_poll_due: Option<std::time::Duration>,
     card_scenes: HashMap<u64, crate::cards::Cards>,
+    rotors: HashMap<(u64, ElementId), crate::sensor_motion::Rotor>,
+    rotor_due: Option<std::time::Duration>,
 }
 
 /// Where an element sits in its theme: z-index and id.
@@ -158,7 +160,7 @@ const FACE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 /// Elements whose pixels depend on nothing but themselves (no sensor, no
 /// clock, no asset), so their layer can be kept between frames.
 fn is_static(element: &Element) -> bool {
-    if element.color_by_value.is_some() {
+    if element.color_by_value.is_some() || element.sensor_motion.is_some() {
         return false;
     }
     match &element.kind {
@@ -211,6 +213,8 @@ impl SkiaRenderer {
             card_scene: 0,
             font_poll_due: None,
             card_scenes: HashMap::new(),
+            rotors: HashMap::new(),
+            rotor_due: None,
         }
     }
 }
@@ -297,6 +301,15 @@ impl FrameRenderer for SkiaRenderer {
         if theme.is_locked(element) || element.card.is_some() || element.is_group {
             return Ok(None);
         }
+        if matches!(
+            &element.kind,
+            ElementKind::Text {
+                content: TextContent::Spectrum(_),
+                ..
+            }
+        ) {
+            return Ok(None);
+        }
         let old = element.frame;
         let (width, height, ax, ay) = match &element.kind {
             ElementKind::Text { content, style } => {
@@ -378,10 +391,10 @@ impl FrameRenderer for SkiaRenderer {
         self.render_stats
     }
     fn next_change(&self) -> Option<std::time::Duration> {
-        match (self.cards.next, self.font_poll_due) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        }
+        [self.cards.next, self.font_poll_due, self.rotor_due]
+            .into_iter()
+            .flatten()
+            .min()
     }
     fn set_motion(&mut self, allowed: bool) {
         self.cards.motion = allowed;
@@ -393,6 +406,11 @@ impl FrameRenderer for SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: RenderContext<'_>,
     ) -> Result<Frame> {
+        self.rotor_due = None;
+        if self.rotors.len() > 4096 {
+            self.rotors
+                .retain(|(scene, _), _| *scene == self.card_scene);
+        }
         let changed = self.text.refresh_user_fonts();
         if self.text.retain_assets(&theme.assets()) || changed {
             self.layers.clear();
@@ -508,6 +526,7 @@ fn value_fraction(id: ElementId, binding: &Binding, context: &RenderContext<'_>)
 /// What a text element prints now.
 fn text_of(id: ElementId, content: &TextContent, context: &RenderContext<'_>) -> String {
     match content {
+        TextContent::Spectrum(_) => String::new(),
         TextContent::Player(p) => {
             let Some(m) = bezel_core::domain::playback::session(context.snapshot, &p.source) else {
                 return p.empty_text.clone();
@@ -555,7 +574,36 @@ fn opacity_of(opacity: f32) -> u8 {
 }
 
 /// Composites a layer covering `bounds` onto the canvas.
-fn composite_layer(canvas: &mut Pixmap, pixels: &[u8], bounds: IntRect, opacity: u8, opaque: bool) {
+fn composite_layer(
+    canvas: &mut Pixmap,
+    pixels: &[u8],
+    bounds: IntRect,
+    opacity: u8,
+    opaque: bool,
+    element: &Element,
+) {
+    let angle = element.applied_rotation();
+    if angle != 0.0 {
+        let Some(source) =
+            tiny_skia::PixmapRef::from_bytes(pixels, bounds.width(), bounds.height())
+        else {
+            return;
+        };
+        let (cx, cy) = element.frame.center();
+        canvas.draw_pixmap(
+            bounds.x(),
+            bounds.y(),
+            source,
+            &tiny_skia::PixmapPaint {
+                opacity: f32::from(opacity) / 255.0,
+                quality: tiny_skia::FilterQuality::Bilinear,
+                ..Default::default()
+            },
+            Transform::from_rotate_at(angle, cx, cy),
+            None,
+        );
+        return;
+    }
     let (width, height) = (canvas.width(), canvas.height());
     let mut target = Target {
         data: canvas.data_mut(),
@@ -580,6 +628,15 @@ fn element_bounds(
     canvas: IntRect,
 ) -> Option<IntRect> {
     let area = element.frame;
+    if element.applied_rotation() != 0.0 {
+        let bounds = Rect::from_xywh(area.x, area.y, area.width, area.height)?.round_out()?;
+        return IntRect::from_xywh(
+            bounds.x(),
+            bounds.y(),
+            bounds.width().min(MAX_CANVAS_SIDE),
+            bounds.height().min(MAX_CANVAS_SIDE),
+        );
+    }
     let rect = match &element.kind {
         ElementKind::Needle {
             binding,
@@ -807,12 +864,26 @@ impl SkiaRenderer {
                     .collect();
                 // Animated image faces take the original drawing path. Static icons
                 // and all sensor/text widgets may reuse surfaces until inputs change.
-                let animated = selected.iter().any(|(_, e)| match &e.kind {
-                    ElementKind::Image { asset, .. } => self
-                        .images
-                        .timeline(asset, assets, &mut self.diagnostics)
-                        .is_some(),
-                    _ => false,
+                let animated = selected.iter().any(|(_, e)| {
+                    e.sensor_motion.is_some()
+                        || match &e.kind {
+                            ElementKind::Graph {
+                                binding,
+                                interval_seconds,
+                                ..
+                            } => {
+                                self.cards.motion
+                                    && context.histories.scroll_offset(
+                                        &SeriesId::graph(&binding.key, *interval_seconds),
+                                        context.animation,
+                                    ) > 0.
+                            }
+                            ElementKind::Image { asset, .. } => self
+                                .images
+                                .timeline(asset, assets, &mut self.diagnostics)
+                                .is_some(),
+                            _ => false,
+                        }
                 });
                 let key = (self.card_scene, parent.id, pose.face, include, has_windows);
                 let cached = self.face_cache.get(&key).filter(|face| {
@@ -978,6 +1049,30 @@ impl SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: &RenderContext<'_>,
     ) {
+        let mut moving;
+        let element = if self.cards.motion
+            && element.supports_sensor_motion()
+            && let Some(settings) = element.sensor_motion.as_ref().filter(|s| s.is_valid())
+        {
+            let rotor = self
+                .rotors
+                .entry((self.card_scene, element.id))
+                .or_insert_with(|| crate::sensor_motion::Rotor::new(settings, context.animation));
+            let (phase, active) = rotor.step(
+                settings,
+                context.animation,
+                context.snapshot.get(&settings.sensor).value(),
+            );
+            if active {
+                self.rotor_due = Some(context.animation + std::time::Duration::from_millis(20));
+            }
+            moving = element.clone();
+            moving.rotation =
+                bezel_core::domain::rotation::normalize_degrees(element.applied_rotation() + phase);
+            &moving
+        } else {
+            element
+        };
         let opacity = opacity_of(element.opacity);
         let Some(canvas_rect) = IntRect::from_xywh(0, 0, canvas.width(), canvas.height()) else {
             return;
@@ -1030,7 +1125,7 @@ impl SkiaRenderer {
             self.used_layers.insert(key);
             let kept = self.layers.get(&key);
             if let Some(kept) = kept.filter(|k| k.bounds == bounds && k.element == *element) {
-                composite_layer(canvas, &kept.pixels, bounds, opacity, kept.opaque);
+                composite_layer(canvas, &kept.pixels, bounds, opacity, kept.opaque, element);
                 return;
             }
         }
@@ -1065,7 +1160,7 @@ impl SkiaRenderer {
             }
         }
         let opaque = cacheable && composite::is_opaque(&scratch);
-        composite_layer(canvas, &scratch, bounds, opacity, opaque);
+        composite_layer(canvas, &scratch, bounds, opacity, opaque, element);
         if cacheable {
             let kept = CachedLayer {
                 element: element.clone(),
@@ -1085,6 +1180,54 @@ impl SkiaRenderer {
         assets: &BTreeMap<AssetRef, Vec<u8>>,
         context: &RenderContext<'_>,
     ) {
+        if let ElementKind::Text {
+            content: TextContent::Spectrum(s),
+            style,
+        } = &element.kind
+        {
+            let mut frame = context
+                .snapshot
+                .spectra
+                .get(&element.id)
+                .cloned()
+                // No result yet is silence, not a disabled capture.
+                .unwrap_or(bezel_core::domain::spectrum::SpectrumFrame {
+                    state: bezel_core::domain::spectrum::AudioState::Live,
+                    ..Default::default()
+                });
+            if s.demo {
+                frame.state = bezel_core::domain::spectrum::AudioState::Demo;
+                frame.levels = (0..s.bands)
+                    .map(|i| {
+                        0.45 + 0.25
+                            * (context.animation.as_secs_f32() * 2. + f32::from(i) * 0.37).sin()
+                    })
+                    .collect();
+                frame.peaks = frame.levels.iter().map(|v| (v + 0.08).min(1.)).collect();
+            }
+            crate::spectrum::draw(
+                layer,
+                element.frame,
+                s,
+                &frame,
+                &style.paint,
+                element.color_by_value.as_ref(),
+            );
+            let label = crate::spectrum::label(frame.state, context.language);
+            if !label.is_empty() {
+                self.text.draw(
+                    layer,
+                    &TextJob {
+                        text: label,
+                        style,
+                        area: element.frame,
+                    },
+                    assets,
+                    &mut self.diagnostics,
+                );
+            }
+            return;
+        }
         let color = element.value_color(context.snapshot, context.shown);
         let mut resolved;
         let element = if let Some(color) = color {
@@ -1251,6 +1394,20 @@ impl SkiaRenderer {
                     radius: *radius,
                     segments: *segments,
                 };
+                if let Some(v) = element
+                    .visualization
+                    .as_ref()
+                    .filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Matrix)
+                {
+                    crate::visualization::matrix(
+                        layer,
+                        area,
+                        value_fraction(element.id, binding, context),
+                        &style,
+                        v,
+                    );
+                    return;
+                }
                 gauges::draw_bar(
                     layer,
                     area,
@@ -1260,7 +1417,7 @@ impl SkiaRenderer {
             }
             ElementKind::Ring { .. } => draw_ring(layer, element, context),
             ElementKind::Needle { .. } => self.draw_needle(layer, element, assets, context),
-            ElementKind::Graph { .. } => draw_graph(layer, element, context),
+            ElementKind::Graph { .. } => draw_graph(layer, element, context, self.cards.motion),
         }
     }
 
@@ -1370,19 +1527,35 @@ fn draw_ring(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'
         cap: *cap,
         segments: *segments,
     };
+    let value = if *test_full {
+        Some(1.)
+    } else {
+        value_fraction(element.id, binding, context)
+    };
+    let visual = element.visualization.as_ref();
+    if let Some(v) =
+        visual.filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Pixel)
+    {
+        crate::visualization::pixel_arc(layer, element.frame, value, &style, v);
+        return;
+    }
+    let dial = visual.filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Dial);
     gauges::draw_ring(
         layer,
-        element.frame,
-        if *test_full {
-            Some(1.0)
+        if dial.is_some() {
+            crate::visualization::dial_area(element.frame)
         } else {
-            value_fraction(element.id, binding, context)
+            element.frame
         },
+        value,
         &style,
     );
+    if let Some(v) = dial {
+        crate::visualization::dial(layer, element.frame, value, &style, v);
+    }
 }
 
-fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'_>) {
+fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<'_>, motion: bool) {
     let ElementKind::Graph {
         binding,
         history,
@@ -1396,7 +1569,23 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
     else {
         return;
     };
+    let series = SeriesId::graph(&binding.key, *interval_seconds);
+    let scroll = if motion {
+        context.histories.scroll_offset(&series, context.animation)
+    } else {
+        0.
+    };
     let spec = GraphSpec {
+        rounded: element.visualization.as_ref().is_some_and(|v| {
+            matches!(
+                v.style,
+                bezel_core::domain::visualization::VisualStyle::Rounded
+                    | bezel_core::domain::visualization::VisualStyle::Mirrored
+            )
+        }),
+        gap: element.visualization.as_ref().map(|v| v.gap),
+        reverse: false,
+        scroll,
         history: *history,
         style: *style,
         color: *color,
@@ -1406,16 +1595,129 @@ fn draw_graph(layer: &mut Layer<'_>, element: &Element, context: &RenderContext<
         min: binding.min,
         max: binding.max,
     };
-    let series = SeriesId::graph(&binding.key, *interval_seconds);
-    let values = context.histories.points(&series, usize::from(*history));
-    graph::draw(layer, element.frame, &values, &spec);
+    let values = context
+        .histories
+        .points(&series, usize::from(*history) + usize::from(scroll > 0.));
+    if let Some(v) = element
+        .visualization
+        .as_ref()
+        .filter(|v| v.style == bezel_core::domain::visualization::VisualStyle::Mirrored)
+    {
+        let half = (element.frame.height - 2.).max(0.) / 2.;
+        let top = BoxF::new(element.frame.x, element.frame.y, element.frame.width, half);
+        let bottom = BoxF::new(
+            element.frame.x,
+            element.frame.y + half + 2.,
+            element.frame.width,
+            half,
+        );
+        let lower = v
+            .secondary
+            .as_ref()
+            .map(|b| {
+                context.histories.points(
+                    &SeriesId::graph(&b.key, *interval_seconds),
+                    usize::from(*history) + usize::from(scroll > 0.),
+                )
+            })
+            .unwrap_or_default();
+        let mut upper_spec = spec;
+        let mut lower_spec = GraphSpec {
+            reverse: true,
+            color: v.secondary_color,
+            fill: None,
+            ..spec
+        };
+        if let Some(b) = &v.secondary {
+            lower_spec.min = b.min;
+            lower_spec.max = b.max;
+        }
+        if spec.autoscale {
+            // Both series share the same zero baseline and peak; preserve their relative magnitudes.
+            let peak = values
+                .iter()
+                .chain(lower.iter())
+                .flatten()
+                .copied()
+                .filter(|v| v.is_finite())
+                .fold(0_f64, f64::max)
+                .max(1.)
+                * 1.1;
+            upper_spec.autoscale = false;
+            upper_spec.min = 0.;
+            upper_spec.max = peak;
+            lower_spec.autoscale = false;
+            lower_spec.min = 0.;
+            lower_spec.max = peak;
+        }
+        graph::draw(layer, top, &values, &upper_spec);
+        graph::draw(layer, bottom, &lower, &lower_spec);
+    } else {
+        graph::draw(layer, element.frame, &values, &spec);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::testkit::{self, Scene, count, element, png, px, render_over};
-    use bezel_core::domain::theme::{Paint, ShapeKind};
+    use bezel_core::domain::theme::{GraphStyle, Paint, ShapeKind};
+
+    #[test]
+    fn timed_graphs_move_between_samples_in_every_style_and_respect_reduced_motion() {
+        use bezel_core::domain::{
+            history::{Histories, Tick},
+            sensor::{Reading, Snapshot},
+        };
+        use std::time::Duration;
+        let key = bezel_core::domain::sensor::SensorKey::new("cpu.usage").unwrap();
+        for style in [GraphStyle::Line, GraphStyle::Area, GraphStyle::Bars] {
+            let e = element(
+                BoxF::new(8., 8., 112., 64.),
+                ElementKind::Graph {
+                    binding: bezel_core::domain::theme::Binding {
+                        key: key.clone(),
+                        min: 0.,
+                        max: 100.,
+                    },
+                    history: 4,
+                    interval_seconds: None,
+                    style,
+                    color: Rgba::WHITE,
+                    fill: None,
+                    line_width: 2.,
+                    autoscale: false,
+                },
+            );
+            let theme = testkit::theme(128, 80, Background::Color(Rgba::BLACK), vec![e]);
+            let mut scene = Scene::empty();
+            let id = SeriesId::graph(&key, None);
+            scene.histories = Histories::new(std::slice::from_ref(&id));
+            for (n, v) in [10., 80., 30., 90.].into_iter().enumerate() {
+                let mut snapshot = Snapshot::default();
+                snapshot.insert(key.clone(), Reading::Value(v));
+                scene.histories.push(
+                    &snapshot,
+                    Tick::At {
+                        now: Duration::from_secs(n as u64),
+                        refresh: true,
+                    },
+                );
+            }
+            let mut renderer = testkit::renderer();
+            scene.animation = Duration::from_millis(3000);
+            let a = testkit::render(&mut renderer, &theme, &scene);
+            scene.animation = Duration::from_millis(3500);
+            let b = testkit::render(&mut renderer, &theme, &scene);
+            assert_ne!(a, b, "{style:?} must move without sampling again");
+            assert_eq!(scene.histories.points(&id, 10).len(), 4);
+            renderer.set_motion(false);
+            let still = testkit::render(&mut renderer, &theme, &scene);
+            scene.animation = Duration::from_secs(4);
+            renderer.set_motion(true);
+            assert_eq!(still, testkit::render(&mut renderer, &theme, &scene));
+        }
+    }
 
     const CLEAR: Rgba = Rgba {
         r: 0,

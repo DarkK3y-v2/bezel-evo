@@ -346,12 +346,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
-name = "basic-udev"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a45f9771ced8a774de5e5ebffbe520f52e3943bf5a9a6baa3a5d14a5de1afe6"
-
-[[package]]
 name = "bezel"
 version = "0.0.0"
 dependencies = [
@@ -385,7 +379,9 @@ dependencies = [
  "bezel-devices",
  "bezel-media",
  "bezel-sensors",
+ "serde_json",
  "thiserror 2.0.21",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -420,6 +416,8 @@ name = "bezel-media"
 version = "0.0.0"
 dependencies = [
  "bezel-core",
+ "bezel-render",
+ "bezel-themes",
  "image",
  "serde",
  "serde_json",
@@ -435,7 +433,6 @@ dependencies = [
  "bezel-core",
  "bezel-devices",
  "chrono",
- "dbus",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -448,10 +445,12 @@ name = "bezel-render"
 version = "0.0.0"
 dependencies = [
  "bezel-core",
+ "bezel-themes",
  "cosmic-text",
  "fontdb",
  "image",
  "resvg",
+ "serde_json",
  "tiny-skia",
  "tracing",
  "ttf-parser",
@@ -467,9 +466,11 @@ dependencies = [
  "bezel-power",
  "bezel-sensors",
  "bezel-themes",
+ "ctrlc",
  "image",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -479,7 +480,6 @@ dependencies = [
  "bezel-core",
  "image",
  "nvml-wrapper",
- "rustix",
  "serde",
  "serde_json",
  "socket2",
@@ -2145,11 +2145,9 @@ version = "2.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "818c0e1d27887aaf76fe737042e27a66b796a7b099e6d2e1a72d106c2dff3fa6"
 dependencies = [
- "basic-udev",
  "cc",
  "cfg-if",
  "libc",
- "nix 0.30.1",
  "pkg-config",
  "windows-sys 0.61.2",
 ]
@@ -2784,26 +2782,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libudev"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78b324152da65df7bb95acfcaab55e3097ceaab02fb19b228a9eb74d55f135e0"
-dependencies = [
- "libc",
- "libudev-sys",
-]
-
-[[package]]
-name = "libudev-sys"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c8469b4a23b962c1396b9b451dda50ef5b283e8dd309d69033475fa9b334324"
-dependencies = [
- "libc",
- "pkg-config",
-]
-
-[[package]]
 name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3016,18 +2994,6 @@ checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
 dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
- "libc",
-]
-
-[[package]]
-name = "nix"
-version = "0.30.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
-dependencies = [
- "bitflags 2.13.2",
- "cfg-if",
- "cfg_aliases",
  "libc",
 ]
 
@@ -4323,7 +4289,6 @@ dependencies = [
  "core-foundation",
  "core-foundation-sys",
  "io-kit-sys 0.4.1",
- "libudev",
  "mach2 0.4.3",
  "nix 0.26.4",
  "scopeguard",

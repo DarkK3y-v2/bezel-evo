@@ -27,7 +27,6 @@
 .face-editor { display: grid; gap: 10px; margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); }
 .face-editor .field { margin: 0; }
 .face-editor input { font-family: var(--font-mono); }
-.face-object { display: flex; gap: 6px; align-items: center; min-width: 0; }
 .face-object .list-card { flex: 1 1 auto; min-width: 0; padding: 8px; }
 .face-object .field { flex: 0 1 104px; min-width: 0; }
 .face-object .field > span { display: none; }

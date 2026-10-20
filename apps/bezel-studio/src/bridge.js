@@ -501,6 +501,7 @@ function tauriBridge(invoke, tauri = {}) {
      * machine lacks (`null` without fonts).
      */
     fontCatalog: () => invoke('font_catalog'),
+    pickScreenColor: () => invoke('pick_screen_color'),
     /** Open only the fixed per-user font directory. */
     openFontsFolder: () => invoke('open_fonts_folder'),
     includeFont: (family, weight, italic) => invoke('include_font', { family, weight, italic }),
@@ -594,10 +595,15 @@ function tauriBridge(invoke, tauri = {}) {
     closeWindow: () => invoke('close_window'),
     quitApp: () => invoke('quit_app'),
     preferences: () => invoke('preferences'),
+    profiles: () => invoke('profiles'),
+    profilesRequested: () => invoke('profiles_requested'),
+    onProfilesRequested: (cb) => (typeof tauri.event?.listen === 'function' ? tauri.event.listen('profiles-requested', cb) : Promise.resolve(() => {})),
+    saveProfiles: (config) => invoke('save_profiles', { config }),
+    previewTransition: (transition, themes = {}) => invoke('preview_transition', { transition, themes }),
     setDebug: (on, showReadings, corner) => invoke('set_debug', { on, showReadings, corner }),
-    setLightOnClose: (on) => invoke('set_light_on_close', { on }),
+    setAudioCapture: (on) => invoke('set_audio_capture', { on }),
     setLanguage: (language) => invoke('set_language', { language }),
-    setSensorOptions: (pingHost, mangohudDir) => invoke('set_sensor_options', { pingHost, mangohudDir }),
+    setSensorOptions: (pingHost) => invoke('set_sensor_options', { pingHost }),
     pickFolder: () => invoke('pick_folder'),
     showSensors: (keys) => invoke('show_sensors', { keys }),
     // A library theme's thumbnail (a `data:` URL), or `null` when it cannot be drawn.

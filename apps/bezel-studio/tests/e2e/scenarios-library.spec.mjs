@@ -23,7 +23,7 @@ test('drag a widget onto the canvas', async ({ page, t }) => {
   const gpuTemperature = t('sensor.gpu.temperature');
   await page.getByRole('searchbox', { name: t('library.searchSensors') }).fill(gpuTemperature.toLowerCase());
   await dragTo(page, page.getByRole('button', { name: literally(gpuTemperature) }), page.locator('#canvas-box'), { x: 0.3, y: 0.8 });
-  await expect(page.locator('#inspector').getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('gpu.temperature');
+  await expect(page.locator('#inspector').getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveAttribute('data-sensor-key', 'gpu.temperature');
   await expect(page.locator('#inspector').getByRole('textbox', { name: t('common.name'), exact: true })).toHaveValue(gpuTemperature);
   await page.getByRole('tab', { name: t('library.layers') }).click();
   await expect(layers(page)).toHaveCount(5);

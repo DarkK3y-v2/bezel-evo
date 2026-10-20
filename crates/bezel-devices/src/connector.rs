@@ -158,9 +158,9 @@ impl SerialPorts for SystemPorts {
         }
     }
 
-    /// One scan of `/proc` (nobody where it does not exist).
-    fn holders(&self, endpoint: &Endpoint) -> Holders {
-        crate::busy::on_this_machine(&endpoint.address.0)
+    /// Windows enforces ownership when the COM port is opened; no procfs scan.
+    fn holders(&self, _endpoint: &Endpoint) -> Holders {
+        Holders::default()
     }
 }
 
@@ -432,7 +432,7 @@ fn open_serial(endpoint: &Endpoint, flow: Flow) -> Result<SerialWire> {
 }
 
 /// Maps an open failure: permission problems get their own variant so the
-/// UI can explain the udev rule.
+/// UI can explain why access was denied.
 pub fn access_error(address: &str, e: &std::io::Error) -> BezelError {
     let text = e.to_string();
     let lower = text.to_lowercase();
@@ -744,6 +744,11 @@ mod tests {
             .into_iter()
             .filter(|d| *d == LEAVE_STEP || *d == WAKE_STEP)
             .collect()
+    }
+
+    #[test]
+    fn windows_holder_probe_keeps_ownership_with_the_os() {
+        assert_eq!(SystemPorts.holders(&endpoint("COM6")), Holders::default());
     }
 
     #[test]
@@ -1116,7 +1121,6 @@ mod tests {
         assert!(host.pause.taken().is_empty());
     }
 
-    #[cfg(windows)]
     #[test]
     fn a_new_windows_com_port_retries_access_denied_before_hello() {
         let denied = BezelError::AccessDenied {
@@ -1145,7 +1149,6 @@ mod tests {
         );
     }
 
-    #[cfg(windows)]
     #[test]
     fn a_windows_com_port_that_stays_denied_fails_without_a_restart() {
         let denied = BezelError::AccessDenied {
@@ -1307,77 +1310,6 @@ mod tests {
             access_error("COM3", &other),
             BezelError::AccessDenied { .. }
         ));
-    }
-
-    /// A rev C connection through the host's own serial ports, from a bus
-    /// that lists `display` and `mcu` behind one hub and pauses recorded
-    /// instead of slept: what it ends with, and the pauses it took.
-    #[cfg(unix)]
-    fn through_the_host_ports(display: &str, mcu: &str) -> (Option<BezelError>, Vec<Duration>) {
-        let mcu = at(mcu, UsbId::new(0x1a86, 0xca88), Some("CT88INCH"), &[1, 1]);
-        let display = soc(display, &[1, 2]);
-        let host = RevCHost {
-            bus: ScriptedBus::new([Ok(vec![mcu.clone(), display.clone()])]),
-            ports: SystemPorts,
-            pause: Pauses::default(),
-        };
-        let screen = rev_c(Some(display), Some(mcu));
-        let ended = host.connect_rev_c(&screen, &screen.candidates).err();
-        (ended, host.pause.taken())
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn the_host_ports_name_this_process_for_a_port_it_holds() {
-        // The host's ports look at the real `/proc`: a path this process
-        // keeps open is held by this process and nobody else; closed, or
-        // never opened, nobody holds it.
-        let path = std::env::temp_dir().join(format!("bezel-ports-held-{}", std::process::id()));
-        let file = std::fs::File::create(&path).unwrap();
-        let address = path.to_str().unwrap();
-        let held = endpoint(address);
-        let me = format!("(PID {})", std::process::id());
-        let Holders { this, others } = SystemPorts.holders(&held);
-        let this = this.expect("this process holds it");
-        assert!(this.ends_with(&me), "{this} is not {me}");
-        assert!(others.is_empty());
-        // D-2026-10-01-live-screen-controls-4 through the host's `open`, the
-        // entry of `open_serial` (every serial family without an MCU) and
-        // `open_rev_c`: the open fails (a plain file is no tty, so
-        // serialport's `TIOCEXCL` fails with ENOTTY, "Not a typewriter"; a
-        // real tty this process holds refuses with EBUSY, see
-        // `wire::tests::a_port_the_wire_holds_refuses_a_second_open`), and a
-        // `Transport` refusal of a port this process holds is `InUse` naming
-        // it. The rev C connection stops there, with no pause: no wait for
-        // the display to leave and no wake of its MCU (a path that does not
-        // exist; each poke is followed by a pause).
-        let in_use = BezelError::InUse {
-            address: address.into(),
-            holders: vec![this],
-        };
-        assert_eq!(
-            SystemPorts.open(&held, Flow::None).err(),
-            Some(in_use.clone())
-        );
-        assert_eq!(
-            open_serial(&held, Flow::Hardware).err(),
-            Some(in_use.clone())
-        );
-        let no_mcu =
-            std::env::temp_dir().join(format!("bezel-ports-no-mcu-{}", std::process::id()));
-        let (ended, pauses) = through_the_host_ports(address, no_mcu.to_str().unwrap());
-        assert_eq!(ended, Some(in_use));
-        assert!(pauses.is_empty(), "{pauses:?}");
-        drop(file);
-        // Closed, the same refusal is the system's own again.
-        assert!(matches!(
-            SystemPorts.open(&held, Flow::None).err(),
-            Some(BezelError::Transport(_))
-        ));
-        assert_eq!(SystemPorts.holders(&held), Holders::default());
-        std::fs::remove_file(&path).unwrap();
-        let nobody = endpoint("/dev/bezel-no-such-port");
-        assert_eq!(SystemPorts.holders(&nobody), Holders::default());
     }
 
     #[test]

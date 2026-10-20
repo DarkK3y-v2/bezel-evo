@@ -13,6 +13,9 @@ export const DEMO_SENSORS = Object.freeze([
   ['net.up', 'network', 'Upload', 'bytesPerSecond', 3.1e5, 2e5],
   ['disk.read', 'disk', 'Disk read', 'bytesPerSecond', 8e6, 7e6],
   ['hwmon.nvme0.composite', 'board', 'NVMe composite', 'celsius', 40, 2],
+  ['system.volume', 'system', 'Output volume', 'percent', 48, 0],
+  ['system.audio.muted', 'system', 'Output muted', 'number', 0, 0],
+  ['system.power.ac', 'system', 'Connected to power', 'number', 1, 0],
   ['system.uptime', 'system', 'Uptime', 'seconds', 93784, 0],
 ]);
 

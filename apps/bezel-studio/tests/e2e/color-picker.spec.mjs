@@ -176,3 +176,64 @@ test('the eyedropper picks a colour from the screen', async ({ page, t }) => {
   await colorPanel(page).getByRole('button', { name: t('colorPicker.eyedropper'), exact: true }).click();
   await expect(fill).toHaveAttribute('data-color', /^#336699/);
 });
+
+// Exercise the desktop provider through the shared picker context. WebView2's
+// EyeDropper may exist but refuse to open; Studio must prefer the native path.
+async function nativePicker(page) {
+  await page.goto('/index.html?demo=turing88');
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await page.evaluate(async () => {
+    const { colorPicker } = await import('/ui/fields.js');
+    const { createPickers } = await import('/ui/pickers.js');
+    const { translator, pickLocale } = await import('/i18n/index.js');
+    const t = translator(pickLocale(navigator.languages));
+    window.EyeDropper = class { open() { throw new Error('WebView picker must not be used'); } };
+    window.nativePicks = 0;
+    window.pickedColors = [];
+    const pickers = createPickers({
+      t, storage: null,
+      store: { getState: () => ({ theme: { elements: [] } }) },
+      bridge: { pickScreenColor: () => {
+        window.nativePicks++;
+        return new Promise((resolve, reject) => { window.finishPick = resolve; window.failPick = reject; });
+      } },
+    });
+    const fixture = document.createElement('div');
+    fixture.id = 'native-color-fixture';
+    fixture.style.cssText = 'position:fixed;top:10px;left:10px;z-index:9999;background:#222';
+    fixture.append(colorPicker('Native colour', '#f9731680', (c) => window.pickedColors.push(c), pickers.color({ saved: false })));
+    document.body.append(fixture);
+  });
+  await page.locator('#native-color-fixture .color-button').click();
+}
+
+test('desktop eyedropper takes precedence, preserves opacity and reports failure without changing colour', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await nativePicker(page);
+  const panel = colorPanel(page);
+  const pick = panel.getByRole('button', { name: t('colorPicker.eyedropper'), exact: true });
+  await pick.click();
+  await expect(pick).toBeDisabled();
+  await expect(panel.getByRole('status')).toHaveText(t('colorPicker.eyedropperHint'));
+  await page.evaluate(() => window.finishPick('#336699'));
+  await expect(pick).toBeEnabled();
+  expect(await page.evaluate(() => window.pickedColors)).toEqual(['#33669980']);
+  await pick.click();
+  await page.evaluate(() => window.finishPick(null));
+  await expect(pick).toBeEnabled();
+  expect(await page.evaluate(() => window.pickedColors)).toEqual(['#33669980']);
+  await pick.click();
+  await page.evaluate(() => window.failPick(new Error('native tool failed')));
+  await expect(panel.getByRole('status')).toHaveText(t('colorPicker.eyedropperError'));
+  expect(await page.evaluate(() => window.pickedColors)).toEqual(['#33669980']);
+  expect(errors).toEqual([]);
+});
+
+test('a desktop pick completing after dismissal does not change the old object', async ({ page, t }) => {
+  await nativePicker(page);
+  await colorPanel(page).getByRole('button', { name: t('colorPicker.eyedropper'), exact: true }).click();
+  await page.keyboard.press('Escape');
+  await expect(colorPanel(page)).toHaveCount(0);
+  await page.evaluate(() => window.finishPick('#336699'));
+  expect(await page.evaluate(() => window.pickedColors)).toEqual([]);
+});

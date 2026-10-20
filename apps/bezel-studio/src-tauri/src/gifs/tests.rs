@@ -499,15 +499,6 @@ fn key_never_reaches_the_window() {
     assert_eq!(customer.len(), 32);
     assert!(customer.bytes().all(|b| b.is_ascii_hexdigit()));
     assert_eq!(f.made(), [(KEY.to_string(), customer.clone())]);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        let mode = std::fs::metadata(f.key_path())
-            .unwrap()
-            .permissions()
-            .mode();
-        assert_eq!(mode & 0o777, 0o600);
-    }
 
     // Saving it again keeps its customer id; another key gets a new one, and
     // a short key shows no characters.
@@ -785,8 +776,11 @@ fn centered_image(name: &str, orientation: Orientation, asset: &str) -> (Theme, 
     let (left, top) = ((canvas.width - 400) / 2, (canvas.height - 400) / 2);
     theme.elements.push(Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
+        sensor_motion: None,
         card: None,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

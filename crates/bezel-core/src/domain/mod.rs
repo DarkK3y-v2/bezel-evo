@@ -9,6 +9,7 @@ pub mod archive;
 pub mod catalog;
 pub mod cleanup;
 pub mod clock;
+pub mod cover;
 pub mod device;
 pub mod discovery;
 pub mod error;
@@ -29,11 +30,17 @@ pub mod standby;
 pub mod storage;
 pub mod theme;
 pub mod transition;
+pub mod visualization;
 
 pub mod weather;
 
 pub mod gradient;
 
 pub mod playback;
+pub mod spectrum;
 
 pub mod value_color;
+
+pub mod rotation;
+pub mod sensor_motion;
+pub mod text_case;

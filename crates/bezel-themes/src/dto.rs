@@ -96,6 +96,10 @@ fn palette(list: &[SwatchDto]) -> R<Vec<Swatch>> {
     list.iter().map(swatch).collect()
 }
 
+fn is_zero_f32(value: &f32) -> bool {
+    *value == 0.0
+}
+
 fn one() -> f32 {
     1.0
 }
@@ -281,12 +285,30 @@ pub struct FadeDto {
     pub start: f32,
     /// End opacity, 0..=1.
     pub end: f32,
+    /// Where opacity is halfway; written only when moved from the middle.
+    #[serde(default = "fade_midpoint", skip_serializing_if = "is_fade_midpoint")]
+    pub midpoint: f32,
+}
+fn fade_midpoint() -> f32 {
+    bezel_core::domain::gradient::Fade::MIDPOINT
+}
+fn is_fade_midpoint(v: &f32) -> bool {
+    *v == bezel_core::domain::gradient::Fade::MIDPOINT
 }
 
 /// One element.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ElementDto {
+    /// Optional native widget geometry; absent preserves older themes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visualization: Option<VisualizationDto>,
+    /// Optional sensor-driven visual rotation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sensor_motion: Option<SensorMotionDto>,
+    /// Clockwise degrees; omitted for unchanged themes.
+    #[serde(default, skip_serializing_if = "is_zero_f32")]
+    pub rotation: f32,
     /// Ordinary group container; omitted in older themes.
     #[serde(default, skip_serializing_if = "is_false")]
     pub is_group: bool,
@@ -324,6 +346,129 @@ pub struct ElementDto {
     pub color_by_value: Option<ColorByValueDto>,
     /// Kind.
     pub kind: KindDto,
+}
+
+/// Portable optional visualization settings, with bounded defaults.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct VisualizationDto {
+    /// matrix, pixel, dial, rounded or mirrored.
+    pub style: String,
+    /// Matrix columns.
+    pub columns: u16,
+    /// Matrix rows.
+    pub rows: u16,
+    /// Cell/bar spacing in pixels.
+    pub gap: f32,
+    /// Cell corners or marker radius.
+    pub radius: f32,
+    /// Dial tick count.
+    pub ticks: u16,
+    /// Show endpoint marker.
+    pub marker: bool,
+    /// Independent lower history source.
+    pub secondary: Option<BindingDto>,
+    /// Lower history color.
+    pub secondary_color: String,
+}
+impl Default for VisualizationDto {
+    fn default() -> Self {
+        Self {
+            style: "matrix".into(),
+            columns: 16,
+            rows: 6,
+            gap: 3.,
+            radius: 2.,
+            ticks: 31,
+            marker: true,
+            secondary: None,
+            secondary_color: "#e879a4ff".into(),
+        }
+    }
+}
+fn visualization(d: &VisualizationDto) -> R<bezel_core::domain::visualization::Visualization> {
+    use bezel_core::domain::visualization::{VisualStyle, Visualization};
+    let style = match d.style.as_str() {
+        "matrix" => VisualStyle::Matrix,
+        "pixel" => VisualStyle::Pixel,
+        "dial" => VisualStyle::Dial,
+        "rounded" => VisualStyle::Rounded,
+        "mirrored" => VisualStyle::Mirrored,
+        _ => return err(format!("unknown visualization {:?}", d.style)),
+    };
+    let v = Visualization {
+        style,
+        columns: d.columns,
+        rows: d.rows,
+        gap: d.gap,
+        radius: d.radius,
+        ticks: d.ticks,
+        marker: d.marker,
+        secondary: d.secondary.as_ref().map(binding).transpose()?,
+        secondary_color: color(&d.secondary_color)?,
+    };
+    if !v.valid() {
+        return err("visualization settings out of range");
+    }
+    Ok(v)
+}
+fn visualization_dto(v: &bezel_core::domain::visualization::Visualization) -> VisualizationDto {
+    use bezel_core::domain::visualization::VisualStyle;
+    VisualizationDto {
+        style: match v.style {
+            VisualStyle::Matrix => "matrix",
+            VisualStyle::Pixel => "pixel",
+            VisualStyle::Dial => "dial",
+            VisualStyle::Rounded => "rounded",
+            VisualStyle::Mirrored => "mirrored",
+        }
+        .into(),
+        columns: v.columns,
+        rows: v.rows,
+        gap: v.gap,
+        radius: v.radius,
+        ticks: v.ticks,
+        marker: v.marker,
+        secondary: v.secondary.as_ref().map(binding_dto),
+        secondary_color: to_hex(v.secondary_color),
+    }
+}
+
+/// Sensor-driven visual rotation; speed is deliberately distinct from fan RPM.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SensorMotionDto {
+    /// Source key.
+    pub sensor: String,
+    /// Source reading at maximum visual speed.
+    pub reference: f64,
+    /// Maximum visual revolutions per second.
+    pub turns_per_second: f64,
+    /// Response time in milliseconds.
+    pub inertia_ms: u32,
+    /// Counterclockwise when true.
+    pub reverse: bool,
+}
+
+fn sensor_motion(
+    d: &Option<SensorMotionDto>,
+) -> R<Option<bezel_core::domain::sensor_motion::SensorMotion>> {
+    d.as_ref()
+        .map(|d| {
+            let motion = bezel_core::domain::sensor_motion::SensorMotion {
+                sensor: SensorKey::new(&d.sensor)
+                    .ok_or_else(|| DtoError("invalid motion sensor".into()))?,
+                reference: d.reference,
+                turns_per_second: d.turns_per_second,
+                inertia_ms: d.inertia_ms,
+                reverse: d.reverse,
+            };
+            if !motion.is_valid() {
+                return err("invalid sensor motion settings");
+            }
+            Ok(motion)
+        })
+        .transpose()
 }
 
 /// Sensor-driven step colours, in the sensor's native units.
@@ -392,6 +537,9 @@ fn color_by_value(rule: &ColorByValueDto) -> R<ColorByValue> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ValueTransitionDto {
+    /// Optional pursuit response; old readers fall back to ordinary smooth motion.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub inertia: bool,
     /// `none` or `smooth`.
     pub mode: TransitionModeDto,
     /// Milliseconds a smooth transition lasts (read within
@@ -408,6 +556,8 @@ pub enum TransitionModeDto {
     None,
     /// Eases.
     Smooth,
+    /// Retains momentum while pursuing new readings.
+    Inertia,
 }
 
 fn value_transition_dto(t: Option<ValueTransition>) -> Option<ValueTransitionDto> {
@@ -415,8 +565,10 @@ fn value_transition_dto(t: Option<ValueTransition>) -> Option<ValueTransitionDto
         mode: match t.mode {
             TransitionMode::None => TransitionModeDto::None,
             TransitionMode::Smooth => TransitionModeDto::Smooth,
+            TransitionMode::Inertia => TransitionModeDto::Smooth,
         },
         duration_ms: t.duration_ms,
+        inertia: t.mode == TransitionMode::Inertia,
     })
 }
 
@@ -424,7 +576,9 @@ fn value_transition(t: Option<ValueTransitionDto>) -> Option<ValueTransition> {
     t.map(|t| ValueTransition {
         mode: match t.mode {
             TransitionModeDto::None => TransitionMode::None,
+            TransitionModeDto::Smooth if t.inertia => TransitionMode::Inertia,
             TransitionModeDto::Smooth => TransitionMode::Smooth,
+            TransitionModeDto::Inertia => TransitionMode::Inertia,
         },
         duration_ms: match t.duration_ms {
             0 => 0,
@@ -762,10 +916,165 @@ fn time_format(f: TimeFormatDto) -> bezel_core::domain::playback::TimeFormat {
     }
 }
 
+/// Optional spectrum configuration; defaults are applied only to this new kind.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SpectrumDto {
+    pub player: Option<u32>,
+    pub bands: u16,
+    pub low: f32,
+    pub high: f32,
+    pub motion: String,
+    pub peaks: bool,
+    pub demo: bool,
+    pub thickness: f32,
+    pub gap: f32,
+    pub corners: [f32; 4],
+    pub centre: bool,
+    // D-AS-11 fields stay out of the file at their defaults, so a mirrored
+    // spectrum still opens in versions that predate the other styles.
+    #[serde(skip_serializing_if = "is_mirrored")]
+    pub style: String,
+    #[serde(skip_serializing_if = "is_default_block")]
+    pub block: f32,
+    #[serde(skip_serializing_if = "is_default_stroke")]
+    pub stroke: f32,
+    #[serde(skip_serializing_if = "is_default_fill")]
+    pub fill: bool,
+    #[serde(skip_serializing_if = "is_default_inner")]
+    pub inner: f32,
+    #[serde(skip_serializing_if = "is_default_gain")]
+    pub gain: f32,
+    #[serde(skip_serializing_if = "is_player_audio")]
+    pub audio: String,
+}
+fn is_player_audio(audio: &str) -> bool {
+    audio == "player"
+}
+fn is_mirrored(style: &str) -> bool {
+    style == "mirrored"
+}
+fn spectrum_default() -> bezel_core::domain::spectrum::Spectrum {
+    bezel_core::domain::spectrum::Spectrum::default()
+}
+fn is_default_block(v: &f32) -> bool {
+    *v == spectrum_default().block
+}
+fn is_default_stroke(v: &f32) -> bool {
+    *v == spectrum_default().stroke
+}
+fn is_default_fill(v: &bool) -> bool {
+    *v == spectrum_default().fill
+}
+fn is_default_inner(v: &f32) -> bool {
+    *v == spectrum_default().inner
+}
+fn is_default_gain(v: &f32) -> bool {
+    *v == spectrum_default().gain
+}
+impl Default for SpectrumDto {
+    fn default() -> Self {
+        Self::from(&bezel_core::domain::spectrum::Spectrum::default())
+    }
+}
+impl From<&bezel_core::domain::spectrum::Spectrum> for SpectrumDto {
+    fn from(s: &bezel_core::domain::spectrum::Spectrum) -> Self {
+        use bezel_core::domain::spectrum::{Motion, SpectrumAudio, SpectrumStyle};
+        Self {
+            player: s.player.map(|p| p.0),
+            bands: s.bands,
+            low: s.low,
+            high: s.high,
+            motion: match s.motion {
+                Motion::Smooth => "smooth",
+                Motion::Balanced => "balanced",
+                Motion::Snappy => "snappy",
+            }
+            .into(),
+            peaks: s.peaks,
+            demo: s.demo,
+            thickness: s.thickness,
+            gap: s.gap,
+            corners: s.corners,
+            centre: s.centre,
+            style: match s.style {
+                SpectrumStyle::Mirrored => "mirrored",
+                SpectrumStyle::Bars => "bars",
+                SpectrumStyle::Blocks => "blocks",
+                SpectrumStyle::Line => "line",
+                SpectrumStyle::Radial => "radial",
+            }
+            .into(),
+            block: s.block,
+            stroke: s.stroke,
+            fill: s.fill,
+            inner: s.inner,
+            gain: s.gain,
+            audio: match s.audio {
+                SpectrumAudio::Player => "player",
+                SpectrumAudio::System => "system",
+            }
+            .into(),
+        }
+    }
+}
+impl SpectrumDto {
+    fn domain(&self) -> R<bezel_core::domain::spectrum::Spectrum> {
+        use bezel_core::domain::spectrum::{Motion, Spectrum, SpectrumAudio, SpectrumStyle};
+        let motion = match self.motion.as_str() {
+            "smooth" => Motion::Smooth,
+            "balanced" => Motion::Balanced,
+            "snappy" => Motion::Snappy,
+            _ => return err("unknown spectrum motion"),
+        };
+        let style = match self.style.as_str() {
+            "mirrored" => SpectrumStyle::Mirrored,
+            "bars" => SpectrumStyle::Bars,
+            "blocks" => SpectrumStyle::Blocks,
+            "line" => SpectrumStyle::Line,
+            "radial" => SpectrumStyle::Radial,
+            _ => return err("unknown spectrum style"),
+        };
+        let audio = match self.audio.as_str() {
+            "player" => SpectrumAudio::Player,
+            "system" => SpectrumAudio::System,
+            _ => return err("unknown spectrum audio"),
+        };
+        let s = Spectrum {
+            player: self.player.map(ElementId),
+            bands: self.bands,
+            low: self.low,
+            high: self.high,
+            motion,
+            peaks: self.peaks,
+            demo: self.demo,
+            thickness: self.thickness,
+            gap: self.gap,
+            corners: self.corners,
+            centre: self.centre,
+            style,
+            block: self.block,
+            stroke: self.stroke,
+            fill: self.fill,
+            inner: self.inner,
+            gain: self.gain,
+            audio,
+        };
+        if !s.valid() {
+            return err("invalid spectrum bounds");
+        }
+        Ok(s)
+    }
+}
+
 /// Text content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ContentDto {
+    Spectrum {
+        #[serde(flatten)]
+        spectrum: SpectrumDto,
+    },
     Player {
         #[serde(default)]
         source: String,
@@ -887,6 +1196,9 @@ pub struct FontDto {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TextStyleDto {
+    /// Non-destructive case; absent preserves the source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub casing: Option<String>,
     /// Face.
     pub font: FontDto,
     /// Size, px.
@@ -1245,6 +1557,13 @@ fn format(f: FormatDto) -> DisplayFormat {
 
 fn style_dto(s: &TextStyle) -> TextStyleDto {
     TextStyleDto {
+        casing: match s.casing {
+            bezel_core::domain::text_case::TextCase::Normal => None,
+            bezel_core::domain::text_case::TextCase::Upper => Some("upper".into()),
+            bezel_core::domain::text_case::TextCase::Lower => Some("lower".into()),
+            bezel_core::domain::text_case::TextCase::Sentence => Some("sentence".into()),
+            bezel_core::domain::text_case::TextCase::Title => Some("title".into()),
+        },
         font: FontDto {
             family: s.font.family.clone(),
             weight: s.font.weight,
@@ -1271,6 +1590,14 @@ fn style_dto(s: &TextStyle) -> TextStyleDto {
 
 fn style(s: &TextStyleDto) -> R<TextStyle> {
     Ok(TextStyle {
+        casing: match s.casing.as_deref() {
+            None | Some("normal") => bezel_core::domain::text_case::TextCase::Normal,
+            Some("upper") => bezel_core::domain::text_case::TextCase::Upper,
+            Some("lower") => bezel_core::domain::text_case::TextCase::Lower,
+            Some("sentence") => bezel_core::domain::text_case::TextCase::Sentence,
+            Some("title") => bezel_core::domain::text_case::TextCase::Title,
+            Some(other) => return err(format!("unknown text casing {other:?}")),
+        },
         font: FontSpec {
             family: s.font.family.clone(),
             weight: s.font.weight,
@@ -1293,6 +1620,40 @@ fn style(s: &TextStyleDto) -> R<TextStyle> {
         },
         letter_spacing: s.letter_spacing,
     })
+}
+
+#[cfg(test)]
+mod text_case_tests {
+    use super::*;
+    #[test]
+    fn text_case_round_trips_and_old_styles_keep_their_format() {
+        let base = serde_json::json!({"font":{"family":"Inter","weight":400},"size":24,
+            "paint":"#ffffffff","align":"left","valign":"top"});
+        let old: TextStyleDto = serde_json::from_value(base.clone()).unwrap();
+        let restored = style(&old).unwrap();
+        assert_eq!(
+            restored.casing,
+            bezel_core::domain::text_case::TextCase::Normal
+        );
+        assert!(
+            serde_json::to_value(style_dto(&restored))
+                .unwrap()
+                .get("casing")
+                .is_none()
+        );
+        for mode in ["upper", "lower", "sentence", "title"] {
+            let mut json = base.clone();
+            json["casing"] = mode.into();
+            let dto: TextStyleDto = serde_json::from_value(json).unwrap();
+            assert_eq!(
+                style_dto(&style(&dto).unwrap()).casing.as_deref(),
+                Some(mode)
+            );
+        }
+        let mut invalid = base;
+        invalid["casing"] = "unknown".into();
+        assert!(style(&serde_json::from_value(invalid).unwrap()).is_err());
+    }
 }
 
 fn direction_name(d: Direction) -> &'static str {
@@ -1335,6 +1696,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
     match k {
         ElementKind::Text { content, style } => KindDto::Text {
             content: match content {
+                TextContent::Spectrum(s) => ContentDto::Spectrum { spectrum: s.into() },
                 TextContent::Player(p) => ContentDto::Player {
                     source: p.source.clone(),
                     show_cover: p.show_cover,
@@ -1434,6 +1796,7 @@ fn kind_dto(k: &ElementKind) -> KindDto {
                     angle: f.angle,
                     start: f.start,
                     end: f.end,
+                    midpoint: f.midpoint,
                 }),
                 corners,
                 shape: name.to_string(),
@@ -1532,6 +1895,7 @@ fn kind(k: &KindDto) -> R<ElementKind> {
     Ok(match k {
         KindDto::Text { content, style: s } => ElementKind::Text {
             content: match content {
+                ContentDto::Spectrum { spectrum } => TextContent::Spectrum(spectrum.domain()?),
                 ContentDto::Player {
                     source,
                     show_cover,
@@ -1859,6 +2223,7 @@ impl From<&Theme> for ThemeDto {
                             transition: c.transition.map(card_transition_dto),
                         }
                     }),
+                    rotation: e.applied_rotation(),
                     is_group: e.is_group,
                     group_parent: e.group_parent.map(|id| id.0),
                     card_member: e.card_member.as_ref().map(|m| CardMemberDto {
@@ -1877,7 +2242,15 @@ impl From<&Theme> for ThemeDto {
                     visible: e.visible,
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value_dto),
+                    visualization: e.visualization.as_ref().map(visualization_dto),
                     value_transition: value_transition_dto(e.value_transition),
+                    sensor_motion: e.sensor_motion.as_ref().map(|m| SensorMotionDto {
+                        sensor: m.sensor.to_string(),
+                        reference: m.reference,
+                        turns_per_second: m.turns_per_second,
+                        inertia_ms: m.inertia_ms,
+                        reverse: m.reverse,
+                    }),
                     kind: kind_dto(&e.kind),
                 })
                 .collect(),
@@ -1938,7 +2311,10 @@ impl TryFrom<&ThemeDto> for Theme {
             .elements
             .iter()
             .map(|e| {
-                Ok(Element {
+                if !e.rotation.is_finite() {
+                    return err("invalid rotation");
+                }
+                let mut element = Element {
                     card: e
                         .card
                         .as_ref()
@@ -2011,6 +2387,7 @@ impl TryFrom<&ThemeDto> for Theme {
                             .into_owned())
                         })
                         .transpose()?,
+                    rotation: bezel_core::domain::rotation::normalize_degrees(e.rotation),
                     is_group: e.is_group,
                     group_parent: e.group_parent.map(ElementId),
                     card_member: e.card_member.as_ref().map(|m| {
@@ -2026,10 +2403,17 @@ impl TryFrom<&ThemeDto> for Theme {
                     visible: e.visible,
                     locked: e.locked,
                     color_by_value: e.color_by_value.as_ref().map(color_by_value).transpose()?,
+                    visualization: e.visualization.as_ref().map(visualization).transpose()?,
                     value_transition: value_transition(e.value_transition),
+                    sensor_motion: sensor_motion(&e.sensor_motion)?,
                     kind: kind(&e.kind)
                         .map_err(|x| DtoError(format!("element {} ({}): {}", e.id, e.name, x.0)))?,
-                })
+                };
+                element.rotation = element.applied_rotation();
+                if !element.supports_sensor_motion() {
+                    element.sensor_motion = None;
+                }
+                Ok(element)
             })
             .collect::<R<Vec<_>>>()?;
         if elements.iter().any(|e| {
@@ -2125,6 +2509,7 @@ fn fade_dto(f: bezel_core::domain::gradient::Fade) -> FadeDto {
         start: f.start,
         end: f.end,
         radial: f.radial,
+        midpoint: f.midpoint,
     }
 }
 fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
@@ -2133,6 +2518,7 @@ fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
         || !f.end.is_finite()
         || !(0.0..=1.0).contains(&f.start)
         || !(0.0..=1.0).contains(&f.end)
+        || !bezel_core::domain::gradient::Fade::MIDPOINTS.contains(&f.midpoint)
         || f.radial.is_some_and(|[x, y, r]| {
             !x.is_finite()
                 || !y.is_finite()
@@ -2149,5 +2535,120 @@ fn parse_fade(f: &FadeDto) -> R<bezel_core::domain::gradient::Fade> {
         start: f.start,
         end: f.end,
         radial: f.radial,
+        midpoint: f.midpoint,
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod spectrum_tests {
+    use super::*;
+    #[test]
+    fn spectrum_defaults_round_trip_without_changing_the_schema() {
+        let dto: ContentDto = serde_json::from_str(r#"{"type":"spectrum"}"#).unwrap();
+        let ContentDto::Spectrum { spectrum } = dto else {
+            panic!("spectrum expected")
+        };
+        assert_eq!(
+            spectrum.domain().unwrap(),
+            bezel_core::domain::spectrum::Spectrum::default()
+        );
+        assert_eq!(SCHEMA, 1);
+        let value = ContentDto::Spectrum { spectrum };
+        assert_eq!(
+            serde_json::from_slice::<ContentDto>(&serde_json::to_vec(&value).unwrap()).unwrap(),
+            value
+        );
+    }
+    #[test]
+    fn spectrum_rejects_invalid_ranges_and_motion() {
+        let mut s = SpectrumDto {
+            bands: 1000,
+            ..Default::default()
+        };
+        assert!(s.domain().is_err());
+        s.bands = 32;
+        s.low = 18000.;
+        s.high = 60.;
+        assert!(s.domain().is_err());
+        s.low = 60.;
+        s.high = 16000.;
+        s.motion = "unknown".into();
+        assert!(s.domain().is_err());
+        s.motion = "balanced".into();
+        s.style = "spiral".into();
+        assert!(s.domain().is_err());
+        s.style = "blocks".into();
+        s.block = 0.;
+        assert!(s.domain().is_err());
+        s.block = 6.;
+        s.inner = 95.;
+        assert!(s.domain().is_err());
+        s.inner = 40.;
+        s.gain = 5.;
+        assert!(s.domain().is_err());
+        s.gain = 1.;
+        s.audio = "microphone".into();
+        assert!(s.domain().is_err());
+    }
+    #[test]
+    fn every_style_round_trips_and_the_default_keeps_the_old_shape() {
+        use bezel_core::domain::spectrum::{Spectrum, SpectrumStyle};
+        let mirrored = serde_json::to_value(SpectrumDto::default()).unwrap();
+        for key in ["style", "block", "stroke", "fill", "inner", "gain", "audio"] {
+            assert!(mirrored.get(key).is_none(), "{key}");
+        }
+        for style in [
+            SpectrumStyle::Bars,
+            SpectrumStyle::Blocks,
+            SpectrumStyle::Line,
+            SpectrumStyle::Radial,
+        ] {
+            let s = Spectrum {
+                style,
+                block: 4.,
+                stroke: 3.,
+                fill: false,
+                inner: 25.,
+                gain: 0.5,
+                audio: bezel_core::domain::spectrum::SpectrumAudio::System,
+                ..Spectrum::default()
+            };
+            let json = serde_json::to_vec(&SpectrumDto::from(&s)).unwrap();
+            let back: SpectrumDto = serde_json::from_slice(&json).unwrap();
+            assert_eq!(back.domain().unwrap(), s);
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod fade_tests {
+    use super::*;
+    #[test]
+    fn a_centred_fade_keeps_the_old_shape_and_a_moved_midpoint_round_trips() {
+        let old: FadeDto = serde_json::from_str(r#"{"angle":0,"start":1,"end":0}"#).unwrap();
+        let fade = parse_fade(&old).unwrap();
+        assert_eq!(fade.midpoint, bezel_core::domain::gradient::Fade::MIDPOINT);
+        assert!(
+            serde_json::to_value(fade_dto(fade))
+                .unwrap()
+                .get("midpoint")
+                .is_none()
+        );
+        let moved = bezel_core::domain::gradient::Fade {
+            midpoint: 0.3,
+            ..fade
+        };
+        let json = serde_json::to_vec(&fade_dto(moved)).unwrap();
+        let back: FadeDto = serde_json::from_slice(&json).unwrap();
+        assert_eq!(parse_fade(&back).unwrap(), moved);
+        assert!(
+            parse_fade(&FadeDto {
+                midpoint: 0.99,
+                ..back
+            })
+            .is_err()
+        );
+    }
 }

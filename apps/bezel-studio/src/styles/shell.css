@@ -194,3 +194,18 @@ body.resizing { cursor: col-resize; user-select: none; }
 }
 /* The middle button pans the view (ui/canvas.js). */
 #stage-scroll.panning, #stage-scroll.panning * { cursor: grabbing; }
+/* Chips whose numbers change every second keep a fixed width, so a value going
+   from one to two digits never shifts the rest of the status bar. */
+#status-memory, #status-libre-label, #status-fps { display: inline-block; text-align: center; font-variant-numeric: tabular-nums; }
+/* The render chip is a .pill (inline-flex, centred vertically): centre it horizontally too. */
+#status-render { justify-content: center; font-variant-numeric: tabular-nums; }
+/* Content-box: the width is the text alone ("Render 100 ms"), so padding and border never eat into it. */
+#status-render { box-sizing: content-box; min-width: 14ch; }
+#status-memory { min-width: 16ch; }
+#status-libre-label { min-width: 15ch; }
+#status-fps { min-width: 7ch; }
+
+/* Object rotation shares the resize handle palette and stays independently addressable. */
+.rotate-handle { position: absolute; width: 12px; height: 12px; padding: 0; margin: -6px 0 0 -6px; background: var(--handle); border: 1.5px solid var(--select); border-radius: 50%; pointer-events: auto; cursor: grab; }
+.rotate-handle:active { cursor: grabbing; }
+.rotate-handle:focus-visible { outline: 2px solid var(--select); outline-offset: 3px; }

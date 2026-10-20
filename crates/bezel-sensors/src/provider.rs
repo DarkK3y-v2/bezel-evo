@@ -14,9 +14,6 @@ pub(crate) const WARMING_UP: &str = "warming up: needs a second sample";
 /// in time (see [`bezel_core::domain::sensor::rate`]).
 pub(crate) const COUNTER_RESET: &str = "counter reset or no time elapsed";
 
-/// Reason shown for a key Bezel lists but does not measure yet.
-pub(crate) const NOT_SUPPORTED_YET: &str = "not supported yet";
-
 /// One family of sensors (CPU times, hwmon chips, one GPU, ...). Providers
 /// discover what they offer when they are built or hardware becomes ready;
 /// `sample` reports what it cannot read as

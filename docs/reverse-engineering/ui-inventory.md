@@ -24,8 +24,7 @@ screen size (0.96, 2.1/2.8, 2.8 round new rev, 3.5, 4.6, 5, 5.2, 8, 8.8, 8.8/9.2
 Turing 3.5" gets hot above 50 %) -> theme (filtered by size, sorted case-insensitively; 2.1/2.8 and 8.8/9.2 merged)
 with a preview (`preview.png` shrunk to 320 x 480, circular mask for 2.1") and the author link -> hardware monitoring
 (Automatic / LHM / Python libraries / fake random / fake static) -> Ethernet and Wi-Fi interface (psutil interface
-names; disabled for the fake backends) -> CPU fan (Linux/macOS only, refreshed every 500 ms as `name/label (pct% -
-RPM)`, first entry "Auto-detected: ..."; tooltip suggests `sudo sensors-detect`) -> Windows admin warning (disables
+names; disabled for the fake backends) -> Windows admin warning (disables
 "Save and run" when LHM/Automatic and not elevated).
 
 Buttons: "Weather & Ping" (sub-window: ping host, API key, latitude/longitude, units, language, and an OpenWeatherMap
@@ -41,7 +40,6 @@ user must know the model and size**; the attached device is not detected.
 | `config.THEME` | folder name under `res/themes` (default `3.5inchTheme2`) | theme; must match the screen size (not verified) |
 | `config.HW_SENSORS` | `AUTO`, `PYTHON`, `LHM`, `STUB`, `STATIC` | sensor backend |
 | `config.ETH`, `config.WLO` | interface name or `""` | the two network slots (Windows: adapter display names that must equal the LHM hardware name) |
-| `config.CPU_FAN` | `AUTO` or `<chip>/<label>` | Linux/macOS only |
 | `config.PING` | host (shipped `8.8.8.8`) | ping target |
 | `config.WEATHER_API_KEY`, `WEATHER_LATITUDE`, `WEATHER_LONGITUDE`, `WEATHER_UNITS` (`metric`/`imperial`/`standard`), `WEATHER_LANGUAGE` (50 OWM codes) | | weather (key stored in plain text) |
 | `display.REVISION` | `A`, `B`, `C`, `D`, `TUR_USB`, `WEACT_A`, `WEACT_B`, `SIMU` | protocol driver |
@@ -74,15 +72,12 @@ graphs are degenerate and text-width changes cannot be previewed; `DISPLAY_RGB_L
 - Errors: a theme error, an unknown backend, LHM without admin, or an unsupported Python version exit with **code 0**;
   a sensor exception silently kills that metric's thread; no reconnect or hot-plug; if the USB write thread dies,
   producers keep queueing (frozen screen, growing memory).
-- Windows sleep/resume turns the screen off/on and redraws static content; **Linux and macOS have no suspend handling**.
-- Autostart: **none provided**. A sample systemd unit (`tools/turing-smart-screen-python.service`) is a system service
-  with `User=YOUR_USERNAME_HERE`, `WorkingDirectory=/opt/turing-smart-screen-python/`, `Restart=always` and hardening
-  (`ProtectSystem=full`, `ProtectHome=read-only`, `PrivateTmp=true`, `NoNewPrivileges=true`); it documents neither the
-  serial group nor udev rules for the USB models.
+- Windows sleep/resume turns the screen off/on and redraws static content.
+- Autostart: **none provided**.
 - Windows: sensors need **administrator** (LHM drivers); the installer is per-user without elevation and `main.exe` has
   no UAC manifest. The installer offers to (re)install PawnIO, the signed driver LHM uses. Its only shortcut launches
   the configurator.
-- Packaging: PyInstaller one-dir bundle with three executables (monitor, configurator, theme editor); Linux tarball;
+- Packaging: PyInstaller one-dir bundle with three executables (monitor, configurator, theme editor);
   Windows Inno Setup installer and portable zip.
 
 ## 2. Vendor app (TURZX V3.07)
@@ -182,7 +177,7 @@ card, reinsert, power-cycle.
 Two states. **Monitor mode** (data streaming): step 1 "Install Driver" (installs an indirect-display driver matching
 `USB\VID_1A86&PID_AD10..AD13` with `pnputil`, elevated), step 2 "Switch Mode". **Desktop mode**: the panel is an extra
 Windows monitor (extend or mirror); a button switches back. Driver presence is detected through WMI on the `AD11` HID
-interface. A Linux equivalent would need a udl/evdi-style path; out of scope for now.
+interface.
 
 ### 2.7 Dialogs
 
@@ -336,7 +331,7 @@ independently with its own theme list keyed by resolution.
    screen-off schedule, boot content (drop a stored image or video on the "Boot" slot), storage bars (internal / TF)
    with a file grid and drag-and-drop upload with progress and clear limits, firmware version and update, TF-card
    check with the FAT32 hint.
-7. **Settings drawer**: autostart (systemd user service or XDG autostart on Linux; delay), units (°C/°F, MB/GB,
+7. **Settings drawer**: autostart (Windows startup; delay), units (°C/°F, MB/GB,
    KB/s versus Mbit/s), language (from the locale, switchable live), network interface, weather city (autocomplete),
    privacy (log level, redaction), sensor permissions (RAPL, hwmon), import/export of the configuration.
 8. **Stable device identity**: key settings by USB serial or a port-independent identity when available, else a

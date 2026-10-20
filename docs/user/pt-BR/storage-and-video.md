@@ -11,7 +11,7 @@ A tela tem quatro pastas: `internal/image`, `internal/video`, `sd/image` e
 `sd/video`. `sd` é o cartão de memória, acessado só através da tela. O Bezel
 nunca o formata; veja [Preparar um cartão SD](sd-card.md).
 
-## No aplicativo
+## No Studio
 
 **Tela → Armazenamento** ocupa a janela toda: a memória interna e o cartão SD
 lado a lado, cada um com quanto está em uso e os seus arquivos. Cada arquivo
@@ -44,7 +44,7 @@ enviou, ou que o Bezel não o enviou. Acima das listas, **Nome contém**,
 
 ## Pela linha de comando
 
-```bash
+```powershell
 bezel storage info                          # espaço usado e livre
 bezel storage ls                            # todos os arquivos; ou uma pasta: bezel storage ls sd/video
 bezel storage put clipe.mp4                 # converte se precisar e envia, com progresso
@@ -100,18 +100,18 @@ Os maiores arquivos do app do fabricante também ficam em cerca de 24,6 MiB.
   precisa caber no limite; o `--fps` faz o Bezel convertê-lo, e a conversão o
   ajusta.
 
-O limite aparece em MiB (1 MiB = 1.048.576 bytes): a mensagem do aplicativo,
+O limite aparece em MiB (1 MiB = 1.048.576 bytes): a mensagem do Studio,
 por exemplo, diz *"O arquivo tem 30 MiB; esta tela aceita arquivos de até
 25 MiB."*
 
 ## Cancelar um envio
 
-Dá para cancelar um envio (**Cancelar envio** no aplicativo, Ctrl+C no
+Dá para cancelar um envio (**Cancelar envio** no Studio, Ctrl+C no
 terminal; um segundo Ctrl+C sai na hora). Parte do arquivo pode ficar na tela:
 
-1. **Apague o arquivo incompleto.** O aplicativo oferece **Apagar o arquivo
+1. **Apague o arquivo incompleto.** O Studio oferece **Apagar o arquivo
    incompleto**; o terminal imprime o comando, por exemplo
-   `bezel storage rm internal/video/clipe.mp4 --yes`. Se o aplicativo disser que
+   `bezel storage rm internal/video/clipe.mp4 --yes`. Se o Studio disser que
    a tela parou de responder, ela volta na próxima ação: clique em **Atualizar** e
    apague o arquivo incompleto se ele aparecer.
 2. **Envie de novo.** Se o envio seguinte terminar com *"the stored size
@@ -120,7 +120,7 @@ terminal; um segundo Ctrl+C sai na hora). Parte do arquivo pode ficar na tela:
 
 Se a tela parar de responder de vez (o envio empaca, ou todo comando estoura o
 tempo), ela travou: o próximo comando reinicia uma tela Turing rev C sozinho, ou
-use `bezel restart` ou **Reiniciar a tela…** no aplicativo; não precisa
+use `bezel restart` ou **Reiniciar a tela…** no Studio; não precisa
 desconectar o cabo. Veja
 [A tela travou](troubleshooting.md#a-tela-travou--parou-de-responder).
 
@@ -137,10 +137,7 @@ Todo arquivo que o Bezel envia (pelo **Enviar arquivo…**, pelo
 guardado no computador: os bytes exatos que a tela recebeu (o resultado da
 conversão, no caso de um vídeo), com uma miniatura (a de um vídeo precisa do
 ffmpeg) e o registro de para onde foi (o *catálogo* do Bezel). Eles ficam na sua
-pasta de dados:
-
-- Linux: `~/.local/share/bezel/storage` (ou `$XDG_DATA_HOME/bezel/storage`);
-- Windows: `%APPDATA%\bezel\storage`.
+pasta de dados: `%APPDATA%\bezel\storage`.
 
 Os mesmos bytes na memória interna e no cartão são guardados uma vez só.
 
@@ -150,7 +147,7 @@ saem primeiro. As cópias de arquivos que ainda estão numa tela, ou que sumiram
 dela (um cartão formatado ou trocado), nunca saem sozinhas; assim uma
 restauração sempre as tem.
 
-**Limpar cache.** No aplicativo, **Cópias locais…** mostra quantas cópias há e
+**Limpar cache.** No Studio, **Cópias locais…** mostra quantas cópias há e
 quanto ocupam, e ajusta o limite; **Limpar cache…** remove as cópias dos
 arquivos apagados pelo Bezel (todas as cópias com **Limpar também as cópias de
 arquivos que ainda estão em uma tela**), depois de uma confirmação que diz
@@ -160,7 +157,7 @@ arquivos não podem ser movidos, renomeados nem restaurados até você
 [associar o original](#arquivos-que-o-bezel-não-enviou) de novo. Pela linha de
 comando:
 
-```bash
+```powershell
 bezel storage cache info                # quantas cópias, quanto ocupam e o limite
 bezel storage cache --limit 1GiB        # o limite das cópias de arquivos apagados
 bezel storage cache clear --yes         # remove as cópias dos arquivos apagados
@@ -198,7 +195,7 @@ toca, acrescenta um aviso à confirmação (um tema acha o vídeo dele pelo nome
 sobre o ajuste de início, veja
 [O que a tela mostra ao ligar](#o-que-a-tela-mostra-ao-ligar)).
 
-No aplicativo, selecione arquivos numa lista e clique em **Mover para o cartão
+No Studio, selecione arquivos numa lista e clique em **Mover para o cartão
 SD** (ou **Mover para a memória interna**), ou arraste-os para a outra lista.
 **Copiar para o cartão SD** envia do mesmo jeito e mantém os originais.
 **Renomear…** (F2) pede o novo nome e mostra como a tela vai gravá-lo. Uma única
@@ -210,7 +207,7 @@ operação, a barra mostra *Movendo “…” (1 de 3)* e **Cancelar**.
 Pela linha de comando, `mv`, `rename` e `restore` primeiro imprimem a lista
 exata; sem `--yes` eles só consultam a tela e não mudam nada:
 
-```bash
+```powershell
 bezel storage mv internal/video/clipe.mp4 --to sd         # imprime a lista; --yes move
 bezel storage mv sd/video/a.mp4 sd/video/b.mp4 --to internal --yes
 bezel storage rename sd/video/clipe.mp4 abertura.mp4 --yes
@@ -243,14 +240,14 @@ fica de fora, a menos que você escolha substituí-lo. Os arquivos vão um por v
 do enviado há mais tempo ao mais recente, cada um conferido; **Cancelar** e
 falhas funcionam como ao mover.
 
-No aplicativo, **Restaurar…** (com quantos arquivos) aparece acima de uma lista
+No Studio, **Restaurar…** (com quantos arquivos) aparece acima de uma lista
 quando arquivos que o Bezel enviou para lá sumiram, estão em outro cartão ou
 foram apagados pelo Bezel e as cópias locais continuam guardadas. Os que sumiram
 já vêm marcados; os apagados aparecem em *Apagados pelo Bezel*, desmarcados.
 Escolha os arquivos, **Continuar…** e então **Restaurar**. Pela linha de
 comando:
 
-```bash
+```powershell
 bezel storage restore sd                     # os arquivos que o Bezel enviou ao cartão e sumiram
 bezel storage restore sd --yes
 bezel storage restore internal abertura.mp4 --yes   # um arquivo pelo nome, também um apagado pelo Bezel
@@ -290,7 +287,7 @@ ligar…**, nem um vídeo que um tema toca (o vídeo de fundo de um tema,
 por exemplo). Ele nunca roda sozinho, e nada é apagado até você confirmar a
 lista exata.
 
-No aplicativo, **Assistente de limpeza…** (acima das listas) mostra as
+No Studio, **Assistente de limpeza…** (acima das listas) mostra as
 sugestões por grupo; marque ou desmarque, e então **Apagar os marcados…** lista
 os arquivos exatos e o espaço liberado, e **Apagar estes arquivos** os apaga um
 por vez. **Origem → Sugestões de limpeza** também os mostra nas listas.
@@ -320,13 +317,13 @@ renomeado. Se você tem o original no computador, associe os dois: o Bezel copia
 o original para as cópias locais, o que dá ao arquivo uma miniatura e permite
 movê-lo.
 
-- No aplicativo: selecione o arquivo, **Associar original…**, e então
+- No Studio: selecione o arquivo, **Associar original…**, e então
   **Escolher arquivos…** ou **Escolher pasta…**. Só aparecem arquivos com
   exatamente o mesmo tamanho em bytes e do mesmo tipo, do mais provável ao menos
   provável (pelo nome e, num vídeo, pela duração e pela resolução); confirme o
   par com **Associar**.
 - Pela linha de comando:
-  `bezel storage catalog associate sd/video/NVI.mp4 ~/Vídeos/NVI.mp4 --yes`
+  `bezel storage catalog associate sd/video/NVI.mp4 "$HOME\Videos\NVI.mp4" --yes`
   (ou uma pasta, para procurar nela). `bezel storage catalog forget CAMINHO --yes`
   tira uma entrada do catálogo, e a cópia local dela, a menos que outra entrada
   tenha os mesmos bytes; a tela não muda.
@@ -365,7 +362,7 @@ liga; escolher um arquivo também o toca na hora. É o mesmo ajuste de início q
 **Quando o computador desligar** grava: vale o último que você fez.
 
 A escolha do que mostrar ao ligar também guarda o brilho com que a tela liga:
-no aplicativo, o brilho ajustado em **Ajustes**; na linha de comando, o
+no Studio, o brilho ajustado em **Ajustes**; na linha de comando, o
 `--brightness`; sem isso, o padrão do fabricante, cerca de 67%. Na geração
 Turing USB, o Bezel envia e toca arquivos, mas ainda não consegue apagá-los,
 tocar um vídeo uma vez só nem mudar o que a tela mostra ao ligar.
@@ -376,20 +373,19 @@ Um tema pode usar um vídeo como fundo: a tela repete o vídeo e o Bezel desenha
 tema por cima.
 
 - Se o vídeo ainda não está na tela, ela mostra a imagem de capa do tema e o
-  aplicativo oferece **Enviar para a tela**; o `bezel run` imprime o comando
+  Studio oferece **Enviar para a tela**; o `bezel run` imprime o comando
   `bezel storage put` exato (para um vídeo reenquadrado, ele indica o
-  aplicativo; veja [Enquadrar o vídeo](#enquadrar-o-vídeo)).
+  Studio; veja [Enquadrar o vídeo](#enquadrar-o-vídeo)).
 - Telas que não tocam vídeo recebem o vídeo decodificado no computador, o que
   precisa do ffmpeg (`bezel run --ffmpeg CAMINHO` se ele não estiver no `PATH`).
-- Para dar a um tema um vídeo de fundo pelo aplicativo (um vídeo ou um GIF
+- Para dar a um tema um vídeo de fundo pelo Studio (um vídeo ou um GIF
   animado), veja [Um vídeo no fundo](first-theme.md#um-vídeo-no-fundo).
 
 ### Enquadrar o vídeo
 
 O enquadramento decide como o vídeo ocupa a tela: girado, preenchendo ou
-cabendo, com zoom e posição. Sem nenhum elemento selecionado, o painel
-**Propriedades** mostra o tema; em **Fundo**, um vídeo tem o grupo
-**Enquadramento**.
+cabendo, com zoom e posição. Sem nada selecionado, o inspetor mostra o
+tema; em **Fundo**, um vídeo de fundo tem as opções de **Enquadramento**.
 
 **Auto.** Alguns vídeos já vêm guardados girados para a tela: os temas
 horizontais do app do fabricante guardam, para um tema de 1920×480 na 8,8", um
@@ -482,7 +478,7 @@ tema tem, mas não o muda. O `bezel run` lê o tamanho do vídeo no cabeçalho d
 MP4 (sem precisar do ffmpeg) e procura a cópia pelo nome que o enquadramento
 dá. Quando a cópia não está na tela, ele imprime o comando `bezel storage put`
 para um vídeo com o enquadramento padrão e, para um vídeo reenquadrado, indica
-**Enviar para a tela** no aplicativo, que faz a cópia enquadrada.
+**Enviar para a tela** no Studio, que faz a cópia enquadrada.
 
 No arquivo do tema (o `theme.json` dentro do `.bezeltheme`), o enquadramento é
 um objeto `framing` opcional no fundo de vídeo, omitido quando tudo está no

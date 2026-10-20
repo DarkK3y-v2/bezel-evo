@@ -9,7 +9,8 @@ use serde_json::{Value, json};
 #[serde(deny_unknown_fields)]
 pub struct Options {
     pub ping_host: String,
-    pub mangohud_dir: Option<String>,
+    #[serde(default)]
+    pub audio_capture: bool,
     pub ffmpeg: Option<String>,
 }
 
@@ -53,6 +54,15 @@ pub enum RuntimeOp {
         element: u32,
     },
     Thumbnail,
+    /// Tries a profile cover on every live screen without changing a theme
+    /// (the scene named is ignored); answers `{"screens": n}`.
+    PreviewCover {
+        transition: crate::profiles::TransitionSettings,
+        /// The theme to try on each screen, by screen key (the profile
+        /// selected in the manager, saved or not).
+        #[serde(default)]
+        themes: BTreeMap<String, String>,
+    },
     Sensors {
         listed: Option<Vec<String>>,
     },
@@ -247,6 +257,15 @@ fn dispatch_inner(
     {
         return Err(invalid("unexpected runtime payload"));
     }
+    if matches!(
+        request.op,
+        RuntimeOp::Draft { .. }
+            | RuntimeOp::Inspect { .. }
+            | RuntimeOp::Measure { .. }
+            | RuntimeOp::Cards { .. }
+    ) {
+        engine.editing_profile(key);
+    }
     match request.op {
         RuntimeOp::SensorRestarted => {
             light(LightEvent::SensorRestart, 0, 0.0, "reader");
@@ -277,6 +296,15 @@ fn dispatch_inner(
         RuntimeOp::Live { on } => {
             engine.live(key, on)?;
             Ok((Value::Null, Vec::new()))
+        }
+        RuntimeOp::PreviewCover { transition, themes } => {
+            if themes.len() > MAX_SCENES
+                || themes.iter().any(|(k, v)| k.len() > 256 || v.len() > 32768)
+            {
+                return Err(invalid("invalid preview themes"));
+            }
+            let covered = engine.preview_cover(&transition, &themes)?;
+            Ok((json!({ "screens": covered }), Vec::new()))
         }
         RuntimeOp::Image { after, max, .. } => {
             let next = engine.image(key, after, max)?;

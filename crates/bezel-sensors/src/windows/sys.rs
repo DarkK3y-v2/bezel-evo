@@ -13,9 +13,7 @@ use sysinfo::{
     DiskRefreshKind, Disks as SysDisks, MINIMUM_CPU_UPDATE_INTERVAL, Networks, System as SysSystem,
 };
 
-use crate::provider::{
-    COUNTER_RESET, NOT_SUPPORTED_YET, Provider, WARMING_UP, describe, percent, put, slug,
-};
+use crate::provider::{COUNTER_RESET, Provider, WARMING_UP, describe, percent, put, slug};
 
 /// Why a CPU clock is missing (sysinfo returns 0 when the query failed).
 const NO_CLOCK: &str = "Windows did not report the CPU clock";
@@ -572,55 +570,5 @@ impl Provider for Network {
         put(out, keys::NET_DOWN, summed(down));
         put(out, keys::NET_UP, summed(up));
         self.previous = Some((current, now));
-    }
-}
-
-/// Uptime, host name, and the output volume Bezel does not read yet.
-pub(crate) struct System {
-    catalog: Vec<SensorInfo>,
-}
-
-impl System {
-    pub(crate) fn new() -> Self {
-        let s = Category::System;
-        let catalog = [
-            describe(keys::UPTIME, s, "Uptime", Quantity::Seconds, "sysinfo"),
-            describe(keys::HOSTNAME, s, "Host name", Quantity::Text, "sysinfo"),
-            describe(
-                keys::SYSTEM_VOLUME,
-                s,
-                "Output volume",
-                Quantity::Percent,
-                "none",
-            ),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        Self { catalog }
-    }
-}
-
-impl Provider for System {
-    fn catalog(&self) -> Vec<SensorInfo> {
-        self.catalog.clone()
-    }
-
-    fn sample(&mut self, _now: Instant, out: &mut Snapshot) {
-        put(
-            out,
-            keys::UPTIME,
-            Reading::Value(SysSystem::uptime() as f64),
-        );
-        let host = SysSystem::host_name().map_or_else(
-            || Reading::Unavailable("no host name".into()),
-            Reading::Text,
-        );
-        put(out, keys::HOSTNAME, host);
-        put(
-            out,
-            keys::SYSTEM_VOLUME,
-            Reading::Unavailable(NOT_SUPPORTED_YET.into()),
-        );
     }
 }

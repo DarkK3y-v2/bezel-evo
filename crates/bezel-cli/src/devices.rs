@@ -157,8 +157,7 @@ fn endpoint_line(out: &mut String, label: &str, e: &Endpoint) {
 fn table(found: &Discovery) -> String {
     if found.screens.is_empty() && found.desktop_mode.is_empty() {
         return "No smart screen found.\n\
-                Check the USB cable, and on Linux that your user may open the port \
-                (`bezel udev-rules` prints the udev rule that grants it).\n"
+                Check the USB cable and close other applications using the screen.\n"
             .to_string();
     }
     let mut out = String::new();
@@ -272,7 +271,6 @@ mod tests {
     fn empty_bus_explains_what_to_check() {
         let out = list(&FakeBus::default(), false).unwrap();
         assert!(out.starts_with("No smart screen found."));
-        assert!(out.contains("`bezel udev-rules`"), "{out}");
         assert_eq!(list(&FakeBus::default(), true).unwrap(), "[]\n");
     }
 

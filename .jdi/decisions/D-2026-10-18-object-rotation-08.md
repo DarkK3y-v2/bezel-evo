@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-08 (2026-10-18): Decisione tecnica — canvas con hit-test e maniglie nel sistema locale dell'elemento; copia/incolla/duplica mantengono l'angolo; un trascinamento di rotazione = un solo passo di Annulla; chiavi i18n in en, pt-BR, it con parità.

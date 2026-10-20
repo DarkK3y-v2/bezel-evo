@@ -1,5 +1,5 @@
 // The screen in demo mode, in pt-BR and en, light and dark: live mode and
-// start at login, a denied port shows the udev command (in a dialog and on
+// start at login, a denied port shows its access error on
 // the stage), a panel in desktop mode goes back only after a dialog, a hung
 // screen is restarted after one, a live screen that drops is connected
 // again, saying so, and the Screen panel shows only the screen chosen at the
@@ -86,43 +86,6 @@ test('the Screen panel shows only the screen chosen at the top', async ({ page, 
   expect(errors).toEqual([]);
 });
 
-test('a denied port shows the udev command to copy', async ({ page, context, t }) => {
-  const errors = watchErrors(page);
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await page.goto('/index.html?demo=denied');
-  await expect(page.locator('#theme-name')).toHaveValue('Demo');
-  const live = page.getByRole('switch');
-  await live.click({ force: true });
-  const dialog = page.getByRole('dialog', { name: t('udev.title') });
-  const denied = t('error.accessDenied', { address: '/dev/ttyACM1', reason: 'Permission denied (os error 13)' });
-  await expect(dialog).toContainText(denied);
-  const command = dialog.getByRole('group', { name: t('udev.command') });
-  await expect(command).toContainText('sudo install -m 644 /home/demo/.cache/io.github.slipalison.bezel/60-bezel.rules /etc/udev/rules.d/60-bezel.rules');
-  await expect(dialog).toContainText(t('udev.never'));
-  const copy = command.getByRole('button', { name: t('udev.copy') });
-  await expect(copy).toBeFocused();
-  await expectAccessible(page);
-  await copy.click();
-  await expect(page.locator('#toast')).toHaveText(t('udev.copied'));
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^sudo install -m 644 .* && sudo udevadm trigger$/);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
-  await expect(live).not.toBeChecked();
-
-  // The stage says how to connect it, with the same command.
-  const connect = page.getByRole('region', { name: t('connect.title') });
-  await expect(connect).toContainText(denied);
-  await expect(connect.getByRole('group', { name: t('udev.command') })).toContainText('sudo install -m 644');
-
-  // The storage tab says the same, with the command.
-  await page.getByRole('tab', { name: t('library.screen') }).click();
-  await page.getByRole('tab', { name: t('screen.storageTab') }).click();
-  const storage = page.locator('#storage-panel');
-  await expect(storage.getByRole('alert')).toContainText(denied);
-  await expect(storage.getByRole('group', { name: t('udev.command') })).toBeVisible();
-  await expectAccessible(page);
-  expect(errors).toEqual([]);
-});
 
 test('a panel in desktop mode is labelled and switched back only after a dialog', async ({ page, t }) => {
   const errors = watchErrors(page);

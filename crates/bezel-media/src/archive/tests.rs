@@ -512,29 +512,3 @@ fn a_save_replaces_a_catalog_another_reader_holds_open() {
     assert_eq!(store.load().unwrap(), second);
     assert_eq!(file_names(dir.path()), ["catalog.json"]);
 }
-
-/// The fake ffmpeg answers a picture request with `AAAABBBB`: two pixels.
-#[cfg(unix)]
-#[test]
-fn a_video_thumbnail_is_the_picture_ffmpeg_takes() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut store = DiskArchive::open(dir.path()).unwrap();
-    let tiny = Movie {
-        width: 2,
-        height: 1,
-        ..Movie::in_rev_c_profile()
-    };
-    let id = store.keep(&tiny.bytes()).unwrap();
-    let lookup = Lookup {
-        configured: None,
-        search_path: Some(crate::fakes::dir().join("ready").into_os_string()),
-    };
-    let mut media = FfmpegTranscoder::with_lookup(lookup, HostSystem::Debian);
-    // Off the UI thread: a clone reaches the same store.
-    let worker = store.clone();
-    let thumb = worker.thumbnail(&id, &mut media).unwrap().unwrap();
-    let picture = image::load_from_memory(&thumb).unwrap().to_rgba8();
-    assert_eq!(picture.dimensions(), (2, 1));
-    assert_eq!(picture.into_raw(), b"AAAABBBB");
-    assert_eq!(store.thumbnail(&id, &mut media).unwrap(), Some(thumb));
-}

@@ -506,11 +506,11 @@ pub struct SavedDto {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreferencesDto {
+    pub audio_capture: bool,
     pub debug: bool,
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,
     pub debug_log_path: String,
-    pub light_on_close: bool,
     pub light_runtime: bool,
     /// The language the user chose (`pt-BR` or `en`); `None` follows the
     /// system.
@@ -521,10 +521,6 @@ pub struct PreferencesDto {
     pub ping_host: String,
     /// The host `net.ping` measures unless the user picks another.
     pub default_ping_host: &'static str,
-    /// The folder of MangoHud's logs; `None`: MangoHud's own.
-    pub mangohud_dir: Option<String>,
-    /// Whether `gpu.fps` reads MangoHud's logs on this system (Linux).
-    pub mangohud: bool,
     /// Which themes the Themes tab lists.
     pub theme_filter: ThemeFilterDto,
 }

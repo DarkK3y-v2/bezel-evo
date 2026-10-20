@@ -1,0 +1,557 @@
+{
+  "schema": 1,
+  "name": "Resonance / Music \u2014 Wide",
+  "canvas": {
+    "width": 1920,
+    "height": 480
+  },
+  "orientation": "landscape",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#180f19ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Listening session",
+      "frame": {
+        "x": 40,
+        "y": 95,
+        "width": 1110,
+        "height": 325
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 0,
+        "fill": "#00000000",
+        "strokeWidth": 0
+      },
+      "card": {
+        "faces": [
+          "Standby",
+          "Playing"
+        ],
+        "transition": {
+          "effect": "fade",
+          "direction": "left",
+          "durationMs": 800
+        },
+        "triggers": [
+          {
+            "source": "mediaPlaying",
+            "app": "",
+            "face": 1,
+            "priority": 10,
+            "returnSeconds": 3,
+            "returnFace": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "name": "Standby album",
+      "frame": {
+        "x": 44,
+        "y": 109,
+        "width": 300,
+        "height": 300
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 6,
+        "fill": {
+          "angle": 25,
+          "stops": [
+            [
+              0,
+              "#db875aff"
+            ],
+            [
+              1,
+              "#642d51ff"
+            ]
+          ]
+        },
+        "strokeWidth": 0,
+        "corners": [
+          6,
+          44,
+          6,
+          6
+        ]
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 4,
+      "name": "Standby disc",
+      "frame": {
+        "x": 85,
+        "y": 150,
+        "width": 218,
+        "height": 218
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "ellipse",
+        "radius": 0,
+        "fill": "#321c30ff",
+        "stroke": "#ffdbaf70",
+        "strokeWidth": 1
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 5,
+      "name": "Standby monogram",
+      "frame": {
+        "x": 100,
+        "y": 198,
+        "width": 188,
+        "height": 105
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "R"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 92,
+          "paint": "#ffc08fff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 6,
+      "name": "Standby title",
+      "frame": {
+        "x": 382,
+        "y": 163,
+        "width": 728,
+        "height": 56
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "THE LISTENING ROOM"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 37,
+          "paint": "#fff1e5ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 7,
+      "name": "Standby hint",
+      "frame": {
+        "x": 382,
+        "y": 229,
+        "width": 728,
+        "height": 50
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "Ready for your next track"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 29,
+          "paint": "#c29e9eff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 8,
+      "name": "Standby timeline",
+      "frame": {
+        "x": 382,
+        "y": 382,
+        "width": 728,
+        "height": 2
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 0,
+        "fill": "#ce929947",
+        "strokeWidth": 0
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 0
+      }
+    },
+    {
+      "id": 9,
+      "name": "Media player",
+      "frame": {
+        "x": 44,
+        "y": 109,
+        "width": 1100,
+        "height": 300
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": true,
+          "coverRadius": 6,
+          "coverCorners": [
+            6,
+            44,
+            6,
+            6
+          ],
+          "coverGap": 38,
+          "showProgress": true,
+          "showSource": false,
+          "showTime": true,
+          "emptyText": "Ready for your next track",
+          "progressStyle": {
+            "fill": "#ffad75ff",
+            "track": "#fff1e530",
+            "thickness": 4,
+            "knob": true,
+            "times": "sides"
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 39,
+          "paint": "#fff1e5ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 2,
+        "face": 1
+      }
+    },
+    {
+      "id": 10,
+      "name": "Brand",
+      "frame": {
+        "x": 40,
+        "y": 14,
+        "width": 440,
+        "height": 58
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RESONANCE"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 44,
+          "paint": "#fff1e5ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "name": "Edition",
+      "frame": {
+        "x": 725,
+        "y": 29,
+        "width": 420,
+        "height": 26
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "THE LISTENING ROOM / 02"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 16,
+          "paint": "#c29e9eff",
+          "align": "right",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "Live radial spectrum",
+      "frame": {
+        "x": 1290,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "bands": 64,
+          "style": "radial",
+          "inner": 74,
+          "thickness": 7,
+          "gap": 2,
+          "motion": "smooth",
+          "peaks": false,
+          "centre": false
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 30,
+            "stops": [
+              [
+                0,
+                "#ffb778ff"
+              ],
+              [
+                1,
+                "#e77ca8ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "name": "Disc label",
+      "frame": {
+        "x": 1464,
+        "y": 193,
+        "width": 132,
+        "height": 22
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "OUTPUT"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 13,
+          "paint": "#c29e9eff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "name": "Output volume",
+      "frame": {
+        "x": 1460,
+        "y": 223,
+        "width": 140,
+        "height": 47
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "system.volume",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 34,
+          "paint": "#fff1e5ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 15,
+      "name": "Disc edition",
+      "frame": {
+        "x": 1475,
+        "y": 282,
+        "width": 110,
+        "height": 18
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "R / 02"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#c29e9eff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "name": "Footer",
+      "frame": {
+        "x": 44,
+        "y": 441,
+        "width": 1050,
+        "height": 24
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "ALBUM ART  /  MEDIA SESSION                                      SYSTEM AUDIO"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 14,
+          "paint": "#c29e9eff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "name": "Clock",
+      "frame": {
+        "x": 1796,
+        "y": 28,
+        "width": 94,
+        "height": 24
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#c29e9eff",
+          "align": "right",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#180f19ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#ffad75ff"
+    },
+    {
+      "name": "Text",
+      "color": "#fff1e5ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#c29e9eff"
+    }
+  ]
+}

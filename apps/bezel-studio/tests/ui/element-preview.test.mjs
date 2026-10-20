@@ -1,6 +1,29 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PEAK_LIMIT, PREVIEW_MAX_SCALE, PREVIEW_MAX_SIDE, createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../../src/element-preview.js';
+import { PEAK_LIMIT, PREVIEW_MAX_SCALE, PREVIEW_MAX_SIDE, createPeakWatch, createPreviewScheduler, fitPreview, previewOffset, previewSide } from '../../src/element-preview.js';
+
+test('visible preview content is centred without changing pixels or frame dimensions', () => {
+  const rgba = new Uint8ClampedArray(10 * 6 * 4);
+  rgba[(1 * 10) * 4 + 3] = 255;
+  rgba[(3 * 10 + 2) * 4 + 3] = 1;
+  // Invisible RGB data must not affect the visible bounds.
+  rgba[(5 * 10 + 9) * 4] = 255;
+  const before = rgba.slice();
+  const frame = { width: 10, height: 6, rgba };
+  assert.deepEqual(previewOffset(frame), { x: 3.5, y: 0.5 });
+  assert.deepEqual(rgba, before);
+  assert.equal(frame.width, 10); assert.equal(frame.height, 6);
+});
+
+test('centred, blank and missing previews need no translation', () => {
+  assert.deepEqual(previewOffset(null), { x: 0, y: 0 });
+  assert.deepEqual(previewOffset({ width: 0, height: 0, pixels: [] }), { x: 0, y: 0 });
+  const pixels = new Uint8ClampedArray(4 * 4 * 4);
+  assert.deepEqual(previewOffset({ width: 4, height: 4, pixels }), { x: 0, y: 0 });
+  pixels[(1 * 4 + 1) * 4 + 3] = 255;
+  pixels[(2 * 4 + 2) * 4 + 3] = 255;
+  assert.deepEqual(previewOffset({ width: 4, height: 4, pixels }), { x: 0, y: 0 });
+});
 
 test('the preview fits the box, keeps its shape and enlarges at most four times', () => {
   assert.equal(PREVIEW_MAX_SCALE, 4);

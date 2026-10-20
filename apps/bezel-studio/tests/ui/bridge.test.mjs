@@ -114,7 +114,7 @@ test('tauri mode maps every call to its command', async () => {
   await bridge.render(theme, { motion: false, cardRotation: false });
   await bridge.videoAuto(theme);
   await bridge.openGuide('ffmpeg', 'pt-BR');
-  await bridge.setLightOnClose(false);
+  await bridge.pickScreenColor();
   assert.deepEqual(calls.map((c) => c[0]), [
     'list_devices', 'sensor_catalog', 'sample_sensors', 'editor_session', 'render_preview', 'push_theme', 'set_live',
     'set_brightness', 'release_screen', 'save_theme', 'list_themes', 'open_theme', 'new_theme', 'import_theme',
@@ -123,7 +123,7 @@ test('tauri mode maps every call to its command', async () => {
     'run_upload', 'cancel_job', 'delete_stored', 'play_stored', 'stop_playback', 'set_boot_media', 'set_boot_media',
     'set_unsaved', 'close_window', 'preferences', 'set_language', 'set_sensor_options', 'pick_folder',
     'leave_desktop_mode', 'quit_app', 'show_sensors', 'restart_screen', 'add_media', 'add_media',
-    'theme_thumbnail', 'set_theme_filter', 'render_preview', 'video_auto', 'open_guide', 'set_light_on_close',
+    'theme_thumbnail', 'set_theme_filter', 'render_preview', 'video_auto', 'open_guide', 'pick_screen_color',
   ]);
   assert.deepEqual(calls[4][1], { theme, motion: true, cardRotation: true }, 'the preview plays a video background by default');
   assert.deepEqual(calls[47][1], { theme, motion: false, cardRotation: false }, 'reduced motion: the poster');
@@ -136,7 +136,7 @@ test('tauri mode maps every call to its command', async () => {
   assert.deepEqual(calls[42][1], { screen: 'k' });
   assert.deepEqual(calls[41][1], { keys: ['net.ping', 'cpu.usage'] });
   assert.deepEqual(calls[36][1], { language: 'en' });
-  assert.deepEqual(calls[37][1], { pingHost: '1.1.1.1', mangohudDir: null });
+  assert.deepEqual(calls[37][1], { pingHost: '1.1.1.1' });
   assert.deepEqual(calls[39][1], { key: 'hid:/dev/hidraw7', confirmed: true });
   assert.deepEqual(calls[33][1], { unsaved: true });
   assert.deepEqual(calls[24][1], { screen: 'k', source: '/home/me/clip.mp4', medium: 'sd' });
@@ -390,8 +390,9 @@ test('outside localhost without Tauri there is no backend', async () => {
 test('the demo serves every call the app does', () => {
   const tauri = createBridge({ ...page(), __TAURI__: { core: { invoke: async () => null } } });
   const demo = createBridge(page());
-  // Files dropped from the system reach only the app (Tauri owns that drag).
-  const appOnly = ['onFileDrop'];
+  // OS drag and native screen sampling belong to the desktop host. The demo
+  // uses the browser's own EyeDropper, when available, rather than native IPC.
+  const appOnly = ['onFileDrop', 'pickScreenColor'];
   const missing = Object.keys(tauri).filter((k) => typeof tauri[k] === 'function' && typeof demo[k] !== 'function' && !appOnly.includes(k));
   assert.deepEqual(missing, []);
 });
@@ -462,4 +463,10 @@ test('font actions accept catalog identities and document assets, never a file p
     ['include_font', { family: 'Local', weight: 700, italic: true }],
     ['font_face', { family: 'Local', weight: 700, italic: true, asset: 'assets/local.ttc' }],
   ]);
+});
+
+test('process capture consent uses an explicit local command, not a theme patch',async()=>{
+  const calls=[];const bridge=createBridge({...page(),__TAURI__:{core:{invoke:async(cmd,args)=>{calls.push([cmd,args]);}}}});
+  await bridge.setAudioCapture(true);await bridge.setAudioCapture(false);
+  assert.deepEqual(calls,[['set_audio_capture',{on:true}],['set_audio_capture',{on:false}]]);
 });

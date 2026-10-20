@@ -3,6 +3,7 @@
 // the canvas so they look right on a 0.96" and on a 12.3" panel alike.
 // Objects that show a value (value, bar, ring, needle) ease to each new
 // reading (D-2026-10-15-studio-redesign-fidelity-18): `valueTransition`.
+import { SPECTRUM_DEFAULTS } from '../spectrum.js';
 import { defaultTransition } from '../value-transition.js';
 
 const WHITE = '#ffffffff';
@@ -33,7 +34,7 @@ export function defaultRange(quantity) {
 }
 
 /** Widget ids in palette order. */
-export const WIDGETS = Object.freeze(['text', 'value', 'clock', 'weather', 'player', 'image', 'shape', 'card', 'bar', 'ring', 'needle', 'graph']);
+export const WIDGETS = Object.freeze(['text', 'value', 'clock', 'weather', 'player', 'spectrum', 'image', 'shape', 'card', 'bar', 'ring', 'needle', 'graph']);
 
 /**
  * The kind object and default size of a new widget.
@@ -64,6 +65,8 @@ export function createWidget(widget, canvas, sensor = {}) {
         width: short * 0.6,
         height: fontSize * 2,
       };
+    case 'spectrum':
+      return { kind: { type: 'text', content: { type: 'spectrum', ...structuredClone(SPECTRUM_DEFAULTS) }, style: { ...textStyle(Math.max(10, Math.round(fontSize * .5))), paint: ACCENT } }, width: short * .9, height: short * .3 };
     case 'player':
       return { kind: {type:'text', content:{type:'player',source:'',showCover:true,showProgress:true,showSource:false,hideWhenStopped:false,emptyText:'No media session'},style:textStyle(Math.max(10,Math.round(fontSize*.65)))},width:short*.95,height:short*.4 };
     case 'weather':
@@ -118,6 +121,7 @@ export function widgetOf(element) {
     if (k.content.type === 'sensor') return 'value';
     if (k.content.type === 'weather') return 'weather';
     if (k.content.type === 'player') return 'player';
+    if (k.content.type === 'spectrum') return 'spectrum';
     if (k.content.type === 'clock') return 'clock';
     return 'text';
   }

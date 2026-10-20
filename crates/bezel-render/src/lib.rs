@@ -27,9 +27,12 @@ mod paint;
 mod path;
 mod player;
 mod renderer;
+mod sensor_motion;
 mod shape;
+mod spectrum;
 mod svg;
 mod text;
+mod visualization;
 
 #[cfg(test)]
 mod golden;
@@ -65,3 +68,11 @@ mod tests {
 }
 
 mod weather;
+
+#[cfg(test)]
+mod rotation_tests;
+
+#[cfg(test)]
+mod modern_themes_tests;
+#[cfg(test)]
+mod text_case_tests;

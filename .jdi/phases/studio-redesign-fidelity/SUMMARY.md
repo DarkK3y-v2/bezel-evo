@@ -8,9 +8,10 @@
   le rifiuta finché `/jdi-confirm-dod` non le chiude.
 - Dopo la verifica la fase ha raccolto le decisioni di follow-up D-16..D-32, tutte integrate su
   `windows-improvements` (sezioni in fondo) tranne: D-27 (solo Windows, decisione di piattaforma senza codice),
-  D-31 (spostata nella fase `light-owns-screen`), D-32 (font su tre livelli: livello 1 fatto in `6cb9b82`,
-  livelli 2 e 3 in corso con ChatGPT nel worktree `F:\dev\bezel-fonts`, branch `fid/fonts`). Il numero D-30 non
-  è stato assegnato.
+  D-31 (spostata nella fase `light-owns-screen`). D-32 (font su tre livelli) è completata:
+  livello 1 in `6cb9b82`, livelli 2 e 3 integrati con `ce60a8b` il 2026-10-16
+  (`b230cca`, `c537ff2`, `2310f8c`). Il vecchio riferimento al worktree fonts era obsoleto.
+  Il numero D-30 non è stato assegnato.
 - Controlli visivi delle D-24/D-25 nell'app reale e del selettore font/colore (contagocce) nel WebView2: aperti,
   vedi `.jdi/todos/`.
 

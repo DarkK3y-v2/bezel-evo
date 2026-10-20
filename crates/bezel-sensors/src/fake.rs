@@ -4,7 +4,7 @@ use bezel_core::Result;
 use bezel_core::domain::sensor::{Category, Quantity, Reading, SensorInfo, Snapshot, Wanted, keys};
 use bezel_core::ports::SensorSource;
 
-use crate::provider::{NOT_SUPPORTED_YET, WARMING_UP, describe};
+use crate::provider::{WARMING_UP, describe};
 
 /// Replays a fixed catalog and a script of snapshots: each `sample` returns
 /// the next snapshot, and the last one repeats once the script runs out.
@@ -365,7 +365,7 @@ const DEMO: &[DemoRow] = &[
         Category::System,
         "Output volume",
         Quantity::Percent,
-        Demo::Unavailable(NOT_SUPPORTED_YET),
+        Demo::Value(48.0),
         false,
     ),
 ];

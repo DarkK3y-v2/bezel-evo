@@ -35,10 +35,15 @@ fn time() -> LocalTime {
 #[derive(Clone, Debug)]
 struct Seen {
     history: Vec<Option<f64>>,
+    spectra: BTreeMap<ElementId, bezel_core::domain::spectrum::AudioState>,
     clock: Duration,
     theme: String,
 }
 struct Renderer(Arc<Mutex<Vec<Seen>>>);
+thread_local! {
+    /// Each render draws a new frame, as live spectrum bars do.
+    static DISTINCT: std::cell::Cell<Option<u8>> = const { std::cell::Cell::new(None) };
+}
 impl FrameRenderer for Renderer {
     fn render(
         &mut self,
@@ -51,11 +56,22 @@ impl FrameRenderer for Renderer {
             .first()
             .map_or(Vec::new(), |id| context.histories.points(id, 100));
         self.0.lock().unwrap().push(Seen {
+            spectra: context
+                .snapshot
+                .spectra
+                .iter()
+                .map(|(id, f)| (*id, f.state))
+                .collect(),
             history,
             clock: context.animation,
             theme: theme.name.clone(),
         });
-        Ok(Frame::filled(theme.canvas, Rgba::BLACK))
+        let shade = DISTINCT.with(|d| {
+            let next = d.get().map(|n| n.wrapping_add(1));
+            d.set(next);
+            next.unwrap_or(0)
+        });
+        Ok(Frame::filled(theme.canvas, Rgba::opaque(shade, 0, 0)))
     }
     fn measure_element(
         &mut self,
@@ -82,12 +98,15 @@ fn doc() -> Document {
         visible: true,
         locked: false,
         opacity: 1.0,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,
         card: None,
         color_by_value: None,
+        visualization: None,
         value_transition: None,
+        sensor_motion: None,
         kind: ElementKind::Graph {
             binding: Binding {
                 key: SensorKey::new("cpu.usage").unwrap(),
@@ -114,9 +133,14 @@ struct Fixture {
     owner: Owner,
     seen: Arc<Mutex<Vec<Seen>>>,
     key: String,
+    // Drop after the engine so media handles are closed before cleanup on Windows.
+    _directory: tempfile::TempDir,
 }
 fn fixture() -> Fixture {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let directory = tempfile::Builder::new()
+        .prefix("bezel-test-engine-")
+        .tempdir()
+        .unwrap();
     let bus = Arc::new(FakeBus::turing_88());
     let key = bezel_core::app::discover_screens(bus.as_ref()).unwrap()[0]
         .address()
@@ -149,11 +173,7 @@ fn fixture() -> Fixture {
         bus,
         Arc::new(owner.client(true)),
         Language::English,
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-            "../../target/engine-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )),
+        directory.path().to_path_buf(),
         time,
     )
     .unwrap();
@@ -164,7 +184,467 @@ fn fixture() -> Fixture {
         owner,
         seen,
         key,
+        _directory: directory,
     }
+}
+
+#[test]
+fn fixture_removes_its_files_after_success_and_unwinding() {
+    for unwind in [false, true] {
+        let mut path = None;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let f = fixture();
+            path = Some(f._directory.path().to_path_buf());
+            let nested = f._directory.path().join("nested");
+            std::fs::create_dir(&nested).unwrap();
+            std::fs::write(nested.join("clip.mp4"), b"test media").unwrap();
+            if unwind {
+                std::panic::resume_unwind(Box::new("simulated test failure"));
+            }
+        }));
+        assert_eq!(result.is_err(), unwind);
+        assert!(!path.unwrap().exists());
+    }
+}
+
+#[test]
+fn a_profile_switch_restores_the_unsaved_editor_and_never_replaces_its_published_frame() {
+    use crate::profiles::{Config, Profile, ProfileFile, Service};
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    let mut f = fixture();
+    let previous_pixels = DISTINCT.with(|d| d.replace(Some(0)));
+    let mut saved = doc();
+    saved.theme.background = Background::Color(Rgba::BLACK);
+    f.engine.document(&f.key, 1, saved.clone(), true).unwrap();
+    let mut draft = saved.clone();
+    draft.theme.name = "unsaved editor".into();
+    f.engine.document(&f.key, 2, draft.clone(), false).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let published = f.engine.scenes[&f.key]
+        .frame
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .clone();
+    let directory = f._directory.path().join("profile-engine");
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("music.bezeltheme");
+    let mut music = saved.clone();
+    music.theme.name = "music profile".into();
+    bezel_themes::FsThemeStore
+        .save(
+            &ThemeLocation(path.display().to_string()),
+            &music.theme,
+            &music.assets,
+        )
+        .unwrap();
+    let file = ProfileFile(directory.join("profiles.json"));
+    file.save(&Config {
+        profiles: vec![Profile {
+            id: "music".into(),
+            name: "Music".into(),
+            themes: BTreeMap::from([(f.key.clone(), path.display().to_string())]),
+            rules: vec![],
+        }],
+        automatic: false,
+        manual: Some("music".into()),
+        default_profile: None,
+        transition: Default::default(),
+    })
+    .unwrap();
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    let mut service = Service::new(file.clone());
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, "music profile");
+    assert!(scene.saved == saved);
+    assert!(scene.profile_restore.as_ref() == Some(&draft));
+    f.engine.editing_profile(&f.key);
+    music.theme.name = "freshly saved music".into();
+    bezel_themes::FsThemeStore
+        .save(
+            &ThemeLocation(path.display().to_string()),
+            &music.theme,
+            &music.assets,
+        )
+        .unwrap();
+    service.tick(
+        &mut f.engine,
+        &Snapshot::default(),
+        Duration::from_millis(100),
+    );
+    // Simulate the editing grace period expiring without a wall-clock sleep.
+    f.engine.scenes.get_mut(&f.key).unwrap().profile_edit_at = None;
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(1));
+    assert_eq!(
+        f.engine.scenes[&f.key].runtime.theme().name,
+        "freshly saved music"
+    );
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    assert!(f.engine.scenes[&f.key].frame.as_ref().unwrap().as_ref() != &published);
+    // Reading the canvas returns the editor's frame, not the live profile.
+    assert!(f.engine.image(&f.key, 0, 2320).unwrap().frame.as_ref() == Some(&published));
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(1));
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, "unsaved editor");
+    assert!(scene.saved == saved);
+    assert_eq!(scene.revision, 2);
+    assert!(scene.profile_restore.is_none());
+    std::fs::remove_file(&file.0).unwrap();
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+    DISTINCT.with(|d| d.set(previous_pixels));
+}
+
+#[test]
+fn one_gaming_profile_switches_two_different_displays_and_restores_both() {
+    use crate::profiles::{Config, Profile, ProfileFile, Service};
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    let mut f = fixture();
+    let mut wide = doc();
+    wide.theme.name = "Selected wide".into();
+    let mut round = wide.clone();
+    round.theme.name = "Selected round".into();
+    round.theme.canvas = Size::new(480, 480);
+    round.theme.orientation = Orientation::Portrait;
+    f.engine.document("wide", 1, wide.clone(), true).unwrap();
+    f.engine.document("round", 1, round.clone(), true).unwrap();
+    for scene in f.engine.scenes.values_mut() {
+        scene.live = true;
+        scene.frame = Some(Arc::new(Frame::filled(
+            scene.runtime.theme().canvas,
+            Rgba::BLACK,
+        )));
+    }
+    let directory = f._directory.path().join("profile-pair");
+    std::fs::create_dir(&directory).unwrap();
+    let mut themes = BTreeMap::new();
+    for (key, base) in [("wide", &wide), ("round", &round)] {
+        let mut gaming = base.clone();
+        gaming.theme.name = format!("Gaming {key}");
+        let path = directory.join(format!("{key}.bezeltheme"));
+        bezel_themes::FsThemeStore
+            .save(
+                &ThemeLocation(path.display().to_string()),
+                &gaming.theme,
+                &gaming.assets,
+            )
+            .unwrap();
+        themes.insert(key.to_owned(), path.display().to_string());
+    }
+    let file = ProfileFile(directory.join("profiles.json"));
+    let config = Config {
+        profiles: vec![Profile {
+            id: "gaming".into(),
+            name: "Gaming".into(),
+            themes: themes.clone(),
+            rules: vec![],
+        }],
+        automatic: false,
+        manual: Some("gaming".into()),
+        default_profile: None,
+        transition: crate::profiles::TransitionSettings {
+            effect: "wipe".into(),
+            duration_ms: 800,
+            ..Default::default()
+        },
+    };
+    file.save(&config).unwrap();
+    let mut service = Service::new(file.clone());
+    use crate::profiles::Phase;
+    let phase = |engine: &Engine, key: &str| {
+        engine.scenes[key]
+            .profile_animation
+            .as_ref()
+            .map(|a| a.phase)
+    };
+    // The cover closes over the old themes first; nothing is applied yet.
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::ZERO);
+    for key in ["wide", "round"] {
+        assert_eq!(
+            f.engine.scenes[key].runtime.theme().name,
+            format!("Selected {key}")
+        );
+        assert_eq!(phase(&f.engine, key), Some(Phase::Closing));
+        assert_eq!(
+            f.engine.scenes[key]
+                .profile_animation
+                .as_ref()
+                .unwrap()
+                .target
+                .as_deref(),
+            Some("gaming")
+        );
+    }
+    // Closed after half the duration: both screens switch under the cover.
+    service.tick(
+        &mut f.engine,
+        &Snapshot::default(),
+        Duration::from_millis(400),
+    );
+    for key in ["wide", "round"] {
+        assert_eq!(
+            f.engine.scenes[key].runtime.theme().name,
+            format!("Gaming {key}")
+        );
+        assert_eq!(f.engine.scenes[key].profile_id.as_deref(), Some("gaming"));
+        assert_eq!(phase(&f.engine, key), Some(Phase::Covered));
+    }
+    assert!(f.engine.scenes["wide"].saved == wide);
+    assert!(f.engine.scenes["round"].saved == round);
+    file.select(None, false).unwrap();
+    service.tick(&mut f.engine, &Snapshot::default(), Duration::from_secs(2));
+    // Still fully covered (no frame drawn yet): the change needs no new closing.
+    for key in ["wide", "round"] {
+        assert_eq!(phase(&f.engine, key), Some(Phase::Covered));
+        assert_eq!(f.engine.scenes[key].profile_id, None);
+    }
+    assert_eq!(
+        f.engine.scenes["wide"].runtime.theme().name,
+        "Selected wide"
+    );
+    assert_eq!(
+        f.engine.scenes["round"].runtime.theme().name,
+        "Selected round"
+    );
+    f.engine.editing_profile("wide");
+    assert!(f.engine.scenes["wide"].profile_animation.is_none());
+    for path in themes.values() {
+        std::fs::remove_file(path).unwrap();
+    }
+    std::fs::remove_file(&file.0).unwrap();
+    std::fs::remove_dir(directory).unwrap();
+}
+#[test]
+fn profile_motion_schedules_frames_until_completion_without_waiting_for_sensor_refresh() {
+    use crate::profiles::{Animation, Phase};
+    use bezel_core::domain::cover::{
+        Cover, CoverDirection, CoverEffect, DEFAULT_ACCENT, DEFAULT_PANEL,
+    };
+    let mut f = fixture();
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let scene = f.engine.scenes.get_mut(&f.key).unwrap();
+    // Covered at 0 (the theme was applied); its first frame is drawn at 50 ms.
+    scene.profile_animation = Some(Animation {
+        target: None,
+        phase: Phase::Covered,
+        started: Duration::ZERO,
+        base: 1.0,
+        cover: Cover {
+            effect: CoverEffect::Mosaic,
+            direction: CoverDirection::Left,
+            panel: DEFAULT_PANEL,
+            accent: DEFAULT_ACCENT,
+        },
+        half: Duration::from_millis(300),
+        apply: true,
+        show: None,
+    });
+    scene.dirty = true;
+    let count = f.seen.lock().unwrap().len();
+    let delay = f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    assert!(delay <= Duration::from_millis(50));
+    assert!(f.seen.lock().unwrap().len() > count);
+    let animation = f.engine.scenes[&f.key].profile_animation.as_ref().unwrap();
+    // The opening starts at the first frame drawn, not when the theme changed.
+    assert_eq!(
+        (animation.phase, animation.started),
+        (Phase::Opening, Duration::from_millis(50))
+    );
+    let covered = f.engine.scenes[&f.key].frame.as_ref().unwrap().clone();
+    assert!(
+        covered
+            .as_rgba()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|p| *p == [0x12, 0x0b, 0x13, 255])
+    );
+    f.engine
+        .tick_at(Duration::from_millis(349), time())
+        .unwrap();
+    assert!(f.engine.scenes[&f.key].profile_animation.is_some());
+    f.engine
+        .tick_at(Duration::from_millis(350), time())
+        .unwrap();
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+}
+#[test]
+fn a_cover_preview_closes_and_opens_on_the_same_theme() {
+    use crate::profiles::{Phase, TransitionSettings};
+    let mut f = fixture();
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    let shown = f.engine.scenes[&f.key].frame.clone().unwrap();
+    let name = f.engine.scenes[&f.key].runtime.theme().name.clone();
+    let curtain = TransitionSettings {
+        effect: "curtain".into(),
+        duration_ms: 800,
+        ..Default::default()
+    };
+    // Nothing to try on a screen that is not live, or without a cover.
+    assert_eq!(
+        f.engine.preview_cover(&curtain, &BTreeMap::new()).unwrap(),
+        0
+    );
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    assert_eq!(
+        f.engine
+            .preview_cover(&TransitionSettings::default(), &BTreeMap::new())
+            .unwrap(),
+        0
+    );
+    assert!(f.engine.scenes[&f.key].profile_animation.is_none());
+    assert!(
+        f.engine
+            .preview_cover(
+                &TransitionSettings {
+                    effect: "spin".into(),
+                    ..Default::default()
+                },
+                &BTreeMap::new()
+            )
+            .is_err()
+    );
+    assert_eq!(
+        f.engine.preview_cover(&curtain, &BTreeMap::new()).unwrap(),
+        1
+    );
+    let started = f.engine.scenes[&f.key]
+        .profile_animation
+        .as_ref()
+        .unwrap()
+        .started;
+    let phase = |f: &Fixture| {
+        f.engine.scenes[&f.key]
+            .profile_animation
+            .as_ref()
+            .map(|a| a.phase)
+    };
+    advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();
+    assert_eq!(phase(&f), Some(Phase::Closing));
+    assert!(f.engine.scenes[&f.key].frame.as_ref().unwrap() != &shown);
+    // Closed at half the 800 ms: it opens at once on the same theme.
+    advance(&mut f.engine, started + Duration::from_millis(400), time()).unwrap();
+    assert_eq!(phase(&f), Some(Phase::Opening));
+    let covered = f.engine.scenes[&f.key].frame.clone().unwrap();
+    assert!(
+        covered
+            .as_rgba()
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .all(|p| *p == [0x12, 0x0b, 0x13, 255])
+    );
+    advance(&mut f.engine, started + Duration::from_millis(800), time()).unwrap();
+    assert_eq!(phase(&f), None);
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, name);
+    assert!(scene.profile_id.is_none() && scene.profile_restore.is_none());
+}
+#[test]
+fn a_tried_profile_shows_under_the_cover_then_the_screen_returns() {
+    use crate::profiles::{
+        Config, PREVIEW_HOLD, PREVIEW_ID, Phase, ProfileFile, Service, TransitionSettings,
+    };
+    use bezel_core::ports::{ThemeLocation, ThemeStore};
+    let mut f = fixture();
+    let base = doc();
+    f.engine.document(&f.key, 1, base.clone(), true).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.scenes.get_mut(&f.key).unwrap().live = true;
+    let temporary = tempfile::Builder::new()
+        .prefix("bezel-profile-try-")
+        .tempdir()
+        .unwrap();
+    let directory = temporary.path();
+    let path = directory.join("tried.bezeltheme");
+    let mut tried = base.clone();
+    tried.theme.name = "tried, unsaved profile".into();
+    bezel_themes::FsThemeStore
+        .save(
+            &ThemeLocation(path.display().to_string()),
+            &tried.theme,
+            &tried.assets,
+        )
+        .unwrap();
+    let wipe = TransitionSettings {
+        effect: "wipe".into(),
+        duration_ms: 800,
+        ..Default::default()
+    };
+    let file = ProfileFile(directory.join("profiles.json"));
+    file.save(&Config {
+        transition: wipe.clone(),
+        automatic: false,
+        ..Default::default()
+    })
+    .unwrap();
+    let mut service = Service::new(file.clone());
+    let themes = BTreeMap::from([
+        (f.key.clone(), path.display().to_string()),
+        ("absent".into(), "x".into()),
+    ]);
+    assert_eq!(f.engine.preview_cover(&wipe, &themes).unwrap(), 1);
+    let started = f.engine.scenes[&f.key]
+        .profile_animation
+        .as_ref()
+        .unwrap()
+        .started;
+    let name = |f: &Fixture| f.engine.scenes[&f.key].runtime.theme().name.clone();
+    let phase = |f: &Fixture| {
+        f.engine.scenes[&f.key]
+            .profile_animation
+            .as_ref()
+            .map(|a| a.phase)
+    };
+    // Closing over the base theme; the service leaves the scene alone.
+    service.tick(
+        &mut f.engine,
+        &Snapshot::default(),
+        started + Duration::from_millis(200),
+    );
+    advance(&mut f.engine, started + Duration::from_millis(200), time()).unwrap();
+    assert_eq!(
+        (name(&f), phase(&f)),
+        (base.theme.name.clone(), Some(Phase::Closing))
+    );
+    // Closed: the tried theme is under the cover, and it opens on it.
+    advance(&mut f.engine, started + Duration::from_millis(400), time()).unwrap();
+    assert_eq!(
+        (name(&f).as_str(), phase(&f)),
+        ("tried, unsaved profile", Some(Phase::Opening))
+    );
+    assert_eq!(
+        f.engine.scenes[&f.key].profile_id.as_deref(),
+        Some(PREVIEW_ID)
+    );
+    let shown_at = started + Duration::from_millis(400);
+    // Held on show: the service waits.
+    service.tick(
+        &mut f.engine,
+        &Snapshot::default(),
+        shown_at + PREVIEW_HOLD - Duration::from_millis(1),
+    );
+    assert_eq!(name(&f), "tried, unsaved profile");
+    // Then it closes again over it and returns to the base theme.
+    let back = shown_at + PREVIEW_HOLD;
+    service.tick(&mut f.engine, &Snapshot::default(), back);
+    assert_eq!(phase(&f), Some(Phase::Closing));
+    service.tick(
+        &mut f.engine,
+        &Snapshot::default(),
+        back + Duration::from_millis(400),
+    );
+    let scene = &f.engine.scenes[&f.key];
+    assert_eq!(scene.runtime.theme().name, base.theme.name);
+    assert!(
+        scene.profile_id.is_none()
+            && scene.profile_restore.is_none()
+            && scene.preview_until.is_none()
+    );
 }
 fn advance(engine: &mut Engine, at: Duration, time: LocalTime) -> Result<Duration> {
     if engine.scenes.values().any(|s| s.runtime.sample_due(at)) {
@@ -218,11 +698,13 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         )
         .unwrap();
         send(&mut f.engine, &f.key, RuntimeOp::Live { on: true }, &[]).unwrap();
-        advance(&mut f.engine, Duration::from_millis(3100), time()).unwrap();
+        // Hold the clock: handover itself must not redraw. Advancing it now
+        // legitimately draws the scrolling graph between sensor samples.
+        advance(&mut f.engine, Duration::from_secs(3), time()).unwrap();
         f.engine.disconnected().unwrap();
         f.owner.set_editing(false);
         f.owner.saved_ready();
-        advance(&mut f.engine, Duration::from_millis(3200), time()).unwrap();
+        advance(&mut f.engine, Duration::from_secs(3), time()).unwrap();
     }
     assert_eq!(
         f.physical.log().frames.len(),
@@ -246,6 +728,49 @@ fn editor_attach_detach_keeps_graph_clock_link_and_earth_playing() {
         1
     );
     assert!(!f.physical.log().storage.calls.contains(&StorageCall::Stop));
+}
+
+#[test]
+fn graph_frames_follow_twenty_ms_clock_without_more_sensor_samples() {
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    f.engine.document(&f.key, 1, document, true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    let delay = advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
+    assert!(delay <= Duration::from_millis(20));
+    let count = f.seen.lock().unwrap().len();
+    advance(&mut f.engine, Duration::from_millis(1010), time()).unwrap();
+    assert_eq!(f.seen.lock().unwrap().len(), count, "do not exceed 50 fps");
+    advance(&mut f.engine, Duration::from_millis(1020), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    assert_eq!(seen.len(), count + 1);
+    assert_eq!(seen.last().unwrap().clock, Duration::from_millis(1020));
+    assert_eq!(
+        seen.last().unwrap().history.len(),
+        2,
+        "animation must not sample"
+    );
+}
+
+#[test]
+fn rendering_that_exhausts_the_frame_budget_does_not_add_another_wait() {
+    struct Slow;
+    impl FrameRenderer for Slow {
+        fn render(
+            &mut self,
+            theme: &Theme,
+            _: &BTreeMap<AssetRef, Vec<u8>>,
+            _: RenderContext<'_>,
+        ) -> Result<Frame> {
+            std::thread::sleep(Duration::from_millis(60));
+            Ok(Frame::filled(theme.canvas, Rgba::BLACK))
+        }
+    }
+    let mut f = fixture();
+    f.engine.renderer = Box::new(Slow);
+    f.engine.document(&f.key, 1, doc(), true).unwrap();
+    assert_eq!(f.engine.tick().unwrap(), Duration::ZERO);
 }
 #[test]
 fn unsaved_draft_crash_restores_saved_in_same_scene_and_keeps_history() {
@@ -609,8 +1134,9 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
     f.engine.document("editor", 0, doc(), true).unwrap();
     advance(&mut f.engine, Duration::ZERO, time()).unwrap();
     let options = wire::Options {
+        audio_capture: false,
         ping_host: "127.0.0.1".into(),
-        mangohud_dir: None,
+
         ffmpeg: None,
     };
     for _ in 0..2 {
@@ -624,6 +1150,20 @@ fn sensor_options_status_and_catalog_use_engine_sources_without_losing_histories
         )
         .unwrap();
     }
+    assert_eq!(configured.load(Ordering::SeqCst), 1);
+    // Granting audio consent leaves the sensor reader running.
+    send(
+        &mut f.engine,
+        "editor",
+        RuntimeOp::Options {
+            options: wire::Options {
+                audio_capture: true,
+                ..options.clone()
+            },
+        },
+        &[],
+    )
+    .unwrap();
     assert_eq!(configured.load(Ordering::SeqCst), 1);
     advance(&mut f.engine, Duration::from_secs(1), time()).unwrap();
     let (status, _) = send(
@@ -1024,7 +1564,6 @@ fn large_sensor_catalog_uses_bounded_binary_json_instead_of_breaking_the_pipe() 
     );
 }
 
-#[cfg(windows)]
 #[test]
 fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
     use bezel_core::ports::ScreenChannel;
@@ -1074,4 +1613,343 @@ fn large_catalog_survives_the_first_request_over_the_windows_pipe() {
     stop.store(true, Ordering::SeqCst);
     drop(client);
     thread.join().unwrap().unwrap();
+}
+
+#[test]
+fn silent_spectrum_does_not_resend_identical_frames_on_sensor_ticks() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    let element = &mut document.theme.elements[0];
+    element.kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document(&f.key, 0, document, true).unwrap();
+    f.engine.live(&f.key, true).unwrap();
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    let count = f.physical.log().frames.len();
+    assert!(count > 0);
+    for n in 1..5 {
+        advance(&mut f.engine, Duration::from_secs(n), time()).unwrap();
+    }
+    assert_eq!(
+        f.physical.log().frames.len(),
+        count,
+        "settled audio must not submit unchanged frames"
+    );
+    f.engine.suspend(true);
+    assert_eq!(
+        f.engine.tick_at(Duration::from_secs(6), time()).unwrap(),
+        Duration::from_millis(50)
+    );
+}
+
+#[test]
+fn rejected_options_do_not_grant_capture_permission() {
+    let mut f = fixture();
+    let invalid = wire::Options {
+        audio_capture: true,
+        ping_host: "x".repeat(254),
+        ffmpeg: None,
+    };
+    assert!(f.engine.options(invalid).is_err());
+    assert!(!f.engine.audio_enabled);
+}
+
+#[test]
+fn scene_names_with_shared_prefixes_cannot_exchange_audio_results() {
+    use bezel_core::domain::{
+        spectrum::{AudioState, Spectrum},
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut plain = doc();
+    plain.theme.name = "plain-spectrum".into();
+    plain.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut demo = plain.clone();
+    demo.theme.name = "demo-spectrum".into();
+    if let ElementKind::Text {
+        content: TextContent::Spectrum(s),
+        ..
+    } = &mut demo.theme.elements[0].kind
+    {
+        s.demo = true;
+    }
+    f.engine.document("a", 0, plain, false).unwrap();
+    f.engine.document("a/b", 0, demo, false).unwrap();
+    f.engine.audio_consent(true);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    f.engine.images.latest("a/b", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let seen = f.seen.lock().unwrap();
+    let plain = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "plain-spectrum")
+        .unwrap();
+    let demo = seen
+        .iter()
+        .rev()
+        .find(|s| s.theme == "demo-spectrum")
+        .unwrap();
+    assert_eq!(
+        plain.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::PlayerMissing]
+    );
+    assert_eq!(
+        demo.spectra.values().copied().collect::<Vec<_>>(),
+        vec![AudioState::Demo]
+    );
+}
+
+#[test]
+fn spectrum_switches_source_on_the_same_refresh_that_changes_the_player() {
+    use bezel_core::{
+        domain::{
+            playback::{MediaSession, Player},
+            spectrum::{AudioBlock, AudioState, Spectrum},
+            theme::{TextContent, TextStyle},
+        },
+        ports::{AudioCapture, AudioCaptureFactory},
+    };
+    struct Factory(Arc<Mutex<Vec<String>>>);
+    struct Capture;
+    impl AudioCapture for Capture {
+        fn read(&mut self) -> std::result::Result<AudioBlock, AudioState> {
+            Ok(AudioBlock {
+                samples: vec![],
+                rate: 48000,
+                channels: 2,
+            })
+        }
+    }
+    impl AudioCaptureFactory for Factory {
+        fn open(&self, source: &str) -> std::result::Result<Box<dyn AudioCapture>, AudioState> {
+            self.0.lock().unwrap().push(source.into());
+            Ok(Box::new(Capture))
+        }
+    }
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.refresh_seconds = 1.;
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    let mut player = document.theme.elements[0].clone();
+    player.id = ElementId(2);
+    player.kind = ElementKind::Text {
+        content: TextContent::Player(Player::default()),
+        style: TextStyle::default(),
+    };
+    document.theme.elements.push(player);
+    let samples = ["Spotify.exe", "Chrome.exe"].map(|source| {
+        let mut s = Snapshot::default();
+        s.media.push(MediaSession {
+            source: source.into(),
+            playing: true,
+            ..Default::default()
+        });
+        s
+    });
+    f.engine.sensors =
+        sampling::Sampler::manual(Box::new(FakeSensors::new(Vec::new(), samples.into())));
+    let opened = Arc::new(Mutex::new(Vec::new()));
+    f.engine = f.engine.with_audio(Arc::new(Factory(opened.clone())));
+    f.engine.audio_consent(true);
+    f.engine.document("preview", 0, document, false).unwrap();
+    f.engine.sensors.advance(Duration::ZERO);
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("preview", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let wait = |source: &str| {
+        let until = Instant::now() + Duration::from_secs(1);
+        while !opened.lock().unwrap().iter().any(|s| s == source) {
+            assert!(
+                Instant::now() < until,
+                "source was not requested in the Player refresh"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    };
+    wait("Spotify.exe");
+    f.engine.sensors.advance(Duration::from_secs(1));
+    f.engine.tick_at(Duration::from_secs(1), time()).unwrap();
+    wait("Chrome.exe");
+}
+
+#[test]
+fn spectrum_on_any_card_face_keeps_its_state_before_and_after_the_face_shows() {
+    use bezel_core::domain::{
+        playback::{CardTrigger, TriggerSource},
+        spectrum::{AudioState, Spectrum},
+        theme::{Card, CardMember, TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.name = "card-spectrum".into();
+    let mut spectrum = document.theme.elements[0].clone();
+    spectrum.id = ElementId(2);
+    spectrum.kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    // Shown only on face 1, which a timer reaches while the saved face stays 0.
+    spectrum.card_member = Some(CardMember {
+        parent: ElementId(1),
+        face: Some(1),
+    });
+    document.theme.elements[0].card = Some(Card {
+        faces: vec!["sensors".into(), "music".into()],
+        active_face: 0,
+        rotation_seconds: None,
+        transition: None,
+        triggers: vec![CardTrigger {
+            source: TriggerSource::Timer,
+            interval_seconds: Some(5),
+            next_face: true,
+            app: String::new(),
+            face: 0,
+            priority: 0,
+            return_seconds: 0,
+            return_face: None,
+        }],
+    });
+    document.theme.elements.push(spectrum);
+    f.engine.document("a", 0, document, false).unwrap();
+    send(&mut f.engine, "a", RuntimeOp::Cards { on: true }, &[]).unwrap();
+    f.engine.audio_consent(true);
+    let state = |f: &Fixture| {
+        let seen = f.seen.lock().unwrap();
+        let last = seen
+            .iter()
+            .rev()
+            .find(|s| s.theme == "card-spectrum")
+            .unwrap();
+        last.spectra.values().copied().collect::<Vec<_>>()
+    };
+    for ms in [0, 50, 100] {
+        f.engine.tick_at(Duration::from_millis(ms), time()).unwrap();
+        f.engine.images.latest("a", 0, 64).unwrap();
+    }
+    // Face 1 is not shown yet, but its spectrum is already live: no default frame
+    // ("audio capture disabled") when the face comes into view.
+    assert_eq!(state(&f), vec![AudioState::PlayerMissing]);
+    for ms in [5_000, 5_050, 5_100] {
+        f.engine.tick_at(Duration::from_millis(ms), time()).unwrap();
+        f.engine.images.latest("a", 0, 64).unwrap();
+    }
+    assert_eq!(state(&f), vec![AudioState::PlayerMissing]);
+}
+
+#[test]
+fn a_wake_inside_the_spectrum_window_returns_when_the_window_ends() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    DISTINCT.with(|d| d.set(Some(0)));
+    f.engine.document("a", 0, document, false).unwrap();
+    f.engine.audio_consent(true);
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    // Another wake 20 ms after that frame (a worker result): the bars are due
+    // again in 30 ms, not after a whole sleep.
+    let wait = f
+        .engine
+        .tick_at(Duration::from_millis(120), time())
+        .unwrap();
+    assert!(wait <= Duration::from_millis(30), "{wait:?}");
+}
+
+#[test]
+fn an_identical_frame_does_not_hold_the_next_spectrum_back() {
+    use bezel_core::domain::{
+        spectrum::Spectrum,
+        theme::{TextContent, TextStyle},
+    };
+    let mut f = fixture();
+    let mut document = doc();
+    document.theme.background = Background::Color(Rgba::BLACK);
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum::default()),
+        style: TextStyle::default(),
+    };
+    f.engine.document("a", 0, document, false).unwrap();
+    f.engine.audio_consent(true);
+    advance(&mut f.engine, Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("a", 0, 64).unwrap();
+    let rendered = f.engine.scenes["a"].rendered_at;
+    // A sensor sample redraws nothing visible: the window keeps the last frame
+    // that changed, so the next worker result is drawn as soon as it arrives.
+    advance(&mut f.engine, Duration::from_millis(100), time()).unwrap();
+    assert_eq!(f.engine.scenes["a"].rendered_at, rendered);
+}
+
+#[test]
+fn a_spectrum_on_the_pcs_output_listens_without_any_player() {
+    use bezel_core::{
+        domain::{
+            spectrum::{AudioBlock, AudioState, SYSTEM_SOURCE, Spectrum, SpectrumAudio},
+            theme::{TextContent, TextStyle},
+        },
+        ports::{AudioCapture, AudioCaptureFactory},
+    };
+    struct Factory(Arc<Mutex<Vec<String>>>);
+    struct Capture;
+    impl AudioCapture for Capture {
+        fn read(&mut self) -> std::result::Result<AudioBlock, AudioState> {
+            Ok(AudioBlock {
+                samples: vec![],
+                rate: 48000,
+                channels: 2,
+            })
+        }
+    }
+    impl AudioCaptureFactory for Factory {
+        fn open(&self, source: &str) -> std::result::Result<Box<dyn AudioCapture>, AudioState> {
+            self.0.lock().unwrap().push(source.into());
+            Ok(Box::new(Capture))
+        }
+    }
+    let mut f = fixture();
+    let mut document = doc();
+    // No Player in the theme: the PC's output does not need one.
+    document.theme.elements[0].kind = ElementKind::Text {
+        content: TextContent::Spectrum(Spectrum {
+            audio: SpectrumAudio::System,
+            ..Spectrum::default()
+        }),
+        style: TextStyle::default(),
+    };
+    let opened = Arc::new(Mutex::new(Vec::new()));
+    f.engine = f.engine.with_audio(Arc::new(Factory(opened.clone())));
+    f.engine.audio_consent(true);
+    f.engine.document("preview", 0, document, false).unwrap();
+    f.engine.tick_at(Duration::ZERO, time()).unwrap();
+    f.engine.images.latest("preview", 0, 64).unwrap();
+    f.engine.tick_at(Duration::from_millis(50), time()).unwrap();
+    let until = Instant::now() + Duration::from_secs(1);
+    while !opened.lock().unwrap().iter().any(|s| s == SYSTEM_SOURCE) {
+        assert!(Instant::now() < until, "the PC's output was not opened");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(opened.lock().unwrap().iter().all(|s| s == SYSTEM_SOURCE));
 }

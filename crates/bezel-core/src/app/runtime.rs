@@ -63,7 +63,7 @@ use crate::domain::framing::{
     FramingGeometry, PanelLayout, ResolvedFraming, VideoFraming, frame_picture,
 };
 use crate::domain::geometry::Orientation;
-use crate::domain::history::{Histories, Tick};
+use crate::domain::history::{GRAPH_FRAME_STEP, Histories, SeriesId, Tick};
 use crate::domain::media::{
     ConvertOptions, MediaInfo, MediaKind, MediaTools, StreamSpec, UploadProfile, device_video_name,
     framed_options,
@@ -662,6 +662,31 @@ impl ThemeRuntime {
     }
 
     /// The readings of the last [`Self::sample`] (empty before the first).
+    /// Snapshot the Player will display after accepting an incoming sample at `at`.
+    /// Independent graph points do not change the Player before the theme refresh.
+    pub fn playback_snapshot<'a>(&'a self, incoming: &'a Snapshot, at: Duration) -> &'a Snapshot {
+        if self.refresh_due(at) {
+            incoming
+        } else {
+            &self.scene.snapshot
+        }
+    }
+
+    /// Update independent audio results without sampling or resetting histories.
+    pub fn set_spectra(
+        &mut self,
+        frames: BTreeMap<ElementId, crate::domain::spectrum::SpectrumFrame>,
+    ) -> bool {
+        if self.scene.snapshot.spectra == frames {
+            return false;
+        }
+        self.scene.snapshot.spectra = frames;
+        self.scene.revision = content_revision();
+        self.recent_frame = None;
+        true
+    }
+
+    /// The latest sensor readings used by this Player and its followers.
     pub fn snapshot(&self) -> &Snapshot {
         &self.latest
     }
@@ -1011,7 +1036,9 @@ impl ThemeRuntime {
         {
             self.use_catalog(&catalog);
         }
-        self.scene.histories.push(&snapshot, tick);
+        self.scene
+            .histories
+            .push_with_refresh(&snapshot, tick, self.refresh());
         // A graph's independent point must not change the other elements or
         // restart their value transitions before the theme's refresh is due.
         if !matches!(tick, Tick::At { refresh: false, .. }) {
@@ -1221,10 +1248,36 @@ impl ThemeRuntime {
         let Some(drawn) = self.cadence.drawn else {
             return Duration::ZERO;
         };
-        match self.change_after(drawn, View::Screen) {
+        let due = match self.change_after(drawn, View::Screen) {
             Some(change) => sample.min(change.max(drawn + MIN_FRAME_STEP)),
             None => sample,
+        };
+        if self.graph_animating(drawn) {
+            due.min(drawn + GRAPH_FRAME_STEP)
+        } else {
+            due
         }
+    }
+
+    /// Whether a visible graph has recorded motion left at this clock.
+    pub fn graph_animating(&self, at: Duration) -> bool {
+        let theme = self.card_timers.theme(&self.scene.theme);
+        theme.elements.iter().any(|element| {
+            theme.is_visible(element)
+                && match &element.kind {
+                    crate::domain::theme::ElementKind::Graph {
+                        binding,
+                        interval_seconds,
+                        ..
+                    } => {
+                        self.scene
+                            .histories
+                            .scroll_offset(&SeriesId::graph(&binding.key, *interval_seconds), at)
+                            > 0.
+                    }
+                    _ => false,
+                }
+        })
     }
 
     /// When the visible animated images or an easing value next change
@@ -1246,9 +1299,11 @@ impl ThemeRuntime {
         };
         image_change(&theme, &self.timelines, at)
             .into_iter()
+            .chain(theme.elements.iter().any(|e| theme.is_visible(e) && matches!(&e.kind,crate::domain::theme::ElementKind::Text{content:crate::domain::theme::TextContent::Spectrum(s),..} if s.demo)).then_some(at+Duration::from_millis(50)))
             .chain(self.renderer_change)
             .chain(self.card_timers.next)
             .chain(self.transitions.next_change(&theme, at, view))
+            .chain(self.graph_animating(at).then_some(at + GRAPH_FRAME_STEP))
             .chain(sample)
             .min()
     }

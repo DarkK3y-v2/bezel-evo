@@ -6,13 +6,13 @@ test('Media offers a local preview without changing the background', async ({ pa
   await page.getByRole('tab', { name: t('library.media') }).click();
   await page.getByRole('button', { name: t('media.addVideo') }).click();
   const item = page.locator('.media-item[data-ref="assets/ferias.mp4"]');
-  await item.getByRole('button', { name: t('videoPreview.open'), exact: true }).click();
+  await item.getByRole('button', { name: t('common.preview'), exact: true }).click();
   const dialog = page.locator('.video-preview-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText(t('videoPreview.unavailable'));
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(item.getByRole('button', { name: t('videoPreview.open'), exact: true })).toBeFocused();
+  await expect(item.getByRole('button', { name: t('common.preview'), exact: true })).toBeFocused();
   expect(errors).toEqual([]);
 });
 

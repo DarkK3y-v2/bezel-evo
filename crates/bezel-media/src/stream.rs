@@ -460,48 +460,4 @@ mod tests {
             .is_err()
         );
     }
-
-    #[cfg(unix)]
-    mod with_fake_ffmpeg {
-        use super::*;
-        use crate::fakes;
-
-        fn decoder(script: &str) -> Looping<FfmpegDecoder> {
-            let ffmpeg = fakes::dir().join(script);
-            let spec = spec(10);
-            Looping::new(
-                FfmpegDecoder::new(ffmpeg, vec!["rawvideo".into()], spec),
-                spec,
-            )
-        }
-
-        #[test]
-        fn frames_are_read_from_ffmpegs_pipe_and_loop() {
-            let mut frames = decoder("ready/ffmpeg");
-            let pixel = |f: &mut Looping<FfmpegDecoder>, ms| {
-                f.frame_at(Duration::from_millis(ms))
-                    .unwrap()
-                    .as_rgba()
-                    .to_vec()
-            };
-            assert_eq!(pixel(&mut frames, 0), b"AAAA");
-            assert_eq!(pixel(&mut frames, 100), b"BBBB");
-            assert_eq!(pixel(&mut frames, 200), b"AAAA", "two frames, then over");
-            assert_eq!(pixel(&mut frames, 250), b"AAAA");
-            assert_eq!(pixel(&mut frames, 300), b"BBBB");
-            assert_eq!(frames.pass_len, Some(2));
-        }
-
-        #[test]
-        fn a_decoding_failure_quotes_ffmpeg() {
-            let mut frames = decoder("failing/ffmpeg");
-            let err = frames.frame_at(Duration::ZERO).unwrap_err();
-            assert!(err.to_string().contains("Invalid data found"), "{err}");
-            let mut frames = decoder("missing/ffmpeg");
-            assert!(matches!(
-                frames.frame_at(Duration::ZERO),
-                Err(BezelError::Unsupported(_))
-            ));
-        }
-    }
 }

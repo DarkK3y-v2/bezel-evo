@@ -28,8 +28,10 @@ For the Setup executable, portable ZIP, checksums and source archive:
 ```
 
 The [packaging guide](../packaging/windows/README.md#maintainer-build) covers
-requirements, payloads and `-SkipBuild`. The independent packaging workflow is
-[windows-evo-package.yml](../.github/workflows/windows-evo-package.yml).
+requirements, payloads and `-SkipBuild`. There is no continuous integration:
+the manual [windows-evo-package.yml](../.github/workflows/windows-evo-package.yml)
+workflow builds the same packages on GitHub and uploads them as artifacts,
+without publishing a release. Bezel Evo is built and supported on Windows only.
 
 ## Development builds and manual setup
 
@@ -37,7 +39,7 @@ Build with Rust 1.98 or newer, Microsoft C++ build tools and Edge WebView2:
 
 ```powershell
 git clone https://github.com/jripper77/bezel-evo.git
-cd bezel
+cd bezel-evo
 cargo build --release --locked -p bezel -p bezel-studio
 ```
 

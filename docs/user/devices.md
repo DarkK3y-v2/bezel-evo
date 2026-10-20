@@ -2,8 +2,9 @@
 
 [Português (Brasil)](pt-BR/devices.md)
 
-`bezel devices` lists the screens connected to this computer and the model each
-one matches, without sending them anything.
+Studio's screen selector, and `bezel devices` in a terminal, list the screens
+connected to this computer and the model each one matches, without sending them
+anything.
 
 | Family | Examples | Connection |
 |---|---|---|
@@ -32,13 +33,12 @@ Bezel lists them as **desktop mode (not validated on hardware)** and can switch
 them back to USB monitor mode. This switch follows the vendor protocol but has
 not been tried on a real panel yet.
 
-```bash
+```powershell
 bezel monitor-mode          # says what it would do; sends nothing
 bezel monitor-mode --yes    # asks the panel its model, then switches it
 ```
 
 The panel restarts as a USB screen, and `bezel devices` then lists it normally.
-In the app, the **Screen** tab lists these panels under **Panels in desktop
+In Studio, the **Screen** panel lists these panels under **Panels in desktop
 mode**; **Back to USB monitor mode…** asks for confirmation before it switches
-one. On Linux, the panel is reached through `hidraw`, which the udev rule covers
-([Let Bezel open the screen](permissions.md)).
+one.

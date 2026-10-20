@@ -73,6 +73,7 @@ fn style(size: f32, weight: u16, paint: Paint, align: HAlign) -> TextStyle {
         paint,
         align,
         valign: VAlign::Middle,
+        casing: Default::default(),
         letter_spacing: 0.0,
     }
 }
@@ -382,8 +383,11 @@ pub fn theme() -> Option<Theme> {
         .enumerate()
         .map(|(i, (frame, kind))| Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

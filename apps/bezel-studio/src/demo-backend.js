@@ -1,3 +1,6 @@
+import { appliedRotation, rotatedBounds } from './editor/rotation.js';
+import { createSensorMotion, supportsSensorMotion } from './sensor-motion.js';
+import { demoSensorValue } from './demo-sensors.js';
 import { normalizeCardTheme } from './card-config.js';
 import { DEMO_SENSORS, demoValue } from './demo-sensors.js';
 export { DEMO_SENSORS, demoValue } from './demo-sensors.js';
@@ -7,7 +10,7 @@ import { createCardMotion } from './editor/card-motion.js';
 import { isShown } from './editor/cards.js';
 // An in-memory backend for demo mode: a simulated screen, sensors that move,
 // themes, media and an approximate renderer. Nothing here reaches hardware.
-import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, DEMO_UDEV_COMMAND, SCENARIOS } from './demo-data.js';
+import { DEMO_ACTIVITY, DEMO_BACK_FROM_DESKTOP, DEMO_LIBRARY, DEMO_LIVE_FPS, DEMO_LOCAL_FILES, DEMO_ORIGINALS, DEMO_ORIGINALS_FOLDER, DEMO_PANELS, DEMO_PICKED, DEMO_PICKED_VIDEO, DEMO_POSTER_URL, DEMO_STORAGE, DEMO_THEME_VIDEOS, SCENARIOS } from './demo-data.js';
 import { demoFindings, demoPlanAcross, demoPlanRename, demoPlanRestore, demoRank, demoSameFile } from './demo-manager.js';
 import { DEMO_FONT_CATALOG } from './demo-fonts.js';
 import { DEMO_THEME } from './demo-theme.js';
@@ -72,7 +75,7 @@ export function demoOrientation(model, remembered) {
 /** The host `net.ping` measures unless the user picks another. */
 export const DEMO_PING_HOST = '8.8.8.8';
 /** The folder the demo's folder picker returns. */
-export const DEMO_FOLDER = '/home/demo/mangohud';
+export const DEMO_FOLDER = 'C:/Users/Demo/Documents';
 
 /** Whether `text` can name a host to ping, like the backend checks it. */
 export function demoIsHost(text) {
@@ -85,7 +88,6 @@ export function demoDenied(address) {
   return Object.assign(new Error(`access denied to ${address}: ${reason}`), {
     code: 'accessDenied',
     args: { address, reason },
-    udevCommand: DEMO_UDEV_COMMAND,
   });
 }
 
@@ -101,6 +103,7 @@ export function demoHung() {
  */
 export function demoNextChange(theme, ms) {
   const gif = (theme?.elements ?? []).some((e) => isShown(theme, e) && e.kind?.type === 'image' && String(e.kind.asset).toLowerCase().endsWith('.gif'));
+  if ((theme?.elements ?? []).some(e => isShown(theme,e) && e.kind.content?.type === 'spectrum' && e.kind.content.demo)) return 50;
   return gif ? DEMO_GIF_FRAME_MS - (Math.floor(ms) % DEMO_GIF_FRAME_MS) : null;
 }
 
@@ -140,13 +143,20 @@ export function demoIsolate(theme, id) {
     for (const e of theme.elements) if (!kept.has(e.id) && owned(e)) { kept.add(e.id); grew = true; }
   }
   const elements = theme.elements.filter((e) => kept.has(e.id)).map((e) => structuredClone(e));
-  const drawn = elements.filter((e) => !e.isGroup).map((e) => e.frame);
+  const drawn = elements.filter((e) => !e.isGroup).map((e) => {
+    if (e.sensorMotion && supportsSensorMotion(e)) {
+      const side = Math.hypot(e.frame.width, e.frame.height);
+      return { x: e.frame.x + (e.frame.width - side) / 2, y: e.frame.y + (e.frame.height - side) / 2, width: side, height: side };
+    }
+    return rotatedBounds(e.frame, appliedRotation(e));
+  });
   const boxes = drawn.length ? drawn : [root.frame];
   const left = Math.floor(Math.min(...boxes.map((b) => b.x)));
   const top = Math.floor(Math.min(...boxes.map((b) => b.y)));
   const right = Math.ceil(Math.max(...boxes.map((b) => b.x + b.width)));
   const bottom = Math.ceil(Math.max(...boxes.map((b) => b.y + b.height)));
   for (const e of elements) {
+    if (!appliedRotation(e)) delete e.rotation;
     e.frame = { ...e.frame, x: e.frame.x - left, y: e.frame.y - top };
     if (e.card) {
       delete e.card.triggers;
@@ -1123,7 +1133,10 @@ function createDemoStorage(chosen, { delay, now, live, isLive, theme, themes, sc
  *   `letGo` (tests)
  */
 export function createDemoBackend(scenario, clock = {}, hooks = {}) {
+  let profileConfig = { profiles: [], automatic: true, manual: null, defaultProfile: null };
+  const systemText = { 'system.hostname': 'bezel-demo-workstation', 'system.os': 'Windows 11', 'system.audio.device': 'Demo headphones' };
   const cards = createCardMotion();
+  const sensorMotion = createSensorMotion();
   const cardTimers = createCardTimers();
   let libreFailed = hooks.libre === 'partial' || hooks.libre === 'error';
   let libreOffline = hooks.libre === 'error';
@@ -1347,9 +1360,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
   let debug = false;
   let debugShowReadings = false;
   let debugCorner = "bottom-left";
-  let lightOnClose = true;
+  let audioCapture = true;
   const systemLanguage = pickLocale(hooks.languages ?? []);
-  const sensorOptions = { pingHost: null, mangohudDir: null };
+  const sensorOptions = { pingHost: null };
   const closeListeners = new Set();
   const quitListeners = new Set();
   const windowGoes = (state) => {
@@ -1373,7 +1386,8 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       devices.screens.push(structuredClone(DEMO_BACK_FROM_DESKTOP));
       return Promise.resolve({ model: panel.models[0].name });
     },
-    catalog: () => Promise.resolve([...DEMO_SENSORS.map(([key, category, label, quantity]) => ({ key, category, label, quantity, source: 'demo' })), ...libreSensors]),
+    catalog: () => Promise.resolve([...DEMO_SENSORS.map(([key, category, label, quantity]) => ({ key, category, label, quantity, source: 'demo' })),
+      ...Object.keys(systemText).map((key) => ({ key, category: 'system', label: key, quantity: 'text', source: 'demo' })), ...libreSensors]),
     restartLibre: async () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
       libreFailed = false;
@@ -1396,6 +1410,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
         readings[key] = { value, display: demoFormat(value, quantity) };
       });
       readings['gpu.1.fan'] = { unavailable: 'no fan sensor', display: '—' };
+      for (const [key, value] of Object.entries(systemText)) readings[key] = { text: value, display: value };
       // A hung screen stops live mode, like a frame the screen stopped reading.
       let liveError = null;
       if (live && screenState.hung) {
@@ -1435,9 +1450,10 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       const playback = cardTimers.update(next, t * 1000, cardRotation, DEMO_ACTIVITY);
       const video = videoPicture(playback.theme, motion, t * 1000);
       const transitions = cards.update(playback.theme, t * 1000, motion);
-      const frame = renderApprox(playback.theme, t, video, transitions, 1, motion);
+      const rotor = sensorMotion(playback.theme, t, key => demoSensorValue(key, Math.floor(t / (next.refreshSeconds || 1)) * (next.refreshSeconds || 1)), motion, selectedScreen);
+      const frame = renderApprox(rotor.theme, t, video, transitions, 1, motion);
       const easing = valuesDue(playback.theme, t, motion);
-      const due = [demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null, easing].filter((ms) => ms !== null);
+      const due = [rotor.nextMs, demoNextChange(playback.theme, t * 1000), playback.nextMs, video?.nextMs ?? null, transitions.size ? 33 : null, easing].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, millis: performance.now() - started, nextMs: due.length ? Math.min(...due) : null });
     },
     /**
@@ -1467,8 +1483,9 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       }
       const t = now();
       const { width, height } = alone.canvas;
-      const frame = renderApprox(alone, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)), motion);
-      const due = [demoNextChange(alone, t * 1000), valuesDue(alone, t, motion, false)].filter((ms) => ms !== null);
+      const rotor = sensorMotion(alone, t, key => demoSensorValue(key, Math.floor(t / (next.refreshSeconds || 1)) * (next.refreshSeconds || 1)), motion, `inspect:${selectedScreen}`);
+      const frame = renderApprox(rotor.theme, t, null, new Map(), Math.min(1, demoElementSide(max) / Math.max(width, height)), motion);
+      const due = [rotor.nextMs, demoNextChange(alone, t * 1000), valuesDue(alone, t, motion, false)].filter((ms) => ms !== null);
       return Promise.resolve({ ...frame, pixels: frame.rgba, nextMs: due.length ? Math.min(...due) : null, millis: performance.now() - started });
     },
     /** What Auto is for the theme's video background, like `video_auto`. */
@@ -1603,7 +1620,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       return Promise.resolve();
     },
     closeWindow: () => {
-      windowGoes(live && !lightOnClose ? 'hidden' : 'closed');
+      windowGoes('closed');
       return Promise.resolve();
     },
     onCloseRequested: (cb) => {
@@ -1612,8 +1629,7 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     },
     /** The window's close button. */
     requestClose: () => {
-      if (live && !lightOnClose) windowGoes('hidden');
-      else if (unsaved) for (const cb of closeListeners) cb();
+      if (unsaved) for (const cb of closeListeners) cb();
       else windowGoes('closed');
     },
     quitApp: () => {
@@ -1636,17 +1652,33 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
     windowState: () => windowState,
     openLogsFolder: () => Promise.resolve(),
     setDebug: (on, show, corner) => { debug = on; debugShowReadings = show; debugCorner = corner ?? "bottom-left"; return Promise.resolve(); },
-    setLightOnClose: (on) => { lightOnClose = on; return Promise.resolve(); },
+    setAudioCapture: (on) => { audioCapture = Boolean(on); return Promise.resolve(); },
+    profiles: () => Promise.resolve({ config: structuredClone(profileConfig), displays: devices.screens.map((screen) => {
+      const current = screen.key === selectedScreen ? theme : screenDocuments.get(screen.key)?.theme;
+      const selected = saved.find((entry) => current && entry.theme.name === current.name)
+        ?? saved.find((entry) => demoFits(entry.theme).models.some((id) => screen.models.some((m) => m.id === id)));
+      return { key: screen.key, name: screen.models[0]?.name ?? screen.family, theme: selected?.location ?? null,
+        themeName: current?.name ?? selected?.theme.name ?? null, connected: true };
+    }) }),
+    profilesRequested: () => Promise.resolve(false),
+    onProfilesRequested: () => Promise.resolve(() => {}),
+    saveProfiles: (config) => { profileConfig = structuredClone(config); return Promise.resolve(); },
+    // No screen to cover in the demo: the request is kept for the page to read,
+    // and it answers as the backend would with each demo screen live.
+    previewTransition: (transition, themes = {}) => {
+      globalThis.demoTransitionPreviews = [...(globalThis.demoTransitionPreviews ?? []), structuredClone({ transition, themes })];
+      return Promise.resolve(transition.effect === 'none' ? 0 : devices.screens.length);
+    },
     preferences: () => Promise.resolve({
       debug, debugShowReadings, debugCorner, debugLogPath: "Demo: no file logging",
-      lightOnClose,
+      audioCapture,
       lightRuntime: true,
       language,
       systemLanguage,
       pingHost: sensorOptions.pingHost ?? DEMO_PING_HOST,
       defaultPingHost: DEMO_PING_HOST,
-      mangohudDir: sensorOptions.mangohudDir,
-      mangohud: true,
+
+
       themeFilter: { ...themeFilter },
     }),
     setThemeFilter: (scope, axis) => {
@@ -1661,15 +1693,13 @@ export function createDemoBackend(scenario, clock = {}, hooks = {}) {
       themeFilter = { scope: chosen, axis };
       return Promise.resolve();
     },
-    setSensorOptions: (pingHost, mangohudDir) => {
+    setSensorOptions: (pingHost) => {
       const host = pingHost.trim();
       if (host && !demoIsHost(host)) {
         return Promise.reject(Object.assign(new Error(`"${host}" is not a host name or an IP address`), { code: 'invalidHost', args: { host } }));
       }
-      if (mangohudDir !== null && !mangohudDir.startsWith('/')) {
-        return Promise.reject(Object.assign(new Error(`"${mangohudDir}" is not a folder`), { code: 'invalidFolder', args: { folder: mangohudDir } }));
-      }
-      Object.assign(sensorOptions, { pingHost: host && host !== DEMO_PING_HOST ? host : null, mangohudDir });
+
+      Object.assign(sensorOptions, { pingHost: host && host !== DEMO_PING_HOST ? host : null });
       return Promise.resolve();
     },
     pickFolder: () => Promise.resolve(DEMO_FOLDER),

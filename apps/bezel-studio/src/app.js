@@ -16,10 +16,10 @@ import { applyIcons, el, icon } from './ui/dom.js';
 import { ICONS } from './ui/icons.js';
 import { askChoice } from './ui/dialog.js';
 import { createPreferences } from './ui/preferences.js';
+import { createProfilesDialog } from './ui/profiles.js';
 import { createGifSearch } from './ui/gif-search.js';
 import { createCollectionPanel } from './ui/collection.js';
 import { createStandbyPanel } from './ui/standby.js';
-import { showAccessHelp } from './ui/udev.js';
 import { createConnect } from './ui/connect.js';
 import { createSensorStatus } from './ui/sensor-status.js';
 import { createMemoryStatus } from './ui/memory-status.js';
@@ -58,7 +58,7 @@ const state = {
   screen: null,
   screenError: null,
   // The screen whose port the system refused, with the error (it carries the
-  // udev command on Linux): the stage shows how to connect it.
+  // access error): the stage shows how to connect it.
   denied: null,
   live: false,
   autostart: false,
@@ -100,16 +100,14 @@ function toast(message) {
 }
 
 /**
- * Shows why a command failed; a port the system denied comes with the
- * command that fixes it (Linux), in a dialog.
+ * Shows why a command failed and preserves denied-screen status.
  */
 function fail(e) {
   if (e?.code === 'accessDenied' && state.screen) {
     state.denied = { key: state.screen, error: e };
     renderScreenSelect();
   }
-  if (e?.udevCommand) showAccessHelp(t, e, toast);
-  else toast(errorText(t, e));
+  toast(errorText(t, e));
 }
 
 // ------------------------------------------------------------ store ----
@@ -145,6 +143,8 @@ const canvasView = createCanvasView({
   overlay: $('overlay'),
   onZoom: (z) => { $('zoom-label').textContent = `${Math.round(z * 100)}%`; },
   describe: (name) => t('stage.selected', { name }),
+  rotationLabel: () => t('insp.rotateHandle'),
+  rotationLabel: () => t('insp.rotateHandle'),
   onFrameRequest: () => setFramingMode(true),
 });
 
@@ -206,6 +206,7 @@ const library = createLibrary({
       if (name === 'collection') void collection.show();
     },
     showSensors: reportShownSensors,
+    restartLibre: () => sensorStatus.restartLibre(),
     themeThumbnail: (location) => bridge.themeThumbnail(location),
     rememberThemeFilter: ({ scope, axis }) => bridge.setThemeFilter(scope, axis).catch(() => {}),
     duplicateTheme: (location, name) => bridge.duplicateTheme(location, name).then(() => refreshThemes()).catch((e) => fail(e)),
@@ -266,7 +267,7 @@ const standby = createStandbyPanel({
 });
 
 // The stage while no screen can be used (artboard Connect): what the bridge
-// lists, the udev command of a denied port and the theme import.
+// lists, the access error of a denied port and the theme import.
 const connect = createConnect({
   t,
   notify: toast,
@@ -604,13 +605,14 @@ async function sampleLoop() {
     lastSample = s;
     sensorStatus.update({ health: libreStatus(state.catalog, s.readings), sampleMillis: s.sampleMillis, sampledAt: Date.now(), readings: s.readings, catalog: state.catalog, error: null });
   } catch (e) {
+    library.setSensorError(e);
     sensorStatus.update({ health: libreStatus(state.catalog, null), readings: null, catalog: state.catalog, error: e });
   }
   setTimeout(sampleLoop, 1000);
 }
 
 // The sensors chip, the Libre dot, its popover and the restart (artboard SensorStatus).
-const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: () => library.selectTab('sensors') });
+const sensorStatus = createSensorStatus({ t, bridge, notify: toast, fail, root: $('status-libre'), onOpenSensors: filters => library.openSensors(filters) });
 
 // Memory is independent of hardware polling/errors and never sampled while
 // the document is hidden. The backend also caches reads from other callers.
@@ -1291,6 +1293,10 @@ function setLocale(next) {
 
 const preferences = createPreferences({ t, bridge, onLanguage: setLocale, notify: toast });
 $('preferences').addEventListener('click', () => preferences.open());
+const profiles = createProfilesDialog({ t, bridge, notify: toast });
+$('theme-profiles').addEventListener('click', () => profiles.open());
+const openRequestedProfiles = async () => { if (await bridge.profilesRequested()) await profiles.open(); };
+bridge.onProfilesRequested(openRequestedProfiles);
 
 // ------------------------------------------------------------ start ----
 library.renderWidgets();
@@ -1311,3 +1317,4 @@ sampleLoop();
 memoryLoop();
 scheduleTick();
 setInterval(refreshScreens, 5000);
+await openRequestedProfiles();

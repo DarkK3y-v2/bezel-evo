@@ -100,6 +100,8 @@
           <div class="panel-head"><h2 data-i18n="common.sensors"></h2><span class="panel-rate" id="sensor-rate"></span></div>
           <div class="panel-search" id="sensor-search-box"></div>
           <div class="chip-group" role="group" id="sensor-filter" data-i18n-aria-label="library.filterHardware"></div>
+          <div class="sensor-probe-filters fld-grid" id="sensor-probe-filters"></div>
+          <p class="sensor-result-count hint" id="sensor-result-count" aria-live="polite"></p>
           <div id="sensor-list" class="sensor-list"></div>
           <div id="sensor-libre"></div>
           <p class="hint panel-foot panel-end" data-i18n="sensorsPanel.hint"></p>
@@ -117,6 +119,7 @@
             </span>
           </div>
           <div class="panel-search" id="layer-search"></div>
+          <div id="layer-type"></div>
           <div id="layer-front"></div>
           <ul class="layer-list" id="layer-list"></ul>
           <div class="layer-selection panel-end" id="layer-selection" role="group" data-i18n-aria-label="layersPanel.selection" hidden></div>
@@ -128,6 +131,7 @@
           </div>
           <button type="button" class="text-button" id="theme-gallery" aria-haspopup="dialog" data-i18n="themesPanel.gallery"></button>
           <div class="theme-actions">
+            <button type="button" class="text-button" id="theme-profiles" aria-haspopup="dialog" data-i18n="profiles.title"></button>
             <button type="button" class="text-button import-button" id="theme-import" data-i18n-title="themes.importHint">
               <svg data-icon="upload"></svg>
               <span data-i18n="themes.import"></span>
@@ -302,14 +306,10 @@
           <svg data-icon="close"></svg>
         </button>
       </div>
-      <ul class="libre-hardware" id="libre-hardware" data-i18n-aria-label="sensorStatus.hardware"></ul>
       <p class="libre-popover-note" id="libre-popover-note" hidden></p>
+      <ul class="libre-hardware" id="libre-hardware" data-i18n-aria-label="sensorChip.probes"></ul>
       <div class="libre-popover-actions">
         <button type="button" class="text-button" id="libre-open-sensors" data-i18n="sensorStatus.openSensors"></button>
-        <button type="button" class="primary-button" id="restart-libre">
-          <svg data-icon="refresh"></svg>
-          <span data-i18n="status.libreRestart"></span>
-        </button>
       </div>
     </div>
     <div class="toast" id="toast" role="alert" hidden></div>

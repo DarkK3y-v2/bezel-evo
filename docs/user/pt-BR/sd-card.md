@@ -13,40 +13,12 @@ cartão de 32 GB.
 **Formatar apaga tudo o que está no cartão.** Confira duas vezes que você
 escolheu o cartão e não outro disco.
 
-## Linux, com o Discos do GNOME
-
-1. Abra o **Discos** e selecione o cartão na lista à esquerda (confira o
-   tamanho).
-2. No menu no canto de cima, à direita, escolha **Formatar disco…**, selecione
-   **Compatível com todos os sistemas e dispositivos (MBR/DOS)** e confirme.
-3. Clique no **+** abaixo do espaço vazio para criar uma partição do cartão
-   inteiro, do tipo **Para uso com todos os sistemas e dispositivos (FAT)**, e
-   confirme.
-
-## Linux, no terminal
-
-Ache o cartão pelo tamanho e pelo nome (por exemplo `sdb`, ou `mmcblk0` num
-leitor embutido):
-
-```bash
-lsblk -o NAME,SIZE,MODEL,TRAN
-```
-
-Depois, trocando `sdX` pelo cartão (desmonte antes se o sistema o montou):
-
-```bash
-sudo parted /dev/sdX --script mklabel msdos mkpart primary fat32 1MiB 100%
-sudo mkfs.vfat -F 32 /dev/sdX1
-```
-
-Num cartão `mmcblk0`, a partição é `/dev/mmcblk0p1`.
-
-## Windows
+## Formatar no Windows
 
 No Explorador de Arquivos, clique com o botão direito no cartão, escolha
 **Formatar…**, selecione **FAT32** e clique em **Iniciar**. O Windows só oferece
-FAT32 para cartões de até 32 GB; para um cartão maior, formate no Linux ou com
-um programa de formatação FAT32.
+FAT32 para cartões de até 32 GB; para um cartão maior, use um programa de
+formatação FAT32.
 
 ## Na tela
 

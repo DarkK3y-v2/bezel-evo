@@ -4,10 +4,10 @@ import {
   WIDGET_COUNT, WIDGET_GROUPS, countLayers, createHistory, filterLayers, layerMeta, matchesQuery, mediaTotals,
   sensorDropTarget, sharedSource, sparkPath, updateSeconds, widgetGroups,
 } from '../../src/library-model.js';
-import { WIDGETS } from '../../src/editor/widgets.js';
+import { createWidget, WIDGETS } from '../../src/editor/widgets.js';
 import { layerGroups } from '../../src/editor/layers.js';
 
-const LABELS = { text: 'Testo', value: 'Valore', clock: 'Orologio', weather: 'Meteo', ring: 'Anello', bar: 'Barra', needle: 'Lancetta', graph: 'Grafico', image: 'Immagine', player: 'Media player', shape: 'Forma', card: 'Card', group: 'Gruppo' };
+const LABELS = { text: 'Testo', value: 'Valore', clock: 'Orologio', weather: 'Meteo', ring: 'Anello', bar: 'Barra', needle: 'Lancetta', graph: 'Grafico', image: 'Immagine', player: 'Media player', spectrum: 'Spettro audio', shape: 'Forma', card: 'Card', group: 'Gruppo' };
 const labelOf = (w) => LABELS[w];
 
 test('the widget groups hold every widget once, plus the Group tile', () => {
@@ -15,11 +15,11 @@ test('the widget groups hold every widget once, plus the Group tile', () => {
   assert.deepEqual(WIDGET_GROUPS.map((g) => g.id), ['textData', 'indicators', 'mediaStructure']);
   assert.deepEqual([...all].sort(), [...WIDGETS, 'group'].sort());
   assert.equal(new Set(all).size, all.length);
-  assert.equal(WIDGET_COUNT, 13);
+  assert.equal(WIDGET_COUNT, 14);
 });
 
 test('the widget search matches names and ids, ignoring case and accents, and drops empty groups', () => {
-  assert.deepEqual(widgetGroups(labelOf).map((g) => g.widgets.length), [4, 4, 5]);
+  assert.deepEqual(widgetGroups(labelOf).map((g) => g.widgets.length), [4, 4, 6]);
   assert.deepEqual(widgetGroups(labelOf, ' BARRA '), [{ id: 'indicators', widgets: ['bar'] }]);
   assert.deepEqual(widgetGroups(labelOf, 'player'), [{ id: 'mediaStructure', widgets: ['player'] }]);
   assert.deepEqual(widgetGroups(labelOf, 'media pl'), [{ id: 'mediaStructure', widgets: ['player'] }]);
@@ -126,6 +126,29 @@ test('the Layers filter keeps matches and the containers that hold them', () => 
   assert.deepEqual(filterLayers(tree, 'rete', kindOf).map((n) => [n.element.id, n.children.length]), [[4, 1]], 'a matching container keeps all of it');
   assert.deepEqual(filterLayers(tree, 'immagine', kindOf).map((n) => n.element.id), [6], 'by kind');
   assert.deepEqual(filterLayers(tree, 'zzz', kindOf), []);
+  const values = filterLayers(tree, '', kindOf, 'value');
+  assert.deepEqual(values.map(n => n.element.id), [4, 1]);
+  assert.deepEqual(values[0].children.map(n => n.element.id), [5]);
+  assert.deepEqual(values[1].groups.map(g => g.elements.map(e => e.id)), [[], [], [3]], 'face indexes and ancestors survive type filtering');
+  assert.equal(countLayers(values), 4);
+  assert.deepEqual(filterLayers(tree, 'upload', kindOf, 'value').map(n => n.element.id), [1], 'search and type must both match');
+  assert.deepEqual(filterLayers(tree, 'upload', kindOf, 'ring'), []);
+  assert.deepEqual(filterLayers(tree, '', kindOf, 'image').map(n => n.element.id), [6]);
+  assert.deepEqual(filterLayers(tree, '', kindOf, 'group').map(n => [n.element.id, n.children.length]), [[4, 1]], 'a matching container retains its subtree');
+  assert.deepEqual(filterLayers(tree, '', kindOf, 'card').map(n => n.element.id), [1]);
+  assert.deepEqual(filterLayers(tree, '', kindOf, 'clock'), []);
+  assert.equal(countLayers(tree), 6, 'filtering never mutates the original tree');
+});
+
+test('type filtering distinguishes every text-backed widget, cards and groups', () => {
+  const elements = WIDGETS.map((widget, id) => ({ id, name: widget, ...createWidget(widget, { width: 480, height: 480 }) }));
+  elements.push({ id: 100, name: 'Group', isGroup: true, kind: { type: 'shape' } });
+  const tree = layerGroups(elements);
+  for (const type of [...WIDGETS, 'group']) {
+    const matches = filterLayers(tree, '', () => '', type);
+    assert.equal(countLayers(matches), 1, type);
+    assert.equal(matches[0].element.name.toLowerCase(), type);
+  }
 });
 
 test('the Media totals add the sizes known', () => {

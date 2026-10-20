@@ -706,6 +706,7 @@ impl Importer {
             paint: Paint::Solid(color),
             align,
             valign,
+            casing: Default::default(),
             letter_spacing: 0.0,
         };
         self.b
@@ -1076,6 +1077,7 @@ impl Importer {
             paint: Paint::Solid(self.color(block, "FONT_COLOR", Rgba::BLACK, name)),
             align: HAlign::Center,
             valign: VAlign::Middle,
+            casing: Default::default(),
             letter_spacing: 0.0,
         };
         let content = self.content(block, key, source);

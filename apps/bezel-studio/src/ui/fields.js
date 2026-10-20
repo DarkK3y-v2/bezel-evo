@@ -66,10 +66,13 @@ export function adoptControl(current, fresh) {
 }
 
 /** A labelled number input. `step` 1 rounds to integers. */
-export function numberField(label, value, onChange, { min, max, step = 1 } = {}) {
+export function numberField(label, value, onChange, { min, max, step = 1, unit, iconName } = {}) {
   const id = fieldId();
-  const input = numberInput({ id, value: String(value ?? ''), min, max }, step, onChange);
-  return el('label', { class: 'field', for: id }, [el('span', { text: label }), input]);
+  const input = numberInput({ id, value: String(value ?? ''), min, max, 'aria-label': label }, step, onChange);
+  return el('label', { class: 'field number-field', for: id }, [
+    el('span', { class: 'field-label' }, [iconName ? icon(ICONS[iconName], 16) : null, label]),
+    el('span', { class: 'number-control' }, [input, unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null]),
+  ]);
 }
 
 /** A labelled text input (committed on change). */
@@ -109,13 +112,13 @@ export function checkField(label, checked, onChange) {
  * A slider under its label and mono value (artboards' "Spessore 24 px").
  * `format` writes the value with its unit; `change` commits it.
  */
-export function rangeField(label, value, onChange, { min = 0, max = 100, step = 1, format = (v) => String(v) } = {}) {
+export function rangeField(label, value, onChange, { min = 0, max = 100, step = 1, format = (v) => String(v), compact = false } = {}) {
   const id = fieldId();
   const out = el('output', { for: id, text: format(value) });
   const input = el('input', { id, type: 'range', min, max, step, value: String(value) });
   input.addEventListener('input', () => { out.textContent = format(Number(input.value)); });
   input.addEventListener('change', () => onChange(Number(input.value)));
-  return el('label', { class: 'slider-field', for: id }, [el('span', { class: 'slider-head' }, [el('span', { text: label }), ' ', out]), input]);
+  return el('label', { class: `slider-field${compact ? ' slider-field-inline' : ''}`, for: id }, [el('span', { class: 'slider-head' }, [el('span', { text: label }), ' ', out]), input]);
 }
 
 /**
@@ -137,10 +140,11 @@ export function segmented(label, value, options, onChange, { bare = false } = {}
  * @param {string} label the accessible name, e.g. "X (px)"
  * @param {{min?: number, max?: number, step?: number|'any', unit?: string}} [opts]
  */
-export function prefixedField(prefix, label, value, onChange, { min, max, step = 1, unit } = {}) {
+export function prefixedField(prefix, label, value, onChange, { min, max, step = 1, unit, iconName } = {}) {
   const id = fieldId();
   const input = numberInput({ id, value: String(value ?? ''), min, max, 'aria-label': label }, step, onChange);
   return el('label', { class: 'fld', for: id }, [
+    iconName ? icon(ICONS[iconName], 16) : null,
     el('span', { class: 'fld-prefix', 'aria-hidden': 'true', text: prefix }),
     input,
     unit ? el('span', { class: 'fld-unit', 'aria-hidden': 'true', text: unit }) : null,
@@ -214,6 +218,9 @@ export function sentence(parts, attrs = {}) {
     if (typeof part === 'string') return el('span', { class: joinsPrevious(part) ? 'sentence-word is-joined' : 'sentence-word', text: part });
     const control = part.matches('input, select') ? part : part.querySelector('input, select');
     control?.classList.add('sentence-token');
+    // A sentence supplies the label in its surrounding words. Keep only the
+    // named input so its numeric well cannot be hidden with a field's label.
+    if (part.matches('.number-field') && control) return control;
     return part;
   }));
 }
@@ -241,10 +248,24 @@ export function sectionTitle(text, { count: n = null, id } = {}) {
 }
 
 /** A property group shared by the object and Card inspector. */
+const SECTION_ICONS = Object.freeze({
+  membership: 'card', position: 'drag', source: 'database', content: 'count',
+  transition: 'frequency', font: 'text', color: 'brush', appearance: 'brush',
+  style: 'sliders', shape: 'shape', corners: 'radius', outline: 'strokeWidth',
+  transparency: 'sunDim', visibility: 'eye', shadow: 'sunDim', track: 'bar',
+  segments: 'grid', arc: 'ring', scale: 'height', window: 'history',
+  'spectrum-source': 'spectrum', 'spectrum-bands': 'frequency',
+  'spectrum-paint': 'brush', 'spectrum-bars': 'spectrum',
+  apps: 'player', stopped: 'pause', time: 'clock', show: 'eye', spacing: 'spacing',
+  progress: 'bar', fill: 'brush', preview: 'eye', faces: 'layers', objects: 'widgets',
+  motion: 'play', triggers: 'sliders', actions: 'more', refresh: 'refresh',
+});
+
 export function propertySection(key, label, nodes, { count: n = null, tool = null } = {}) {
   const contents = nodes.filter(Boolean);
   if (!contents.length) return null;
   const head = sectionTitle(label, { count: n });
+  head.querySelector('h3').prepend(icon(ICONS[SECTION_ICONS[key] ?? 'sliders'], 17));
   if (tool) head.append(tool);
   return el('section', { class: 'property-section', dataset: { section: key } }, [head, el('div', { class: 'property-section-body' }, contents)]);
 }
@@ -710,14 +731,27 @@ function openColorPanel(button, label, start, onChange, { texts, source, alpha, 
     const v = Number(percent.value);
     if (Number.isFinite(v)) commit(withAlphaPercent(color, v));
   });
-  const eyedropper = typeof window.EyeDropper === 'function'
+  const pickScreenColor = source.pickScreenColor ?? (typeof window.EyeDropper === 'function'
+    ? async () => (await new window.EyeDropper().open())?.sRGBHex
+    : null);
+  const pickStatus = el('p', { class: 'hint cp-pick-status', role: 'status', hidden: true });
+  const eyedropper = pickScreenColor
     ? iconButton(texts.eyedropper, ICONS.eyedropper, async () => {
+      eyedropper.disabled = true;
+      pickStatus.hidden = false;
+      pickStatus.textContent = texts.eyedropperHint;
       try {
-        const picked = await new window.EyeDropper().open();
-        const next = readHexInput(picked?.sRGBHex, alpha ? colorOf(color).a : 255);
-        if (next) commit(next);
-      } catch {
-        // Cancelled (Escape) or refused: the colour stays.
+        const picked = await pickScreenColor();
+        const next = readHexInput(picked, alpha ? colorOf(color).a : 255);
+        // A native pick may complete after this popover was dismissed.
+        if (next && panel.isConnected) commit(next);
+        pickStatus.hidden = true;
+      } catch (error) {
+        // Escape is a cancellation; unsupported/refused picks remain visible.
+        pickStatus.hidden = error?.name === 'AbortError';
+        pickStatus.textContent = texts.eyedropperError;
+      } finally {
+        eyedropper.disabled = false;
       }
     }, { class: 'cp-eyedropper' })
     : null;
@@ -729,7 +763,7 @@ function openColorPanel(button, label, start, onChange, { texts, source, alpha, 
   let lastFocus = null;
   sections.addEventListener('focusin', (evt) => { lastFocus = evt.target.closest('[data-focus]')?.dataset.focus ?? lastFocus; });
   const panel = el('div', { class: 'color-popover' }, [
-    area.node, hue.node, opacity?.node ?? null, inputs, sections,
+    area.node, hue.node, opacity?.node ?? null, inputs, pickStatus, sections,
   ]);
 
   function show() {

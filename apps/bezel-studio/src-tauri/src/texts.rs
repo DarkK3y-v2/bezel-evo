@@ -8,6 +8,10 @@ use bezel_core::domain::clock::Language;
 /// The backend's texts in one language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Texts {
+    pub profiles: &'static str,
+    pub manage_profiles: &'static str,
+    pub automatic: &'static str,
+    pub default_profile: &'static str,
     /// Tray: show the window.
     pub show: &'static str,
     /// Tray: hide the window.
@@ -32,6 +36,10 @@ pub struct Texts {
 pub fn texts(language: Language) -> Texts {
     match language {
         Language::PortugueseBr => Texts {
+            manage_profiles: "Gerenciar perfis…",
+            profiles: "Perfis",
+            automatic: "Automático",
+            default_profile: "Default",
             show: "Abrir o Bezel",
             hide: "Ocultar a janela",
             live: "Ao vivo na tela",
@@ -43,6 +51,10 @@ pub fn texts(language: Language) -> Texts {
             untitled: "Sem título",
         },
         Language::Italian => Texts {
+            manage_profiles: "Gestisci profili…",
+            profiles: "Profili",
+            automatic: "Automatico",
+            default_profile: "Default",
             show: "Apri Bezel",
             hide: "Nascondi finestra",
             live: "In diretta sullo schermo",
@@ -54,6 +66,10 @@ pub fn texts(language: Language) -> Texts {
             untitled: "Senza titolo",
         },
         Language::English => Texts {
+            manage_profiles: "Manage profiles…",
+            profiles: "Profiles",
+            automatic: "Automatic",
+            default_profile: "Default",
             show: "Open Bezel",
             hide: "Hide the window",
             live: "Live on the screen",

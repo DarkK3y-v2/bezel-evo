@@ -28,8 +28,6 @@ offline with the documented key; independently recomputed). No capture of a real
   WinUSB backend the transfer type comes from the descriptor. No SetConfiguration, no ClaimInterface, no control
   transfers, no pipe policies.
 - Open: retried up to 4 more times with 250 ms sleeps when the device is not found.
-- Linux (Bezel): libusb, claim interface 0 (detach a kernel driver if bound), bulk OUT 0x02; read IN 0x82 with the
-  transfer type the descriptor declares.
 
 ## 3. Crypto
 

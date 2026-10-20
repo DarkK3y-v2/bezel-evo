@@ -185,6 +185,8 @@ pub enum VAlign {
 /// How text looks.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
+    /// Non-destructive letter case for every text source.
+    pub casing: super::text_case::TextCase,
     /// Face.
     pub font: FontSpec,
     /// Size in pixels.
@@ -202,6 +204,7 @@ pub struct TextStyle {
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
+            casing: super::text_case::TextCase::Normal,
             font: FontSpec::default(),
             size: 24.0,
             paint: Paint::solid(Rgba::WHITE),
@@ -227,6 +230,8 @@ pub struct Binding {
 /// What a text element prints.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TextContent {
+    /// Standalone mirrored audio spectrum.
+    Spectrum(super::spectrum::Spectrum),
     /// Operating-system media session display.
     Player(super::playback::Player),
     /// Current weather at a saved location.
@@ -429,6 +434,12 @@ pub enum ElementKind {
 /// One thing drawn on the canvas.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Element {
+    /// Optional native preset; absent keeps the original widget appearance.
+    pub visualization: Option<super::visualization::Visualization>,
+    /// Optional sensor-driven visual rotation with inertia.
+    pub sensor_motion: Option<super::sensor_motion::SensorMotion>,
+    /// Clockwise degrees around the frame center, normalized to (-180, 180].
+    pub rotation: f32,
     /// Invisible ordinary group container.
     pub is_group: bool,
     /// Ordinary group owning this object.
@@ -767,6 +778,15 @@ impl Theme {
             .filter_map(|e| e.bound_sensor().cloned())
             .collect();
         for e in self.elements.iter().filter(|e| self.is_sampled(e)) {
+            if matches!(e.kind, ElementKind::Graph { .. }) {
+                keys.extend(
+                    e.visualization
+                        .as_ref()
+                        .and_then(|v| v.secondary.as_ref())
+                        .map(|b| b.key.clone()),
+                );
+            }
+            keys.extend(e.sensor_motion.as_ref().map(|motion| motion.sensor.clone()));
             keys.extend(e.color_sensor().cloned());
             if let ElementKind::Text {
                 content: TextContent::Weather(weather),
@@ -780,7 +800,7 @@ impl Theme {
             if matches!(
                 e.kind,
                 ElementKind::Text {
-                    content: TextContent::Player(_),
+                    content: TextContent::Player(_) | TextContent::Spectrum(_),
                     ..
                 }
             ) {
@@ -826,13 +846,19 @@ impl Theme {
     pub fn graph_series(&self) -> Vec<SeriesId> {
         self.elements
             .iter()
-            .filter_map(|e| match &e.kind {
+            .flat_map(|e| match &e.kind {
                 ElementKind::Graph {
                     binding,
                     interval_seconds,
                     ..
-                } => Some(SeriesId::graph(&binding.key, *interval_seconds)),
-                _ => None,
+                } => {
+                    let mut series = vec![SeriesId::graph(&binding.key, *interval_seconds)];
+                    if let Some(b) = e.visualization.as_ref().and_then(|v| v.secondary.as_ref()) {
+                        series.push(SeriesId::graph(&b.key, *interval_seconds));
+                    }
+                    series
+                }
+                _ => Vec::new(),
             })
             .collect()
     }
@@ -841,11 +867,17 @@ impl Theme {
     pub fn history_lengths(&self) -> Vec<(SensorKey, usize)> {
         self.elements
             .iter()
-            .filter_map(|e| match &e.kind {
+            .flat_map(|e| match &e.kind {
                 ElementKind::Graph {
                     binding, history, ..
-                } => Some((binding.key.clone(), usize::from(*history))),
-                _ => None,
+                } => {
+                    let mut lengths = vec![(binding.key.clone(), usize::from(*history))];
+                    if let Some(b) = e.visualization.as_ref().and_then(|v| v.secondary.as_ref()) {
+                        lengths.push((b.key.clone(), usize::from(*history)));
+                    }
+                    lengths
+                }
+                _ => Vec::new(),
             })
             .collect()
     }
@@ -863,8 +895,11 @@ mod tests {
     fn element(id: u32, kind: ElementKind) -> Element {
         Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

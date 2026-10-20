@@ -201,15 +201,10 @@ os recursos de compartilhar ou denunciar do KLIPY.
 
 **Onde fica a sua chave.** Só neste computador, com o identificador de
 cliente dela, em `klipy.json` na pasta de configuração do Bezel, ao lado das
-preferências:
+preferências: `%APPDATA%\io.github.slipalison.bezel\klipy.json`.
 
-- Linux: `~/.config/io.github.slipalison.bezel/klipy.json` (ou dentro de
-  `$XDG_CONFIG_HOME`);
-- Windows: `%APPDATA%\io.github.slipalison.bezel\klipy.json`.
-
-O Bezel grava o arquivo inteiro a cada vez, legível só pelo seu usuário: no
-Linux, as permissões dele são `0600`, e no Windows as permissões da pasta do
-seu perfil o protegem. A chave fica nele em texto simples, não no chaveiro do
+O Bezel grava o arquivo inteiro a cada vez, legível só pelo seu usuário: as
+permissões da pasta do seu perfil o protegem. A chave fica nele em texto simples, não no chaveiro do
 sistema. Ela só vai para `api.klipy.com`, dentro do endereço da requisição. A
 janela do Bezel nunca a recebe de volta, só os 4 últimos caracteres (e nada
 de uma chave de 8 caracteres ou menos), e ela nunca aparece nas mensagens nem
@@ -221,10 +216,7 @@ chave diferente salva por cima da antiga, ganha um novo identificador de
 cliente.
 
 **Onde fica a sua coleção.** Na sua pasta de dados, ao lado das
-[cópias locais](storage-and-video.md#as-cópias-locais-do-bezel) do Bezel:
-
-- Linux: `~/.local/share/bezel/collection` (ou `$XDG_DATA_HOME/bezel/collection`);
-- Windows: `%APPDATA%\bezel\collection`.
+[cópias locais](storage-and-video.md#as-cópias-locais-do-bezel) do Bezel: `%APPDATA%\bezel\collection`.
 
 `collection.json` lista o nome de cada item, o tipo, o tamanho em pixels e em
 bytes, quando você o adicionou e de onde ele veio (o id do KLIPY e a página do

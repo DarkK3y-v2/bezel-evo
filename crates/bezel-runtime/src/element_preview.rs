@@ -71,7 +71,15 @@ fn bounds(elements: &[Element], fallback: BoxF) -> (f32, f32, f32, f32) {
     let boxes: Vec<BoxF> = elements
         .iter()
         .filter(|e| !e.is_group)
-        .map(|e| e.frame)
+        .map(|e| {
+            if e.sensor_motion.is_some() && e.supports_sensor_motion() {
+                let side = e.frame.width.hypot(e.frame.height);
+                let (cx, cy) = e.frame.center();
+                BoxF::new(cx - side / 2., cy - side / 2., side, side)
+            } else {
+                bezel_core::domain::rotation::rotated_bounds(e.frame, e.applied_rotation())
+            }
+        })
         .collect();
     let boxes = if boxes.is_empty() {
         vec![fallback]
@@ -120,6 +128,7 @@ pub fn isolate(theme: &Theme, id: ElementId) -> Option<Theme> {
         .collect();
     let (left, top, right, bottom) = bounds(&elements, root.frame);
     for element in &mut elements {
+        element.rotation = element.applied_rotation();
         element.frame.x -= left;
         element.frame.y -= top;
         if let Some(card) = element.card.as_mut() {
@@ -194,7 +203,10 @@ pub(crate) mod tests {
     pub(crate) fn shape(id: u32, frame: BoxF, color: Rgba) -> Element {
         Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,
@@ -223,6 +235,33 @@ pub(crate) mod tests {
 
     fn ids(theme: &Theme) -> Vec<u32> {
         theme.elements.iter().map(|e| e.id.0).collect()
+    }
+
+    #[test]
+    fn a_rotated_element_gets_a_canvas_of_its_rotated_box() {
+        let mut e = shape(1, BoxF::new(50., 45., 60., 30.), Rgba::WHITE);
+        e.rotation = 30.;
+        let alone = isolate(&theme(vec![e]), ElementId(1)).unwrap();
+        assert_eq!(alone.canvas, Size::new(68, 56));
+        assert_eq!(alone.elements[0].frame, BoxF::new(4., 13., 60., 30.));
+        assert_eq!(alone.elements[0].rotation, 30.);
+    }
+
+    #[test]
+    fn a_sensor_rotor_preview_has_room_for_every_angle() {
+        let mut e = shape(1, BoxF::new(50., 45., 60., 30.), Rgba::WHITE);
+        e.sensor_motion = Some(bezel_core::domain::sensor_motion::SensorMotion {
+            sensor: bezel_core::domain::sensor::SensorKey::new("gpu.fan").unwrap(),
+            reference: 3000.,
+            turns_per_second: 1.,
+            inertia_ms: 600,
+            reverse: false,
+        });
+        let alone = isolate(&theme(vec![e]), ElementId(1)).unwrap();
+        assert!(alone.canvas.width >= 68 && alone.canvas.height >= 68);
+        let (cx, cy) = alone.elements[0].frame.center();
+        assert!((cx - alone.canvas.width as f32 / 2.).abs() <= 1.);
+        assert!((cy - alone.canvas.height as f32 / 2.).abs() <= 1.);
     }
 
     #[test]

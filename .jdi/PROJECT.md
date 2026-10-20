@@ -1,5 +1,85 @@
 # Bezel
 
+## Consegna pubblicata — 20 ottobre 2026
+
+Visualizzazioni native implementate: matrici, archi pixel, quadranti, barre
+arrotondate e grafici speculari a due sorgenti. L'utente autorizza test completi,
+setup e caricamento release .59, includendo il lavoro già salvato da Claude.
+Pubblicata come Latest con setup, portable e checksum verificati. Prova fisica
+e installazione utente restano da fare; nessun setup avviato automaticamente.
+Vedi [intervento e verifica](todos/2026-10-20-visualizzazioni-release.md).
+Gli handoff precedenti sono storici; lo stato di consegna corrente è STATE.md.
+
+## Contesto di ripresa — 2026-10-19
+
+- Passaggio a Claude: [handoff completo](HANDOFF-CLAUDE.md). Ultima precisazione:
+  l'8,8 ha flash interna già usata per video; foto del contenuto TURZX iniziale
+  in `C:\Users\danie\Desktop\20261019_194043.jpg`. SD non è un requisito
+  dimostrato: identificare comando/percorso di selezione dell'avvio interno.
+
+- Loading BEZEL EVO provato fisicamente su entrambi i display: animazione e
+  orientamento confermati dall'utente. Sul 3,5 riproduzione host (194 frame in
+  23,9 s), nessuno storage; sull'8,8 clip interna funzionante ma non selezionata
+  al boot senza SD. Ripristinato Default e riaperto Studio .55. Nuova sezione
+  Avvio e attesa ancora da implementare. Vedi [prove loading](todos/2026-10-19-prove-loading-display.md).
+
+- Riesame transizioni e attesa richiesto dall'utente: 10 test runtime,
+  6 renderer e 4 e2e mirati verdi. Attesa personalizzata per display fattibile
+  dopo il collegamento; coperture a scena ferma e caricamento asincrono da
+  implementare. Distinguere il boot firmware. Vedi
+  [riesame e proposta](todos/2026-10-19-transizioni-attesa-review.md).
+
+- Build di sviluppo **0.1.55** compilata e avviata direttamente: riaggancio del display tramite
+  associazione persistente con MCU e profilo base chiamato Default nei due tray
+  e nel pannello. Aperture COM3/COM6 e invii su entrambi
+  verificati nei log, nessun ScreenError nel nuovo avvio. Vedi [riaggancio e Default](todos/2026-10-19-riaggancio-default.md).
+
+- Dalla **0.1.54**: selettore sensori condiviso
+  e ricercabile, controlli del movimento semplificati e transizione valori con
+  inerzia. 141 unitari UI, 56 casi e2e area, test e clippy dei due crate verdi.
+  Vedi [selettore e inerzia](todos/2026-10-19-selettore-sensori-inerzia.md).
+
+- Riepilogo operativo e checklist unica delle verifiche ancora aperte:
+  [checklist aggiornata .46-.55](todos/2026-10-19-ripresa-0.1.52.md). I rapporti delle singole
+  build sono storici; i relativi PID non descrivono necessariamente la sessione
+  attuale. I conteggi dei test sono mirati e sovrapposti, non una suite completa.
+
+- Dalla **0.1.52**: filtro Tipo di oggetto nei Livelli, combinato alla
+  ricerca e rispettoso della gerarchia. 71 unitari UI e 16 e2e verdi.
+  Vedi [filtro Livelli](todos/2026-10-19-livelli-filtro-tipo.md).
+- Dalla **0.1.51**: descrizioni sorgenti Sensori a capo senza scroll orizzontale.
+  Vedi [descrizioni](todos/2026-10-19-sensori-descrizione-wrap.md).
+- Dalla **0.1.50**: scrollbar condivise sottili e arrotondate, padding di 8 px
+  nella lista sonde e gutter stabile. Vedi [scrollbar](todos/2026-10-19-scrollbar-studio.md).
+- Dalla **0.1.48**: alias GPU raggruppati per lettore
+  e riavvio locale alla sonda supportata; 70 unitari UI e 28 e2e verdi.
+  Vedi [sonde GPU e riavvio](todos/2026-10-19-sonde-gpu-riavvio.md).
+- Dalla **0.1.46** sono presenti lente, campione e HEX durante il prelievo del colore.
+  Superficie congelata temporaneamente per una selezione esatta; nessun setup
+  .46 richiesto. Vedi [anteprima e test H264](todos/2026-10-19-contagocce-anteprima-h264.md).
+- Versione installata: **0.1.45**, setup locale creato, avviato su richiesta e
+  installazione verificata in `%LOCALAPPDATA%/Bezel Evo`. Versione nel registro
+  Windows e hash di CLI/Studio installati corrispondono alla build del pacchetto.
+  Nessun push, tag o rilascio GitHub eseguito per questi aggiornamenti.
+- Grafici nativi fluidi integrati dalla .44: scorrimento di linea, area e barre,
+  massimo richiesto 50 fps, cadenza indipendente per display e campionamento
+  invariato. Ritardo visivo fino a un intervallo di campionamento. Sul tema reale
+  Midnight dell'8.8 misurati 32,96 invii/s: non è una misura ottica del refresh.
+- H264 è un esperimento separato, non attivato nel prodotto. Il CT88 Rev C
+  collegato usa la seriale; la prova H264 richiede hardware USB 1CBE compatibile.
+- Preferenze operative: per le iterazioni avviare direttamente l'eseguibile;
+  produrre setup quando richiesto. Preservare i documenti aperti, senza chiudere
+  Studio al posto dell'utente. Ultima consegna .55 da `target/release`:
+  non confonderla con la copia installata .45; non sostituirla
+  automaticamente durante una semplice ripresa del lavoro.
+- Stato e lavoro aperto: [STATE.md](STATE.md). Dettagli e verifiche:
+  [grafici fluidi](todos/2026-10-19-grafici-fluidi.md),
+  [setup .45](todos/2026-10-19-setup-0.1.45.md),
+  [prototipo H264 e prove fisiche](todos/2026-10-18-prototipo-streaming-scene.md).
+- Restano la valutazione visiva dell'utente sui due display, la verifica manuale
+  della fase rotazione e gli eventuali miglioramenti dei temi più pesanti.
+  Non segnare la fase verificata o pubblicare senza le relative richieste.
+
 ## Vision
 Controlar pelo software **tudo** que as telas USB "smart screen" (Turing/TURZX e clones: XuanFang, Kipye, WeAct, UsbMonitor, 0x43A8/0x1CBE) oferecem — imagem, vídeo, cartão SD, brilho, rotação, sensores do PC — no Windows, com um editor de temas drag-and-drop numa janela única e medições corretas.
 

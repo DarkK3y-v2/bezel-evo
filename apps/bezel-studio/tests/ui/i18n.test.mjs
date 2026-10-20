@@ -5,7 +5,7 @@ import { AREAS, SHARED_LABELS, canonicalLabelKey, LOCALES, applyTranslations, gu
 import baseEn from '../../src/i18n/en.js';
 import { WIDGETS } from '../../src/editor/widgets.js';
 import { LANGUAGES, languageOptions } from '../../src/ui/preferences.js';
-import { DEMO_FOLDER, DEMO_GUIDE_PAGES, createDemoBackend } from '../../src/demo-backend.js';
+import { DEMO_GUIDE_PAGES, createDemoBackend } from '../../src/demo-backend.js';
 import { GIF_KINDS, HELP_STEPS, TILE_TEXT, keyFailure, resultsMessage } from '../../src/gif-search.js';
 import { COLLECTION_FILTERS } from '../../src/collection.js';
 import { errorMessage } from '../../src/messages.js';
@@ -187,7 +187,7 @@ test('translator substitutes params and falls back', () => {
 test('every static key used by the code exists', () => {
   const keys = sources().flatMap((code) => [...code.matchAll(/\bt\(\s*'([^'$]+)'/g)].map((m) => m[1]));
   assert.ok(keys.length > 50);
-  for (const key of keys) assert.ok(key in LOCALES.en, key);
+  for (const key of keys) assert.ok(canonicalLabelKey(key) in LOCALES.en, key);
 });
 
 /** String and template literals of `code`: where each starts and ends, and its text (`\0` for `${…}`). */
@@ -691,7 +691,7 @@ test('every data-i18n key used in index.html exists', () => {
   const html = readFileSync(new URL('index.html', src), 'utf8');
   const keys = [...html.matchAll(/data-i18n(?:-title|-aria-label|-placeholder)?="([^"]+)"/g)].map((m) => m[1]);
   assert.ok(keys.length > 20);
-  for (const key of keys) assert.ok(key in LOCALES.en, key);
+  for (const key of keys) assert.ok(canonicalLabelKey(key) in LOCALES.en, key);
 });
 
 test('applyTranslations fills text, title, aria-label and placeholder', () => {
@@ -748,12 +748,11 @@ test('the demo opens the guide in English or Portuguese only, like the backend',
 test('the demo checks and keeps the sensor options like the backend', async () => {
   const demo = createDemoBackend('turing88');
   const before = await demo.preferences();
-  assert.deepEqual([before.pingHost, before.defaultPingHost, before.mangohudDir, before.mangohud], ['8.8.8.8', '8.8.8.8', null, true]);
+  assert.deepEqual([before.pingHost, before.defaultPingHost], ['8.8.8.8', '8.8.8.8']);
   await demo.setSensorOptions(' 1.1.1.1 ', await demo.pickFolder());
   const after = await demo.preferences();
-  assert.deepEqual([after.pingHost, after.mangohudDir], ['1.1.1.1', DEMO_FOLDER]);
+  assert.deepEqual([after.pingHost], ['1.1.1.1']);
   await assert.rejects(demo.setSensorOptions('-c 5', null), (e) => e.code === 'invalidHost' && e.args.host === '-c 5');
-  await assert.rejects(demo.setSensorOptions('1.1.1.1', 'relative'), (e) => e.code === 'invalidFolder');
   await demo.setSensorOptions('', null);
   assert.equal((await demo.preferences()).pingHost, '8.8.8.8');
 });

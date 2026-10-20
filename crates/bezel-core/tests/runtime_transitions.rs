@@ -75,6 +75,8 @@ impl FrameRenderer for Recorder {
 
 fn bar(transition: Option<ValueTransition>) -> Element {
     Element {
+        sensor_motion: None,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card: None,
@@ -86,6 +88,7 @@ fn bar(transition: Option<ValueTransition>) -> Element {
         visible: true,
         locked: false,
         color_by_value: None,
+        visualization: None,
         value_transition: transition,
         kind: ElementKind::Bar {
             binding: Binding {

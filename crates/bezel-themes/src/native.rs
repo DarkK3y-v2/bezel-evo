@@ -243,8 +243,11 @@ mod tests {
     fn el(id: u32, kind: ElementKind) -> Element {
         Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -428,6 +431,30 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("bezel-themes-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn optional_visualizations_round_trip_and_reject_unbounded_geometry() {
+        use bezel_core::domain::visualization::{VisualStyle, Visualization};
+        let (mut theme, _) = every_kind();
+        for style in [
+            VisualStyle::Matrix,
+            VisualStyle::Pixel,
+            VisualStyle::Dial,
+            VisualStyle::Rounded,
+            VisualStyle::Mirrored,
+        ] {
+            theme.elements[0].visualization = Some(Visualization::new(style));
+            let dto = ThemeDto::from(&theme);
+            assert_eq!(Theme::try_from(&dto).unwrap(), theme);
+        }
+        let mut json = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        json["elements"][0]["visualization"]["rows"] = serde_json::json!(65535);
+        let bad: ThemeDto = serde_json::from_value(json).unwrap();
+        assert!(Theme::try_from(&bad).is_err());
+        theme.elements[0].visualization = None;
+        let old = serde_json::to_value(ThemeDto::from(&theme)).unwrap();
+        assert!(old["elements"][0].get("visualization").is_none());
     }
 
     /// The interval of the theme's graph after a trip through JSON where
@@ -817,6 +844,7 @@ mod tests {
             angle: 90.0,
             start: 0.2,
             end: 0.8,
+            midpoint: Fade::MIDPOINT,
         });
         let dto = ThemeDto::from(&theme);
         assert_eq!(Theme::try_from(&dto).unwrap(), theme);
@@ -1700,5 +1728,146 @@ mod tests {
         ] {
             assert!(serde_json::from_value::<ThemeDto>(player_json(bad)).is_err());
         }
+    }
+    #[test]
+    fn rotation_zero_omitted_and_old_themes_unchanged() {
+        let (theme, _) = every_kind();
+        let dto = ThemeDto::from(&theme);
+        let bytes = serde_json::to_vec(&dto).unwrap();
+        assert!(dto.elements.iter().all(|e| e.rotation == 0.0));
+        let json = serde_json::to_value(&dto).unwrap();
+        assert!(
+            json["elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("rotation").is_none())
+        );
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert_eq!(serde_json::to_vec(&ThemeDto::from(&loaded)).unwrap(), bytes);
+    }
+
+    #[test]
+    fn sensor_motion_roundtrip_validation_and_sampling() {
+        let (theme, _) = every_kind();
+        let mut dto = ThemeDto::from(&theme);
+        assert!(
+            serde_json::to_value(&dto).unwrap()["elements"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|e| e.get("sensorMotion").is_none())
+        );
+        let motion = crate::dto::SensorMotionDto {
+            sensor: "board.custom.fan".into(),
+            reference: 3000.,
+            turns_per_second: 1.5,
+            inertia_ms: 600,
+            reverse: true,
+        };
+        dto.elements[0].sensor_motion = Some(motion.clone());
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert!(loaded.sensor_keys().contains(&key("board.custom.fan")));
+        assert_eq!(
+            ThemeDto::from(&loaded).elements[0].sensor_motion,
+            Some(motion)
+        );
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = 0.;
+        assert!(Theme::try_from(&dto).is_err());
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = f64::NAN;
+        assert!(Theme::try_from(&dto).is_err());
+        dto.elements[0].sensor_motion.as_mut().unwrap().reference = 3000.;
+        dto.elements[0]
+            .sensor_motion
+            .as_mut()
+            .unwrap()
+            .turns_per_second = 100.;
+        assert!(Theme::try_from(&dto).is_err());
+    }
+
+    #[test]
+    fn value_inertia_roundtrips_with_legacy_smooth_fallback() {
+        let (mut theme, _) = every_kind();
+        theme.elements[0].value_transition = Some(ValueTransition {
+            mode: TransitionMode::Inertia,
+            duration_ms: 800,
+        });
+        let dto = ThemeDto::from(&theme);
+        let mut json = serde_json::to_value(&dto).unwrap();
+        assert_eq!(json["elements"][0]["valueTransition"]["mode"], "smooth");
+        assert_eq!(json["elements"][0]["valueTransition"]["inertia"], true);
+        assert_eq!(
+            Theme::try_from(&dto).unwrap().elements[0]
+                .value_transition
+                .unwrap()
+                .mode,
+            TransitionMode::Inertia
+        );
+        // What an older reader sees when it ignores the new optional flag.
+        json["elements"][0]["valueTransition"]
+            .as_object_mut()
+            .unwrap()
+            .remove("inertia");
+        let old: ThemeDto = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            Theme::try_from(&old).unwrap().elements[0]
+                .value_transition
+                .unwrap()
+                .mode,
+            TransitionMode::Smooth
+        );
+    }
+
+    #[test]
+    fn rotation_roundtrip_normalizes_and_rejects_non_finite() {
+        let (theme, _) = every_kind();
+        let mut dto = ThemeDto::from(&theme);
+        dto.elements[0].rotation = 200.;
+        let loaded = Theme::try_from(&dto).unwrap();
+        assert_eq!(loaded.elements[0].rotation, -160.);
+        assert_eq!(ThemeDto::from(&loaded).elements[0].rotation, -160.);
+        dto.elements[0].rotation = f32::NAN;
+        assert_eq!(Theme::try_from(&dto).unwrap_err().0, "invalid rotation");
+        dto.elements[0].rotation = 30.;
+        dto.elements[0].kind = dto
+            .elements
+            .iter()
+            .find(|e| matches!(e.kind, crate::dto::KindDto::Shape { .. }))
+            .unwrap()
+            .kind
+            .clone();
+        if let crate::dto::KindDto::Shape { video_window, .. } = &mut dto.elements[0].kind {
+            *video_window = true;
+        }
+        assert_eq!(Theme::try_from(&dto).unwrap().elements[0].rotation, 0.);
+        let mut json = serde_json::to_value(&dto).unwrap();
+        let mut base = json["elements"][0].clone();
+        base["kind"]["videoWindow"] = serde_json::json!(false);
+        base["kind"]["fill"] = serde_json::Value::Null;
+        base["kind"]["stroke"] = serde_json::Value::Null;
+        base["kind"]["fade"] = serde_json::Value::Null;
+        let mut objects = Vec::new();
+        for id in 1..=5 {
+            let mut object = base.clone();
+            object["id"] = serde_json::json!(id);
+            object["rotation"] = serde_json::json!(30);
+            match id {
+                1 => object["card"] = serde_json::json!({"faces":["Face"],"activeFace":0}),
+                2 => object["cardMember"] = serde_json::json!({"parent":1,"face":0}),
+                3 => object["isGroup"] = serde_json::json!(true),
+                4 => object["groupParent"] = serde_json::json!(3),
+                _ => object["kind"]["videoWindow"] = serde_json::json!(true),
+            }
+            objects.push(object);
+        }
+        json["elements"] = serde_json::json!(objects);
+        let dto: ThemeDto = serde_json::from_value(json).unwrap();
+        assert!(
+            Theme::try_from(&dto)
+                .unwrap()
+                .elements
+                .iter()
+                .all(|e| e.rotation == 0.)
+        );
     }
 }

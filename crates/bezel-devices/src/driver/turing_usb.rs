@@ -32,7 +32,7 @@ use bezel_core::domain::standby::PlanB;
 use bezel_core::domain::storage::{
     Confirmed, FileName, Medium, RemotePath, Repeat, StorageInfo, StorageLocation,
 };
-use bezel_core::ports::{ScreenLink, ScreenStorage};
+use bezel_core::ports::{EncodedScene, ScreenLink, ScreenStorage};
 use bezel_core::{BezelError, Result};
 use chrono::Timelike;
 
@@ -111,6 +111,7 @@ pub struct TuringUsb<W: Wire, C: Clock = LocalClock, P: Pause = RealTime> {
     /// Bytes this link wrote to each stored file and the screen acknowledged:
     /// the only file sizes it knows, since FILE_SIZE (98) is never sent.
     written: BTreeMap<RemotePath, u64>,
+    scene_stream: Option<(usize, u64)>,
 }
 
 /// One command: a single write of the packet and its payload, then the
@@ -157,6 +158,7 @@ impl<W: Wire, C: Clock, P: Pause + Clone> TuringUsb<W, C, P> {
             level: None,
             off: false,
             written: BTreeMap::new(),
+            scene_stream: None,
         })
     }
 }
@@ -169,6 +171,22 @@ impl<W: Wire, C: Clock, P: Pause> TuringUsb<W, C, P> {
 
     fn now(&self) -> u32 {
         self.clock.millis_since_midnight()
+    }
+
+    // Reading beyond the 512-byte reply consumes its USB zero-length packet.
+    // A discard/timeout after every frame would itself prevent high frame rates.
+    fn stream_command(&mut self, header: &Header, payload: &[u8]) -> Result<Vec<u8>> {
+        self.wire
+            .send(&proto::packet_and_payload(header, payload))
+            .map_err(io_err)?;
+        let reply = self
+            .wire
+            .receive(proto::PACKET_LEN * 2, REPLY_TIMEOUT)
+            .map_err(io_err)?;
+        if reply.first() != Some(&header[0]) {
+            return Err(no_answer("scene stream reply"));
+        }
+        Ok(reply)
     }
 
     fn command(&mut self, header: &Header, payload: &[u8]) -> Result<Vec<u8>> {
@@ -306,6 +324,14 @@ impl<W: Wire, C: Clock, P: Pause> TuringUsb<W, C, P> {
 }
 
 impl<W: Wire, C: Clock, P: Pause> ScreenLink for TuringUsb<W, C, P> {
+    fn encoded_scene(&mut self) -> Option<&mut dyn EncodedScene> {
+        // Initially restrict the experiment to the two documented wide models.
+        matches!(
+            self.identity.model.id.0,
+            "turing-usb-8.8" | "turing-usb-9.2"
+        )
+        .then_some(self)
+    }
     fn identity(&self) -> &ScreenIdentity {
         &self.identity
     }
@@ -329,6 +355,9 @@ impl<W: Wire, C: Clock, P: Pause> ScreenLink for TuringUsb<W, C, P> {
     /// shows the video (spec § 5.2).
     fn present(&mut self, frame: &Frame) -> Result<()> {
         let native = self.native(frame)?;
+        if self.scene_stream.is_some() {
+            self.end()?;
+        }
         self.send_image(&native)?;
         if self.off {
             let level = self.level.unwrap_or(DEFAULT_LEVEL);
@@ -351,6 +380,9 @@ impl<W: Wire, C: Clock, P: Pause> ScreenLink for TuringUsb<W, C, P> {
     /// Stop-stream (123), which the vendor app sends whenever its theme loop
     /// ends; the device keeps showing what it has.
     fn release(&mut self) -> Result<()> {
+        if self.scene_stream.is_some() {
+            return self.end();
+        }
         let h = proto::simple(op::STOP_STREAM, self.now());
         self.command(&h, &[])?;
         Ok(())
@@ -358,6 +390,124 @@ impl<W: Wire, C: Clock, P: Pause> ScreenLink for TuringUsb<W, C, P> {
 
     fn storage(&mut self) -> Option<&mut dyn ScreenStorage> {
         Some(self)
+    }
+}
+
+impl<W: Wire, C: Clock, P: Pause> EncodedScene for TuringUsb<W, C, P> {
+    fn begin(&mut self, fps: u8, standby_clip: &FileName) -> Result<usize> {
+        if !(1..=50).contains(&fps) {
+            return Err(BezelError::InvalidInput("stream fps must be 1..=50".into()));
+        }
+        if !matches!(
+            self.identity.model.id.0,
+            "turing-usb-8.8" | "turing-usb-9.2"
+        ) {
+            return Err(BezelError::Unsupported(
+                "experimental scene streaming on this model".into(),
+            ));
+        }
+        let name = format!("usr/data/{standby_clip}");
+        let play = self.path_header(op::PLAY_VIDEO, &name)?;
+        if self.scene_stream.is_some() {
+            self.end()?;
+        }
+        self.scene_stream = Some((proto::DEFAULT_CHUNK as usize, 0));
+        let started = (|| {
+            self.expect_ok(&play, "stream initialization")?;
+            self.stop_playback()?;
+            self.send_level(self.level.unwrap_or(DEFAULT_LEVEL))?;
+            self.clear()?;
+            // The decoder runs slightly ahead of the delivered pictures so it
+            // does not retain a delay after one late frame (50 delivered -> 60).
+            let rate = proto::set_frame_rate(self.now(), fps.saturating_add(10).min(60));
+            self.expect_ok(&rate, "stream frame rate")?;
+            let query = proto::simple(op::GET_CHUNK_SIZE, self.now());
+            let reply = self.command(&query, &[])?;
+            if reply.first() != Some(&op::GET_CHUNK_SIZE) || reply.len() < 12 {
+                return Err(no_answer("stream picture size"));
+            }
+            let reported = u32::from_be_bytes(
+                reply[8..12]
+                    .try_into()
+                    .map_err(|_| no_answer("stream picture size"))?,
+            );
+            let limit = if reported == 0 {
+                proto::DEFAULT_CHUNK
+            } else {
+                reported
+            }
+            .min(proto::DEFAULT_CHUNK) as usize;
+            self.scene_stream = Some((limit, 0));
+            Ok(limit)
+        })();
+        if started.is_err() {
+            let _ = self.end();
+        }
+        started
+    }
+
+    fn send_picture(&mut self, annex_b: &[u8]) -> Result<()> {
+        let (limit, count) = self
+            .scene_stream
+            .ok_or_else(|| BezelError::InvalidInput("scene stream is not started".into()))?;
+        if annex_b.is_empty()
+            || annex_b.len() > limit
+            || !annex_b.starts_with(&[0, 0, 0, 1]) && !annex_b.starts_with(&[0, 0, 1])
+        {
+            return Err(BezelError::InvalidInput(
+                "expected one bounded Annex-B picture".into(),
+            ));
+        }
+        if count.is_multiple_of(2) {
+            let query = proto::simple(op::STREAM_STATUS, self.now());
+            let depth = |reply: &[u8]| -> Result<u8> {
+                if reply.first() != Some(&op::STREAM_STATUS) || reply.len() < 9 {
+                    return Err(no_answer("stream queue"));
+                }
+                Ok(reply[8])
+            };
+            if depth(&self.stream_command(&query, &[])?)? > 2 {
+                let mut drained = false;
+                for _ in 0..50 {
+                    self.pause.pause(Duration::from_millis(30));
+                    if depth(&self.stream_command(&query, &[])?)? <= 1 {
+                        drained = true;
+                        break;
+                    }
+                }
+                if !drained {
+                    return Err(BezelError::Timeout(
+                        "video decoder queue did not drain".into(),
+                    ));
+                }
+            }
+        }
+        let header = proto::stream_chunk(self.now(), annex_b.len() as u32, false);
+        let reply = self.stream_command(&header, annex_b)?;
+        if !proto::accepted(op::STREAM_CHUNK, &reply) {
+            return Err(no_answer("stream picture"));
+        }
+        self.scene_stream = Some((limit, count + 1));
+        Ok(())
+    }
+
+    fn end(&mut self) -> Result<()> {
+        if self.scene_stream.take().is_none() {
+            return Ok(());
+        }
+        let stop = proto::simple(op::STOP_STREAM, self.now());
+        let stopped = self.stream_command(&stop, &[]).and_then(|reply| {
+            proto::accepted(op::STOP_STREAM, &reply)
+                .then_some(())
+                .ok_or_else(|| no_answer("stop scene stream"))
+        });
+        let rate = proto::set_frame_rate(self.now(), 30);
+        let restored = self.stream_command(&rate, &[]).and_then(|reply| {
+            proto::accepted(op::SET_FRAME_RATE, &reply)
+                .then_some(())
+                .ok_or_else(|| no_answer("restore playback rate"))
+        });
+        stopped.and(restored)
     }
 }
 
@@ -575,6 +725,154 @@ mod tests {
 
     fn connected(id: &'static str) -> Screen {
         connected_with(&NoPause, id)
+    }
+
+    fn stream_reply(opcode: u8, value: u8) -> Vec<u8> {
+        let mut reply = vec![0; proto::PACKET_LEN];
+        reply[0] = opcode;
+        reply[8] = value;
+        reply[1] = proto::STATUS_OK;
+        reply
+    }
+
+    fn ready_stream<P: Pause + Clone>(screen: &mut Screen<P>) {
+        for (op, value) in [
+            (op::PLAY_VIDEO, proto::STATUS_OK),
+            (op::STOP_PLAYBACK, proto::STATUS_OK),
+            (op::PLAYBACK_BUSY, 0),
+            (op::SET_BRIGHTNESS, proto::STATUS_OK),
+            (op::SHOW_PNG, proto::STATUS_OK),
+            (op::SET_FRAME_RATE, proto::STATUS_OK),
+            (op::GET_CHUNK_SIZE, 0),
+        ] {
+            screen.wire.reply(&stream_reply(op, value));
+        }
+        assert_eq!(
+            screen
+                .begin(50, &FileName::parse("standby.h264").unwrap())
+                .unwrap(),
+            proto::DEFAULT_CHUNK as usize
+        );
+    }
+
+    #[test]
+    fn scene_stream_is_opt_in_bounded_and_restores_rate_without_saving() {
+        let mut screen = connected("turing-usb-9.2");
+        assert_eq!(screen.identity.model.panel, Size::new(480, 1920));
+        let before = screen.wire.sent.len();
+        assert!(
+            screen
+                .begin(0, &FileName::parse("standby.h264").unwrap())
+                .is_err()
+        );
+        assert_eq!(screen.wire.sent.len(), before);
+        ready_stream(&mut screen);
+        assert_eq!(
+            &opcodes(screen.wire())[1..],
+            &[110, 111, 112, 14, 102, 15, 17]
+        );
+        let clear = screen
+            .wire
+            .sent
+            .iter()
+            .find(|p| plain(p)[0] == op::SHOW_PNG)
+            .unwrap();
+        let (size, rgba) = decode_png(&clear[proto::PACKET_LEN..]);
+        assert_eq!(size, Size::new(480, 1920));
+        assert!(rgba.iter().all(|b| *b == 0));
+        assert!(
+            screen
+                .send_picture(&vec![0; proto::DEFAULT_CHUNK as usize + 1])
+                .is_err()
+        );
+        screen.wire.reply(&stream_reply(op::STREAM_STATUS, 0));
+        screen
+            .wire
+            .reply(&stream_reply(op::STREAM_CHUNK, proto::STATUS_OK));
+        let discards = screen.wire.discards;
+        screen.send_picture(&[0, 0, 0, 1, 0x65, 0x80]).unwrap();
+        assert_eq!(
+            screen.wire.discards, discards,
+            "no per-picture timeout flush"
+        );
+        let last = screen.wire.sent.last().unwrap();
+        assert_eq!(&last[proto::PACKET_LEN..], &[0, 0, 0, 1, 0x65, 0x80]);
+        assert_eq!(
+            plain(last)[12],
+            0,
+            "live pictures are not end-of-clip blocks"
+        );
+        screen
+            .wire
+            .reply(&stream_reply(op::STOP_STREAM, proto::STATUS_OK));
+        screen
+            .wire
+            .reply(&stream_reply(op::SET_FRAME_RATE, proto::STATUS_OK));
+        screen.end().unwrap();
+        assert_eq!(
+            &opcodes(screen.wire())[opcodes(screen.wire()).len() - 2..],
+            &[123, 15]
+        );
+        assert_eq!(plain(screen.wire.sent.last().unwrap())[8], 30);
+        let count = screen.wire.sent.len();
+        screen.end().unwrap();
+        assert_eq!(screen.wire.sent.len(), count);
+        for forbidden in [11, 13, 38, 39, 40, 42, 125] {
+            assert!(!opcodes(screen.wire()).contains(&forbidden));
+        }
+    }
+
+    #[test]
+    fn scene_stream_backpressure_waits_for_low_water_and_times_out_without_a_picture() {
+        let pauses = Pauses::default();
+        let mut screen = connected_with(&pauses, "turing-usb-8.8");
+        ready_stream(&mut screen);
+        for depth in [3, 2, 1] {
+            screen.wire.reply(&stream_reply(op::STREAM_STATUS, depth));
+        }
+        screen
+            .wire
+            .reply(&stream_reply(op::STREAM_CHUNK, proto::STATUS_OK));
+        screen.send_picture(&[0, 0, 1, 0x65, 0x80]).unwrap();
+        assert_eq!(pauses.take(), vec![Duration::from_millis(30); 2]);
+        screen
+            .wire
+            .reply(&stream_reply(op::STREAM_CHUNK, proto::STATUS_OK));
+        screen.send_picture(&[0, 0, 1, 0x41, 0x80]).unwrap();
+        for _ in 0..51 {
+            screen.wire.reply(&stream_reply(op::STREAM_STATUS, 5));
+        }
+        let before = opcodes(screen.wire())
+            .iter()
+            .filter(|op| **op == op::STREAM_CHUNK)
+            .count();
+        assert!(matches!(
+            screen.send_picture(&[0, 0, 1, 0x41, 0x80]),
+            Err(BezelError::Timeout(_))
+        ));
+        assert_eq!(pauses.take().len(), 50);
+        assert_eq!(
+            opcodes(screen.wire())
+                .iter()
+                .filter(|op| **op == op::STREAM_CHUNK)
+                .count(),
+            before
+        );
+    }
+
+    #[test]
+    fn querying_stream_capability_does_not_start_it_or_enable_other_models() {
+        let mut screen = connected("turing-usb-8.8");
+        assert!(screen.encoded_scene().is_some());
+        assert_eq!(screen.wire.sent.len(), 1);
+        let mut other = connected("turing-usb-2.8-round");
+        assert!(other.encoded_scene().is_none());
+        assert!(
+            other
+                .begin(50, &FileName::parse("standby.h264").unwrap())
+                .is_err()
+        );
+        assert_eq!(other.wire.sent.len(), 1);
     }
 
     /// The plaintext header of a sent write.

@@ -1,5 +1,5 @@
 //! Driven adapters that reach smart screens: USB/serial/HID discovery,
-//! transports and wire protocols, and the Linux udev rule they need.
+//! transports and wire protocols.
 //!
 //! Every byte this crate sends to a screen is specified in
 //! `docs/reverse-engineering/`.
@@ -12,7 +12,6 @@ pub mod driver;
 pub mod fake;
 pub mod hid_desktop;
 pub mod protocol;
-pub mod udev;
 pub mod usb;
 pub mod wire;
 

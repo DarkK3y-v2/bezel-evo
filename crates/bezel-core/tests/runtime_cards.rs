@@ -46,13 +46,16 @@ fn theme() -> Theme {
     theme.refresh_seconds = 60.0;
     theme.elements.push(Element {
         color_by_value: None,
+        visualization: None,
         value_transition: None,
+        sensor_motion: None,
         id: ElementId(1),
         name: "Card".into(),
         frame: BoxF::new(0.0, 0.0, 100.0, 100.0),
         opacity: 1.0,
         visible: true,
         locked: false,
+        rotation: 0.0,
         is_group: false,
         group_parent: None,
         card_member: None,

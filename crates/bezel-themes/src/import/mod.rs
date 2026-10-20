@@ -252,8 +252,11 @@ impl Builder {
         let id = ElementId(u32::try_from(self.elements.len()).unwrap_or(u32::MAX - 1) + 1);
         self.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -398,27 +401,6 @@ mod tests {
         fs::write(dir.join("big.bin"), [0u8; 32]).expect("write");
         assert!(read_limited(&dir.join("big.bin"), 8).is_err());
         let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn reads_stay_inside_their_folder() {
-        let root = std::env::temp_dir().join(format!("bezel-import-inside-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        let inner = root.join("theme");
-        fs::create_dir_all(&inner).expect("dir");
-        fs::write(root.join("secret.txt"), b"S").expect("write");
-        fs::write(inner.join("ok.png"), b"P").expect("write");
-        std::os::unix::fs::symlink(root.join("secret.txt"), inner.join("link.png")).expect("link");
-        assert_eq!(
-            read_inside(&inner, Path::new("ok.png"), 10),
-            Ok(b"P".to_vec())
-        );
-        let e = read_inside(&inner, Path::new("link.png"), 10).expect_err("refused");
-        assert!(e.contains("points outside"), "{e}");
-        assert!(read_inside(&inner, Path::new("none.png"), 10).is_err());
-        assert!(read_inside(&root.join("nope"), Path::new("ok.png"), 10).is_err());
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

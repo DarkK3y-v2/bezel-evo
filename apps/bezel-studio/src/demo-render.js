@@ -1,6 +1,12 @@
+import { appliedRotation, centerOf } from './editor/rotation.js';
+import { drawVisualization } from './demo-visualization.js';
+import { applyTextCase } from './text-case.js';
 import { boundKey } from './editor/widgets.js';
 import { demoSensorValue } from './demo-sensors.js';
 import { demoColorValue, withValueColor } from './value-color.js';
+import { demoSpectrum, spectrumOf } from './spectrum.js';
+import { translator } from './i18n/index.js';
+import { colorAt } from './value-color.js';
 import { cardPoses, drawCardProjection } from './editor/card-motion.js';
 import { isShown, effectiveOpacity, visibleWithoutFace } from './editor/cards.js';
 import { fadeLine } from './shape-fade.js';
@@ -135,11 +141,12 @@ function drawText(ctx, e, t, value, measure = false) {
   } else if (k.content.type === 'sensor') {
     text = `${k.content.prefix ?? ''}${Number.isFinite(value) ? Math.round(value * 100) : '\u2014'}${k.content.format?.showUnit === false ? '' : '%'}${k.content.suffix ?? ''}`;
   }
+  text = applyTextCase(text, s.casing);
   ctx.fillStyle = paint(s.paint);
   ctx.font = `${s.font?.italic ? 'italic ' : ''}${s.font?.weight ?? 400} ${s.size}px ${s.font?.family ?? 'sans-serif'}, sans-serif`;
   if (measure && k.content.type === 'player') {
     const shown = playerText(k.content, DEMO_MEDIA);
-    const lines = shown.lines;
+    const lines = shown.lines.length ? applyTextCase(shown.lines.join('\n'), s.casing).split('\n') : [];
     const block = lines.length ? { width: Math.max(...lines.map(line => ctx.measureText(line).width)), height: lines.length * Math.ceil(s.size * 1.2) } : null;
     const m = blockMetrics(k.content, DEMO_MEDIA, shown, timeLabel(ctx, s), s.size);
     return fitPlayer(k.content, shown, block, m, e.frame, s.size);
@@ -185,7 +192,89 @@ function drawText(ctx, e, t, value, measure = false) {
   } else ctx.fillText(text, x, y, f.width);
 }
 
+function drawSpectrum(ctx, e, seconds) {
+  const c = spectrumOf(e.kind.content), f = e.frame, mid = f.y + f.height / 2, bottom = f.y + f.height;
+  const values = (c.demo ? demoSpectrum(c, seconds) : Array(c.bands).fill(0)).map(v => Math.min(1, v * c.gain));
+  const tr = translator(globalThis.document?.documentElement?.lang ?? 'en');
+  ctx.save(); ctx.globalAlpha = e.opacity ?? 1; ctx.beginPath(); ctx.rect(f.x,f.y,f.width,f.height); ctx.clip();
+  const fill = e.kind.style.paint;
+  let base = paint(fill);
+  if (fill?.stops) { base = ctx.createLinearGradient(f.x, f.y, f.x, f.y + f.height); for (const [stop,hex] of fill.stops) base.addColorStop(stop,color(hex)); }
+  // Same geometry as the screen renderer (bezel-render spectrum.rs, D-AS-11).
+  const level = value => e.colorByValue ? color(colorAt(e.colorByValue, value * 100)) : base;
+  const cell = f.width / c.bands, width = Math.max(0,Math.min(c.thickness,cell-c.gap));
+  const peakOf = value => Math.min(1, value + .08);
+  const bar = (x, y, w, h) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, c.corners.map(v => Math.min(v, w / 2, h / 2))); ctx.fill(); };
+  ctx.fillStyle = base;
+  if (c.style === 'mirrored') {
+    if (c.centre) ctx.fillRect(f.x,mid-.5,f.width,1);
+    values.forEach((value,i) => {
+      const x=f.x+i*cell+(cell-width)/2, h=value*Math.max(0,f.height/2-2);
+      ctx.fillStyle = level(value);
+      if(h>0) { ctx.beginPath(); ctx.roundRect(x,mid-h,width,h*2,c.corners.map(v=>Math.min(v,width/2,h))); ctx.fill(); }
+      if(c.peaks && value>0) { const peak=peakOf(value)*Math.max(0,f.height/2-2);ctx.fillRect(x,mid-peak-1,width,1);ctx.fillRect(x,mid+peak,width,1); }
+    });
+  } else if (c.style === 'bars') {
+    if (c.centre) ctx.fillRect(f.x, bottom - 1, f.width, 1);
+    const full = Math.max(0, f.height - 3);
+    values.forEach((value, i) => {
+      const x = f.x + i * cell + (cell - width) / 2;
+      ctx.fillStyle = level(value);
+      if (value > 0) bar(x, bottom - value * full, width, value * full);
+      if (c.peaks && value > 0) ctx.fillRect(x, bottom - peakOf(value) * full - 2, width, 1);
+    });
+  } else if (c.style === 'blocks') {
+    const space = Math.min(Math.max(c.gap, 1), c.block), pitch = c.block + space;
+    const count = Math.max(0, Math.floor((f.height + space) / pitch));
+    const block = (x, k) => { ctx.fillStyle = level((k + 1) / count); bar(x, bottom - k * pitch - c.block, width, c.block); };
+    values.forEach((value, i) => {
+      const x = f.x + i * cell + (cell - width) / 2, lit = Math.min(count, Math.round(value * count));
+      for (let k = 0; k < lit; k++) block(x, k);
+      const peak = Math.min(count, Math.round(peakOf(value) * count));
+      if (c.peaks && value > 0 && peak > lit) block(x, peak - 1);
+    });
+  } else if (c.style === 'line') {
+    const room = Math.max(0, f.height - c.stroke - 1);
+    const points = values.map((value, i) => [f.x + (i + .5) * cell, bottom - c.stroke / 2 - value * room]);
+    const stroke = level(Math.max(0, ...values));
+    const curve = () => {
+      ctx.beginPath(); ctx.moveTo(f.x, points[0][1]); ctx.lineTo(...points[0]);
+      for (let i = 1; i < points.length; i++) { const [a, b] = [points[i - 1], points[i]]; ctx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+      ctx.lineTo(...points.at(-1)); ctx.lineTo(f.x + f.width, points.at(-1)[1]);
+    };
+    if (c.fill) { curve(); ctx.lineTo(f.x + f.width, bottom); ctx.lineTo(f.x, bottom); ctx.closePath(); ctx.fillStyle = stroke; ctx.globalAlpha = (e.opacity ?? 1) * .35; ctx.fill(); ctx.globalAlpha = e.opacity ?? 1; }
+    ctx.fillStyle = base; if (c.centre) ctx.fillRect(f.x, bottom - 1, f.width, 1);
+    curve(); ctx.strokeStyle = stroke; ctx.lineWidth = c.stroke; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+  } else if (c.style === 'radial') {
+    const cx = f.x + f.width / 2, cy = mid, outer = Math.max(0, Math.min(f.width, f.height) / 2 - 3);
+    const inner = outer * c.inner / 100, room = outer - inner, radius = Math.max(inner, room / 2);
+    const w = Math.max(.5, Math.min(c.thickness, 2 * Math.PI * radius / c.bands - c.gap));
+    if (c.centre && inner >= 1) { ctx.beginPath(); ctx.arc(cx, cy, inner, 0, 2 * Math.PI); ctx.strokeStyle = base; ctx.lineWidth = 1; ctx.stroke(); }
+    if (room > 0) values.forEach((value, i) => {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(i * 2 * Math.PI / c.bands); ctx.fillStyle = level(value);
+      if (value > 0) bar(-w / 2, -inner - value * room, w, value * room);
+      if (c.peaks && value > 0) ctx.fillRect(-w / 2, -inner - peakOf(value) * room - 2, w, 1);
+      ctx.restore();
+    });
+  }
+  ctx.font = `${e.kind.style.size}px sans-serif`; ctx.textBaseline='top'; ctx.fillStyle=base;
+  ctx.fillText(tr(c.demo ? 'spectrum.demo' : 'spectrum.disabled'), f.x, f.y);
+  ctx.restore();
+}
+
 function drawElement(ctx, e, t, refresh = 1, motion = true) {
+  const angle = appliedRotation(e);
+  if (!angle) { drawUprightElement(ctx, e, t, refresh, motion); return; }
+  const center = centerOf(e.frame);
+  ctx.save();
+  ctx.translate(center.x, center.y); ctx.rotate(angle * Math.PI / 180); ctx.translate(-center.x, -center.y);
+  ctx.beginPath(); ctx.rect(e.frame.x, e.frame.y, e.frame.width, e.frame.height); ctx.clip();
+  drawUprightElement(ctx, { ...e, rotation: 0 }, t, refresh, motion);
+  ctx.restore();
+}
+
+function drawUprightElement(ctx, e, t, refresh = 1, motion = true) {
+  if (e.kind.content?.type === 'spectrum') { drawSpectrum(ctx,e,t); return; }
   const value = shownFraction(e, t, refresh, motion);
   e = withValueColor(e, demoColorValue(e, value, key => demoSensorValue(key, Math.floor(t / refresh) * refresh)));
   const k = e.kind;
@@ -201,7 +290,9 @@ function drawElement(ctx, e, t, refresh = 1, motion = true) {
     const g = k.fade.radial
       ? lc.createRadialGradient(k.fade.radial[0], k.fade.radial[1], 0, ...k.fade.radial)
       : lc.createLinearGradient(...fadeLine(f, k.fade.angle));
+    // Halfway opacity at the midpoint, as the screen renderer's two-piece ramp.
     g.addColorStop(0, `rgba(0,0,0,${k.fade.start})`);
+    g.addColorStop(k.fade.midpoint ?? .5, `rgba(0,0,0,${(k.fade.start + k.fade.end) / 2})`);
     g.addColorStop(1, `rgba(0,0,0,${k.fade.end})`);
     lc.fillStyle = g;
     if (k.fade.radial) lc.fillRect(0, 0, 1, 1);
@@ -214,6 +305,7 @@ function drawElement(ctx, e, t, refresh = 1, motion = true) {
   const frac = value;
   ctx.save();
   ctx.globalAlpha = e.opacity ?? 1;
+  if (drawVisualization(ctx,e,frac,k.type==='graph'?demoGraphPoints(k,refresh,t,e.id):null,k.type==='graph'&&e.visualization?.secondary?demoGraphPoints({...k,binding:e.visualization.secondary},refresh,t,e.id+197):null)) { ctx.restore(); return; }
   switch (k.type) {
     case 'text':
       drawText(ctx, e, t, frac);

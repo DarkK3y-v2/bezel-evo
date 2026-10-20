@@ -19,14 +19,13 @@ supported for them.
 
 ## Who carries it out
 
-- **Bezel Studio**, while it runs (in the tray is enough). On Linux it asks the
-  system (systemd-logind) to wait for it at shutdown, within the few seconds the
-  system grants (5 s by default); on Windows it acts when the session ends
-  (shutting down, restarting or signing out). Quitting Bezel from the tray or
-  the window applies nothing.
+- **Bezel Light**, or **Bezel Studio** when it drives the screen itself, while it
+  runs (in the tray is enough). It acts when the Windows session ends (shutting
+  down, restarting or signing out). Quitting Light or Studio from the tray
+  applies nothing.
 - The command line only records the choice and stores the plan B. Without
-  Bezel Studio running (only `bezel run` or its service, or the studio
-  closed), nothing is sent at shutdown, and only the plan B is left: with
+  Light or Studio running (only `bezel run`, or both closed), nothing is sent at
+  shutdown, and only the plan B is left: with
   **Turn the screen off**, the screen's sleep timer turns it off a few minutes
   later; a video or the album starts only when the screen itself starts again
   (the computer cuts the USB power, a power cut, a restart). While the computer
@@ -37,8 +36,7 @@ supported for them.
   already asleep stays as it is.
 - When the computer starts again, Bezel wakes the screen and shows your live
   theme again.
-- Suspending the computer (sleep) is not covered, nor signing out on Linux
-  (only shutting down and restarting).
+- Suspending the computer (sleep) is not covered.
 
 ## The plan B
 
@@ -73,7 +71,7 @@ See [Screen storage and video](storage-and-video.md).
 
 Two screens of the same model share one choice, as they share Bezel's catalog.
 
-## In the app
+## In Studio
 
 **Screen → Settings → When the computer shuts down**: pick one of the four;
 each **?** explains it. A choice that does not apply is greyed out with the
@@ -88,7 +86,7 @@ and the card, and **Photo album from the card** opens the album.
 
 ## From the command line
 
-```bash
+```powershell
 bezel standby show                                   # each connected screen's choice and plan B
 bezel standby set off --sleep 5 --yes                # turn off at shutdown; sleep timer 5 min
 bezel standby set video --file sd/video/clip.mp4 --yes
@@ -100,15 +98,15 @@ Without `--yes`, `set` only prints what it would store: nothing is sent to the
 screen and nothing is recorded. `--brightness N` (0 to 100) chooses the
 backlight level the screen starts with, stored with the plan B, as
 `bezel storage boot --brightness` does; without it, the screen's default, about
-67%. Bezel records that level too: when Bezel Studio restarts the screen into
-the album at shutdown, the album starts at it. A video played at shutdown keeps
+67%. Bezel records that level too: when Light (or Studio) restarts the screen
+into the album at shutdown, the album starts at it. A video played at shutdown keeps
 the level the screen has at that moment; the stored level applies when the
 screen starts with a video on its own. `bezel standby show` says the plan B
 last stored on the screen, by this choice or by `bezel storage boot`, whichever
-came last, or by Bezel Studio restarting the screen into the album at shutdown
+came last, or by Light restarting the screen into the album at shutdown
 (which stores the album's start setting again, even after `bezel storage boot`).
-The choice lives in Bezel's catalog (`<data>/bezel/storage`), which the app
-reads at shutdown, so a choice made here while the app is open counts.
+The choice lives in Bezel's catalog (`<data>/bezel/storage`), which Light (or
+Studio) reads at shutdown, so a choice made here while they run counts.
 
 ## The photo album
 
@@ -118,19 +116,19 @@ thumbnail for those Bezel sent and by name for the others.
 
 **Adding a photo**: JPEG, PNG, BMP or the first frame of a GIF. Bezel stands it
 upright by its EXIF orientation (a phone photo arrives upright) and frames it
-for the way the screen stands, horizontal or vertical: in the app, the
+for the way the screen stands, horizontal or vertical: in Studio, the
 orientation you use for that screen; on the command line, `--orientation`
 (default: the model's). **Fill** (`--fit cover`, the default) covers the screen
 and crops; **Fit** (`--fit contain`) shows the whole photo with black around it.
 The photo is stored turned for the panel, as a PNG of its native size (480×1920
-on the 8.8"). The app shows a preview in the screen's shape before sending; a
+on the 8.8"). Studio shows a preview in the screen's shape before sending; a
 name already in the album asks before replacing it (`--yes` on the command
 line).
 
 **Removing a photo** asks first, naming the file. Bezel never deletes anything
 on its own.
 
-```bash
+```powershell
 bezel standby album add beach.jpg --orientation horizontal       # Fill
 bezel standby album add portrait.jpg --orientation vertical --fit contain
 bezel storage ls sd/image                                        # the album

@@ -50,13 +50,24 @@ use crate::tray::{LiveItem, TrayMenu};
 /// State managed by Tauri.
 pub type Shared = Arc<Backend>;
 
+/// Picks one desktop pixel through Windows, independently of WebView2 support.
+#[tauri::command]
+pub async fn pick_screen_color(window: WebviewWindow) -> UiResult<Option<String>> {
+    let owner = window.hwnd().map_err(UiError::system)?.0 as usize;
+    tauri::async_runtime::spawn_blocking(move || {
+        bezel_power::eyedropper::pick(owner).map_err(UiError::system)
+    })
+    .await
+    .map_err(UiError::system)?
+}
+
 /// Runs `work` on the blocking pool with the backend.
 async fn blocking<T: Send + 'static>(
     state: &State<'_, Shared>,
     work: impl FnOnce(&Backend) -> UiResult<T> + Send + 'static,
 ) -> UiResult<T> {
     let backend = Arc::clone(state);
-    tauri::async_runtime::spawn_blocking(move || work(&backend).map_err(|e| backend.explain(e)))
+    tauri::async_runtime::spawn_blocking(move || work(&backend))
         .await
         .map_err(UiError::system)?
 }
@@ -628,12 +639,15 @@ pub fn set_autostart<R: Runtime>(app: AppHandle<R>, on: bool) -> UiResult<()> {
 
 // --------------------------------------------------------- preferences --
 
-/// Remembers whether closing Studio hands control to the light runtime.
+/// Explicit local permission to capture process audio for visible spectrum widgets.
 #[tauri::command]
-pub fn set_light_on_close(state: State<'_, Shared>, on: bool) {
-    state
-        .settings
-        .update(|settings| settings.light_on_close = Some(on));
+pub async fn set_audio_capture(state: State<'_, Shared>, on: bool) -> UiResult<()> {
+    blocking(&state, move |b| {
+        b.settings
+            .update(|s| s.audio_capture = crate::settings::DefaultOn(on));
+        b.sync_engine_options().map_err(UiError::from)
+    })
+    .await
 }
 
 /// Enables bounded diagnostic logs and the optional physical-screen overlay.
@@ -655,6 +669,39 @@ pub fn preferences(state: State<'_, Shared>) -> PreferencesDto {
     state.preferences()
 }
 
+#[tauri::command]
+pub async fn profiles(state: State<'_, Shared>) -> UiResult<bezel_runtime::profiles::Overview> {
+    blocking(&state, |b| b.profiles()).await
+}
+
+#[tauri::command]
+pub fn profiles_requested() -> bool {
+    crate::OPEN_PROFILES.swap(false, Ordering::SeqCst)
+}
+
+#[tauri::command]
+pub async fn save_profiles(
+    app: AppHandle,
+    state: State<'_, Shared>,
+    config: bezel_runtime::profiles::Config,
+) -> UiResult<()> {
+    blocking(&state, move |b| b.save_profiles(config)).await?;
+    if let Some(menu) = app.try_state::<TrayMenu>() {
+        menu.refresh_profiles(&app);
+    }
+    Ok(())
+}
+
+/// Plays a profile transition once on the live screens, unsaved.
+#[tauri::command]
+pub async fn preview_transition(
+    state: State<'_, Shared>,
+    transition: bezel_runtime::profiles::TransitionSettings,
+    themes: std::collections::BTreeMap<String, String>,
+) -> UiResult<usize> {
+    blocking(&state, move |b| b.preview_transition(transition, themes)).await
+}
+
 /// Uses `language` (`pt-BR`, `en`, or `None` for the system's) from now on,
 /// in the tray too.
 #[tauri::command]
@@ -666,6 +713,7 @@ pub fn set_language(
     state.set_language(language.as_deref())?;
     if let Some(tray) = app.try_state::<TrayMenu>() {
         tray.relabel(&state.texts());
+        tray.refresh_profiles(&app);
     }
     Ok(())
 }
@@ -682,18 +730,10 @@ pub fn set_theme_filter(
     state.set_theme_filter(scope.as_deref(), &axis)
 }
 
-/// Measures `net.ping` against `ping_host` and reads MangoHud's logs from
-/// `mangohud_dir` (`None`: MangoHud's own folder) from now on.
+/// Measures `net.ping` against `ping_host` from now on.
 #[tauri::command]
-pub async fn set_sensor_options(
-    state: State<'_, Shared>,
-    ping_host: String,
-    mangohud_dir: Option<String>,
-) -> UiResult<()> {
-    blocking(&state, move |b| {
-        b.set_sensor_options(&ping_host, mangohud_dir.as_deref())
-    })
-    .await
+pub async fn set_sensor_options(state: State<'_, Shared>, ping_host: String) -> UiResult<()> {
+    blocking(&state, move |b| b.set_sensor_options(&ping_host)).await
 }
 
 /// Asks for a folder. `None` when cancelled.

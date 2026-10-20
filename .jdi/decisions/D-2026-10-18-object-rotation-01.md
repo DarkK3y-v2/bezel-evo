@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-01 (2026-10-18): Decisione dell'utente — si ruotano tutti gli oggetti TRANNE il video di sfondo del device, le Card (e i loro membri) e i gruppi. Per gli esclusi e per i membri di Card/gruppo il campo Rotazione non compare.

@@ -36,16 +36,23 @@ const readable = (reading) => Boolean(reading) && !reading.unavailable && Number
 
 /**
  * What the statusbar's sensors chip says (artboard SensorStatus): green with
- * the last sample's time, amber with how many hardware groups do not read,
- * red when nothing reads (the sample failed, or Libre reads nothing) and
- * blue while the Libre reader restarts. `quickRestart` asks for the restart
+ * the last sample's time, amber with unavailable sensors, red when nothing
+ * reads, pending before readings arrive, blue while Libre restarts. Optional
+ * counts cover all probes; legacy callers still use hardware health.
+ * `quickRestart` asks for the restart
  * beside the chip: only when Libre is the reader that stopped
  * (D-2026-10-09-studio-redesign-10).
- * @param {{health: {state: string, failed: string[]}|null, error?: unknown, restarting?: boolean, sampleMillis?: number}} sample
- * @returns {{state: 'ok'|'partial'|'error'|'restarting', key: string, params: object, quickRestart: boolean}}
+ * @param {{health: {state: string, failed: string[]}|null, counts?: {available: number, unavailable: number, pending: number}, error?: unknown, restarting?: boolean, sampleMillis?: number}} sample
+ * @returns {{state: 'ok'|'partial'|'error'|'pending'|'restarting', key: string, params: object, quickRestart: boolean}}
  */
-export function sensorChip({ health, error = null, restarting = false, sampleMillis = 0 }) {
+export function sensorChip({ health, counts = null, error = null, restarting = false, sampleMillis = 0 }) {
   if (restarting) return { state: 'restarting', key: 'sensorChip.restarting', params: {}, quickRestart: false };
+  if (counts && !error) {
+    const quickRestart = health?.state === 'error';
+    if (counts.unavailable) return { state: counts.available || counts.pending ? 'partial' : 'error', key: counts.unavailable === 1 ? 'sensorChip.missingOne' : 'sensorChip.missingMany', params: { count: counts.unavailable }, quickRestart };
+    if (!counts.available) return { state: 'pending', key: 'sensorChip.pending', params: {}, quickRestart: false };
+    return { state: 'ok', key: 'sensorChip.ok', params: { ms: Math.round(sampleMillis ?? 0) }, quickRestart: false };
+  }
   if (error || health?.state === 'error') return { state: 'error', key: 'sensorChip.stopped', params: {}, quickRestart: Boolean(health) };
   if (health?.state === 'partial') {
     const count = health.failed.length;
@@ -55,12 +62,16 @@ export function sensorChip({ health, error = null, restarting = false, sampleMil
 }
 
 /**
- * The program that reads a sensor, as the popover shows it: the first word of
- * its source ("LibreHardwareMonitor Voltage /lpc/…" → "LibreHardwareMonitor").
- * A source that names no program ("none") is not shown.
+ * The program that reads a sensor, stripping GPU target aliases and provider
+ * details. A bare GPU target or "none" does not identify a program.
  */
 export function sourceProgram(source) {
-  const word = String(source ?? '').trim().split(/\s+/)[0] ?? '';
+  let value = String(source ?? '').trim();
+  // Primary GPU aliases carry the target key followed by its real reader.
+  // Unsupported metrics carry only the target key: that is not a program.
+  while (/^gpu\.\d+\.[\w.]+\s+\(.+\)$/.test(value)) value = value.slice(value.indexOf('(') + 1, -1).trim();
+  if (/^gpu\.\d+\./.test(value)) return null;
+  const word = value.split(/\s+/)[0] ?? '';
   return word && word !== 'none' ? word : null;
 }
 

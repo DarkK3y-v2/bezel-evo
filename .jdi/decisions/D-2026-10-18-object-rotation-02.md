@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-02 (2026-10-18): Decisione dell'utente — campo "Rotazione" nell'inspector con angolo libero (gradi) più maniglia di rotazione sul canvas; Shift durante il trascinamento aggancia a 15°. La maniglia segue lo stile delle maniglie esistenti del canvas (il mockup non la disegna).

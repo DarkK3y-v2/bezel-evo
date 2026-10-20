@@ -9,7 +9,6 @@ pub fn session_ending() -> bool {
     imp::session_ending()
 }
 
-#[cfg(windows)]
 mod imp {
     use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
 
@@ -22,13 +21,6 @@ mod imp {
         // state, touches no memory of ours and cannot fail (0 = no).
         let shutting_down = unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) };
         shutting_down != 0
-    }
-}
-
-#[cfg(not(windows))]
-mod imp {
-    pub(super) fn session_ending() -> bool {
-        false
     }
 }
 

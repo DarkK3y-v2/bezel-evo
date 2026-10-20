@@ -45,6 +45,7 @@ export function openPopover({ node, anchor, label, onClose = () => {}, refocus =
   const close = (reason = 'done') => {
     if (closeOpen !== close) return;
     closeOpen = null;
+    resize.disconnect();
     node.remove();
     anchor.setAttribute('aria-expanded', 'false');
     document.removeEventListener('pointerdown', outside, true);
@@ -53,6 +54,9 @@ export function openPopover({ node, anchor, label, onClose = () => {}, refocus =
   };
   const outside = (evt) => { if (!node.contains(evt.target) && !anchor.contains(evt.target)) close('dismiss'); };
   const dismiss = () => close('dismiss');
+  // Swatches and font results can grow after the panel opens. Keep the
+  // finished panel in the viewport, including after its anchor is redrawn.
+  const resize = new ResizeObserver(() => keepOnScreen(node, parseFloat(node.style.left), parseFloat(node.style.top)));
   node.classList.add('picker-popover');
   node.setAttribute('role', 'dialog');
   node.setAttribute('aria-label', label);
@@ -67,6 +71,7 @@ export function openPopover({ node, anchor, label, onClose = () => {}, refocus =
   anchor.setAttribute('aria-expanded', 'true');
   document.body.append(node);
   placeBy(node, anchor);
+  resize.observe(node);
   document.addEventListener('pointerdown', outside, true);
   window.addEventListener('resize', dismiss);
   return close;

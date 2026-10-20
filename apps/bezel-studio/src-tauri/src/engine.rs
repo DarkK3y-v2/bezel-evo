@@ -204,6 +204,25 @@ impl EngineBridge {
         self.call(&mut state, key, RuntimeOp::Live { on }, &[])?;
         Ok(())
     }
+    /// Tries a profile cover on every live screen of the engine, Light's own
+    /// included, their themes unchanged; answers how many it covers.
+    pub fn preview_cover(
+        &self,
+        transition: &bezel_runtime::profiles::TransitionSettings,
+        themes: &std::collections::BTreeMap<String, String>,
+    ) -> Result<usize> {
+        let mut state = self.lock()?;
+        let (reply, _) = self.call(
+            &mut state,
+            "__profiles__",
+            RuntimeOp::PreviewCover {
+                transition: transition.clone(),
+                themes: themes.clone(),
+            },
+            &[],
+        )?;
+        Ok(reply["screens"].as_u64().map_or(0, |n| n as usize))
+    }
     pub fn request(&self, key: &str, op: RuntimeOp) -> Result<(Value, Vec<u8>)> {
         {
             let mut state = self.lock()?;

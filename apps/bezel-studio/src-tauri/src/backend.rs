@@ -47,7 +47,6 @@ pub use crate::studio::MAX_REFRESH;
 use crate::studio::{Delivery, Motion, Studio, TakenPoster, VideoProbe, Wait};
 use crate::texts::{Texts, language_slug, parse_language, texts};
 use crate::thumbnails::Thumbnails;
-use crate::udev_help::UdevHelp;
 
 /// Largest file accepted as an image or theme, bytes.
 pub const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
@@ -77,8 +76,6 @@ pub struct Backend {
     pub system_language: Language,
     /// Builds the sensors again when their options change.
     pub make_sensors: SensorFactory,
-    /// On Linux, the udev rule that fixes a denied port (`None` elsewhere).
-    pub udev: Option<UdevHelp>,
     /// The font families themes can use, from the renderer's font database.
     pub fonts: FontCatalog,
     /// The editing session.
@@ -287,8 +284,9 @@ impl Backend {
             let settings = self.settings.load();
             let options = settings.sensor_options();
             engine.options(bezel_runtime::wire::Options {
+                audio_capture: settings.audio_capture.0,
                 ping_host: options.ping_host,
-                mangohud_dir: settings.mangohud_dir,
+
                 ffmpeg: settings.ffmpeg_path,
             })?;
         }
@@ -494,18 +492,6 @@ impl Backend {
         Ok(self.connector.connect(&screen)?)
     }
 
-    /// `error` with what fixes it: the udev rule's install command for a
-    /// port the system denied (Linux).
-    pub fn explain(&self, error: UiError) -> UiError {
-        if error.code() != "accessDenied" {
-            return error;
-        }
-        match self.udev.as_ref().and_then(UdevHelp::command) {
-            Some(command) => error.with_udev_command(command),
-            None => error,
-        }
-    }
-
     // -------------------------------------------------------- preferences --
 
     /// The app's language: the one chosen in the settings, else the system's.
@@ -555,6 +541,7 @@ impl Backend {
     pub fn preferences(&self) -> PreferencesDto {
         let settings = self.settings.load();
         PreferencesDto {
+            audio_capture: settings.audio_capture.0,
             debug: settings.debug,
             debug_show_readings: settings.debug_show_readings,
             debug_corner: settings.debug_corner,
@@ -562,7 +549,6 @@ impl Backend {
                 .join("studio.log")
                 .display()
                 .to_string(),
-            light_on_close: settings.light_on_close.unwrap_or(true),
             light_runtime: cfg!(windows),
             theme_filter: ThemeFilterDto {
                 scope: settings.themes_shown(),
@@ -572,30 +558,94 @@ impl Backend {
             system_language: language_slug(self.system_language),
             ping_host: settings.sensor_options().ping_host,
             default_ping_host: SensorOptions::DEFAULT_PING_HOST,
-            mangohud_dir: settings.mangohud_dir,
-            mangohud: cfg!(target_os = "linux"),
         }
     }
 
-    /// Measures the round trip to `ping_host` (empty: the default) and reads
-    /// MangoHud's logs from `mangohud_dir` (`None`: MangoHud's own folder)
-    /// from now on, and remembers both. The sensors are built again with
-    /// them, outside the session's lock.
-    pub fn set_sensor_options(&self, ping_host: &str, mangohud_dir: Option<&str>) -> UiResult<()> {
+    pub fn profiles(&self) -> UiResult<bezel_runtime::profiles::Overview> {
+        use bezel_runtime::profiles::Display;
+        let mut overview =
+            bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).overview()?;
+        for screen in self.devices()?.screens {
+            if !overview.displays.iter().any(|d| d.key == screen.key) {
+                overview.displays.push(Display {
+                    key: screen.key.clone(),
+                    name: screen.key.clone(),
+                    theme: None,
+                    theme_name: None,
+                    connected: true,
+                });
+            }
+            if let Some(display) = overview.displays.iter_mut().find(|d| d.key == screen.key) {
+                display.connected = true;
+                display.name = screen
+                    .models
+                    .first()
+                    .map_or_else(|| screen.family.to_owned(), |m| m.name.to_owned());
+            }
+        }
+        for (key, (name, location)) in self.studio().profile_documents() {
+            if let Some(display) = overview.displays.iter_mut().find(|d| d.key == key) {
+                display.theme_name = Some(name);
+                display.theme = location;
+            }
+        }
+        overview.displays.sort_by(|a, b| {
+            b.connected
+                .cmp(&a.connected)
+                .then_with(|| a.key.cmp(&b.key))
+        });
+        Ok(overview)
+    }
+
+    pub fn save_profiles(&self, config: bezel_runtime::profiles::Config) -> UiResult<()> {
+        config.validate()?;
+        // Refuse unreadable themes before persisting a profile the user cannot use.
+        for profile in &config.profiles {
+            for theme in profile.themes.values() {
+                let _ = self
+                    .store
+                    .load(&bezel_core::ports::ThemeLocation(theme.clone()))?;
+            }
+        }
+        Ok(bezel_runtime::profiles::ProfileFile::beside(self.settings.path()).save(&config)?)
+    }
+
+    /// Plays `transition` on the live screens towards `themes` (the profile
+    /// selected in the manager, by screen key, saved or not) and back after a
+    /// moment, saving nothing; answers how many screens it covers.
+    pub fn preview_transition(
+        &self,
+        transition: bezel_runtime::profiles::TransitionSettings,
+        themes: std::collections::BTreeMap<String, String>,
+    ) -> UiResult<usize> {
+        let config = bezel_runtime::profiles::Config {
+            transition,
+            ..Default::default()
+        };
+        config.validate()?;
+        match &self.engine {
+            Some(engine) => Ok(engine.preview_cover(&config.transition, &themes)?),
+            None => Ok(0),
+        }
+    }
+
+    pub fn select_profile(&self, id: Option<&str>, automatic: bool) -> UiResult<()> {
+        Ok(
+            bezel_runtime::profiles::ProfileFile::beside(self.settings.path())
+                .select(id, automatic)?,
+        )
+    }
+
+    /// Remembers `ping_host` (empty: the default) and rebuilds the sensors
+    /// outside the session's lock.
+    pub fn set_sensor_options(&self, ping_host: &str) -> UiResult<()> {
         let host = match ping_host.trim() {
             "" | SensorOptions::DEFAULT_PING_HOST => None,
             host if is_host(host) => Some(host.to_string()),
             host => return Err(UiError::new(ErrorCode::InvalidHost).arg("host", host)),
         };
-        let folder = mangohud_dir
-            .map(|dir| match Path::new(dir) {
-                path if path.is_absolute() && path.is_dir() => Ok(dir.to_string()),
-                _ => Err(UiError::new(ErrorCode::InvalidFolder).arg("folder", dir)),
-            })
-            .transpose()?;
         self.settings.update(|s| {
             s.ping_host = host;
-            s.mangohud_dir = folder;
         });
         if self.engine.is_some() {
             self.sync_engine_options()?;
@@ -1790,11 +1840,14 @@ mod tests {
             opacity: 1.,
             visible: true,
             locked: false,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
             card: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             color_by_value: None,
             kind: ElementKind::Text {
                 content: TextContent::Static("Portable".into()),
@@ -1873,7 +1926,7 @@ mod tests {
             settings: SettingsFile::new(root.join("settings.json")),
             system_language: Language::English,
             make_sensors: Arc::new(|_| Box::new(FakeSensors::demo())),
-            udev: Some(UdevHelp::new(root.join("cache").join("60-bezel.rules"))),
+
             fonts: SkiaRenderer::with_fonts(vec![TEST_FONT.to_vec()], SystemFonts::Skip)
                 .font_catalog(),
             studio: Session::new(studio),
@@ -1925,6 +1978,104 @@ mod tests {
             Path::new(&saved.location).starts_with(f.root.join("themes")),
             "{}",
             saved.location
+        );
+    }
+
+    #[test]
+    fn profile_overview_names_each_displays_selected_theme_independently() {
+        use bezel_runtime::profiles::{Config, Profile};
+        let f = fixture("profile-display-names");
+        std::fs::create_dir_all(&f.root).unwrap();
+        let mut paths = std::collections::BTreeMap::new();
+        for (key, name) in [(KEY, "Wide dashboard"), ("COM9", "Round clock")] {
+            let path = f.root.join(format!(
+                "{}.bezeltheme",
+                if key == KEY { "wide" } else { "round" }
+            ));
+            let theme = Theme::blank(name, Size::new(480, 1920), Orientation::Portrait);
+            f.backend
+                .store
+                .save(
+                    &ThemeLocation(path.display().to_string()),
+                    &theme,
+                    &Default::default(),
+                )
+                .unwrap();
+            paths.insert(key.to_owned(), path.display().to_string());
+        }
+        f.backend.settings.update(|s| {
+            s.screen_themes = paths.clone();
+            s.selected_screen = Some("COM9".into());
+            s.last_theme = Some(paths[KEY].clone()); // Must not override COM9's own choice.
+        });
+        let overview = f.backend.profiles().unwrap();
+        assert_eq!(
+            overview
+                .displays
+                .iter()
+                .find(|d| d.key == KEY)
+                .unwrap()
+                .theme_name
+                .as_deref(),
+            Some("Wide dashboard")
+        );
+        assert_eq!(
+            overview
+                .displays
+                .iter()
+                .find(|d| d.key == "COM9")
+                .unwrap()
+                .theme_name
+                .as_deref(),
+            Some("Round clock")
+        );
+        f.backend
+            .save_profiles(Config {
+                profiles: vec![Profile {
+                    id: "gaming".into(),
+                    name: "Gaming".into(),
+                    themes: paths.clone(),
+                    rules: vec![],
+                }],
+                ..Config::default()
+            })
+            .unwrap();
+        assert_eq!(
+            f.backend.profiles().unwrap().config.profiles[0].themes,
+            paths
+        );
+    }
+
+    #[test]
+    fn a_transition_preview_is_checked_and_never_saved() {
+        use bezel_runtime::profiles::TransitionSettings;
+        let f = fixture("transition-preview");
+        let wipe = TransitionSettings {
+            effect: "wipe".into(),
+            direction: "up".into(),
+            duration_ms: 900,
+        };
+        // No live screen in the fixture: nothing to cover.
+        assert_eq!(
+            f.backend
+                .preview_transition(wipe, Default::default())
+                .unwrap(),
+            0
+        );
+        assert!(
+            f.backend
+                .preview_transition(
+                    TransitionSettings {
+                        duration_ms: 20,
+                        ..Default::default()
+                    },
+                    Default::default()
+                )
+                .is_err()
+        );
+        assert_eq!(
+            f.backend.profiles().unwrap().config.transition,
+            TransitionSettings::default()
         );
     }
 
@@ -1989,8 +2140,11 @@ mod tests {
             .iter()
             .find(|e| e.location == saved.location)
             .unwrap();
-        assert_eq!(entry.models, vec!["turing-8.8", "turing-usb-8.8"]);
-        assert_eq!(entry.diagonal_hundredths, Some(880));
+        assert_eq!(
+            entry.models,
+            vec!["turing-8.8", "turing-usb-8.8", "turing-usb-9.2"]
+        );
+        assert_eq!(entry.diagonal_hundredths, None);
         let first = f.backend.thumbnail(&saved.location, TIME).unwrap();
         assert!(first.unwrap().starts_with("data:image/png;base64,"));
         let kept = || std::fs::read_dir(f.backend.thumbnails.dir()).map_or(0, Iterator::count);
@@ -2019,76 +2173,6 @@ mod tests {
         std::fs::write(&broken, b"not a zip").unwrap();
         let none = f.backend.thumbnail(&broken.display().to_string(), TIME);
         assert_eq!(none.unwrap(), None);
-    }
-
-    #[test]
-    fn ping_host_and_mangohud_folder_are_checked_remembered_and_used() {
-        let f = fixture("sensor-options");
-        let prefs = f.backend.preferences();
-        assert_eq!(
-            (prefs.ping_host.as_str(), prefs.default_ping_host),
-            ("8.8.8.8", "8.8.8.8")
-        );
-        assert_eq!(prefs.mangohud_dir, None);
-        assert_eq!(prefs.mangohud, cfg!(target_os = "linux"));
-
-        let logs = f.root.join("mangohud");
-        std::fs::create_dir_all(&logs).unwrap();
-        let logs = logs.display().to_string();
-        f.backend
-            .set_sensor_options(" 1.1.1.1 ", Some(&logs))
-            .unwrap();
-        let prefs = f.backend.preferences();
-        assert_eq!(prefs.ping_host, "1.1.1.1");
-        assert_eq!(prefs.mangohud_dir.as_deref(), Some(logs.as_str()));
-        let options = f.backend.settings.load().sensor_options();
-        assert_eq!(options.mangohud_dir.as_deref(), Some(Path::new(&logs)));
-        assert!(
-            !f.backend.studio().catalog().is_empty(),
-            "the new sensors' catalog"
-        );
-
-        for (host, dir, code) in [
-            ("-c 5 x", None, "invalidHost"),
-            ("a b", None, "invalidHost"),
-            ("8.8.8.8", Some("relative/dir"), "invalidFolder"),
-            ("8.8.8.8", Some("/no/such/folder"), "invalidFolder"),
-        ] {
-            let error = f.backend.set_sensor_options(host, dir).unwrap_err();
-            assert_eq!(error.code(), code, "{host} {dir:?}");
-        }
-        assert_eq!(f.backend.preferences().ping_host, "1.1.1.1", "unchanged");
-        for host in ["dns.google", "2001:4860:4860::8888", "192.168.0.1"] {
-            assert!(is_host(host), "{host}");
-        }
-
-        f.backend.set_sensor_options("", None).unwrap();
-        let settings = f.backend.settings.load();
-        assert_eq!((settings.ping_host, settings.mangohud_dir), (None, None));
-        assert_eq!(f.backend.preferences().ping_host, "8.8.8.8");
-    }
-
-    #[test]
-    fn a_denied_port_comes_with_the_udev_command() {
-        let f = fixture("denied");
-        let denied = UiError::from(bezel_core::BezelError::AccessDenied {
-            address: KEY.into(),
-            reason: "Permission denied (os error 13)".into(),
-        });
-        let explained = f.backend.explain(denied.clone());
-        let command = explained.udev_command().unwrap();
-        let rule = f.root.join("cache").join("60-bezel.rules");
-        let quoted = bezel_devices::udev::shell_quote(&rule.to_string_lossy());
-        assert!(
-            command.contains(&format!("{quoted} /etc/udev/rules.d/")),
-            "{command}"
-        );
-        assert!(rule.is_file());
-        let other = f.backend.explain(UiError::new(ErrorCode::Busy));
-        assert_eq!(other.udev_command(), None, "only a denied port");
-        let mut elsewhere = fixture("denied-elsewhere");
-        elsewhere.backend.udev = None;
-        assert_eq!(elsewhere.backend.explain(denied).udev_command(), None);
     }
 
     #[test]
@@ -2349,7 +2433,10 @@ mod tests {
         let fill = Rgba::opaque(0, 200, 0);
         let bar = |max: f64| Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,

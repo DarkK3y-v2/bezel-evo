@@ -153,7 +153,8 @@ pub const MODELS: &[DeviceModel] = &[
     model("turing-usb-6.8-b", "Turing 6.8\" B (USB)", 680, (1080, 2224), ReversePortrait, TuringUsb, TURING_USB),
     model("turing-usb-8", "Turing 8\" (USB)", 800, (800, 1280), ReversePortrait, TuringUsb, TURING_USB),
     model("turing-usb-8.8", "Turing 8.8\" V1.x (USB)", 880, (480, 1920), ReversePortrait, TuringUsb, TURING_USB),
-    model("turing-usb-9.2", "Turing 9.2\" (USB)", 920, (462, 1920), ReversePortrait, TuringUsb, TURING_USB),
+    // Physical framebuffer; 18 columns are hidden by the bezel, not absent.
+    model("turing-usb-9.2", "Turing 9.2\" (USB)", 920, (480, 1920), ReversePortrait, TuringUsb, TURING_USB),
     model("turing-usb-12.3", "Turing 12.3\" (USB)", 1230, (720, 1920), ReversePortrait, TuringUsb, TURING_USB),
     // WCH-based panels (VID 0x43A8, raw BGR888).
     model("wch-2.4-2.8-rect", "2.4\"/2.8\" (WCH)", 280, (240, 320), Portrait, Wch, WCH),

@@ -18,13 +18,14 @@ use crate::texts::parse_language;
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    /// Local permission to capture the followed app's audio; on unless the
+    /// user turned it off. Never read from theme documents.
+    pub audio_capture: DefaultOn,
     pub debug: bool,
     pub debug_show_readings: bool,
     pub debug_corner: crate::performance::Corner,
     /// Location of the last theme opened or saved.
     pub last_theme: Option<String>,
-    /// Use the light Windows runtime after closing the editor; absent means enabled.
-    pub light_on_close: Option<bool>,
     /// Key of the screen that was live when the app last changed it.
     pub live_screen: Option<String>,
     pub selected_screen: Option<String>,
@@ -42,15 +43,22 @@ pub struct Settings {
     pub language: Option<String>,
     /// The host `net.ping` measures; without one, the sensors' default.
     pub ping_host: Option<String>,
-    /// The folder of MangoHud's logs read for `gpu.fps`; without one,
-    /// MangoHud's own `output_folder`.
-    pub mangohud_dir: Option<String>,
     /// Which themes the Themes tab lists ([`THEME_SCOPES`]); without one,
     /// those for the screen in use when one is known.
     pub themes_shown: Option<String>,
     /// The orientation of the themes the Themes tab lists ([`THEME_AXES`]);
     /// without one, both.
     pub themes_axis: Option<String>,
+}
+
+/// A choice that starts on: absent from the file, it reads as `true`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct DefaultOn(pub bool);
+impl Default for DefaultOn {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 /// What the Themes tab can list: the themes that fit the screen in use, or
@@ -71,7 +79,6 @@ impl Settings {
         let defaults = SensorOptions::default();
         SensorOptions {
             ping_host: self.ping_host.clone().unwrap_or(defaults.ping_host),
-            mangohud_dir: self.mangohud_dir.as_ref().map(PathBuf::from),
         }
     }
 
@@ -152,6 +159,15 @@ impl SettingsFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn audio_capture_is_on_unless_turned_off() {
+        assert!(Settings::default().audio_capture.0);
+        let old: Settings = serde_json::from_str(r#"{"lastTheme":"a.bezeltheme"}"#).unwrap();
+        assert!(old.audio_capture.0);
+        let off: Settings = serde_json::from_str(r#"{"audioCapture":false}"#).unwrap();
+        assert!(!off.audio_capture.0);
+        assert_eq!(serde_json::to_value(&off).unwrap()["audioCapture"], false);
+    }
 
     #[test]
     fn round_trips_and_tolerates_missing_or_broken_files() {
@@ -175,14 +191,16 @@ mod tests {
     }
 
     #[test]
-    fn old_settings_enable_light_and_explicit_off_round_trips() {
-        let old: Settings = serde_json::from_str(r#"{"lastTheme":"saved.bezeltheme"}"#).unwrap();
-        assert!(old.light_on_close.unwrap_or(true));
-        let off: Settings = serde_json::from_str(r#"{"lightOnClose":false}"#).unwrap();
-        assert_eq!(off.light_on_close, Some(false));
-        assert_eq!(
-            serde_json::from_str::<Settings>(&serde_json::to_string(&off).unwrap()).unwrap(),
-            off
+    fn legacy_light_on_close_still_loads_and_is_never_written() {
+        // Closing Studio always hands over to Light (D-31): the old choice is ignored.
+        let old: Settings =
+            serde_json::from_str(r#"{"lastTheme":"saved.bezeltheme","lightOnClose":false}"#)
+                .unwrap();
+        assert_eq!(old.last_theme.as_deref(), Some("saved.bezeltheme"));
+        assert!(
+            !serde_json::to_string(&old)
+                .unwrap()
+                .contains("lightOnClose")
         );
     }
 

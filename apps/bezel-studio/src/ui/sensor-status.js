@@ -1,20 +1,13 @@
-// The sensors chip in the statusbar (artboard SensorStatus): one pill that
-// says how the readings are doing in four states (green with the last
-// sample's time, amber with how many hardware groups do not read, red when
-// nothing reads, blue while the reader restarts). It opens a small dialog
-// with a row per hardware (its value and its sources), when the last reading
-// came and "Restart", which restarts only the LibreHardwareMonitor reader
-// (D-2026-10-09-studio-redesign-10). When Libre stopped, the restart sits
-// beside the chip too. Escape or a click outside closes the dialog; Escape
-// gives the focus back to the chip.
+// Compact sensor health: one row per probe, with linked availability counts.
+// Details live in the filtered Sensors panel. Restart affects only Libre.
 import { el, icon } from './dom.js';
 import { ICONS } from './icons.js';
-import { pill } from './fields.js';
-import { hardwareRows, libreStatus, sensorChip } from '../libre-status.js';
+import { libreStatus, sensorChip } from '../libre-status.js';
+import { canRestartProbe, probeRows, probeTotals } from '../sensor-probes.js';
 import { timeAgo } from '../relative-time.js';
 
 /** The pill's tone of each state (`.pill[data-tone]`). */
-const TONES = Object.freeze({ ok: 'ok', partial: 'warn', error: 'danger', restarting: 'info' });
+const TONES = Object.freeze({ ok: 'ok', partial: 'warn', error: 'danger', pending: 'info', restarting: 'info' });
 
 /**
  * @param {{
@@ -23,9 +16,9 @@ const TONES = Object.freeze({ ok: 'ok', partial: 'warn', error: 'danger', restar
  *   notify: (message: string) => void,
  *   fail: (error: unknown) => void,
  *   root: HTMLElement,
- *   onOpenSensors: () => void,
+ *   onOpenSensors: (filters?: {probe?: string, status?: string}) => void,
  * }} deps `root` is `#status-libre`, the chip's wrapper
- * @returns {{ update: (sample: {health: {state: string, failed: string[], hardware?: {name: string, category: string|null, ok: boolean}[]} | null, sampleMillis?: number, sampledAt?: number, readings?: object|null, catalog?: object[], error?: unknown}) => void, close: () => void }}
+ * @returns {{ update: (sample: {health: {state: string, failed: string[], hardware?: {name: string, category: string|null, ok: boolean}[]} | null, sampleMillis?: number, sampledAt?: number, readings?: object|null, catalog?: object[], error?: unknown}) => void, close: () => void, restartLibre: () => Promise<void> }}
  */
 export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensors }) {
   const wrap = root;
@@ -34,16 +27,11 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
   const label = document.getElementById('status-libre-label');
   const popover = document.getElementById('libre-popover');
   const list = document.getElementById('libre-hardware');
-  const restartButton = document.getElementById('restart-libre');
   // The chip is the pill primitive; the old timing pill gives its place to it.
   toggle.className = 'pill sensor-chip';
   const spinner = icon(ICONS.spinner, 13);
   spinner.classList.add('sensor-spinner');
   toggle.insertBefore(spinner, label);
-  const quick = pill('', { as: 'button', tone: 'danger', attrs: { id: 'status-libre-restart', hidden: true } });
-  quick.classList.add('sensor-chip-restart');
-  quick.append(icon(ICONS.refresh, 13));
-  wrap.append(quick);
   popover.querySelector('.libre-popover-close').classList.add('quiet');
   const lastReading = el('span', { class: 'libre-popover-age mono' });
   popover.querySelector('.libre-popover-actions').prepend(lastReading);
@@ -67,8 +55,7 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
     popover.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
     place();
-    const usable = !restartButton.disabled && !restartButton.hidden;
-    (usable ? restartButton : popover.querySelector('.libre-popover-close')).focus();
+    popover.querySelector('.libre-popover-close').focus();
   }
 
   function close({ refocus = false } = {}) {
@@ -78,41 +65,62 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
     if (refocus) toggle.focus();
   }
 
-  /** One hardware: its dot, its name over the programs that read it and how many sensors, and its value (or what is missing). */
-  function row({ category, sources, count, value, missing, name }) {
-    const ok = !missing.length;
-    return el('li', { class: 'libre-row', dataset: { state: ok ? 'ok' : 'missing' } }, [
-      el('span', { class: 'status-dot', dataset: { state: ok ? 'ok' : 'partial' }, 'aria-hidden': 'true' }),
-      el('span', { class: 'libre-row-name' }, [
-        el('span', { text: name ? `${t(`category.${category}`)} / ${name}` : t(`category.${category}`) }),
-        el('span', { class: 'libre-row-via', text: [...sources, t(count === 1 ? 'sensorChip.sensorsOne' : 'sensorChip.sensorsMany', { count })].join(' · ') }),
+  function openSensors(filters) { close(); onOpenSensors(filters); }
+  function countButton(probe, status, count) {
+    return el('button', { type: 'button', class: 'probe-count', dataset: { probe, status, count },
+      text: t(`sensorChip.count.${status}`, { count }), onclick: () => openSensors({ probe, status }) });
+  }
+  function row(probe) {
+    const name = probe.id === 'unassigned' ? t('sensorsPanel.probeUnknown') : probe.id;
+    return el('li', { class: 'probe-row', dataset: { probe: probe.id, state: probe.state } }, [
+      el('button', { type: 'button', class: 'probe-main', dataset: { probe: probe.id, status: 'all' }, onclick: () => openSensors({ probe: probe.id }), }, [
+        el('span', { class: 'status-dot', dataset: { state: probe.state === 'pending' ? 'restarting' : probe.state }, 'aria-hidden': 'true' }),
+        el('span', { class: 'probe-name' }, [el('strong', { text: name }), el('span', { class: 'hint', text: t(probe.total === 1 ? 'sensorChip.sensorsOne' : 'sensorChip.sensorsMany', { count: probe.total }) })]),
+        el('span', { class: 'probe-state', text: t(probe.state === 'pending' ? 'sensorsPanel.status.pending' : `sensorChip.probeState.${probe.state}`) }),
       ]),
-      el('span', { class: 'libre-row-value', text: ok ? value ?? '—' : t('sensorStatus.missing') }),
+      el('div', { class: 'probe-counts' }, [
+        countButton(probe.id, 'available', probe.available), countButton(probe.id, 'unavailable', probe.unavailable), ...(probe.pending ? [countButton(probe.id, 'pending', probe.pending)] : []),
+        ...(canRestartProbe(probe.id) ? [el('button', { type: 'button', class: 'text-button probe-restart',
+          dataset: { probe: probe.id, status: 'restart' }, title: t('sensorChip.restartProbe', { name }),
+          'aria-label': t('sensorChip.restartProbe', { name }), onclick: () => restart(probe.id) }, [icon(ICONS.refresh, 14), el('span', { text: t('sensorChip.restart') })])] : []),
+      ]),
     ]);
   }
 
   /** The state shown: the chip's, with the health kept while the reader restarts. */
-  const chip = () => sensorChip({ health: last.health, error: last.error, restarting, sampleMillis: last.sampleMillis });
-
-  function popoverTitle(state) {
-    if (state.state !== 'partial') return t(`sensorChip.title.${state.state}`);
-    return t(state.params.count === 1 ? 'sensorChip.title.partialOne' : 'sensorChip.title.partialMany', state.params);
-  }
+  const chip = () => sensorChip({ health: last.health, counts: probeTotals(probeRows(last.catalog, last.readings, last.error)), error: last.error, restarting, sampleMillis: last.sampleMillis });
 
   function render() {
     const state = chip();
-    const { health } = last;
+    const probes = probeRows(last.catalog, last.readings, last.error);
+    const total = probeTotals(probes);
     document.getElementById('libre-popover-dot').dataset.state = state.state;
-    document.getElementById('libre-popover-title').textContent = popoverTitle(state);
-    list.setAttribute('aria-label', t('sensorChip.hardware'));
-    list.replaceChildren(...hardwareRows(last.catalog, last.readings, health).map(row));
-    const failed = health?.failed ?? [];
+    document.getElementById('libre-popover-title').textContent = t('sensorChip.probesTitle');
+    list.setAttribute('aria-label', t('sensorChip.probes'));
+    const signature = JSON.stringify([probes, locale()]);
+    if (list.dataset.signature !== signature) {
+      const focused = list.contains(document.activeElement) ? { ...document.activeElement.dataset } : null;
+      list.dataset.signature = signature;
+      list.replaceChildren(...probes.map(row));
+      if (focused?.probe) list.querySelector(`button[data-probe="${CSS.escape(focused.probe)}"][data-status="${CSS.escape(focused.status)}"]`)?.focus();
+    }
     const note = document.getElementById('libre-popover-note');
-    note.hidden = !failed.length;
-    note.textContent = failed.length ? t('sensorStatus.hint', { hardware: failed.join(', ') }) : '';
+    note.hidden = false;
+    note.classList.add('probe-summary');
+    const totalsSignature = JSON.stringify([total, locale()]);
+    if (note.dataset.signature !== totalsSignature) {
+      const focusedStatus = note.contains(document.activeElement) ? document.activeElement.dataset.status : null;
+      note.dataset.signature = totalsSignature;
+      note.replaceChildren(el('strong', { text: t('sensorChip.managed', { count: total.total }) }),
+        ...['available', 'unavailable', 'pending'].filter(status => status !== 'pending' || total.pending).map(status => countButton('all', status, total[status])));
+      if (focusedStatus) note.querySelector(`button[data-status="${CSS.escape(focusedStatus)}"]`)?.focus();
+    }
     lastReading.textContent = last.sampledAt === null ? '' : t('sensorChip.lastReading', { ago: timeAgo(last.sampledAt, Date.now(), locale()) });
-    // Only the Libre reader restarts from here (D-2026-10-09-studio-redesign-10).
-    restartButton.hidden = !health;
+    for (const button of list.querySelectorAll('.probe-restart')) {
+      button.disabled = restarting;
+      button.setAttribute('aria-busy', String(restarting));
+      button.querySelector('span').textContent = t(restarting ? 'sensorChip.restarting' : 'sensorChip.restart');
+    }
   }
 
   /** The chip, its dot, its title and the restarts. */
@@ -124,17 +132,12 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
     toggle.dataset.state = state.state;
     dot.dataset.state = state.state;
     label.textContent = t(state.key, state.params);
-    const failed = last.health?.failed ?? [];
-    toggle.title = failed.length ? t('status.libreMissing', { hardware: failed.join(', ') }) : label.textContent;
-    restartButton.disabled = restarting;
-    quick.hidden = !state.quickRestart;
-    quick.title = t('status.libreRestart');
-    quick.setAttribute('aria-label', t('status.libreRestart'));
+    toggle.title = label.textContent;
     if (isOpen()) render();
   }
 
-  async function restart() {
-    if (restarting) return;
+  async function restart(probe) {
+    if (!canRestartProbe(probe) || restarting) return;
     restarting = true;
     // While the reader restarts there are no readings: the dialog keeps the last ones.
     paint();
@@ -155,8 +158,6 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
     close();
     onOpenSensors();
   });
-  restartButton.addEventListener('click', restart);
-  quick.addEventListener('click', restart);
   // Escape closes it from inside, from the chip, or when the focus was lost
   // (the restart button turns disabled while the reader restarts).
   document.addEventListener('keydown', (e) => {
@@ -188,5 +189,6 @@ export function createSensorStatus({ t, bridge, notify, fail, root, onOpenSensor
       paint();
     },
     close,
+    restartLibre: () => restart('LibreHardwareMonitor'),
   };
 }

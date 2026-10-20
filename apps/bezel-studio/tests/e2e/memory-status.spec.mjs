@@ -69,3 +69,15 @@ test('unavailable backend memory is announced without a fabricated zero or demo 
   await expectAccessible(page);
   expect(errors).toEqual([]);
 });
+
+test('the render chip keeps its width from one to three digits', async ({ page, t }) => {
+  await page.goto('/index.html?demo=turing88');
+  const chip = page.locator('#status-render');
+  await expect(chip).toContainText('ms');
+  const widths = [];
+  for (const ms of [5, 15, 150]) {
+    await chip.evaluate((node, text) => { node.textContent = text; }, t('status.render', { ms }));
+    widths.push((await chip.boundingBox()).width);
+  }
+  expect(new Set(widths).size).toBe(1);
+});

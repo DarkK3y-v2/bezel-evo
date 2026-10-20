@@ -213,6 +213,7 @@ fn style(size: f32, align: HAlign, valign: VAlign) -> TextStyle {
         paint: solid(WHITE),
         align,
         valign,
+        casing: Default::default(),
         letter_spacing: 0.0,
     }
 }
@@ -300,6 +301,7 @@ pub(crate) fn texts(r: &mut SkiaRenderer) {
     assert!(l <= 21 && rr >= 58, "overflowing text reaches both sides");
 
     let narrow = |spacing| TextStyle {
+        casing: Default::default(),
         letter_spacing: spacing,
         ..style(20.0, HAlign::Left, VAlign::Top)
     };
@@ -1274,6 +1276,7 @@ fn device_video_windows_clear_alpha_with_border_layer_order_and_fade() {
             angle: 0.0,
             start: 1.0,
             end: 0.0,
+            midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
         }),
     )];
     let f = render_over(&mut r, &t, &scene, Backdrop::OnDevice);
@@ -1306,6 +1309,7 @@ fn ordinary_shape_linear_transparency_blends_and_rotates() {
                     angle: 0.0,
                     start: 1.0,
                     end: 0.0,
+                    midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
                 }),
             },
         )],
@@ -1328,6 +1332,7 @@ fn radial_image_mask_keeps_assets_and_multiplies_pixels() {
         angle: 0.,
         start: 1.,
         end: 0.,
+        midpoint: bezel_core::domain::gradient::Fade::MIDPOINT,
     };
     let t = theme(
         40,
@@ -1396,6 +1401,7 @@ fn player_cover_progress_and_stopped_state_use_measured_context() {
                     paint: Paint::solid(WHITE),
                     align: HAlign::Left,
                     valign: VAlign::Top,
+                    casing: Default::default(),
                     letter_spacing: 0.,
                 },
             },

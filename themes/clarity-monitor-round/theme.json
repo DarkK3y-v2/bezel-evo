@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "name": "Clarity / Monitor \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#eeeae0ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Brand",
+      "frame": {
+        "x": 130,
+        "y": 111,
+        "width": 220,
+        "height": 26
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CLARITY"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 20,
+          "paint": "#222924ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Clock",
+      "frame": {
+        "x": 80,
+        "y": 164,
+        "width": 320,
+        "height": 88
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 73,
+          "paint": "#222924ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Date",
+      "frame": {
+        "x": 104,
+        "y": 260,
+        "width": 272,
+        "height": 30
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%a %d %b"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 21,
+          "paint": "#222924ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "CPU label",
+      "frame": {
+        "x": 110,
+        "y": 338,
+        "width": 104,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "CPU value",
+      "frame": {
+        "x": 110,
+        "y": 360,
+        "width": 104,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#222924ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 7,
+      "name": "CPU fill",
+      "frame": {
+        "x": 110,
+        "y": 406,
+        "width": 104,
+        "height": 4
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#465e50ff",
+        "track": "#b6b7a7ff",
+        "radius": 2
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 8,
+      "name": "GPU label",
+      "frame": {
+        "x": 267,
+        "y": 338,
+        "width": 104,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GPU"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#70736aff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "GPU value",
+      "frame": {
+        "x": 267,
+        "y": 360,
+        "width": 104,
+        "height": 40
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 28,
+          "paint": "#222924ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 10,
+      "name": "GPU fill",
+      "frame": {
+        "x": 267,
+        "y": 406,
+        "width": 104,
+        "height": 4
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#465e50ff",
+        "track": "#b6b7a7ff",
+        "radius": 2
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#eeeae0ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#d76543ff"
+    },
+    {
+      "name": "Text",
+      "color": "#222924ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#70736aff"
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TRANSITION_DEFAULT_MS, TRANSITION_RANGE, TRANSITION_STEP_MS, TRANSITION_MODES, defaultTransition, demoSampleDue, demoTransitionDue,
-  ease, easedDemoValue, easesValue, formatMs, transitionLength, transitionOf, transitionPatch,
+  ease, easedDemoValue, easesValue, formatMs, transitionLength, transitionOf, transitionPatch, inertiaAt,
 } from '../../src/value-transition.js';
 import { createWidget, WIDGETS } from '../../src/editor/widgets.js';
 import { commands } from '../../src/editor/store.js';
@@ -46,7 +46,7 @@ test('a patch always carries both fields within the inspector range', () => {
   assert.deepEqual(transitionPatch(bar(smooth()), { durationMs: 412.6 }), { mode: 'smooth', durationMs: 413 });
   assert.deepEqual(transitionPatch(bar(smooth()), { durationMs: 'x' }), { mode: 'smooth', durationMs: TRANSITION_DEFAULT_MS });
   assert.deepEqual(transitionPatch(bar(smooth()), { mode: 'bounce' }), { mode: 'none', durationMs: 400 });
-  assert.deepEqual(TRANSITION_MODES, ['none', 'smooth']);
+  assert.deepEqual(TRANSITION_MODES, ['none', 'smooth', 'inertia']);
   assert.equal(formatMs(400), '400 ms');
 });
 
@@ -57,6 +57,27 @@ test('the easing is the backend\'s ease-out cubic', () => {
   assert.equal(ease(-1), 0);
   assert.equal(ease(3), 1);
   assert.equal(ease(Number.NaN), 1);
+});
+
+test('inertia keeps momentum on retarget and stores a compatible optional flag',()=>{
+  const setting=transitionPatch(bar(),{mode:'inertia'});
+  assert.deepEqual(setting,{mode:'smooth',durationMs:400,inertia:true});
+  assert.equal(transitionOf(bar(setting)).mode,'inertia');
+  assert.equal(transitionLength(bar(setting)),400);
+  assert.deepEqual(transitionPatch(bar(setting),{mode:'smooth'}),{mode:'smooth',durationMs:400,inertia:false});
+  const initial=inertiaAt(0,100,0,0,.8);
+  assert.deepEqual(initial,{value:0,velocity:0});
+  const before=inertiaAt(0,100,0,.1,.8);
+  assert.ok(before.value>0 && before.value<33.1,'starts more gently than the cubic response');
+  const retarget=inertiaAt(before.value,20,before.velocity,0,.8);
+  assert.ok(Math.abs(retarget.value-before.value)<1e-9);
+  assert.equal(retarget.velocity,before.velocity);
+  assert.deepEqual(inertiaAt(before.value,20,before.velocity,.8,.8),{value:20,velocity:0});
+  const e=bar({mode:'smooth',durationMs:800,inertia:true});
+  const signal=t=>t<1?0:100;
+  assert.ok(easedDemoValue(e,signal,1.1,1)>0);
+  assert.equal(easedDemoValue(e,signal,1.8,1),100);
+  assert.equal(easedDemoValue(e,signal,1.1,1,false),100);
 });
 
 test('objects made in the Studio ease for 400 ms; the rest have no transition', () => {

@@ -2,7 +2,7 @@ import { owners } from './cards.js';
 
 export function canFitContent(theme, id) {
   const e = theme.elements.find(e => e.id === id);
-  return !!e && !e.isGroup && !e.card && ['text', 'image'].includes(e.kind.type) &&
+  return !!e && e.kind.content?.type !== 'spectrum' && !e.isGroup && !e.card && ['text', 'image'].includes(e.kind.type) &&
     owners(theme, e).length > 0 && !owners(theme, e).some(e => e.locked);
 }
 

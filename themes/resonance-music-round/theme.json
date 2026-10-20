@@ -1,0 +1,399 @@
+{
+  "schema": 1,
+  "name": "Resonance / Music \u2014 Round",
+  "canvas": {
+    "width": 480,
+    "height": 480
+  },
+  "orientation": "portrait",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#180f19ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Live radial spectrum",
+      "frame": {
+        "x": 10,
+        "y": 10,
+        "width": 460,
+        "height": 460
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "bands": 64,
+          "style": "radial",
+          "inner": 77,
+          "thickness": 5,
+          "gap": 2,
+          "motion": "smooth",
+          "peaks": false,
+          "centre": false
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": "#ffad75ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "Brand",
+      "frame": {
+        "x": 126,
+        "y": 91,
+        "width": 228,
+        "height": 24
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "RESONANCE"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 18,
+          "paint": "#ffad75ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Listening session",
+      "frame": {
+        "x": 85,
+        "y": 119,
+        "width": 310,
+        "height": 289
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "rect",
+        "radius": 0,
+        "fill": "#00000000",
+        "strokeWidth": 0
+      },
+      "card": {
+        "faces": [
+          "Standby",
+          "Playing"
+        ],
+        "transition": {
+          "effect": "fade",
+          "direction": "left",
+          "durationMs": 800
+        },
+        "triggers": [
+          {
+            "source": "mediaPlaying",
+            "app": "",
+            "face": 1,
+            "priority": 10,
+            "returnSeconds": 3,
+            "returnFace": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "name": "Standby label",
+      "frame": {
+        "x": 156,
+        "y": 125,
+        "width": 168,
+        "height": 168
+      },
+      "kind": {
+        "type": "shape",
+        "shape": "ellipse",
+        "radius": 0,
+        "fill": {
+          "angle": 25,
+          "stops": [
+            [
+              0,
+              "#f2b178ff"
+            ],
+            [
+              1,
+              "#a44f70ff"
+            ]
+          ]
+        },
+        "strokeWidth": 0
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 0
+      }
+    },
+    {
+      "id": 6,
+      "name": "Standby monogram",
+      "frame": {
+        "x": 176,
+        "y": 158,
+        "width": 128,
+        "height": 102
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "R"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 80,
+          "paint": "#38202dff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 0
+      }
+    },
+    {
+      "id": 7,
+      "name": "Standby hint",
+      "frame": {
+        "x": 106,
+        "y": 307,
+        "width": 268,
+        "height": 69
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "Ready for your\nnext track"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#c29e9eff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 0
+      }
+    },
+    {
+      "id": 8,
+      "name": "Album artwork",
+      "frame": {
+        "x": 156,
+        "y": 125,
+        "width": 168,
+        "height": 168
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": true,
+          "coverRadius": 84,
+          "coverCorners": [
+            84,
+            84,
+            84,
+            84
+          ],
+          "coverGap": 0,
+          "showProgress": false,
+          "showSource": false,
+          "showTime": false,
+          "emptyText": "",
+          "progressStyle": {
+            "fill": "#ffad75ff",
+            "track": "#fff1e530",
+            "thickness": 4,
+            "knob": true,
+            "times": "sides"
+          },
+          "showTitle": false,
+          "showArtist": false
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 18,
+          "paint": "#fff1e5ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 1
+      }
+    },
+    {
+      "id": 9,
+      "name": "Track and artist",
+      "frame": {
+        "x": 106,
+        "y": 307,
+        "width": 268,
+        "height": 69
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "coverRadius": 6,
+          "coverCorners": [
+            6,
+            44,
+            6,
+            6
+          ],
+          "coverGap": 38,
+          "showProgress": false,
+          "showSource": false,
+          "showTime": false,
+          "emptyText": "Resonance",
+          "progressStyle": {
+            "fill": "#ffad75ff",
+            "track": "#fff1e530",
+            "thickness": 4,
+            "knob": true,
+            "times": "sides"
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 22,
+          "paint": "#fff1e5ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 1
+      }
+    },
+    {
+      "id": 10,
+      "name": "Timeline",
+      "frame": {
+        "x": 145,
+        "y": 389,
+        "width": 190,
+        "height": 16
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "coverRadius": 6,
+          "coverCorners": [
+            6,
+            44,
+            6,
+            6
+          ],
+          "coverGap": 38,
+          "showProgress": true,
+          "showSource": false,
+          "showTime": false,
+          "emptyText": "Ready for your next track",
+          "progressStyle": {
+            "fill": "#ffad75ff",
+            "track": "#fff1e530",
+            "thickness": 4,
+            "knob": true,
+            "times": "sides"
+          },
+          "showTitle": false,
+          "showArtist": false
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#fff1e5ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "cardMember": {
+        "parent": 4,
+        "face": 1
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#180f19ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#ffad75ff"
+    },
+    {
+      "name": "Text",
+      "color": "#fff1e5ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#c29e9eff"
+    }
+  ]
+}

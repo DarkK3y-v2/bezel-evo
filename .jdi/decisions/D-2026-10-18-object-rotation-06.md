@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-06 (2026-10-18): Decisione tecnica — DTO (crates/bezel-themes/src/dto.rs, deny_unknown_fields) scrive il campo solo se diverso da zero (skip_serializing_if + default), come D-AS-11: i temi senza rotazione restano identici e le versioni vecchie li aprono.

@@ -23,3 +23,7 @@ sha2 = "0.10.9"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+bezel-render.workspace = true
+bezel-themes.workspace = true

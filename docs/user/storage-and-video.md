@@ -11,7 +11,7 @@ The screen has four folders: `internal/image`, `internal/video`, `sd/image` and
 `sd/video`. `sd` is the memory card, reached only through the screen. Bezel
 never formats it; see [Preparing an SD card](sd-card.md).
 
-## In the app
+## In Studio
 
 **Media → This theme → Preview** opens a local video player without changing the
 background. **Screen → Storage → Preview** does the same for a selected video
@@ -51,7 +51,7 @@ filter and sort both sides.
 
 ## From the command line
 
-```bash
+```powershell
 bezel storage info                          # used and free space
 bezel storage ls                            # every stored file; or one folder: bezel storage ls sd/video
 bezel storage put clip.mp4                  # convert when needed and send, with progress
@@ -104,17 +104,17 @@ largest files are about 24.6 MiB too.
 - A video already in the screen's format is sent as it is, so it must be under
   the limit itself; `--fps` converts it, and the conversion fits it.
 
-The limit appears in MiB (1 MiB = 1,048,576 bytes): the app's message, for
+The limit appears in MiB (1 MiB = 1,048,576 bytes): Studio's message, for
 example, reads *"The file is 30 MiB; this screen takes files of up to 25 MiB."*
 
 ## Cancelling an upload
 
-You can cancel an upload (**Cancel upload** in the app, Ctrl+C in the terminal;
+You can cancel an upload (**Cancel upload** in Studio, Ctrl+C in the terminal;
 a second Ctrl+C quits at once). Part of the file may stay on the screen:
 
 1. **Delete the incomplete file.** The app offers **Delete the incomplete file**;
    the terminal prints the command, for example
-   `bezel storage rm internal/video/clip.mp4 --yes`. If the app says the screen
+   `bezel storage rm internal/video/clip.mp4 --yes`. If Studio says the screen
    stopped answering, it comes back on the next action: press **Refresh**, then
    delete the incomplete file if it is listed.
 2. **Send it again.** If the next upload ends with *"the stored size differs;
@@ -123,7 +123,7 @@ a second Ctrl+C quits at once). Part of the file may stay on the screen:
 
 If the screen stops answering altogether (the upload stalls, or every command
 times out), it froze: the next command restarts a Turing rev C screen on its
-own, or use `bezel restart` or **Restart screen…** in the app; no replug is
+own, or use `bezel restart` or **Restart screen…** in Studio; no replug is
 needed. See [The screen froze](troubleshooting.md#the-screen-froze--stopped-responding).
 
 ## Managing the files
@@ -138,10 +138,7 @@ Every file Bezel sends (from **Send a file…**, `bezel storage put`, a theme's
 video, a move or a restore) is also kept on the computer: the exact bytes the
 screen got (a converted video's output), with a thumbnail (for a video, it
 needs ffmpeg) and a record of where it went (Bezel's *catalog*). They live in
-your data folder:
-
-- Linux: `~/.local/share/bezel/storage` (or `$XDG_DATA_HOME/bezel/storage`);
-- Windows: `%APPDATA%\bezel\storage`.
+your data folder: `%APPDATA%\bezel\storage`.
 
 The same bytes on the internal memory and on the card are kept once.
 
@@ -150,7 +147,7 @@ The same bytes on the internal memory and on the card are kept once.
 Copies of files still on a screen, or missing from it (a card formatted or
 replaced), never go on their own, so a restore always has them.
 
-**Clear cache.** In the app, **Local copies…** shows how many copies there are
+**Clear cache.** In Studio, **Local copies…** shows how many copies there are
 and their size, and sets the limit; **Clear cache…** removes the copies of files
 deleted through Bezel (every copy with **Also clear the copies of files still
 on a screen**), after a confirmation that says how many and how much. The files
@@ -159,7 +156,7 @@ copy": those files cannot be moved, renamed or restored until you
 [associate their original](#files-bezel-did-not-send) again. On the command
 line:
 
-```bash
+```powershell
 bezel storage cache info                # how many copies, their size and the limit
 bezel storage cache --limit 1GiB        # the limit for the copies of deleted files
 bezel storage cache clear --yes         # remove the copies of deleted files
@@ -194,7 +191,7 @@ with **Show at start…**, or renaming a video a theme plays, adds a warning to 
 confirmation (a theme finds its video by its name; for the start setting, see
 [What the screen shows at power-up](#what-the-screen-shows-at-power-up)).
 
-In the app, select files in one list and press **Move to the SD card** (or
+In Studio, select files in one list and press **Move to the SD card** (or
 **Move to the internal memory**), or drag them onto the other list. **Copy to
 the SD card** sends them the same way and keeps the originals. **Rename…** (F2)
 asks the new name and shows it as the screen will store it. One confirmation
@@ -206,7 +203,7 @@ nothing starts before you press **Move**. While it runs, the bar shows *Moving
 On the command line, `mv`, `rename` and `restore` first print the exact list;
 without `--yes` they only ask the screen and change nothing:
 
-```bash
+```powershell
 bezel storage mv internal/video/clip.mp4 --to sd          # prints the list; --yes moves
 bezel storage mv sd/video/a.mp4 sd/video/b.mp4 --to internal --yes
 bezel storage rename sd/video/clip.mp4 intro.mp4 --yes
@@ -238,13 +235,13 @@ another size is left out unless you choose to replace it. The files go one at a
 time, the oldest sent first, each one checked; **Cancel** and failures behave as
 in a move.
 
-In the app, **Restore…** (with how many files) appears above a list when files
+In Studio, **Restore…** (with how many files) appears above a list when files
 Bezel sent there are missing or are on another card, or were deleted through
 Bezel and their local copies are kept. The missing ones come checked; the
 deleted ones are listed under *Deleted through Bezel*, unchecked. Choose the
 files, **Continue…**, then **Restore**. On the command line:
 
-```bash
+```powershell
 bezel storage restore sd                     # the files Bezel sent to the card that are missing
 bezel storage restore sd --yes
 bezel storage restore internal intro.mp4 --yes   # one file by name, also one deleted through Bezel
@@ -280,7 +277,7 @@ The assistant never suggests the file set with **Show at start…**, nor a video
 theme plays (a theme's video background, for example). It never runs on its
 own, and nothing is deleted until you confirm the exact list.
 
-In the app, **Cleanup assistant…** (above the lists) shows the suggestions by
+In Studio, **Cleanup assistant…** (above the lists) shows the suggestions by
 group; check or uncheck them, then **Delete the checked…** lists the exact files
 and the space freed, and **Delete these files** deletes them one at a time.
 **Origin → Cleanup suggestions** shows them in the lists too.
@@ -310,12 +307,12 @@ If you have its original on the computer, associate them: Bezel copies the
 original into its local copies, which gives the file a thumbnail and makes it
 movable.
 
-- In the app: select the file, **Associate original…**, then **Choose files…**
+- In Studio: select the file, **Associate original…**, then **Choose files…**
   or **Choose a folder…**. Only files of exactly the same size in bytes and of
   the same kind are offered, likeliest first (by name, and by duration and
   resolution for a video); confirm the pair with **Associate**.
 - On the command line:
-  `bezel storage catalog associate sd/video/NVI.mp4 ~/Videos/NVI.mp4 --yes`
+  `bezel storage catalog associate sd/video/NVI.mp4 "$HOME\Videos\NVI.mp4" --yes`
   (or a folder, to look in it). `bezel storage catalog forget PATH --yes` drops
   an entry from the catalog, and its local copy unless another entry has the
   same bytes; the screen is not changed.
@@ -364,19 +361,19 @@ A theme can use a video as its background: the screen loops the video and Bezel
 draws the theme over it.
 
 - If the video is not on the screen yet, the screen shows the theme's still
-  picture and the app offers **Send to the screen**; `bezel run` prints the exact
-  `bezel storage put` command (for a re-framed video it points to the app, see
+  picture and Studio offers **Send to the screen**; `bezel run` prints the exact
+  `bezel storage put` command (for a re-framed video it points to Studio, see
   [Framing the video](#framing-the-video)).
 - Screens that cannot play videos get them decoded on the computer, which needs
   ffmpeg (`bezel run --ffmpeg PATH` if it is not on the `PATH`).
-- To give a theme a video background in the app (a video or an animated GIF),
+- To give a theme a video background in Studio (a video or an animated GIF),
   see [A video in the background](first-theme.md#a-video-in-the-background).
 
 ### Framing the video
 
 The framing decides how the video fills the screen: turned, filled or fitted,
-zoomed and placed. With no element selected, **Properties** shows the theme;
-under **Background**, a video has its **Framing** group.
+zoomed and placed. With nothing selected, the inspector shows the theme; under
+**Background**, a video background has its **Framing** options.
 
 **Auto.** Some videos are stored already turned for the screen: the vendor
 app's horizontal themes keep, for a 1920×480 theme on the 8.8", a 480×1920
@@ -465,7 +462,7 @@ but cannot change it. `bezel run` reads the video's size from its MP4 header
 (no ffmpeg needed) and looks for the copy under the name its framing gives.
 When the copy is missing, it prints the `bezel storage put` command for a video
 framed by default and, for a re-framed video, points to **Send to the screen**
-in the app, which makes the framed copy.
+in Studio, which makes the framed copy.
 
 In the theme file (`theme.json` in the `.bezeltheme`), the framing is an
 optional `framing` object in the video background, left out when everything is

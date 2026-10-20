@@ -21,6 +21,9 @@ pub const GRAPH_POINTS_MAX: u16 = 3600;
 /// The longest time between two points of a graph, seconds (one hour).
 pub const GRAPH_INTERVAL_MAX_SECONDS: u32 = 3600;
 
+/// Maximum drawing cadence for scrolling graphs; sampling stays independent.
+pub const GRAPH_FRAME_STEP: Duration = Duration::from_millis(20);
+
 /// How often a series takes a point.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Cadence {
@@ -85,6 +88,8 @@ pub enum Tick {
 struct Series {
     values: VecDeque<Option<f64>>,
     due: Option<Duration>,
+    at: Option<Duration>,
+    period: Duration,
 }
 
 impl Series {
@@ -126,11 +131,33 @@ impl Histories {
 
     /// Records the snapshot's value of each series the `tick` is for.
     pub fn push(&mut self, snapshot: &Snapshot, tick: Tick) {
+        self.push_with_refresh(snapshot, tick, Duration::MAX);
+    }
+
+    /// Records readings with the theme's refresh interval. Motion never spans
+    /// a suspension or missed samples longer than the series' normal period.
+    pub fn push_with_refresh(&mut self, snapshot: &Snapshot, tick: Tick, refresh: Duration) {
         for (id, series) in &mut self.series {
             if !series.takes(id.cadence, tick) {
                 continue;
             }
             series.values.push_back(snapshot.get(&id.key).value());
+            match tick {
+                Tick::At { now, .. } => {
+                    let period = match id.cadence {
+                        Cadence::EveryRefresh => refresh,
+                        Cadence::Every(every) => every,
+                    };
+                    series.period = series
+                        .at
+                        .map_or(Duration::ZERO, |at| now.saturating_sub(at).min(period));
+                    series.at = Some(now);
+                }
+                Tick::Untimed => {
+                    series.at = None;
+                    series.period = Duration::ZERO;
+                }
+            }
             while series.values.len() > usize::from(GRAPH_POINTS_MAX) {
                 series.values.pop_front();
             }
@@ -141,7 +168,10 @@ impl Histories {
     /// series it was for waits for its next one.
     pub fn skip(&mut self, tick: Tick) {
         for (id, series) in &mut self.series {
-            series.takes(id.cadence, tick);
+            if series.takes(id.cadence, tick) {
+                series.at = None;
+                series.period = Duration::ZERO;
+            }
         }
     }
 
@@ -153,6 +183,8 @@ impl Histories {
             if let Some(old) = previous.series.get(id) {
                 series.values.extend(old.values.iter().copied());
                 series.due = old.due;
+                series.at = old.at;
+                series.period = old.period;
             }
         }
     }
@@ -191,6 +223,22 @@ impl Histories {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Fraction of one sample still to scroll into view. A one-sample delay
+    /// permits causal interpolation without predicting readings or adding points.
+    /// Untimed snapshots and expired motion return zero (the latest graph).
+    pub fn scroll_offset(&self, id: &SeriesId, now: Duration) -> f32 {
+        let Some(s) = self.series.get(id) else {
+            return 0.;
+        };
+        let Some(at) = s.at else {
+            return 0.;
+        };
+        if s.values.len() < 2 || s.period.is_zero() || now < at {
+            return 0.;
+        }
+        (1. - now.saturating_sub(at).as_secs_f64() / s.period.as_secs_f64()).clamp(0., 1.) as f32
     }
 }
 
@@ -332,5 +380,49 @@ mod tests {
             Cadence::Every(Duration::from_secs(3600))
         );
         assert_eq!(Histories::default().next_due(), None);
+    }
+
+    #[test]
+    fn scrolling_uses_recorded_clock_without_adding_or_predicting_samples() {
+        let k = key("cpu.usage");
+        let id = SeriesId::graph(&k, None);
+        let mut h = Histories::new(std::slice::from_ref(&id));
+        h.push(&reading(&k, 10.), at(0, true));
+        assert_eq!(h.scroll_offset(&id, Duration::ZERO), 0.);
+        h.push(&reading(&k, 90.), at(1, true));
+        assert_eq!(h.scroll_offset(&id, Duration::from_secs(1)), 1.);
+        assert_eq!(h.scroll_offset(&id, Duration::from_millis(1500)), 0.5);
+        assert_eq!(h.scroll_offset(&id, Duration::from_secs(2)), 0.);
+        assert_eq!(h.points(&id, 10), [Some(10.), Some(90.)]);
+        let mut edited = Histories::new(std::slice::from_ref(&id));
+        edited.adopt(&h);
+        assert_eq!(edited.scroll_offset(&id, Duration::from_millis(1500)), 0.5);
+        edited.skip(at(2, true));
+        assert_eq!(edited.scroll_offset(&id, Duration::from_secs(2)), 0.);
+        h.push(&reading(&k, 50.), Tick::Untimed);
+        assert_eq!(h.scroll_offset(&id, Duration::from_millis(1500)), 0.);
+    }
+
+    #[test]
+    fn an_independent_graph_keeps_its_own_motion_period_and_gaps() {
+        let k = key("cpu.usage");
+        let id = SeriesId::graph(&k, Some(3));
+        let mut h = Histories::new(std::slice::from_ref(&id));
+        h.push(&reading(&k, 10.), at(0, true));
+        h.push(&reading(&k, 40.), at(1, true));
+        h.push(&Snapshot::default(), at(3, true));
+        assert_eq!(h.scroll_offset(&id, Duration::from_millis(4500)), 0.5);
+        assert_eq!(h.points(&id, 10), [Some(10.), None]);
+    }
+
+    #[test]
+    fn resuming_after_a_pause_does_not_stretch_motion_across_the_pause() {
+        let k = key("cpu.usage");
+        let id = SeriesId::graph(&k, None);
+        let mut h = Histories::new(std::slice::from_ref(&id));
+        h.push_with_refresh(&reading(&k, 10.), at(0, true), Duration::from_secs(1));
+        h.push_with_refresh(&reading(&k, 90.), at(60, true), Duration::from_secs(1));
+        assert_eq!(h.scroll_offset(&id, Duration::from_millis(60500)), 0.5);
+        assert_eq!(h.scroll_offset(&id, Duration::from_secs(61)), 0.);
     }
 }

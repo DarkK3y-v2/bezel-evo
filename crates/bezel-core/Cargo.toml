@@ -10,8 +10,10 @@ authors.workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
+unicode-segmentation = "1.13.3"
 
 [dev-dependencies]
+serde_json = { workspace = true }
 # Use-case tests run through the adapters' fakes (tests/), never through a
 # port implemented inside the hexagon.
 bezel-devices = { workspace = true }

@@ -19,14 +19,13 @@ suportada nelas.
 
 ## Quem cumpre a escolha
 
-- O **Bezel Studio**, enquanto está aberto (na bandeja já basta). No Linux ele
-  pede ao sistema (systemd-logind) que o espere no desligamento, dentro dos
-  poucos segundos que o sistema dá (5 s por padrão); no Windows ele age quando
-  a sessão termina (desligar, reiniciar ou sair da sessão). Sair do Bezel pela
-  bandeja ou pela janela não aplica nada.
-- A linha de comando só registra a escolha e grava o plano B. Sem o Bezel
-  Studio aberto (só o `bezel run` ou o serviço dele, ou o studio fechado), nada
-  é enviado no desligamento e sobra só o plano B: com **Apagar a tela**, o
+- O **Bezel Light**, ou o **Bezel Studio** quando ele mesmo controla a tela,
+  enquanto está aberto (na bandeja já basta). Ele age quando a sessão do
+  Windows termina (desligar, reiniciar ou sair da sessão). Fechar o Light ou o
+  Studio pela bandeja não aplica nada.
+- A linha de comando só registra a escolha e grava o plano B. Sem o Light nem o
+  Studio abertos (só o `bezel run`, ou os dois fechados), nada é enviado no
+  desligamento e sobra só o plano B: com **Apagar a tela**, o
   temporizador de repouso da tela a apaga alguns minutos depois; um vídeo ou o
   álbum só começam quando a própria tela liga de novo (o computador corta a
   energia da USB, uma queda de energia, uma reinicialização). Enquanto o
@@ -37,8 +36,7 @@ suportada nelas.
   dormindo fica como está.
 - Quando o computador liga de novo, o Bezel acorda a tela e volta a mostrar o
   seu tema ao vivo.
-- Suspender o computador não está coberto, nem sair da sessão no Linux (só
-  desligar e reiniciar).
+- Suspender o computador não está coberto.
 
 ## O plano B
 
@@ -74,7 +72,7 @@ de início do álbum a cada desligamento, porque é assim que a tela reinicia no
 Duas telas do mesmo modelo dividem uma escolha, como dividem o catálogo do
 Bezel.
 
-## No aplicativo
+## No Studio
 
 **Tela → Ajustes → Quando o computador desligar**: escolha uma das quatro; cada
 **?** explica a sua. Uma escolha que não vale fica acinzentada com o motivo: a
@@ -89,7 +87,7 @@ cartão, e **Álbum de fotos do cartão** abre o álbum.
 
 ## Pela linha de comando
 
-```bash
+```powershell
 bezel standby show                                   # a escolha e o plano B de cada tela conectada
 bezel standby set off --sleep 5 --yes                # apagar no desligamento; temporizador de 5 min
 bezel standby set video --file sd/video/clip.mp4 --yes
@@ -105,11 +103,11 @@ quando o Bezel Studio reinicia a tela no álbum no desligamento, o álbum liga c
 ele. Um vídeo tocado no desligamento fica com o nível que a tela tem naquela
 hora; o nível gravado vale quando a tela liga sozinha com um vídeo. O
 `bezel standby show` diz o plano B gravado por último na tela, por esta escolha
-ou pelo `bezel storage boot`, o que veio depois, ou pelo Bezel Studio ao
+ou pelo `bezel storage boot`, o que veio depois, ou pelo Light ao
 reiniciar a tela no álbum no desligamento (que grava de novo o início do álbum,
 mesmo depois de um `bezel storage boot`). A escolha fica no catálogo do Bezel
-(`<data>/bezel/storage`), que o aplicativo lê no desligamento, então uma escolha
-feita aqui com o aplicativo aberto vale.
+(`<data>/bezel/storage`), que o Light (ou o Studio) lê no desligamento, então uma
+escolha feita aqui com eles abertos vale.
 
 A linha de comando e as mensagens dela ficam em inglês.
 
@@ -121,19 +119,19 @@ com miniatura para as que o Bezel enviou e pelo nome para as outras.
 
 **Adicionar uma foto**: JPEG, PNG, BMP ou o primeiro quadro de um GIF. O Bezel a
 deixa em pé pela orientação EXIF (a foto do celular chega em pé) e a enquadra do
-jeito que a tela fica, na horizontal ou na vertical: no aplicativo, a orientação
+jeito que a tela fica, na horizontal ou na vertical: no Studio, a orientação
 que você usa para aquela tela; na linha de comando, o `--orientation` (padrão: a
 do modelo). **Preencher** (`--fit cover`, o padrão) cobre a tela e corta;
 **Caber** (`--fit contain`) mostra a foto inteira com preto em volta. A foto é
 gravada já girada para o painel, como PNG do tamanho nativo dele (480×1920 no
-8.8"). O aplicativo mostra a prévia na forma da tela antes de enviar; um nome
+8.8"). O Studio mostra a prévia na forma da tela antes de enviar; um nome
 que já está no álbum pede confirmação antes de ser substituído (`--yes` na linha
 de comando).
 
 **Remover uma foto** pede confirmação, com o nome do arquivo. O Bezel nunca
 apaga nada por conta própria.
 
-```bash
+```powershell
 bezel standby album add praia.jpg --orientation horizontal       # Preencher
 bezel standby album add retrato.jpg --orientation vertical --fit contain
 bezel storage ls sd/image                                        # o álbum

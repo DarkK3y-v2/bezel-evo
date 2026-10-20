@@ -37,7 +37,7 @@ pub struct Loaded {
 /// The folders searched, in order, for the themes that ship with Bezel:
 /// `override_dir` (`$BEZEL_THEMES_DIR`), `<exe dir>/themes` (the Windows
 /// installer, the portable ZIP and `dist`), `<exe dir>/../share/bezel/themes`
-/// (packages and `install-local.sh`), then `<data home>/bezel/themes`.
+/// (legacy resource layout), then `<data home>/bezel/themes`.
 pub fn bundled_candidates(
     override_dir: Option<PathBuf>,
     exe: Option<&Path>,
@@ -357,8 +357,11 @@ mod tests {
         theme.background = bezel_core::domain::theme::Background::Color(Rgba::opaque(1, 2, 3));
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

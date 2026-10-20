@@ -3,7 +3,7 @@
 // history and how often it arrives, the sparkline of a series, where a
 // sensor dropped on the canvas binds, what a layer row says about its
 // object, the Layers filter and the Media totals.
-import { boundKey } from './editor/widgets.js';
+import { boundKey, widgetOf } from './editor/widgets.js';
 import { contains } from './editor/geometry.js';
 import { isShown, owners } from './editor/cards.js';
 
@@ -15,7 +15,7 @@ import { isShown, owners } from './editor/cards.js';
 export const WIDGET_GROUPS = Object.freeze([
   Object.freeze({ id: 'textData', widgets: Object.freeze(['text', 'value', 'clock', 'weather']) }),
   Object.freeze({ id: 'indicators', widgets: Object.freeze(['ring', 'bar', 'needle', 'graph']) }),
-  Object.freeze({ id: 'mediaStructure', widgets: Object.freeze(['image', 'player', 'shape', 'card', 'group']) }),
+  Object.freeze({ id: 'mediaStructure', widgets: Object.freeze(['image', 'player', 'spectrum', 'shape', 'card', 'group']) }),
 ]);
 
 /** How many tiles the Widgets panel has in all. */
@@ -143,12 +143,15 @@ export function layerMeta(e) {
  * The Layers filter over `layerGroups()`'s tree: an object stays when its
  * name, kind (`kindOf`) or sensor matches, a container when it matches (all
  * of it) or holds one that does (only those). Card faces keep their place.
+ * An optional widget type combines with the query on the same object.
  * @param {object[]} nodes
  * @param {(e: object) => string} kindOf translated kind
  */
-export function filterLayers(nodes, query, kindOf) {
-  if (!fold(query).trim()) return nodes;
-  const hit = (e) => matchesQuery(query, e.name, kindOf(e), boundKey(e) ?? '');
+export function filterLayers(nodes, query, kindOf, type = 'all') {
+  const searching = Boolean(fold(query).trim());
+  if (!searching && type === 'all') return nodes;
+  const hit = (e) => (type === 'all' || widgetOf(e) === type)
+    && (!searching || matchesQuery(query, e.name, kindOf(e), boundKey(e) ?? ''));
   const visit = (list) => list.flatMap((node) => {
     if (hit(node.element)) return [node];
     const children = visit(node.children);

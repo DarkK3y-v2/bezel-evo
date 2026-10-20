@@ -44,6 +44,8 @@ pub enum TransitionMode {
     None,
     /// It eases from the value it shows to the new one.
     Smooth,
+    /// Critically damped pursuit, retaining momentum when readings change.
+    Inertia,
 }
 
 /// An element's value transition.
@@ -70,9 +72,11 @@ impl ValueTransition {
     /// [`MIN_TRANSITION_MS`]..=[`MAX_TRANSITION_MS`].
     pub fn length(&self) -> Option<Duration> {
         match self.mode {
-            TransitionMode::Smooth if self.duration_ms > 0 => Some(Duration::from_millis(
-                u64::from(self.duration_ms.clamp(MIN_TRANSITION_MS, MAX_TRANSITION_MS)),
-            )),
+            TransitionMode::Smooth | TransitionMode::Inertia if self.duration_ms > 0 => {
+                Some(Duration::from_millis(u64::from(
+                    self.duration_ms.clamp(MIN_TRANSITION_MS, MAX_TRANSITION_MS),
+                )))
+            }
             _ => None,
         }
     }
@@ -117,6 +121,8 @@ pub fn target(element: &Element, snapshot: &Snapshot) -> Option<f64> {
 /// One element moving from a value to another.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Tween {
+    mode: TransitionMode,
+    velocity: f64,
     from: f64,
     to: f64,
     start: Duration,
@@ -127,6 +133,8 @@ impl Tween {
     /// Resting at `value`.
     pub fn settled(value: f64) -> Self {
         Self {
+            mode: TransitionMode::Smooth,
+            velocity: 0.,
             from: value,
             to: value,
             start: Duration::ZERO,
@@ -137,6 +145,8 @@ impl Tween {
     /// From `from` at `start` to `to`, taking `length`.
     pub fn new(from: f64, to: f64, start: Duration, length: Duration) -> Self {
         Self {
+            mode: TransitionMode::Smooth,
+            velocity: 0.,
             from,
             to,
             start,
@@ -161,7 +171,7 @@ impl Tween {
 
     /// Whether it still moves at `at`.
     pub fn moving_at(&self, at: Duration) -> bool {
-        self.from != self.to && at < self.end()
+        (self.from != self.to || self.velocity != 0.) && at < self.end()
     }
 
     /// The value shown at `at`.
@@ -173,7 +183,39 @@ impl Tween {
             return self.from;
         }
         let progress = (at - self.start).as_secs_f64() / self.length.as_secs_f64();
+        if self.mode == TransitionMode::Inertia {
+            let time = (at - self.start).as_secs_f64();
+            let omega = 8. / self.length.as_secs_f64();
+            let displacement = self.from - self.to;
+            return self.to
+                + (displacement + (self.velocity + omega * displacement) * time)
+                    * (-omega * time).exp();
+        }
         self.from + (self.to - self.from) * ease(progress)
+    }
+
+    fn velocity_at(&self, at: Duration) -> f64 {
+        if !self.moving_at(at) || self.length.is_zero() {
+            return 0.;
+        }
+        let time = at.saturating_sub(self.start).as_secs_f64();
+        let length = self.length.as_secs_f64();
+        if self.mode == TransitionMode::Inertia {
+            let omega = 8. / length;
+            return (self.velocity
+                - omega * (self.velocity + omega * (self.from - self.to)) * time)
+                * (-omega * time).exp();
+        }
+        3. * (self.to - self.from) / length * (1. - time / length).powi(2)
+    }
+
+    fn retarget(&self, to: f64, now: Duration, length: Duration, mode: TransitionMode) -> Self {
+        let mut next = Self::new(self.value_at(now), to, now, length);
+        next.mode = mode;
+        if mode == TransitionMode::Inertia {
+            next.velocity = self.velocity_at(now);
+        }
+        next
     }
 }
 
@@ -284,10 +326,17 @@ impl Transitions {
             let Some(to) = target(element, snapshot) else {
                 continue;
             };
+            let mode = element
+                .value_transition
+                .map_or(TransitionMode::None, |t| t.mode);
             let tween = match (self.tweens.get(&element.id), now) {
-                (Some(tween), _) if tween.to == to => *tween,
-                (Some(tween), Some(now)) => Tween::new(tween.value_at(now), to, now, length),
-                _ => Tween::settled(to),
+                (Some(tween), _) if tween.to == to && tween.mode == mode => *tween,
+                (Some(tween), Some(now)) => tween.retarget(to, now, length, mode),
+                _ => {
+                    let mut tween = Tween::settled(to);
+                    tween.mode = mode;
+                    tween
+                }
             };
             next.insert(element.id, tween);
         }
@@ -412,6 +461,8 @@ mod tests {
 
     fn element(id: u32, kind: ElementKind, transition: Option<ValueTransition>) -> Element {
         Element {
+            sensor_motion: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card: None,
@@ -423,6 +474,7 @@ mod tests {
             visible: true,
             locked: false,
             color_by_value: None,
+            visualization: None,
             value_transition: transition,
             kind,
         }
@@ -471,6 +523,47 @@ mod tests {
         assert!((ease(0.5) - 0.875).abs() < 1e-12);
         let steps: Vec<f64> = (0..=10).map(|i| ease(f64::from(i) / 10.0)).collect();
         assert!(steps.windows(2).all(|w| w[1] >= w[0]), "never goes back");
+    }
+
+    #[test]
+    fn inertia_preserves_position_and_velocity_on_retarget_and_settles() {
+        let theme = theme(vec![element(
+            1,
+            bar(0., 100.),
+            Some(ValueTransition {
+                mode: TransitionMode::Inertia,
+                duration_ms: 800,
+            }),
+        )]);
+        let mut transitions = Transitions::default();
+        transitions.retarget(&theme, &snapshot(0.), Some(ms(0)));
+        transitions.retarget(&theme, &snapshot(100.), Some(ms(1000)));
+        let old = transitions.tweens[&ElementId(1)];
+        assert_eq!(old.value_at(ms(1000)), 0.);
+        assert_eq!(old.velocity_at(ms(1000)), 0.);
+        assert!(old.value_at(ms(1100)) > 0. && old.value_at(ms(1100)) < 33.1);
+        transitions.retarget(&theme, &snapshot(20.), Some(ms(1100)));
+        let next = transitions.tweens[&ElementId(1)];
+        assert!((next.value_at(ms(1100)) - old.value_at(ms(1100))).abs() < 1e-9);
+        assert!((next.velocity_at(ms(1100)) - old.velocity_at(ms(1100))).abs() < 1e-9);
+        assert_eq!(next.value_at(ms(1900)), 20.);
+        assert_eq!(next.velocity_at(ms(1900)), 0.);
+        assert_eq!(
+            transitions.next_change(&theme, ms(1900), View::Preview),
+            None
+        );
+        transitions.still_previews(true);
+        assert!(
+            transitions
+                .shown(&theme, ms(1150), View::Preview)
+                .is_empty()
+        );
+        transitions.retarget(&theme, &Snapshot::default(), Some(ms(1200)));
+        assert!(
+            transitions
+                .shown(&theme, ms(1250), View::Preview)
+                .is_empty()
+        );
     }
 
     #[test]

@@ -3,16 +3,6 @@
 //! made for it (`app::standby::at_shutdown` in the core), and nothing else
 //! reaches any screen from then on.
 //!
-//! - Linux: [`watch_shutdowns`] holds a *delay* inhibitor lock of logind on
-//!   the bus at the address the composition root gives (the system bus; a
-//!   test's private one) for as long as the app runs. On
-//!   `PrepareForShutdown(true)` it runs [`shut_down`] with logind's delay
-//!   less [`MARGIN`] as the deadline, then closes the lock's descriptor, so
-//!   the shutdown goes on; on `false` (cancelled) the final state ends, the
-//!   lock is taken again and the live screen comes back as at the app's
-//!   start. The final state starts with the announcement, before the delay
-//!   is read. Without a bus or logind it says so ([`DiagCode`]) and each
-//!   screen keeps its plan B.
 //! - Windows: `RunEvent::Exit` while the session ends
 //!   ([`bezel_power::session_ending`], `false` elsewhere) runs the same
 //!   [`shut_down`], waiting for it, [`SESSION_END`] at most ([`at_exit`]);
@@ -41,23 +31,11 @@ use bezel_core::domain::device::DeviceModel;
 use bezel_core::domain::discovery::{Screen, ScreenState};
 use bezel_core::domain::standby::{Standby, supports};
 use bezel_core::ports::ScreenLink;
-use bezel_power::{BusAddress, Inhibitor, Logind, PowerError, Shutdown};
 
 use crate::backend::Backend;
-use crate::clock;
 use crate::commands::Shared;
 use crate::diag::{self, DiagCode};
 use crate::studio::ForShutdown;
-
-/// Why the studio delays shutdowns, as `systemd-inhibit --list` shows it.
-pub const REASON: &str = "Bezel applies each screen's choice for when the computer shuts down";
-
-/// The actions end this long before logind stops waiting for the lock
-/// (`InhibitDelayMaxUSec`), so that the lock is released in time.
-pub const MARGIN: Duration = Duration::from_millis(500);
-
-/// logind's own default delay, assumed when it cannot be read.
-pub const DEFAULT_DELAY: Duration = Duration::from_secs(5);
 
 /// How long the actions may take when Windows ends the session: it ends
 /// the process soon after.
@@ -65,9 +43,6 @@ pub const SESSION_END: Duration = Duration::from_secs(4);
 
 /// How often the shutdown looks for the live link while it is out.
 const LINK_POLL: Duration = Duration::from_millis(10);
-
-/// The longest single wait for logind's next announcement.
-const ANNOUNCEMENT_WAIT: Duration = Duration::from_secs(3600);
 
 /// How the app ends, as `RunEvent::Exit` tells it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,111 +115,6 @@ pub fn shut_down(backend: &Shared, deadline: Instant) -> Ending {
             diag::report(DiagCode::ShutdownDeadline);
             Ending::Deadline
         }
-    }
-}
-
-/// Watches logind on the bus at `address`, on a thread of its own for the
-/// life of the app ([`watch`]). What stops it is said ([`DiagCode`]); off
-/// Linux there is no logind and nothing is said.
-pub fn watch_shutdowns(backend: Shared, address: BusAddress) {
-    let spawned = std::thread::Builder::new()
-        .name("bezel-power".into())
-        .spawn(move || {
-            if let Some(code) = watch(&backend, &address) {
-                diag::report(code);
-            }
-        });
-    if spawned.is_err() {
-        diag::report(DiagCode::ShutdownWatchNotStarted);
-    }
-}
-
-/// Holds logind's delay lock and answers its announcements until the bus
-/// is lost: why it stopped, `None` off Linux.
-fn watch(backend: &Shared, address: &BusAddress) -> Option<DiagCode> {
-    let (logind, held) = match hold(address) {
-        Ok(held) => held,
-        Err(code) => return code,
-    };
-    let mut lock = Some(held);
-    let mut ending = false;
-    loop {
-        match logind.wait(ANNOUNCEMENT_WAIT) {
-            Ok(None) => {}
-            // A second announcement of the same shutdown: already applied.
-            Ok(Some(Shutdown::Starting)) if ending => {}
-            Ok(Some(Shutdown::Starting)) => {
-                let arrived = Instant::now();
-                ending = true;
-                // Nothing reaches a screen from the announcement on, also
-                // while logind's delay is read (a bus busy at shutdown can
-                // take seconds to answer).
-                backend.enter_final_state();
-                shut_down(backend, deadline_after(arrived, &logind));
-                // Closing the descriptor lets the shutdown go on. Released,
-                // not dropped: off Linux an `Inhibitor` has nothing to close
-                // (and `drop` of it is `clippy::drop_non_drop` there).
-                if let Some(held) = lock.take() {
-                    held.release();
-                }
-            }
-            Ok(Some(Shutdown::Cancelled)) => {
-                let resume = std::mem::take(&mut ending);
-                if resume {
-                    backend.leave_final_state();
-                }
-                if lock.is_none() {
-                    lock = logind
-                        .inhibit(REASON)
-                        .inspect_err(|e| say(unwatched(e)))
-                        .ok();
-                }
-                if resume {
-                    backend.restore_live(clock::now());
-                }
-            }
-            Err(error) => return unwatched(&error),
-        }
-    }
-}
-
-/// The deadline of the actions of a shutdown announced at `arrived`:
-/// logind's delay (`InhibitDelayMaxUSec`, [`DEFAULT_DELAY`] when it cannot
-/// be read) less [`MARGIN`], counted from the announcement, as logind
-/// counts it, not from the answer to reading the delay.
-fn deadline_after(arrived: Instant, logind: &Logind) -> Instant {
-    let delay = logind.delay_max().unwrap_or_else(|_| {
-        diag::report(DiagCode::ShutdownDelayNotRead);
-        DEFAULT_DELAY
-    });
-    arrived + delay.saturating_sub(MARGIN)
-}
-
-/// The connection to logind at `address` and its delay lock, taken; what
-/// to say when there is none.
-fn hold(address: &BusAddress) -> Result<(Logind, Inhibitor), Option<DiagCode>> {
-    let logind = Logind::connect(address).map_err(|e| unwatched(&e))?;
-    let lock = logind.inhibit(REASON).map_err(|e| unwatched(&e))?;
-    Ok((logind, lock))
-}
-
-/// What to say when logind cannot be watched because of `error`: each
-/// screen then keeps its plan B. Nothing off Linux, where there is no
-/// logind.
-fn unwatched(error: &PowerError) -> Option<DiagCode> {
-    match error {
-        PowerError::NoBus { .. } => Some(DiagCode::NoSystemBus),
-        PowerError::NoLogind => Some(DiagCode::NoLogind),
-        PowerError::Call { .. } => Some(DiagCode::ShutdownDelayRefused),
-        PowerError::Disconnected => Some(DiagCode::SystemBusLost),
-        PowerError::Unsupported => None,
-    }
-}
-
-/// Says `code`, when there is one.
-fn say(code: Option<DiagCode>) {
-    if let Some(code) = code {
-        diag::report(code);
     }
 }
 

@@ -28,7 +28,8 @@ test('demo values never go negative', () => {
 test('the catalog and samples cover every demo sensor', async () => {
   const demo = createDemoBackend('turing88', fixed);
   const catalog = await demo.catalog();
-  assert.equal(catalog.length, DEMO_SENSORS.length);
+  assert.equal(catalog.filter((entry) => entry.quantity !== 'text').length, DEMO_SENSORS.length);
+  assert.deepEqual(catalog.filter((entry) => entry.quantity === 'text').map((entry) => entry.key), ['system.hostname', 'system.os', 'system.audio.device']);
   const { readings } = await demo.sample();
   for (const entry of catalog) assert.equal(typeof readings[entry.key].display, 'string', entry.key);
   assert.ok(readings['gpu.1.fan'].unavailable);
@@ -204,10 +205,9 @@ test('images, live mode and fonts', async () => {
   await demo.release('k');
 });
 
-test('the window hides while live, asks over unsaved edits, else closes', async () => {
+test('closing asks over unsaved edits, else closes even while live (Light keeps the screen)', async () => {
   const seen = [];
   const demo = createDemoBackend('turing88', fixed, { onWindow: (state) => seen.push(state) });
-  await demo.setLightOnClose(false);
   const asked = [];
   const stop = await demo.onCloseRequested(() => asked.push('asked'));
   assert.equal(demo.windowState(), 'open');
@@ -217,17 +217,15 @@ test('the window hides while live, asks over unsaved edits, else closes', async 
   assert.equal(demo.windowState(), 'open', 'the UI decides');
   await demo.setLive(true, '/dev/ttyACM1');
   demo.requestClose();
-  assert.equal(demo.windowState(), 'hidden');
-  await demo.closeWindow();
-  assert.equal(demo.windowState(), 'hidden', 'still live');
-  await demo.setLive(false);
+  assert.deepEqual(asked, ['asked', 'asked'], 'live does not skip the unsaved question');
+  assert.equal(demo.windowState(), 'open');
   await demo.setUnsaved(false);
   stop();
   demo.requestClose();
-  assert.deepEqual(asked, ['asked']);
-  assert.equal(demo.windowState(), 'closed');
+  assert.deepEqual(asked, ['asked', 'asked']);
+  assert.equal(demo.windowState(), 'closed', 'live: the window closes and Light keeps going');
   await demo.closeWindow();
-  assert.deepEqual(seen, ['hidden', 'hidden', 'closed', 'closed']);
+  assert.deepEqual(seen, ['closed', 'closed']);
   // Without hooks nothing breaks.
   await createDemoBackend('empty', fixed).closeWindow();
 });
@@ -235,13 +233,10 @@ test('the window hides while live, asks over unsaved edits, else closes', async 
 test('quitting from the tray shows the window and asks over unsaved edits', async () => {
   const seen = [];
   const demo = createDemoBackend('turing88', fixed, { onWindow: (state) => seen.push(state) });
-  await demo.setLightOnClose(false);
   const asked = [];
   await demo.onQuitRequested(() => asked.push('asked'));
   await demo.setLive(true, '/dev/ttyACM1');
   await demo.setUnsaved(true);
-  demo.requestClose();
-  assert.equal(demo.windowState(), 'hidden', 'live: the window hides');
   demo.requestQuit();
   assert.deepEqual([demo.windowState(), asked], ['open', ['asked']], 'shown, and the UI asks');
   await demo.quitApp();
@@ -249,7 +244,7 @@ test('quitting from the tray shows the window and asks over unsaved edits', asyn
   const clean = createDemoBackend('turing88', fixed);
   clean.requestQuit();
   assert.equal(clean.windowState(), 'quit', 'nothing unsaved: it quits at once');
-  assert.deepEqual(seen, ['hidden', 'open', 'quit']);
+  assert.deepEqual(seen, ['open', 'quit']);
 });
 
 test('a panel in desktop mode is listed and switched back only when confirmed', async () => {
@@ -749,9 +744,10 @@ test('the standby scenarios: an 8.8" without a card, one set to turn off, one wi
   assert.equal(createDemoBackend('turing88').standbyStorage, undefined);
 });
 
-test('Light is the default on close and unsaved live edits can cancel before handoff', async () => {
+test('closing always hands over to Light and unsaved live edits can cancel before handoff', async () => {
   const demo = createDemoBackend('turing88', fixed);
-  assert.equal((await demo.preferences()).lightOnClose, true);
+  assert.equal('lightOnClose' in (await demo.preferences()), false, 'no close preference any more');
+  assert.equal(demo.setLightOnClose, undefined);
   await demo.setLive(true, '/dev/ttyACM1');
   await demo.setUnsaved(true);
   let asked = 0;
@@ -762,11 +758,6 @@ test('Light is the default on close and unsaved live edits can cancel before han
   await demo.setUnsaved(false);
   await demo.closeWindow();
   assert.equal(demo.windowState(), 'closed');
-  await demo.setLightOnClose(false);
-  assert.equal((await demo.preferences()).lightOnClose, false);
-  demo.requestClose();
-  assert.equal(demo.windowState(), 'hidden');
-  await demo.setLightOnClose(true);
   demo.requestClose();
   assert.equal(demo.windowState(), 'closed');
 });
@@ -880,4 +871,13 @@ test('demo font inclusion mirrors catalog identity, bundled refusal and theme as
   const asset = after.families.find((f) => f.asset === added.ref);
   assert.equal(asset.name, user.name);
   assert.equal(asset.origin, 'theme');
+});
+
+
+test('demoIsolate: a rotated element gets a canvas of its rotated box', () => {
+  const theme = { elements: [{ id: 1, kind: { type: 'shape' }, frame: { x: 50, y: 45, width: 60, height: 30 }, rotation: 30 }] };
+  const alone = demoIsolate(theme, 1);
+  assert.deepEqual(alone.canvas, { width: 68, height: 56 });
+  assert.deepEqual(alone.elements[0].frame, { x: 4, y: 13, width: 60, height: 30 });
+  assert.equal(alone.elements[0].rotation, 30);
 });

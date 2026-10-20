@@ -1000,8 +1000,11 @@ mod tests {
         let (mut theme, assets) = FsThemeStore.load(&location).unwrap();
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -1586,8 +1589,11 @@ mod tests {
         assets.insert(gif.clone(), spinning_gif());
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

@@ -182,13 +182,16 @@ mod tests {
         let mut t = Theme::blank("rules", Size::new(480, 1920), Orientation::Portrait);
         t.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             id: ElementId(1),
             name: "card".into(),
             frame: BoxF::new(0., 0., 100., 100.),
             opacity: 1.,
             visible: true,
             locked: false,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

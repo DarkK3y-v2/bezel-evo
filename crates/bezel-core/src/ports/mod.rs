@@ -107,6 +107,12 @@ pub struct TransferStats {
 /// looks at; the adapter rotates and encodes them for the panel and decides
 /// between a full frame and a partial update.
 pub trait ScreenLink: Send {
+    /// An experimental whole-scene H.264 input, when this driver exposes one.
+    /// Absence means callers keep using native frames; it does not disable the
+    /// other displays. Merely querying this capability sends no device command.
+    fn encoded_scene(&mut self) -> Option<&mut dyn EncodedScene> {
+        None
+    }
     /// Automatic shutdown is handled by the persistent owner, once per link.
     fn manages_shutdown(&self) -> bool {
         false
@@ -165,6 +171,19 @@ pub trait ScreenLink: Send {
     fn storage(&mut self) -> Option<&mut dyn ScreenStorage> {
         None
     }
+}
+
+/// Optional per-link video transport. One picture is one Annex-B access unit;
+/// dependent pictures must stay ordered and must never be dropped in transit.
+pub trait EncodedScene {
+    /// Starts without persisting settings. `standby_clip` must be the existing
+    /// clip's actual name: an empty name would change the device's RAM settings.
+    /// Returns the maximum bytes per complete picture; fps must be 1..=50.
+    fn begin(&mut self, fps: u8, standby_clip: &FileName) -> Result<usize>;
+    /// Sends one complete encoded picture, with bounded queue backpressure.
+    fn send_picture(&mut self, annex_b: &[u8]) -> Result<()>;
+    /// Stops and restores the device playback rate. No settings are saved.
+    fn end(&mut self) -> Result<()>;
 }
 
 /// Driven port: where a program that lets a screen go leaves the frame the
@@ -634,4 +653,26 @@ pub trait RuntimeConnection: Send + Sync {
     fn reachable(&self) -> bool {
         false
     }
+}
+
+/// Audio capture factory, implemented outside the hexagon. It opens one app's
+/// process tree, or the PC's whole output only for `SYSTEM_SOURCE`, which a
+/// user chose explicitly (D-AS-13). Never a microphone, never a fallback.
+pub trait AudioCaptureFactory: Send + Sync {
+    /// Platform capability, also reported while the followed Player is paused.
+    fn availability(&self) -> crate::domain::spectrum::AudioState {
+        crate::domain::spectrum::AudioState::Live
+    }
+    /// Resolve the session's exact app identifier and open its process tree.
+    fn open(
+        &self,
+        source: &str,
+    ) -> std::result::Result<Box<dyn AudioCapture>, crate::domain::spectrum::AudioState>;
+}
+/// Non-blocking, bounded packet reader owned by the Light audio worker.
+pub trait AudioCapture {
+    /// Drain currently available PCM; empty packets mean silence, not failure.
+    fn read(
+        &mut self,
+    ) -> std::result::Result<crate::domain::spectrum::AudioBlock, crate::domain::spectrum::AudioState>;
 }

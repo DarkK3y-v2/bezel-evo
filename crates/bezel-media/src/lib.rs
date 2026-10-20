@@ -51,11 +51,13 @@ pub mod archive;
 pub mod collection;
 mod framing;
 mod gif;
+pub mod h264;
 mod mp4;
 pub mod photo;
 mod poster;
 mod probe;
 mod process;
+pub mod scene_output;
 mod stream;
 mod transcode;
 
@@ -266,95 +268,6 @@ impl MediaTranscoder for FfmpegTranscoder {
     }
 }
 
-/// Fake ffmpeg/ffprobe programs (shell scripts) for the process tests.
-/// Every script is written once, before any test spawns one, so no child
-/// ever inherits a script still open for writing (`ETXTBSY`).
-#[cfg(test)]
-#[cfg(unix)]
-pub(crate) mod fakes {
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-    use std::path::{Path, PathBuf};
-    use std::sync::OnceLock;
-
-    const FFMPEG: &str = r#"#!/bin/sh
-for last; do :; done
-case "$*" in
-  *-version*) echo "ffmpeg version 9.9-fake Copyright (c) 2000-2026 the FFmpeg developers" ;;
-  *-encoders*) printf ' V....D libx264rgb   libx264 RGB\n V....D libx264   libx264 H.264\n' ;;
-  *rawvideo*) printf 'AAAABBBB' ;;
-  *-progress*)
-    printf 'frame=1\nout_time_us=100000\nout_time=00:00:00.100000\nprogress=continue\n'
-    printf 'frame=2\nout_time_us=250000\nprogress=end\n'
-    printf 'converted' > "${last#file:}" ;;
-esac
-"#;
-    const FFPROBE: &str = r#"#!/bin/sh
-case "$*" in
-  *-version*) echo "ffprobe version 9.9-fake Copyright (c) 2007-2026 the FFmpeg developers" ;;
-  *) echo '{"streams":[{"codec_type":"video","codec_name":"h264","pix_fmt":"yuv420p","width":480,"height":1920,"has_b_frames":0,"avg_frame_rate":"24/1"}],"format":{"format_name":"h264"}}' ;;
-esac
-"#;
-    const NO_X264: &str = r#"#!/bin/sh
-case "$*" in
-  *-version*) echo "ffmpeg version 7.1-free" ;;
-  *-encoders*) echo " V....D libopenh264   OpenH264" ;;
-esac
-"#;
-    const IMPOSTOR: &str = "#!/bin/sh\necho hello\n";
-    const SLOW: &str = r#"#!/bin/sh
-for last; do :; done
-printf 'partial' > "${last#file:}"
-printf 'out_time_us=50000\nprogress=continue\n'
-exec sleep 30
-"#;
-    const FAILING: &str = r#"#!/bin/sh
-for last; do :; done
-case "$last" in file:*) printf 'partial' > "${last#file:}" ;; esac
-echo "file:/in.mp4: Invalid data found when processing input" >&2
-echo "moov atom not found" >&2
-exit 1
-"#;
-    const SILENT: &str = "#!/bin/sh\nexit 0\n";
-    const SLEEPER: &str = "#!/bin/sh\nexec sleep 30\n";
-    const NOISY: &str = "#!/bin/sh\nhead -c 20000 /dev/zero | tr '\\0' 'e' >&2\nexit 1\n";
-
-    const SCRIPTS: [(&str, &str); 14] = [
-        ("ready/ffmpeg", FFMPEG),
-        ("ready/ffprobe", FFPROBE),
-        ("noprobe/ffmpeg", FFMPEG),
-        ("probe-only/ffprobe", FFPROBE),
-        ("nox264/ffmpeg", NO_X264),
-        ("nox264/ffprobe", FFPROBE),
-        ("impostor/ffmpeg", IMPOSTOR),
-        ("impostor/ffprobe", IMPOSTOR),
-        ("slow/ffmpeg", SLOW),
-        ("failing/ffmpeg", FAILING),
-        ("failing/ffprobe", FAILING),
-        ("silent/ffmpeg", SILENT),
-        ("sleeper", SLEEPER),
-        ("noisy", NOISY),
-    ];
-
-    /// The folder holding the fake programs.
-    pub(crate) fn dir() -> &'static Path {
-        static DIR: OnceLock<PathBuf> = OnceLock::new();
-        DIR.get_or_init(|| {
-            let root =
-                std::env::temp_dir().join(format!("bezel-media-fakes-{}", std::process::id()));
-            let _ = fs::remove_dir_all(&root);
-            fs::create_dir_all(root.join("empty")).unwrap();
-            for (name, body) in SCRIPTS {
-                let path = root.join(name);
-                fs::create_dir_all(path.parent().unwrap()).unwrap();
-                fs::write(&path, body).unwrap();
-                fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
-            }
-            root
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -372,114 +285,6 @@ mod tests {
         assert_eq!(media.ffmpeg_path(), None);
         assert!(format!("{media:?}").contains("FfmpegTranscoder"));
         assert!(existing_file(&MediaLocation("/nonexistent/x.mp4".into())).is_err());
-    }
-
-    #[cfg(unix)]
-    mod with_fake_tools {
-        use std::ffi::OsString;
-
-        use super::*;
-        use crate::mp4::fixtures::Movie;
-
-        fn transcoder() -> FfmpegTranscoder {
-            let root = fakes::dir();
-            let lookup = Lookup {
-                configured: None,
-                search_path: Some(OsString::from(root.join("ready"))),
-            };
-            FfmpegTranscoder::with_lookup(lookup, HostSystem::Debian)
-        }
-
-        fn source(dir: &Path) -> MediaLocation {
-            let path = dir.join("in.mp4");
-            fs::write(&path, Movie::in_rev_c_profile().bytes()).unwrap();
-            MediaLocation(path.to_str().unwrap().to_string())
-        }
-
-        #[test]
-        fn tools_found_on_path_are_ready_and_kept() {
-            let mut media = transcoder();
-            assert_eq!(
-                media.tools(),
-                MediaTools::Ready {
-                    version: "9.9-fake".into()
-                }
-            );
-            assert_eq!(
-                media.ffmpeg_in_use(),
-                Some(fakes::dir().join("ready/ffmpeg"))
-            );
-            media.lookup.search_path = Some(OsString::new());
-            assert!(
-                media.tools().converter() == bezel_core::domain::media::Converter::Available,
-                "cached"
-            );
-            media.set_ffmpeg_path(Some(PathBuf::from("/nonexistent")));
-            assert!(matches!(media.tools(), MediaTools::Missing { .. }));
-            assert_eq!(media.ffmpeg_in_use(), None);
-        }
-
-        #[test]
-        fn conversions_land_in_a_private_folder_that_keeps_the_latest() {
-            let mut media = transcoder();
-            let dir = tempfile::tempdir().unwrap();
-            let source = source(dir.path());
-            let token = CancelToken::new();
-            let mut seen = Vec::new();
-            let mut sink = |p: Progress| seen.push(p);
-            let mut job = Job::new(&token, &mut sink);
-            let target = crate::transcode::tests::rev_c_target();
-            let first = media.transcode(&source, &target, &mut job).unwrap();
-            assert!(first.0.ends_with("converted-1.mp4"), "{}", first.0);
-            assert_eq!(media.load(&first).unwrap(), b"converted");
-            let second = media.transcode(&source, &target, &mut job).unwrap();
-            assert!(
-                !Path::new(&first.0).exists(),
-                "the previous output is deleted"
-            );
-            assert!(Path::new(&second.0).exists());
-            let totals: Vec<u64> = seen.iter().map(|p| p.total).collect();
-            assert!(totals.iter().all(|t| *t == 10_000), "{totals:?}");
-            assert_eq!(
-                seen.last(),
-                Some(&Progress::new(JobPhase::Convert, 10_000, 10_000))
-            );
-            // The folder goes away with the transcoder.
-            let folder = Path::new(&second.0).parent().unwrap().to_path_buf();
-            drop(media);
-            assert!(!folder.exists());
-        }
-
-        #[test]
-        fn probe_and_stream_go_through_the_found_tools() {
-            let mut media = transcoder();
-            let dir = tempfile::tempdir().unwrap();
-            let raw = dir.path().join("clip.h264");
-            fs::write(&raw, [0, 0, 0, 1, 0x67]).unwrap();
-            let raw = MediaLocation(raw.to_str().unwrap().to_string());
-            assert_eq!(media.probe(&raw).unwrap().format, MediaFormat::H264);
-            let spec = StreamSpec {
-                size: Size::new(1, 1),
-                fps: 10,
-            };
-            let mut frames = media.stream(&source(dir.path()), spec).unwrap();
-            assert_eq!(frames.frame_at(Duration::ZERO).unwrap().as_rgba(), b"AAAA");
-            assert!(
-                media
-                    .stream(&MediaLocation("/nonexistent.mp4".into()), spec)
-                    .is_err()
-            );
-            let still = StreamSpec { fps: 0, ..spec };
-            assert!(matches!(
-                media.stream(&raw, still),
-                Err(BezelError::InvalidInput(_))
-            ));
-            assert!(
-                media
-                    .load(&MediaLocation("/nonexistent.mp4".into()))
-                    .is_err()
-            );
-        }
     }
 
     /// Runs the real ffmpeg of this machine: `cargo test -p bezel-media --

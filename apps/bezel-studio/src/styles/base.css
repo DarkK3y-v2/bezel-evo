@@ -21,6 +21,17 @@ h1, h2, h3, h4, b, strong, th { font-weight: 600; }
 code, kbd, samp, pre { font-family: var(--font-mono); }
 
 * { box-sizing: border-box; }
+/* Shared Windows/WebView2 scrollbars: a quiet rounded thumb with no arrows.
+   Keep native controls in forced-colour mode. The wider transparent hit area
+   remains draggable while the visible thumb stays compact. */
+@media (forced-colors: none) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { min-height: 32px; min-width: 32px; border: 3px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--dim) 55%, transparent); background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { border-width: 2px; background-color: var(--dim); }
+  ::-webkit-scrollbar-thumb:active { background-color: var(--text-2); }
+  ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
 html, body { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }
@@ -121,6 +132,11 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
 .corner-radii:has(.fld[data-corner="bottomLeft"]:focus-within) .corner-mark[data-corner="bottomLeft"] { opacity: 1; }
 /* A labelled field (label above): `numberField()`, `textField()`, `selectField()`. */
 .field { display: grid; gap: 4px; margin-bottom: 8px; }
+/* A value/control row, also used by a Card's object-and-destination row. */
+.number-control, .face-object { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.number-control input { min-width: 0; }
+.field-label { display: flex; align-items: center; gap: 6px; }
+.field-label .ic, .fld > .ic { flex: none; color: var(--dim); }
 .field > span { font-size: 0.85rem; color: var(--muted); }
 .field input[type="text"], .field input[type="number"], .field select, .field textarea, .prefs-section .field select, .prefs-section .field input[type="text"] { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--well); }
 .field-row, .icon-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -133,6 +149,24 @@ kbd { padding: 1px 5px; border-radius: 4px; background: var(--border-2); color: 
    (ui/popover.js). Tokens dress the chrome; the colours being edited (the
    area, the bars, the swatches) are the picker's own data. */
 .picker-popover { position: fixed; z-index: 30; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; width: 320px; max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.source-card { min-width: 0; }
+.source-card:hover .list-card, .source-card [aria-expanded="true"] { border-color: var(--accent); }
+.sensor-picker-popover { width: 460px; max-height: min(600px, calc(100vh - 16px)); grid-template-rows: auto auto auto minmax(0, 1fr); overflow: hidden; }
+.sensor-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sensor-picker-count { margin: 0; font-size: var(--fs-meta); }
+.sensor-picker-list { min-height: 0; overflow: auto; overscroll-behavior: contain; padding-right: 8px; scrollbar-gutter: stable; }
+.sensor-picker-category { padding: 12px 6px 5px; font-size: var(--fs-caps); color: var(--muted); text-transform: uppercase; letter-spacing: var(--caps-spacing); }
+.sensor-choice { display: grid; grid-template-columns: 8px minmax(0, 1fr) minmax(65px, auto); align-items: center; gap: 10px; width: 100%; margin-bottom: 4px; padding: 9px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+.sensor-choice:hover, .sensor-choice:focus-visible { background: var(--surface-3); }
+.sensor-choice[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.sensor-choice-text { min-width: 0; display: grid; gap: 3px; }
+.sensor-choice-text > strong { overflow-wrap: anywhere; font-size: var(--fs-compact); }
+.sensor-choice-text > span { overflow-wrap: anywhere; font-size: var(--fs-meta); color: var(--dim); }
+.sensor-choice-value { max-width: 110px; font-family: var(--font-mono); font-size: var(--fs-meta); text-align: right; overflow-wrap: anywhere; }
+.sensor-choice[data-state="unavailable"] .sensor-choice-value { color: var(--warn); }
+.sensor-choice[data-state="pending"] .sensor-choice-value { color: var(--dim); }
+.sensor-choice:is(:hover, :focus-visible, [aria-selected="true"]) .sensor-choice-text > span,
+.sensor-choice[data-state="pending"]:is(:hover, :focus-visible, [aria-selected="true"]) .sensor-choice-value { color: var(--text-2); }
 .font-picker { display: grid; gap: 8px; }
 .font-picker > .field, .color-field { margin: 0; }
 .font-picker > .field > label, .color-field > label { font-size: 0.85rem; color: var(--muted); }
@@ -297,7 +331,6 @@ button.pill:hover { border-color: var(--accent); }
 /* ------------------------------------------------------ confirm dialog -- */
 .confirm-dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .wide-dialog { width: min(720px, calc(100vw - 32px)); }
-.udev-dialog { width: min(560px, calc(100vw - 32px)); }
 .video-preview-dialog { width: min(850px, calc(100vw - 32px)); }
 .confirm-dialog::backdrop { background: rgb(10 14 26 / 55%); }
 .dialog-head { display: flex; align-items: flex-start; gap: 8px; padding: 16px 16px 0 20px; }
@@ -350,11 +383,12 @@ button.pill:hover { border-color: var(--accent); }
 .sentence-word { color: var(--muted); font-size: var(--fs-compact); }
 .sentence-word.is-joined { margin-left: -6px; }
 .sentence .sentence-token { max-width: 100%; min-width: 0; height: 28px; padding: 2px 6px; font-size: var(--fs-compact); }
+.sentence input.sentence-token { border: 1px solid var(--border); border-radius: 6px; background: var(--well); color: var(--text); }
 
 /* Shared layouts and control states used across panels. */
 .connect-device-list, .layer-groups { list-style: none; margin: 0; padding: 0; }
 .libre-popover-head { display: flex; align-items: center; gap: 10px; }
-.source-card select, .screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.screen-chip select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .choice-cards, .screen-advanced, .boot-section, .storage-files-head, .standby { display: flex; flex-direction: column; gap: 8px; }
 .sensor-row .label, .file-main .file-name, .bg-option-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-card strong, .media-item .media-name > span, .job-title, .stored-file .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

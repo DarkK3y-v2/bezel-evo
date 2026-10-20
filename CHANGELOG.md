@@ -1,11 +1,535 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows
+All notable changes to Bezel Evo are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[Semantic Versioning](https://semver.org/). Versions are computed by CI from
-the Conventional Commits.
+[Semantic Versioning](https://semver.org/). The version is the one in the
+`VERSION` file, set when a Windows release is built.
 
-## [Unreleased]
+## [0.1.59] - 2026-10-20
+
+0.1.32 to 0.1.58 were local builds; this entry and the ones below cover them.
+
+### Studio
+- The ▶ button in **Profiles and automation** now tries the transition towards
+  the selected profile (or the base themes), saved or not, holds it for three
+  seconds on the live displays and comes back the same way.
+- New transitions default to 1500 ms; the help text recommends 1500 to 2500 ms,
+  where the covers move smoothest.
+
+### Widgets
+- Native block matrices, square-pixel arcs, modern dials with scale ticks and
+  endpoint markers, rounded history bars, and mirrored two-sensor graphs.
+- Choose presets in Look → Visualization. Mirrored graphs have an independent
+  lower source and color; automatic scaling shares zero and peak across both
+  series. Missing readings remain gaps. Existing themes keep their appearance.
+
+### Fixes
+- Smoother covers: the lit edge of Curtain, Wipe and Blinds spills a little
+  light onto the scene ahead of it (never over video the screen plays itself),
+  and Mosaic tiles grow from their middle instead of appearing at once.
+- Clicking a searchable sensor result keeps the popup open through the native
+  focus change so the selected sensor is actually applied, just like keyboard selection.
+
+## [0.1.58] - 2026-10-20
+
+### Studio
+- Rules and profile icons in **Profiles and automation** take the colour of
+  what they watch, music or an app, and the controls inside each rule read as
+  part of the sentence.
+
+### Fixes
+- The ▶ button now tries the transition on every live display, also those
+  Light opened, and says when no display is live.
+- No focus ring around the whole profile dialog after removing a rule.
+
+## [0.1.57] - 2026-10-20
+
+### Studio
+- Redesign **Profiles and automation**: choose Automatic (with what shows when
+  no rule holds) or Manual on two cards, pick the base themes or a profile
+  from a list beside its detail, and edit each rule as a sentence. Deleting a
+  profile asks first. "Selected themes" is now **Base themes**.
+- Try the profile transition on the live displays with the ▶ button, without
+  saving it.
+
+### Fixes
+- Profile covers move at up to 60 frames a second instead of 20, paced by
+  what each display takes.
+
+## [0.1.56] - 2026-10-19
+
+### Studio
+- Profile changes now use one of four covers: **Curtain**, **Wipe**, **Blinds**
+  or **Mosaic**. A panel closes over the screen, the new theme is prepared
+  underneath and the panel opens on its first frame, so loading never shortens
+  the motion. Covers work on every display size and shape, also over a video
+  the screen plays itself. Saved Fade, Slide and Flip settings become Mosaic,
+  Wipe and Curtain.
+- Show a solid background colour once in the theme inspector, as the field
+  that changes it.
+
+## [0.1.55] - 2026-10-19
+
+### Fixes
+- Remember the association between a display port and its wake controller.
+  After Light restarts, a sleeping display can be found through the same wake
+  controller even when its saved display port is absent or has changed.
+  Recovery never falls back to another available monitor.
+
+### Studio
+- Name the base profile **Default** in the profile manager and tray, while
+  keeping its individual display assignments visible.
+
+## [0.1.54] - 2026-10-19
+
+### Studio
+- Use one searchable sensor picker for widget sources, colour rules and motion.
+  Search names, keys, categories or probes; grouped results show live readings
+  and availability, with keyboard navigation and numeric-only choices where needed.
+- Configure sensor rotation with **Full speed at**, **One turn every** and
+  **Start and stop** presets, including native sensor units.
+
+### Widgets
+- Add **Inertia** to value transitions: readings retain their velocity as the
+  target changes, then settle within the selected time. Reduced motion still
+  snaps to the reading; older builds fall back to the smooth transition.
+
+## [0.1.53] - 2026-10-19
+
+### Widgets
+- Drive visual rotation from a numeric sensor: fan RPM, load or another reading.
+  Set the reference reading, maximum visual turns per second, inertia and direction.
+  Zero, negative or unavailable readings decelerate to a stop at the last angle.
+- Apply motion to custom images, icons, shapes and other ordinary widgets,
+  including card/group members. Each scene keeps its own motion state;
+  output follows each display's pace without increasing sensor sampling.
+
+### Studio
+- Configure sensor-driven motion in Look. The isolated preview animates with
+  room for every angle; reduced motion shows the original static orientation.
+- Keep motion optional in theme files, preserving unchanged older themes.
+
+## [0.1.52] - 2026-10-19
+
+### Studio
+- Filter Layers by object type alongside name or sensor search. Distinguish
+  text, values, clocks and other widgets; keep matching objects' card/group
+  ancestry visible and temporarily expand folded containers while filtering.
+- Keep complete contents when a card or group itself matches the filters.
+  Filtering does not change the theme, selection or saved fold state.
+
+## [0.1.51] - 2026-10-19
+
+### Fixes
+- Wrap long sensor-source descriptions within the Sensors panel, including
+  unbroken hardware paths, so they cannot force horizontal scrolling.
+
+## [0.1.50] - 2026-10-19
+
+### Studio
+- Give the probe summary's scrollbar more breathing room beside labels and
+  restart buttons, keeping its space reserved as the list changes.
+
+## [0.1.49] - 2026-10-19
+
+### Studio
+- Use slim rounded scrollbars throughout Studio, with transparent tracks,
+  no arrow buttons and clearer hover/drag feedback in light and dark themes.
+  Preserve native scrollbars in Windows forced-colour mode.
+
+## [0.1.48] - 2026-10-19
+
+### Studio
+- Group primary GPU aliases and unsupported metrics under their actual reader
+  instead of showing individual GPU sensor keys as separate probes. Keep probe
+  counts and Sensors filters consistent across multiple graphics adapters.
+- Move restart onto each supported probe's row, with progress and duplicate-click
+  protection. Currently only the managed LibreHardwareMonitor reader supports
+  restart; remove the global footer and status-bar restart buttons.
+
+## [0.1.47] - 2026-10-19
+
+### Studio
+- Summarize sensor health by probe instead of listing physical hardware and
+  individual values. Show managed, available, unavailable and not-yet-checked
+  sensor counts, with direct links to the corresponding Sensors view.
+- Filter Sensors by probe and reading state alongside category and search.
+  Keep checking the selected probe's scope so recovered readings leave the
+  failed view automatically without disrupting unchanged rows or dragging.
+- Count text readings and valid zeros as available; distinguish unread sensors
+  from failed readings. Preserve Libre-only restart and keyboard navigation.
+
+## [0.1.46] - 2026-10-19
+
+### Studio
+- Preview desktop colour picks with a magnified pixel grid, marked centre pixel,
+  colour swatch and HEX value beside the cursor. Keep the preview on the pointed
+  monitor, including negative monitor origins and high-DPI displays.
+- Freeze the selection surface temporarily so the magnifier and selected colour
+  match exactly and the preview cannot sample itself. Keep captures only in
+  memory for the duration of the pick; Escape and right-click still cancel.
+
+## [0.1.45] - 2026-10-19
+
+0.1.44 was a local build; this entry and the one below cover it.
+
+### Packaging
+- Provide Windows x64 installer and portable packages with smooth native graph
+  scrolling, independent display pacing and the rendering frame-budget fix.
+
+## [0.1.44] - 2026-10-19
+
+### Widgets
+- Scroll line, area and bar histories smoothly between real sensor samples,
+  targeting up to 50 frames per second when rendering and the display permit.
+  Preserve sampling intervals, unavailable-reading gaps and saved theme formats.
+- Pace graph animation independently for each display: skip intermediate motion
+  while its device is busy, retain fresh samples and avoid accumulating frames.
+  Respect reduced motion and keep card-face caches from freezing moving graphs.
+- Bound graph motion after suspension to the normal sampling period. Scrolling
+  introduces up to one sample interval of visual delay without predicting values.
+- Include rendering time in the runtime's frame budget instead of adding it to
+  the wait between frames.
+
+## [0.1.43] - 2026-10-18
+
+### Fixes
+- Use a native Windows eyedropper in Studio to pick a colour from any monitor,
+  independently of browser EyeDropper support. Keep the selected opacity and
+  allow cancellation with Escape or right-click.
+- Report eyedropper failures instead of silently ignoring them; prevent duplicate
+  picks and ignore results arriving after their colour panel was dismissed.
+
+## [0.1.42] - 2026-10-18
+
+0.1.32 through 0.1.41 were local builds; these entries cover them too.
+
+### Studio
+- Format any text as uppercase, lowercase, first letter uppercase or each word
+  capitalized, or preserve the original. Case formatting supports Unicode and
+  applies to static text, sensors, clocks, weather and media without rewriting
+  their source. Drawing and natural frame sizing use the same formatted text.
+- Save case formatting with the theme and undo changes. Existing theme styles
+  retain their original appearance; clock-specific formatting remains compatible.
+
+### Themes
+- Add six graphic-only animated flagship themes alongside the six modern
+  originals: Synapse / Kinetic, Prism / Kinetic and Morph / Sound, each with
+  Wide and Round layouts.
+- Synapse combines animated orbital signals, segmented instruments and live
+  audio; Prism pairs a changing geometric knot with poster typography and
+  telemetry; Morph layers a live audio sculpture over generative geometry.
+- Decorative motion is a bounded, local transparent GIF loop; sensor readings,
+  graphs, gauges and audio spectra are native live widgets. No photographs or
+  external downloads are required. Hide the Motion layer for a still layout.
+- Redesign all six modern templates with distinct art direction: Pulse's
+  calibrated instrument cockpit, Resonance's album-led listening room and vinyl
+  spectrum, and Clarity's copper editorial clock and contrasting memory module.
+- Add local vector artwork, matching round display layouts and clearer visual
+  relationships between load, temperature, histories and audio activity.
+- Music templates include a designed standby face and automatically crossfade
+  to album artwork and track details when a media session starts playing.
+
+## [0.1.41] - 2026-10-18
+
+0.1.32 through 0.1.40 were local builds; these entries cover them too.
+
+### Studio
+- Profile changes reuse the Card effects: Fade, Slide and perspective Flip,
+  alongside an instant switch. Set direction and duration once in Profiles and
+  automation, for manual, automatic and return changes across all displays.
+- Transitions follow each display's presentation speed, interrupt from the
+  current image on rapid switches and preserve the editor's document and preview.
+  Video played directly by a device switches immediately.
+
+### Themes
+- Add six editable templates to the bundled library: Pulse / Gaming, Resonance /
+  Music and Clarity / Monitor, each in 1920×480 Wide and 480×480 Round versions.
+- Demonstrate rotating Cards, smooth values, colour thresholds, gradient gauges,
+  history graphs, palettes, independent player corners and progress styling,
+  and live spectra from the computer's output audio.
+
+## [0.1.40] - 2026-10-18
+
+0.1.32 through 0.1.39 were local builds; these entries cover them too.
+
+### Studio
+- A profile now contains a theme assignment for each display. Choosing Gaming,
+  manually or through an automatic rule, applies its different themes across
+  both screens from one shared profile selection.
+- Profile management shows the selected theme names for each display and seeds
+  new profiles from those assignments. Theme pickers show only compatible themes
+  for their display, while saved assignments for disconnected displays are kept.
+- Return choices in Studio and both trays show the selected theme names instead
+  of the ambiguous “Original theme” label.
+- Existing single-display profiles migrate to the new assignment format without
+  losing their saved theme or rules.
+
+## [0.1.39] - 2026-10-18
+
+0.1.32 through 0.1.38 were local builds; these entries cover them too.
+
+### Studio
+- Manage display profiles from Themes → Profiles and automation, or open the
+  same editor from either tray menu. Profiles associate a saved theme with a
+  display and optional application or media playback rules.
+- Select a profile manually from the Studio or Light tray, or enable Automatic.
+  Rules support foreground apps, running apps and media playing, with priorities,
+  a configurable return delay and a fallback profile. Manual selection persists.
+- Profile switching pauses while a display is being edited and resumes when
+  Studio is hidden. Unsaved documents and the editor's preview remain separate
+  from profile output; Light applies profiles without Studio running.
+- System sensors have separate PC information, Audio and Power groups, full
+  text values, readable keys and explanatory value tooltips. System status values
+  use localized Yes/No labels and omit unnecessary sparklines.
+
+### Sensors
+- Read the Windows default output's volume, mute state and device name, recovering
+  automatically when the output changes.
+- Add Windows version, running process count, AC power, battery percentage,
+  charging state and estimated remaining time. Missing hardware or estimates
+  remain unavailable instead of being shown as zero.
+
+## [0.1.38] - 2026-10-18
+
+0.1.32 through 0.1.37 were local builds; these entries cover them too.
+
+### Studio
+- All widget property panels share the new inspector design: icon-led section
+  headings, orange navigation states, cream primary text in dark mode, and
+  lighter grouping with fewer nested borders.
+- Data and Look are clearly separated from geometry by dedicated navigation
+  spacing. Common properties remain outside the tabs, and geometry fields
+  integrate their labels, values and units without changing numeric behaviour.
+- Transitions use compact duration readouts; Fahrenheit is offered only for
+  temperature sensors. Typography, conditional colours, player parts, card
+  controls and all widget-specific settings remain available.
+- Visible preview content is centred independently of the widget's saved
+  text alignment; rendered pixels and screen output remain unchanged.
+
+## [0.1.37] - 2026-10-18
+
+### Studio
+- Object inspectors show preview, membership and geometry before their tabs.
+  Membership stays visible on every tab, including the top-level context.
+- Convertible sensor widgets show their type selector beside their name;
+  changing type no longer requires opening the more-actions menu.
+- Numeric labels stay beside their compact controls. Tighter section spacing
+  and a fit-to-content action in the geometry heading reduce vertical scrolling.
+
+## [0.1.36] - 2026-10-18
+
+0.1.32 through 0.1.35 were local builds; these entries cover them too.
+
+### Studio
+- Every object inspector starts with position and size, followed by the
+  preview and property tabs, including graphs, spectrum, players and cards.
+- Appearance groups follow one shared order: structure and typography,
+  colours, edges and corners, then effects and transparency.
+
+## [0.1.35] - 2026-10-18
+
+0.1.32 through 0.1.34 were local builds; these entries cover them too.
+
+### Studio
+- Inspector number inputs now use compact controls, with explanatory icons
+  and units for geometry, rotation, typography and spectrum settings.
+- Conditional colours sit beside the paint they control. Colour, track,
+  segments, outline, transparency and corners have clearer property groups;
+  opacity stays with transparency or in its own visibility group.
+- Shared corner controls keep the same drawing and editing behaviour across
+  shapes, bars, spectrum bars and player covers, with compact shared radii.
+- Colour and font pickers stay inside the window when their contents grow.
+
+## [0.1.34] - 2026-10-18
+
+0.1.32 and 0.1.33 were local builds; this entry and the two below cover them.
+
+### Fixes
+- Windows Setup waits for the sensor reader to release its files before an
+  update or uninstall, including elevated readers whose process path Windows
+  hides. Updates also check before running an older uninstaller, preventing
+  write errors on sensor DLLs such as BlackSharp.Core.dll. Open Studio and
+  Light still block the operation so you can save and close them yourself.
+
+## [0.1.33] - 2026-10-18
+
+0.1.32 was a local build; this entry and the one below cover it.
+
+### Studio
+- **Rotate objects**: a **Rotation** field in the inspector and a handle on
+  the canvas turn any object around its centre; hold **Shift** to snap to
+  15°. Text, graphs, the spectrum and pictures turn with it, on the screen and
+  in every preview. Alignment and X/Y/W/H keep using the unrotated box. The
+  device background, Cards, groups and their members do not rotate.
+
+## [0.1.32] - 2026-10-18
+
+### Widgets
+- **Audio spectrum source**: each spectrum listens either to the app its
+  Player follows, as before, or to **the whole PC**: everything playing on the
+  output in use, with no Player needed. It is a choice, never a fallback.
+- **Amplitude (×)**: a multiplier from 0.1× to 4× for the height of the bars,
+  for loud sources such as Spotify that keep them near the top.
+- **Transparency midpoint**: a linear transparency can move the point where it
+  is halfway, from 5 % to 95 % across the object.
+
+## [0.1.31] - 2026-10-17
+
+0.1.30 was a local build; this entry and the one below cover it.
+
+### Fixes
+- An audio spectrum with nothing playing, or no sound yet, shows its bars at
+  rest instead of "Audio capture disabled". That message now appears only when
+  you turn capture off in **Preferences**.
+- When a screen was off at start-up, Studio could take the screens away from
+  Light and keep them until it was restarted, and the audio spectrum stopped
+  moving. Studio now waits for a busy Light and takes over only if Light has
+  really stopped.
+- Debug logs keep hours of history instead of a few minutes: the editor's
+  frame-by-frame traffic is summed every 10 seconds.
+
+## [0.1.30] - 2026-10-17
+
+### Widgets
+- **Audio spectrum styles**: next to the mirrored bars, the spectrum can now
+  draw **bars** rising from the bottom, **LED blocks** that take the colour of
+  their own height like a level meter, a smooth **line** with an optional fill
+  below it, and **radial** bars around an inner ring. Choose the style under
+  **Look**; the inspector shows only the settings of that style.
+
+### Fixes
+- The audio spectrum moves evenly on the screen: the bars no longer stall for
+  a moment about once a second, just before the sensors are read.
+- A spectrum on every Card face keeps moving, and sensor readings no longer
+  hold it back.
+
+## [0.1.29] - 2026-10-17
+
+0.1.27 and 0.1.28 were local builds; this entry covers them too.
+
+### Widgets
+- **Audio spectrum**: a new widget that draws the sound of the app a Player
+  follows (Spotify, a browser, …) as mirrored bars, with a centre line, held
+  peaks, three motion presets, solid or gradient colour, colour by value and
+  rounded bar corners. It listens only to that app, never the microphone or
+  the whole PC, analyses the sound in memory and records nothing. You can turn
+  it off in **Preferences**, and the widget can show a **demo** for a quick
+  look. It needs Windows 11 (build 20348 or newer).
+- A spectrum on a Card face that opens when music plays works like any other.
+  When playback stops the bars fall to zero.
+
+### Fixes
+- The **Render** chip in the status bar keeps its width when the time gains a
+  digit, and its text is centred again.
+- Light no longer crashes when the audio spectrum starts listening to an app.
+- The audio spectrum hears apps installed from the Microsoft Store, such as
+  Spotify, instead of reporting the source as unavailable.
+
+## [0.1.26] - 2026-10-16
+
+The first published release since 0.1.22 (0.1.23 to 0.1.25 were local builds),
+so this entry covers everything since then.
+
+### New interface
+- **Studio is redesigned from the ground up**, in dark and light: an icon rail
+  for Widgets, Sensors, Layers, Themes, Media and Screen; floating tool bars
+  over a dot-grid canvas; library and properties panels you can resize; a new
+  Pixel logo and tray icon. Studio now speaks Italian too, next to English and
+  Portuguese.
+- **The inspector shows what you change**: a live preview of the selected
+  object, drawn on its own at the top of the panel, and its settings split
+  into **Data** and **Look** tabs. Number fields keep their focus while you step
+  them with the arrow keys.
+- **One colour picker everywhere**: colour area, hue, opacity, hex code and an
+  eyedropper, with **Theme colours** saved in the theme, the colours **used in
+  this theme** and recent ones.
+- **A real font picker**: search, Sans/Serif/Mono filters, each name written in
+  its own font, a preview with the object's real text, and only the weights the
+  font really has. A font the PC lacks is marked, with the font used instead.
+- **Status at a glance**: a sensor chip that opens a popover with each piece of
+  hardware, its last reading and **Restart Libre**; a memory chip with how much
+  Bezel uses, per process; **Preferences → Logs** with **Open logs folder**.
+- **Quick hands**: the mouse wheel zooms around the pointer (touchpad pinch
+  too), the middle button pans, **Fit** shows the whole screen. The focus ring
+  appears only when you use the keyboard.
+- **Themes panel**: search, **New theme**, a larger theme gallery with
+  **Duplicate** and **Open in the editor**, and when each theme was changed.
+- **Screen panel**: the chosen screen only, with brightness, start with the
+  computer, the shutdown choice and **Advanced**; a clearer Storage manager.
+
+### Editing
+- **Double-click an object** (or **Fit frame to content**) to fit its frame to
+  what it draws: text in its font, images and icons at their proportions, the
+  weather and media player blocks.
+- **Colour by value**: texts, values, rings, bars, needles, graphs, shapes and
+  SVG icons change colour at the thresholds you set (for example orange from 70,
+  red from 90).
+- **Smooth values**: rings, bars, needles and values glide to each new reading.
+  New objects start smooth at 400 ms; older themes keep jumping until you turn
+  it on. Frames are sent only while something moves, fewer to a slow screen.
+- **One corners control** for shapes, Cards, images and the player's cover, with
+  a drawing that stays readable at any size.
+- **The background chooser**: one card shows the background in use; **Change
+  background…** offers a solid colour, a picture or video from this computer,
+  or a video already on the screen, and nothing changes until you confirm. The
+  theme's orientation is two buttons and its refresh has quick values.
+
+### Widgets
+- **Cards**: the faces are a plain list with **Edit** and a menu (rename,
+  duplicate, move, delete), a **Shared background** row, and **one transition**
+  for the whole Card. Automatic rotation is now a **timed trigger** ("every
+  30 s, the next face") next to the app and media triggers; themes using the
+  old rotation are converted when opened.
+- **Media player**: choose its parts (cover, title, artist, time, progress, app
+  name) and style the progress bar: continuous, segments or dots, round or
+  square ends, a knob, times in the text, at the sides or above.
+- **Graphs** have their own time window, written as a sentence ("show the last
+  5 minutes, with one point every 5 seconds") over a time ruler, independent of
+  the theme's refresh.
+
+### Light and screens
+- **Light owns the screens.** One runtime in Light runs the themes, the clock,
+  the sensors, the graph history, the transitions and the background videos;
+  Studio's canvas shows the picture Light draws. Opening and closing Studio no
+  longer redraws the screen: graphs keep their history, a video keeps playing.
+  Closing without saving goes back to the saved theme without starting over.
+- Studio and Light talk over a local channel that only your Windows user can
+  open. If Light cannot run, Studio drives the screens itself.
+- Each screen has its own worker and its own sampling, so a slow screen does not
+  hold up a fast one; Studio shows the measured time to draw a frame.
+
+### Fonts
+- **Inter and JetBrains Mono are built into Bezel**: themes always find them,
+  wherever they are saved.
+- **My fonts**: drop `.ttf`, `.otf` or `.ttc` files in
+  `%APPDATA%\Bezel Evo\fonts` to use them without installing them in Windows.
+  **Open fonts folder** and **Reload fonts** are in the font picker.
+- **Theme fonts**: **Include in theme** packs a font file inside the theme, after
+  a licence reminder, so a shared theme looks the same elsewhere; **Remove font
+  from theme** takes it out again.
+
+### Fixes
+- Themes with a refresh slower than 2 s are honoured instead of being capped,
+  and changing the refresh realigns sampling.
+- Sensors of identical hardware (two equal fans, two equal disks) are kept
+  apart.
+- The inspector no longer jumps when stepping number fields; the shared
+  background is named in a member's face picker.
+- The sensor catalogue is no longer reloaded at every sample.
+- Updated rustls with its security fix.
+
+### Platform: Windows only
+- Bezel Evo supports **Windows 10 and 11 only**. The documentation, the user
+  guide and its Portuguese translation now describe Windows only.
+- The inherited CI pipeline, which built Linux packages, is gone; the Windows
+  packages are built on demand.
+
+## Inherited from Bezel
+
+The entries below describe [Bezel](https://github.com/slipalison/bezel) up to
+the point this fork started. They are kept for history: the Linux packages,
+udev rules, systemd service and other Linux items no longer apply to Bezel Evo.
 
 ### Added
 - Cargo workspace with the hexagonal core (`bezel-core`), the device adapter

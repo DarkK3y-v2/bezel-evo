@@ -1035,6 +1035,33 @@ impl Studio {
         self.location.as_ref()
     }
 
+    /// Names and saved locations of every display document, without selecting it.
+    pub fn profile_documents(&self) -> BTreeMap<String, (String, Option<String>)> {
+        let mut documents: BTreeMap<_, _> = self
+            .documents
+            .iter()
+            .map(|(key, studio)| {
+                (
+                    key.clone(),
+                    (
+                        studio.theme().name.clone(),
+                        studio.location().map(|p| p.0.clone()),
+                    ),
+                )
+            })
+            .collect();
+        if let Some(key) = &self.selected_screen {
+            documents.insert(
+                key.clone(),
+                (
+                    self.theme().name.clone(),
+                    self.location().map(|p| p.0.clone()),
+                ),
+            );
+        }
+        documents
+    }
+
     /// The session's assets (used by the theme or added for it).
     pub fn assets(&self) -> &BTreeMap<AssetRef, Vec<u8>> {
         self.runtime.assets()
@@ -2451,13 +2478,16 @@ mod tests {
         let key = SensorKey::new("cpu.usage").unwrap();
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: Some(ValueTransition::smooth(400)),
+            sensor_motion: None,
             id: ElementId(1),
             name: "CPU".into(),
             frame: BoxF::new(20.0, 20.0, 200.0, 20.0),
             opacity: 1.0,
             visible: true,
             locked: false,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -2594,13 +2624,16 @@ mod tests {
         theme.refresh_seconds = 1.0;
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             id: ElementId(1),
             name: "Card".into(),
             frame: BoxF::new(20.0, 20.0, 100.0, 100.0),
             opacity: 1.0,
             visible: true,
             locked: false,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -2806,6 +2839,10 @@ mod tests {
         assert_eq!(second.log().frames.len(), 1);
         s.select_screen("one", theme_88());
         assert_eq!(s.theme().name, "T");
+        let documents = s.profile_documents();
+        assert_eq!(documents["one"].0, "T");
+        assert_eq!(documents["two"].0, "Second");
+        assert_eq!(s.selected_screen(), Some("one"));
         assert_eq!(s.live_key(), Some("one"));
         assert!(s.is_live("two"));
         drop(s.stop_live());
@@ -3081,8 +3118,11 @@ mod tests {
     fn graphing(mut theme: Theme) -> Theme {
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,
@@ -3363,8 +3403,11 @@ mod tests {
         let mut theme = s.theme().clone();
         theme.elements.push(Element {
             color_by_value: None,
+            visualization: None,
             value_transition: None,
+            sensor_motion: None,
             card: None,
+            rotation: 0.0,
             is_group: false,
             group_parent: None,
             card_member: None,

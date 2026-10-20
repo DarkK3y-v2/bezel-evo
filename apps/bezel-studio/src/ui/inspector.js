@@ -1,11 +1,18 @@
+import { canRotate, appliedRotation } from '../editor/rotation.js';
+import { visualization, visualStyles } from '../visualization.js';
+import { defaultSensorMotion, supportsSensorMotion } from '../sensor-motion.js';
+import { sensorNativeUnit } from '../sensor-picker-model.js';
+import { sensorPicker, closeSensorPicker, refreshSensorPicker } from './sensor-picker.js';
+import { applyTextCase, TEXT_CASES } from '../text-case.js';
+import { SPECTRUM_STYLES, followedPlayer, spectrumOf, spectrumPatch } from '../spectrum.js';
 import { MAX_COLOR_THRESHOLDS, addColorThreshold, defaultValueColor, supportsValueColor } from '../value-color.js';
 import { moveRule } from '../card-rules.js';
 import { canFitContent } from '../editor/fit-content.js';
 // The right inspector: the theme when nothing is selected, one element's
 // properties, or align/distribute tools for several. Every edit is one
 // store command (one undo step). An element's head (kind, name, layer,
-// eye, lock and more actions), its preview rendered alone by the backend
-// (D-2026-10-09-studio-redesign-fidelity-8), its tabs, position and size,
+// eye, lock, type and more actions), its preview rendered alone by the backend
+// (D-2026-10-09-studio-redesign-fidelity-8), membership, position and size, tabs,
 // then the sections of its tab (artboards Main, GraphData/Look,
 // PlayerData/Look), all built from the primitives of ui/fields.js (D-14).
 import { canGroup } from '../editor/cards.js';
@@ -14,7 +21,7 @@ import { readIcon } from '../icon-catalog.js';
 import { el, icon, svgEl as node } from './dom.js';
 import { ICONS } from './icons.js';
 import {
-  chipButton, colorPicker, dashedHint, fieldGrid, fontPicker, kindIcon, listCard, numberField,
+  chipButton, colorPicker, dashedHint, fieldGrid, fontPicker, kindIcon, numberField,
   adoptControl, cornerRadii, iconButton, prefixedField, rangeField, propertySection as section, segmented, selectField, sentence, switchRow, textField,
 } from './fields.js';
 import { joinColor, splitColor } from '../color-math.js';
@@ -26,7 +33,7 @@ import { videoStatus } from '../editor/background.js';
 import { ROTATIONS, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, framingOf, framingPercents, reframed, resolvedRotation, withoutFraming } from '../editor/video-framing.js';
 import { formatBytes } from './storage.js';
 import { DURATION_UNITS, INTERVAL_UNITS, TIME_UNITS, appChips, arcDrawing, createTabMemory, durationParts, graphRuler, graphSentence, graphTiming, graphTimingPatch, graphWindowRange, layerFacts, quickDurations, refreshChoices, tabAfterKey, tabsOf } from '../inspector-tabs.js';
-import { createPeakWatch, createPreviewScheduler, fitPreview, previewSide } from '../element-preview.js';
+import { createPeakWatch, createPreviewScheduler, fitPreview, previewOffset, previewSide } from '../element-preview.js';
 import { createPreviewAnimation } from '../preview-animation.js';
 import { CARD_TABS, renderCardPanel } from './inspector-card.js';
 import { createPickers } from './pickers.js';
@@ -39,8 +46,13 @@ const BOUND = ['value', 'bar', 'ring', 'needle', 'graph'];
 const PREVIEW_HEIGHT = 120;
 /** The edges an object aligns to on the screen, and their icons. */
 const ALIGN_EDGES = Object.freeze([['left', 'alignLeft'], ['centerX', 'alignCenterX'], ['right', 'alignRight'], ['top', 'alignTop'], ['centerY', 'alignCenterY'], ['bottom', 'alignBottom']]);
-/** A sensor's category drawn on its source card (ui/icons.js names). */
-const CATEGORY_ICON = Object.freeze({ cpu: 'chip', gpu: 'monitor', memory: 'chip', board: 'chip', network: 'download', disk: 'sdCard' });
+// The same reading order for every object's Look tab: structure/type,
+// typography, paint, edges, then effects. A kind omits what it does not use.
+const LOOK_ORDER = Object.freeze([
+  'show', 'shape', 'visualization', 'style', 'spectrum-bars', 'arc', 'spacing', 'appearance', 'font',
+  'color', 'spectrum-paint', 'fill', 'progress', 'track', 'segments',
+  'outline', 'corners', 'shadow', 'transparency', 'preview', 'visibility',
+]);
 // Illustrations of the option tiles (24-unit paths drawn like every icon):
 // the graph's styles, what the player shows and how its bar is cut.
 const ART = Object.freeze({
@@ -144,6 +156,8 @@ function arcPreview(kind) {
  */
 export function createInspector({ root, store, t, sensors, minRefresh, pickers: shared = null, editIcon = () => {}, searchCities = async () => [], video = NO_VIDEO_ACTIONS, bridge = null, host = NO_HOST }) {
   const update = (id, patch) => store.dispatch('update', { id, patch });
+  // Spectrum bars' corner mode chosen in this session, by element id (true = each corner).
+  const barCornerModes = new Map();
   // The app's pickers (ui/pickers.js); an inspector on its own makes its own, without fonts until asked.
   const pickers = shared ?? createPickers({ store, t, bridge: bridge ?? { fontCatalog: async () => null, fontFace: async () => null } });
   // A framing slider being dragged: its moves are one gesture (one undo
@@ -161,36 +175,18 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** A colour of the theme: the shared picker (D-2026-10-16-studio-redesign-fidelity-29). */
   const colorField = (label, hex, onChange, opts = {}) => colorPicker(label, hex, onChange, { ...pickers.color(), gesture, ...opts });
 
-  function sensorOptions() {
-    const groups = {};
-    for (const s of sensors.catalog()) {
-      const group = t(`category.${s.category}`);
-      (groups[group] ??= []).push([s.key, s.label]);
-    }
-    return groups;
-  }
-
   /** The last reading of `key`, from the app's last sample (null: none yet). */
   const readingOf = (key) => host.lastSample()?.readings?.[key] ?? null;
   const shownValue = (key) => readingOf(key)?.display ?? '…';
 
   /**
    * The sensor an object reads, as a card (artboards' "Sorgente"): its
-   * icon, name, mono key, value now and chevron, with the native select
-   * over it (keyboard, screen readers and the list of sensors).
+   * icon, name, mono key, value now and chevron. Every context opens the
+   * same searchable picker, with the appropriate numeric/text scope.
    */
-  function sourceCard(id, key, patchFor) {
-    const options = sensorOptions();
-    const known = Object.values(options).flat().some(([k]) => k === key);
-    if (!known) options[t('common.other')] = [[key, key]];
-    const select = selectField(t('inspector.sensor'), key, options, (k) => update(id, patchFor(k))).querySelector('select');
-    select.setAttribute('aria-label', t('inspector.sensor'));
-    const entry = sensors.catalog().find((s) => s.key === key);
-    const card = listCard({ icon: CATEGORY_ICON[entry?.category] ?? 'sensors', title: entry?.label ?? key, subtitle: key, value: shownValue(key) });
-    card.tabIndex = -1;
-    card.setAttribute('aria-hidden', 'true');
-    card.querySelector('.list-card-value').dataset.liveKey = key;
-    return el('div', { class: 'source-card' }, [card, select]);
+  function sourceCard(id, key, patchFor, { numeric = false, label = t('inspector.sensor'), scope = 'source' } = {}) {
+    return sensorPicker({ t, key, label, numeric, scope, catalog: () => sensors.catalog(), readings: () => host.lastSample()?.readings,
+      onChange: key => update(id, patchFor(key)) });
   }
 
   /** Min and max of a binding, mono-prefixed side by side. */
@@ -383,7 +379,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** The source section of an object bound to a sensor: card, Show as, and min/max when it has them. */
   function sourceSection(e, key, patchFor, { range = true } = {}) {
     return section('source', t('insp.source'), [
-      sourceCard(e.id, key, patchFor),
+      sourceCard(e.id, key, patchFor, { numeric: e.kind.type !== 'text' }),
       range && e.kind.binding ? rangeFields(e.id, e.kind.binding) : null,
     ]);
   }
@@ -405,16 +401,17 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /** The font of a text: family and face, size (unless shown elsewhere), color, alignment and spacing. */
   function fontFields(e, { size = true } = {}) {
     const s = e.kind.style;
-    const { texts, source } = pickers.font(sampleText(e));
+    const { texts, source } = pickers.font(applyTextCase(sampleText(e), s.casing));
     // A family picked instead of the theme's own font file drops that file.
     const setFont = (font) => update(e.id, { kind: { style: { font } } });
     return [
       fontPicker(texts, s.font, setFont, source),
-      size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800 }),
+      selectField(t('textCase.label'), s.casing ?? 'normal', TEXT_CASES.map((value) => [value, t(`textCase.${value}`)]), (casing) => update(e.id, { kind: { style: { casing } } })),
+      size && numberField(t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px', iconName: 'textSize' }),
       colorField(t('inspector.color'), typeof s.paint === 'string' ? s.paint : '#ffffffff', (v) => update(e.id, { kind: { style: { paint: v } } })),
       segmented(t('inspector.align'), s.align, [['left', t('common.left')], ['center', t('inspector.alignCenter')], ['right', t('common.right')]], (v) => update(e.id, { kind: { style: { align: v } } })),
       segmented(t('axis.vertical'), s.valign, [['top', t('inspector.valignTop')], ['middle', t('inspector.valignMiddle')], ['bottom', t('inspector.valignBottom')]], (v) => update(e.id, { kind: { style: { valign: v } } })),
-      numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any' }),
+      numberField(t('inspector.letterSpacing'), s.letterSpacing ?? 0, (v) => update(e.id, { kind: { style: { letterSpacing: v } } }), { step: 'any', unit: 'px', iconName: 'spacing' }),
     ];
   }
 
@@ -423,6 +420,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const s = k.style;
     const c = k.content;
     if (c.type === 'player') return playerForm(e);
+    if (c.type === 'spectrum') return spectrumForm(e);
     const nodes = [], weatherAppearance = [];
     if (c.type === 'static') nodes.push(textField(t('common.text'), c.text, (v) => update(e.id, { kind: { content: { text: v } } })));
     if (c.type === 'clock') {
@@ -431,10 +429,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         if (pattern === 'custom') root.querySelector('[list="clock-patterns"]')?.focus();
         else update(e.id, { kind: { content: { pattern } } });
       }));
-      nodes.push(selectField(t('clock.casing'), c.casing ?? 'normal', ['normal', 'upper', 'title'].map((value) => [value, t(`clock.${value}`)]), (casing) => update(e.id, { kind: { content: { casing } } })));
+      nodes.push(selectField(t('clock.casing'), e.kind.style.casing ?? c.casing ?? 'normal', TEXT_CASES.map((value) => [value, t(`textCase.${value}`)]), (casing) => update(e.id, { kind: { content: { casing: 'normal' }, style: { casing } } })));
       nodes.push(textField(t('inspector.pattern'), c.pattern, (v) => update(e.id, { kind: { content: { pattern: v } } }), { list: 'clock-patterns' }));
       nodes.push(el('datalist', { id: 'clock-patterns' }, CLOCK_PATTERNS.map((p) => el('option', { value: p }))));
-      nodes.push(el('p', { id: 'clock-preview', class: 'hint', text: t('clock.preview', { value: formatClock(c.pattern, new Date(), c.language, c.casing) }) }));
+      nodes.push(el('p', { id: 'clock-preview', class: 'hint', text: t('clock.preview', { value: applyTextCase(formatClock(c.pattern, new Date(), c.language, c.casing), e.kind.style.casing) }) }));
       nodes.push(el('p', { class: 'hint', text: t('inspector.patternHelp') }));
     }
     if (c.type === 'weather') {
@@ -476,7 +474,9 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         [['auto', t('inspector.decimalsAuto')], ['0', '0'], ['1', '1'], ['2', '2']],
         (v) => update(e.id, { kind: { content: { format: { decimals: v === 'auto' ? null : Number(v) } } } })));
       nodes.push(switchRow(t('inspector.showUnit'), c.format.showUnit !== false, (v) => update(e.id, { kind: { content: { format: { showUnit: v } } } })));
-      nodes.push(switchRow(t('inspector.fahrenheit'), c.format.fahrenheit, (v) => update(e.id, { kind: { content: { format: { fahrenheit: v } } } })));
+      if (sensors.catalog().find(sensor => sensor.key === c.key)?.quantity === 'celsius') {
+        nodes.push(switchRow(t('inspector.fahrenheit'), c.format.fahrenheit, (v) => update(e.id, { kind: { content: { format: { fahrenheit: v } } } })));
+      }
     }
     data.push(section('content', t('inspector.content'), nodes));
     if (c.type === 'sensor') data.push(transitionSection(e));
@@ -528,6 +528,60 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   }
 
   /** The media player (artboards PlayerData and PlayerLook). */
+  function spectrumForm(e) {
+    const c = spectrumOf(e.kind.content), theme = store.getState().theme;
+    const set = patch => update(e.id, { kind: { content: spectrumPatch(c, patch) } });
+    const players = theme.elements.filter(item => item.kind.type === 'text' && item.kind.content.type === 'player');
+    const selected = followedPlayer(theme, c);
+    const options = [['', t('spectrum.automatic')], ...players.map(item => [String(item.id), item.name])];
+    if (c.player != null && !players.some(p => p.id === c.player)) options.push([String(c.player), t('spectrum.playerMissing')]);
+    const paint = e.kind.style.paint, gradient = typeof paint === 'object';
+    const start = gradient ? paint.stops?.[0]?.[1] ?? '#38bdf8ff' : paint;
+    const end = gradient ? paint.stops?.at(-1)?.[1] ?? '#f97316ff' : '#f97316ff';
+    const setPaint = (mode, a = start, b = end) => update(e.id, { kind: { style: { paint: mode === 'gradient' ? { angle: 90, stops: [[0,a],[1,b]] } : a } } });
+    const STYLE_LABELS = { mirrored: 'spectrum.mirrored', bars: 'graph.bars', blocks: 'spectrum.blocks', line: 'graph.line', radial: 'fade.radial' };
+    // Fields that do not apply to the chosen style are hidden, never disabled.
+    const line = c.style === 'line';
+    const baseLabel = { mirrored: 'spectrum.centre', radial: 'spectrum.ring' }[c.style] ?? 'spectrum.baseline';
+    return {
+      data: [section('spectrum-source', t('spectrum.source'), [
+        // D-AS-13: the followed Player's app, or everything the PC plays.
+        segmented(t('spectrum.source'), c.audio, [['player', t('spectrum.audioPlayer')], ['system', t('spectrum.audioSystem')]], audio => set({ audio }), { bare: true }),
+        ...(c.audio === 'system' ? [el('p', { class: 'hint', text: t('spectrum.systemHint') })] : [
+          selectField(t('spectrum.follow'), c.player == null ? '' : String(c.player), options, v => set({ player: v ? Number(v) : null })),
+          !selected && el('p', { class: 'hint', role: 'status', text: t('spectrum.playerMissing') }),
+          el('p', { class: 'hint', text: t('spectrum.browser') }),
+        ]),
+        segmented(t('common.preview'), c.demo ? 'demo' : 'live', [['live',t('spectrum.live')],['demo',t('spectrum.demo')]], v => set({ demo: v === 'demo' })),
+        c.demo && el('p', { class: 'hint', role: 'status', text: t('spectrum.demoHint') }),
+        el('p', { class: 'hint', text: t('spectrum.enableHint') }),
+      ]), section('spectrum-bands', t('spectrum.bands'), [
+        numberField(t('spectrum.bands'), c.bands, bands => set({ bands }), { min: 8, max: 64, step: 1, iconName: 'count' }),
+        numberField(t('spectrum.low'), c.low, low => set({ low }), { min: 20, max: 23999, step: 1, unit: 'Hz', iconName: 'frequency' }),
+        numberField(t('spectrum.high'), c.high, high => set({ high }), { min: c.low + 1, max: 24000, step: 1, unit: 'Hz', iconName: 'frequency' }),
+        numberField(t('spectrum.gain'), c.gain, gain => set({ gain }), { min: 0.1, max: 4, step: 0.1, unit: '×', iconName: 'gain' }),
+        el('p', { class: 'hint', text: t('spectrum.gainHint') }),
+      ])],
+      look: [section('spectrum-paint', t('inspector.color'), [
+        selectField(t('inspector.fill'), gradient ? 'gradient' : 'solid', [['solid', t('ring.solid')],['gradient',t('spectrum.gradient')]], mode => setPaint(mode)),
+        colorField(t('inspector.color'), start, v => setPaint(gradient ? 'gradient' : 'solid', v)),
+        gradient && colorField(t('ring.endColor'), end, v => setPaint('gradient', start, v)),
+      ]), section('spectrum-bars', t('graph.bars'), [
+        selectField(t('spectrum.style'), c.style, SPECTRUM_STYLES.map(v => [v, t(STYLE_LABELS[v])]), style => set({ style })),
+        !line && numberField(t('spectrum.thickness'), c.thickness, thickness => set({ thickness }), { min: 1, max: 256, unit: 'px', iconName: 'width' }),
+        !line && numberField(t('spectrum.gap'), c.gap, gap => set({ gap }), { min: 0, max: 128, unit: 'px', iconName: 'spacing' }),
+        c.style === 'blocks' && numberField(t('spectrum.block'), c.block, block => set({ block }), { min: 1, max: 64, unit: 'px', iconName: 'height' }),
+        c.style === 'blocks' && el('p', { class: 'hint', text: t('spectrum.blockColors') }),
+        line && numberField(t('spectrum.stroke'), c.stroke, stroke => set({ stroke }), { min: 1, max: 32, unit: 'px', iconName: 'strokeWidth' }),
+        line && switchRow(t('spectrum.fill'), c.fill, fill => set({ fill })),
+        c.style === 'radial' && numberField(t('spectrum.inner'), c.inner, inner => set({ inner }), { min: 0, max: 90 }),
+        c.style !== 'blocks' && switchRow(t(baseLabel), c.centre, centre => set({ centre })),
+        !line && switchRow(t('spectrum.peaks'), c.peaks, peaks => set({ peaks })),
+        segmented(t('card.tab.motion'), c.motion, ['smooth','balanced','snappy'].map(v => [v,t(`spectrum.${v}`)]), motion => set({ motion })),
+      ]), !line && barCorners(e.id, c, set, e.frame)],
+    };
+  }
+
   function playerForm(e) {
     const c = e.kind.content;
     const s = e.kind.style;
@@ -557,8 +611,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       parts.progress ? progressSection(e, parts) : null,
       section('spacing', t('insp.spacing'), [
         fieldGrid([
-          prefixedField(t('insp.gap'), t('player.coverGap'), c.coverGap ?? s.size * 0.3, (v) => set({ coverGap: Math.max(0, v) }), { min: 0, step: 'any', unit: 'px' }),
-          prefixedField(t('insp.textSize'), t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px' }),
+          prefixedField(t('insp.gap'), t('player.coverGap'), c.coverGap ?? s.size * 0.3, (v) => set({ coverGap: Math.max(0, v) }), { min: 0, step: 'any', unit: 'px', iconName: 'spacing' }),
+          prefixedField(t('insp.textSize'), t('inspector.size'), s.size, (v) => update(e.id, { kind: { style: { size: Math.max(4, v) } } }), { min: 4, max: 800, unit: 'px', iconName: 'textSize' }),
         ]),
         el('p', { class: 'hint', text: t('insp.gapHint') }),
       ]),
@@ -613,6 +667,21 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       { box: coverBox(e.frame, c.coverGap ?? e.kind.style.size * 0.3) });
   }
 
+  /**
+   * The corners of every spectrum bar, drawn on one bar. The spectrum always
+   * stores four radii, so the chosen mode is remembered per element; without
+   * a choice, equal corners show as one radius.
+   */
+  function barCorners(id, c, set, frame) {
+    const each = barCornerModes.get(id) ?? c.corners.some((r) => r !== c.corners[0]);
+    return cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(c.corners[0], each ? c.corners : null),
+      ({ radius, corners }) => {
+        barCornerModes.set(id, Boolean(corners));
+        set({ corners: corners ?? Array(4).fill(radius) });
+      },
+      { box: { width: c.thickness, height: Math.max(c.thickness, frame.height / 2) } });
+  }
+
   /** The track of a bar or ring: on or off, and its color. */
   const trackFields = (e) => [
     switchRow(t('inspector.showTrack'), Boolean(e.kind.track), (on) => update(e.id, { kind: { track: on ? '#ffffff26' : null } })),
@@ -624,8 +693,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     return [
       switchRow(t('inspector.segments'), Boolean(seg), (on) => update(e.id, { kind: { segments: on ? { count: 10, gap: e.kind.type === 'ring' ? 4 : 2 } : null } })),
       seg && el('div', { class: 'field-row' }, [
-        numberField(t('inspector.count'), seg.count, (v) => update(e.id, { kind: { segments: { count: Math.max(1, v) } } }), { min: 1, max: 200 }),
-        numberField(t('inspector.gap'), seg.gap, (v) => update(e.id, { kind: { segments: { gap: Math.max(0, v) } } }), { min: 0, step: 'any' }),
+        numberField(t('inspector.count'), seg.count, (v) => update(e.id, { kind: { segments: { count: Math.max(1, v) } } }), { min: 1, max: 200, iconName: 'count' }),
+        numberField(t('inspector.gap'), seg.gap, (v) => update(e.id, { kind: { segments: { gap: Math.max(0, v) } } }), { min: 0, step: 'any', unit: e.kind.type === 'ring' ? '°' : 'px', iconName: 'spacing' }),
       ]),
     ];
   }
@@ -635,21 +704,22 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     const { mode, durationMs } = transitionOf(e);
     const set = (change) => update(e.id, { valueTransition: transitionPatch(e, change) });
     return section('transition', t('insp.transition'), [
-      segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')]], (next) => set({ mode: next }), { bare: true }),
-      mode === 'smooth' && rangeField(t('card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs }),
-      el('p', { class: 'hint', text: t('insp.transitionHint') }),
+      segmented(t('insp.transition'), mode, [['none', t('fade.none')], ['smooth', t('insp.transitionSmooth')], ['inertia', t('insp.transitionInertia')]], (next) => set({ mode: next }), { bare: true }),
+      mode !== 'none' && rangeField(t(mode === 'inertia' ? 'insp.transitionSettling' : 'card.duration'), durationMs, (next) => set({ durationMs: next }), { ...TRANSITION_RANGE, format: formatMs, compact: true }),
+      el('p', { class: 'hint', text: t(mode === 'inertia' ? 'insp.transitionInertiaHint' : 'insp.transitionHint') }),
     ]);
   }
 
   function barForm(e) {
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
-    const look = [section('appearance', t('inspector.appearance'), [
+    const look = [section('style', t('inspector.style'), [
       selectField(t('common.direction'), k.direction, ['leftToRight', 'rightToLeft', 'bottomToTop', 'topToBottom'].map((d) => [d, t(`dir.${d}`)]), (v) => update(e.id, { kind: { direction: v } })),
+    ]), section('color', t('inspector.color'), [
       colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#38bdf8ff', (v) => update(e.id, { kind: { fill: v } })),
-      ...trackFields(e),
-      ...segmentsFields(e),
-    ]), cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0), ({ radius }) => update(e.id, { kind: { radius } }),
+    ]), section('track', t('inspector.track'), trackFields(e)),
+    section('segments', t('inspector.segments'), segmentsFields(e)),
+    cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0), ({ radius }) => update(e.id, { kind: { radius } }),
       { individual: false, box: e.frame })];
     return { data, look };
   }
@@ -696,10 +766,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       transitionSection(e),
     ];
     const look = [
-      section('appearance', t('inspector.appearance'), [
-        ...ringFillFields(e),
-        ...trackFields(e),
-        ...segmentsFields(e),
+      section('color', t('inspector.color'), ringFillFields(e)),
+      section('track', t('inspector.track'), trackFields(e)),
+      section('segments', t('inspector.segments'), segmentsFields(e)),
+      section('preview', t('common.preview'), [
         switchRow(t('ring.testFull'), Boolean(k.testFull), (v) => update(e.id, { kind: { testFull: v } })),
       ]),
     ];
@@ -709,14 +779,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   function needleForm(e) {
     const k = e.kind;
     const data = [sourceSection(e, k.binding.key, (key) => ({ kind: { binding: { key } } })), transitionSection(e)];
-    const look = [section('appearance', t('inspector.appearance'), [
+    const look = [section('arc', t('insp.arc'), [
       angleFields(e),
       fieldGrid([
         prefixedField(t('insp.xPrefix'), t('inspector.pivotX'), Math.round((k.pivot?.[0] ?? 0.5) * 100), (v) => update(e.id, { kind: { pivot: [v / 100, k.pivot?.[1] ?? 0.5] } }), { min: 0, max: 100, unit: '%' }),
         prefixedField(t('insp.yPrefix'), t('inspector.pivotY'), Math.round((k.pivot?.[1] ?? 0.5) * 100), (v) => update(e.id, { kind: { pivot: [k.pivot?.[0] ?? 0.5, v / 100] } }), { min: 0, max: 100, unit: '%' }),
       ]),
-      colorField(t('inspector.color'), k.color, (v) => update(e.id, { kind: { color: v } })),
       rangeField(t('inspector.lineWidth'), k.width, (v) => update(e.id, { kind: { width: Math.max(1, v) } }), { min: 1, max: Math.max(32, k.width), format: (v) => t('insp.px', { value: v }) }),
+    ]), section('color', t('inspector.color'), [
+      colorField(t('inspector.color'), k.color, (v) => update(e.id, { kind: { color: v } })),
     ])];
     return { data, look };
   }
@@ -809,7 +880,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       dashedHint([t('insp.historyHint')], { iconName: 'info' }),
     ];
     // Look (artboard GraphLook): the style, the color, the fill of an area and the line.
-    const style = (value, text) => ({ text, art: ART[value], pressed: k.style === value, onClick: () => k.style !== value && update(e.id, { kind: { style: value } }) });
+    const style = (value, text) => ({ text, art: ART[value], pressed: k.style === value, onClick: () => k.style !== value && update(e.id, { kind: { style: value }, ...(e.visualization?.style === 'rounded' && value !== 'bars' ? { visualization:null } : {}) }) });
     const { rgb } = splitColor(k.color);
     const fillAlpha = typeof k.fill === 'string' ? splitColor(k.fill).alpha : 25;
     const look = [
@@ -837,13 +908,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         : el('p', { class: 'hint', text: t('inspector.addMediaFirst') }),
     ])];
     const look = [section('appearance', t('inspector.appearance'), [
-      ...fadeFields(e),
-      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color }), { live: false }),
-      paint?.style === 'outline' && numberField(t('inspector.strokeWidth'), paint.stroke, (stroke) => change({ stroke: Math.min(4, Math.max(0.5, stroke)) }), { min: 0.5, max: 4, step: 0.5 }),
-      paint && numberField(t('icons.shadow'), paint.shadow, (shadow) => change({ shadow: Math.min(4, Math.max(0, shadow)) }), { min: 0, max: 4, step: 0.5 }),
-      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor }), { live: false }),
       selectField(t('inspector.fit'), k.fit, ['fill', 'contain', 'cover', 'none'].map((f) => [f, t(`fit.${f}`)]), (v) => update(e.id, { kind: { fit: v } })),
-    ])];
+    ]), section('color', t('inspector.color'), [
+      paint && colorField(t('inspector.color'), paint.color, (color) => change({ color }), { live: false }),
+      paint?.style === 'outline' && numberField(t('inspector.strokeWidth'), paint.stroke, (stroke) => change({ stroke: Math.min(4, Math.max(0.5, stroke)) }), { min: 0.5, max: 4, step: 0.5, unit: 'px', iconName: 'strokeWidth' }),
+    ]), section('shadow', t('icons.shadow'), [
+      paint && numberField(t('icons.shadow'), paint.shadow, (shadow) => change({ shadow: Math.min(4, Math.max(0, shadow)) }), { min: 0, max: 4, step: 0.5, unit: 'px' }),
+      paint && paint.shadow > 0 && colorField(t('icons.shadowColor'), paint.shadowColor, (shadowColor) => change({ shadowColor }), { live: false }),
+    ]), section('transparency', t('fade.mode'), fadeFields(e))];
     return { data, look };
   }
 
@@ -861,7 +933,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
           numberField(t('fade.centerX'), Math.round(f.radial[0]*100), x => set({ radial: [Math.max(0,Math.min(100,x))/100,f.radial[1],f.radial[2]] }), {min:0,max:100}),
           numberField(t('fade.centerY'), Math.round(f.radial[1]*100), y => set({ radial: [f.radial[0],Math.max(0,Math.min(100,y))/100,f.radial[2]] }), {min:0,max:100}),
           numberField(t('fade.extent'), Math.round(f.radial[2]*100), r => set({ radial: [f.radial[0],f.radial[1],Math.max(1,Math.min(200,r))/100] }), {min:1,max:200}),
-        ] : [numberField(t('shape.fadeAngle'), f.angle, angle => set({angle:Math.max(-360,Math.min(360,angle))}), {min:-360,max:360})]),
+        ] : [
+          numberField(t('shape.fadeAngle'), f.angle, angle => set({angle:Math.max(-360,Math.min(360,angle))}), {min:-360,max:360}),
+          rangeField(t('fade.midpoint'), Math.round((f.midpoint ?? .5)*100), v => set({midpoint:Math.max(5,Math.min(95,v))/100}), {min:5,max:95,format:v=>`${v}%`}),
+        ]),
         rangeField(t('shape.fadeStart'), Math.round(f.start*100), v => set({start:v/100}), {format:v=>`${v}%`}),
         rangeField(t('shape.fadeEnd'), Math.round(f.end*100), v => set({end:v/100}), {format:v=>`${v}%`}),
       ] : []),
@@ -870,14 +945,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
 
   function shapeForm(e) {
     const k = e.kind;
-    return { look: [section('appearance', t('inspector.appearance'), [
+    return { look: [section('shape', t('common.shape'), [
       segmented(t('common.shape'), k.shape, [['rect', t('shape.rect')], ['ellipse', t('shape.ellipse')]], (v) => update(e.id, { kind: { shape: v } })),
       switchRow(t('shape.videoWindow'), Boolean(k.videoWindow), (videoWindow) => update(e.id, { kind: { videoWindow } })),
+    ]), section('color', t('inspector.color'), [
       k.videoWindow ? el('div', {}, [el('p', { class: 'hint', text: t('shape.videoWindowHint') }), button(t('deviceVideo.choose'), () => video.openStorage())]) : colorField(t('inspector.fill'), typeof k.fill === 'string' ? k.fill : '#1e293bff', (v) => update(e.id, { kind: { fill: v } })),
-      ...fadeFields(e),
-      el('div', { class: 'field-row' }, [
-        numberField(t('inspector.strokeWidth'), k.strokeWidth ?? 0, (v) => update(e.id, { kind: { strokeWidth: Math.max(0, v), stroke: v > 0 ? (k.stroke ?? '#ffffffff') : null } }), { min: 0 }),
-      ]),
+    ]), section('transparency', t('fade.mode'), fadeFields(e)),
+    section('outline', t('insp.outline'), [
+      numberField(t('inspector.strokeWidth'), k.strokeWidth ?? 0, (v) => update(e.id, { kind: { strokeWidth: Math.max(0, v), stroke: v > 0 ? (k.stroke ?? '#ffffffff') : null } }), { min: 0, unit: 'px', iconName: 'strokeWidth' }),
       (k.strokeWidth ?? 0) > 0 && colorField(t('inspector.stroke'), k.stroke ?? '#ffffffff', (v) => update(e.id, { kind: { stroke: v } })),
     ]), k.shape === 'rect' ? cornersSection(t('insp.cornersTitle'), t('inspector.radius'), cornerValue(k.radius ?? 0, k.corners),
       ({ radius, corners }) => update(e.id, { kind: { radius, corners } }), { box: e.frame }) : null] };
@@ -896,11 +971,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   }
 
   function membershipForm(e, theme) {
-    if (e.card) return [];
+    const facts = layerFacts(theme, e);
+    const summary = el('p', { class: 'hint membership-location', text: facts.group
+      ? t('insp.inGroup', { group: facts.group }) : t('layers.rootDrop') });
+    if (e.card) return [summary];
     const cards = theme.elements.filter(p => p.card);
-    if (!cards.length) return [];
+    if (!cards.length) return [summary];
     const parent = cards.find(p => p.id === e.cardMember?.parent);
     return [
+      e.groupParent != null && summary,
       selectField(t('widget.card'), parent ? String(parent.id) : '', [['', t('card.none')], ...cards.map(p => [String(p.id), p.name])], value => {
         const target = cards.find(p => String(p.id) === value);
         store.dispatch('attachCard', { ids: [e.id], parent: target?.id, face: target?.card.activeFace ?? null });
@@ -927,11 +1006,10 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
   /**
    * The panels of an object as tabs (ARIA tabs: ←/→, Home, End), only those
    * with something in them; one alone is shown without a tab list.
-   * `between` goes after the tab list, before the panels (position and size).
    */
-  function tabbed(kind, panels, between = null) {
+  function tabbed(kind, panels) {
     const offered = tabsOf(kind).filter(tab => panels[tab]?.some(Boolean));
-    if (offered.length < 2) return [between, ...offered.flatMap(tab => panels[tab])];
+    if (offered.length < 2) return offered.flatMap(tab => panels[tab]);
     const open = tabMemory.current(kind, offered);
     const list = el('div', { class: 'inspector-tabs subtabs', role: 'tablist', 'aria-label': t(kind === 'card' ? 'card.tabs' : 'inspector.tabs') });
     const views = offered.map(tab => el('div', {
@@ -950,8 +1028,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     for (const tab of offered) {
       list.append(el('button', {
         type: 'button', role: 'tab', id: `inspector-tab-${tab}`, 'aria-controls': `inspector-panel-${tab}`, 'aria-selected': String(tab === open),
-        tabindex: tab === open ? '0' : '-1', dataset: { tab }, text: tabName(kind, tab), onclick: () => show(tab, false),
-      }));
+        tabindex: tab === open ? '0' : '-1', dataset: { tab }, title: tabName(kind, tab), onclick: () => show(tab, false),
+      }, [icon(ICONS[tab === 'data' ? 'database' : tab === 'look' ? 'brush' : tab === 'faces' ? 'layers' : tab === 'motion' ? 'play' : 'sliders'], 16), tabName(kind, tab)]));
     }
     list.addEventListener('keydown', evt => {
       const next = tabAfterKey(offered, evt.target.dataset?.tab, evt.key);
@@ -959,7 +1037,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       evt.preventDefault();
       show(next, true);
     });
-    return [list, between, ...views];
+    return [list, ...views];
   }
 
   // ------------------------------------------------------------ preview --
@@ -1015,6 +1093,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     target.height = frame.height;
     target.style.width = `${size.width}px`;
     target.style.height = `${size.height}px`;
+    const offset = previewOffset(frame);
+    target.style.transform = `translate(${offset.x * size.width / frame.width}px, ${offset.y * size.height / frame.height}px)`;
     target.getContext('2d').putImageData(new ImageData(pixels instanceof Uint8ClampedArray ? pixels : new Uint8ClampedArray(pixels), frame.width, frame.height), 0, 0);
   }
 
@@ -1072,6 +1152,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       seenAt = Date.now();
     }
     for (const node of root.querySelectorAll('[data-live-key]')) node.textContent = sample.readings?.[node.dataset.liveKey]?.display ?? '…';
+    refreshSensorPicker();
     const peak = root.querySelector('[data-peak-key]');
     if (peak) {
       const key = peak.dataset.peakKey;
@@ -1105,6 +1186,8 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       else name.value = e.name;
     });
     const hidden = e.visible === false;
+    const type = showAs(e, theme);
+    type?.classList.add('inspector-type');
     const tool = (label, paths, onclick, attrs = {}) => iconButton(label, paths, onclick, { class: 'quiet', ...attrs });
     return el('div', { class: 'inspector-head' }, [
       kindIcon(e.isGroup ? 'groupFrame' : widget),
@@ -1116,13 +1199,14 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
         evt.currentTarget.setAttribute('aria-expanded', String(actionsOpen));
         root.querySelector('#inspector-actions').hidden = !actionsOpen;
       }, { 'aria-expanded': String(actionsOpen), 'aria-controls': 'inspector-actions' }),
+      type,
     ]);
   }
 
   /** An align button: the selection to an edge (a lone object: of the screen). */
   const alignTool = (ids, edge, paths) => el('button', { type: 'button', class: 'icon-button', title: t(`align.${edge}`), 'aria-label': t(`align.${edge}`), onclick: () => store.dispatch('align', { ids, edge }) }, [icon(paths, 16)]);
 
-  /** What the tabs of an element hold: its kind's sections, then its membership and look. */
+  /** Conditional paint controls live beside the paint they affect. */
   function valueColorSection(e, assets) {
     if (!supportsValueColor(e)) return null;
     const rule = e.colorByValue;
@@ -1136,12 +1220,12 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
       target?.focus();
     });
     const reorder = (i, to, action) => { set({ ...rule, thresholds: moveRule(rows, i, to) }); focusRow(to, action); };
-    return section('value-color', t('insp.colorByValue'), [
+    return el('div', { class: 'value-color', dataset: { section: 'value-color' }, role: 'group', 'aria-label': t('insp.colorByValue') }, [
       switchRow(t('insp.colorByValue'), Boolean(rule), enabled => set(enabled ? defaultValueColor(e,
         sensors.catalog()[0]?.key ?? '', readIcon(assets.find(a => a.ref === e.kind.asset)?.iconSvg)?.color) : null)),
       ...(rule ? [
-        boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }))
-          : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } })),
+        e.kind.content?.type === 'spectrum' ? el('p', { class: 'hint', text: t('spectrum.levelScale') }) : boundKey(e) ? sourceCard(e.id, boundKey(e), key => ({ kind: e.kind.type === 'text' ? { content: { key } } : { binding: { key } } }), { numeric: true, scope: 'color' })
+          : sourceCard(e.id, rule.sensor ?? '', sensor => ({ colorByValue: { sensor } }), { numeric: true, scope: 'color' }),
         colorField(t('insp.baseColor'), rule.base, base => set({ ...rule, base })),
         el('p', { class: 'hint', text: t('insp.colorThresholdHint') }),
         ...rows.map((row, i) => el('div', { class: 'trigger-rule', role: 'group', 'aria-label': t('insp.colorThresholdRow', { value: i + 1 }), dataset: { colorRow: String(i), focusScope: `color-${i}` } }, [
@@ -1158,19 +1242,85 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     ]);
   }
 
+  function sensorMotionSection(e) {
+    if (!supportsSensorMotion(e)) return null;
+    const motion = e.sensorMotion;
+    const set = sensorMotion => update(e.id, { sensorMotion });
+    return section('sensor-motion', t('insp.sensorMotion'), [
+      switchRow(t('insp.sensorMotionEnabled'), Boolean(motion), enabled => set(enabled ? defaultSensorMotion(sensors.catalog(), e) : null)),
+      ...(motion ? [
+        sourceCard(e.id, motion.sensor, sensor => ({ sensorMotion: { ...motion, sensor } }), { numeric: true, label: t('insp.motionSource'), scope: 'motion' }),
+        numberField(t('insp.motionReference'), motion.reference, value => set({ ...motion, reference: Math.max(.001, Math.min(1e12, value)) }), { min: .001, max: 1e12, step: 'any', unit: sensorNativeUnit(sensors.catalog().find(s => s.key === motion.sensor)?.quantity) }),
+        numberField(t('insp.motionPeriod'), 1 / motion.turnsPerSecond, value => set({ ...motion, turnsPerSecond: 1 / Math.max(.1, Math.min(100, value)) }), { min: .1, max: 100, step: 'any', unit: t('insp.motionSeconds') }),
+        segmented(t('insp.motionResponse'), String(motion.inertiaMs), [
+          ['0', t('insp.motionImmediate')], ['600', t('insp.motionGradual')], ['1500', t('insp.motionSoft')],
+          ...([0, 600, 1500].includes(motion.inertiaMs) ? [] : [[String(motion.inertiaMs), t('insp.motionCustom')]]),
+        ], value => set({ ...motion, inertiaMs: Number(value) })),
+        el('p', { class: 'hint', text: t('insp.motionMapping', { value: motion.reference, unit: sensorNativeUnit(sensors.catalog().find(s => s.key === motion.sensor)?.quantity), seconds: new Intl.NumberFormat(document.documentElement.lang || 'en', { maximumFractionDigits: 2 }).format(1 / motion.turnsPerSecond) }) }),
+        switchRow(t('insp.motionReverse'), motion.reverse, reverse => set({ ...motion, reverse })),
+        el('p', { class: 'hint', text: t('insp.motionHint') }),
+      ] : []),
+    ]);
+  }
+
   function panelsOf(e, theme, assets) {
     const kindForms = { text: textForm, bar: barForm, ring: ringForm, needle: needleForm, graph: graphForm, shape: shapeForm };
     const specific = e.isGroup ? {} : e.kind.type === 'image' ? imageForm(e, assets) : kindForms[e.kind.type]?.(e) ?? {};
-    // The opacity closes the Look tab: in its last section, or alone under "Appearance".
+    // Conditional colour belongs beside the paint it controls. Opacity has a
+    // stable group of its own instead of ending up among corners or thresholds.
     const opacity = rangeField(t('inspector.opacity'), Math.round((e.opacity ?? 1) * 100), v => update(e.id, { opacity: v / 100 }), { format: v => `${v}%` });
-    const look = [...(specific.look ?? []), valueColorSection(e, assets)].filter(Boolean);
-    if (look.length) look.at(-1).querySelector('.property-section-body').append(opacity);
-    else look.push(section('appearance', t('inspector.appearance'), [opacity]));
+    const look = [visualizationFields(e), ...(specific.look ?? []).filter(group => {
+      if (['matrix','pixel'].includes(e.visualization?.style) && group?.dataset.section === 'segments') return false;
+      return !(e.visualization?.style === 'matrix' && group?.dataset.section === 'corners');
+    }), sensorMotionSection(e)].filter(Boolean);
+    if (e.kind.type === 'graph' && e.visualization?.style === 'mirrored') {
+      const v = e.visualization;
+      const set = patch => update(e.id, { visualization: { ...v, ...patch } });
+      const b = v.secondary;
+      (specific.data ??= []).splice(1, 0, section('secondary-source', t('visual.secondary'), [
+        sourceCard(e.id, b?.key ?? '', key => ({ visualization: { ...v, secondary: { key, min: b?.min ?? 0, max: b?.max ?? 100 } } }), { numeric: true, label: t('visual.secondary'), scope: 'secondary-source' }),
+        b && !e.kind.autoscale && fieldGrid([
+          prefixedField(t('insp.minPrefix'), t('inspector.min'), b.min, min => set({ secondary: { ...b, min: Math.min(min,b.max-0.001) } }), { step:'any' }),
+          prefixedField(t('insp.maxPrefix'), t('inspector.max'), b.max, max => set({ secondary: { ...b, max: Math.max(max,b.min+0.001) } }), { step:'any' }),
+        ]),
+        colorField(t('visual.secondaryColor'), v.secondaryColor, secondaryColor => set({ secondaryColor })),
+        el('p', { class:'hint', text:t('visual.mirroredHint') }),
+      ]));
+    }
+    const conditional = valueColorSection(e, assets);
+    if (conditional) {
+      const paint = look.flatMap(group => [...group.querySelectorAll('.color-field')])[0];
+      const group = paint?.closest('.property-section');
+      if (['color', 'spectrum-paint'].includes(group?.dataset.section)) group.querySelector('.property-section-body').append(conditional);
+      else if (paint) paint.after(conditional);
+      else look.push(section('color', t('inspector.color'), [conditional]));
+    }
+    const transparency = look.find(group => group.dataset.section === 'transparency');
+    if (transparency) transparency.querySelector('.property-section-body').append(opacity);
+    else look.push(section('visibility', t('insp.visibility'), [opacity]));
+    const rank = group => { const index = LOOK_ORDER.indexOf(group.dataset.section); return index < 0 ? LOOK_ORDER.length : index; };
+    look.sort((a, b) => rank(a) - rank(b));
     if (e.card) return { ...cardPanels(e), look };
     return {
-      data: [...(specific.data ?? []), section('membership', t('inspector.membership'), membershipForm(e, theme))],
+      data: specific.data ?? [],
       look,
     };
+  }
+
+  function visualizationFields(e) {
+    const styles = visualStyles(e.kind.type);
+    if (!styles.length || e.isGroup) return null;
+    const v = e.visualization;
+    const set = patch => update(e.id, { visualization: { ...v, ...patch } });
+    const n = (key, value, min, max) => numberField(t(`visual.${key}`), value, x => set({ [key]: Math.min(max,Math.max(min,Math.round(x))) }), { min,max });
+    return section('visualization', t('visual.title'), [
+      selectField(t('visual.preset'), v?.style ?? 'standard', styles.map(s => [s,t(`visual.${s}`)]), style => update(e.id, { visualization: visualization(style,v ?? {}), ...(style === 'rounded' ? { kind: { style:'bars' } } : {}) })),
+      v?.style === 'matrix' && fieldGrid([n('columns',v.columns,1,64),n('rows',v.rows,1,32)]),
+      ['matrix','rounded','mirrored'].includes(v?.style) && numberField(t('visual.gap'),v.gap,gap=>set({gap:Math.max(0,Math.min(32,gap))}),{min:0,max:32,unit:'px'}),
+      ['matrix','pixel'].includes(v?.style) && numberField(t('visual.radius'),v.radius,radius=>set({radius:Math.max(0,Math.min(32,radius))}),{min:0,max:32,unit:'px'}),
+      ['pixel','dial'].includes(v?.style) && n('ticks',v.ticks,2,120),
+      v?.style === 'dial' && switchRow(t('visual.marker'),v.marker,marker=>set({marker})),
+    ]);
   }
 
   function elementForm(e, theme, assets) {
@@ -1180,16 +1330,16 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     shownElement = e;
     const setFrame = patch => store.dispatch('setFrame', { id: e.id, frame: { ...f, ...patch } });
     const position = section('position', t('inspector.position'), [
-      fieldGrid([
-        prefixedField(t('insp.xPrefix'), t('inspector.x'), f.x, v => setFrame({ x: v })),
-        prefixedField(t('insp.yPrefix'), t('inspector.y'), f.y, v => setFrame({ y: v })),
-        prefixedField(t('insp.widthPrefix'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4 }),
-        prefixedField(t('insp.heightPrefix'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4 }),
+      el('div', { class: 'fld-grid geometry-fields' }, [
+        prefixedField(t('insp.xPrefix'), t('inspector.x'), f.x, v => setFrame({ x: v }), { unit: 'px' }),
+        prefixedField(t('insp.yPrefix'), t('inspector.y'), f.y, v => setFrame({ y: v }), { unit: 'px' }),
+        prefixedField(t('insp.widthLabel'), t('inspector.width'), f.width, v => setFrame({ width: Math.max(4, v) }), { min: 4, unit: 'px' }),
+        prefixedField(t('insp.heightLabel'), t('inspector.height'), f.height, v => setFrame({ height: Math.max(4, v) }), { min: 4, unit: 'px' }),
       ]),
-      chipButton(t('insp.fitContent'), false, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id) }),
+      canRotate(theme, e) && el('div', { class: 'geometry-rotation' }, [prefixedField(t('insp.rotation'), t('insp.rotation'), appliedRotation(e), rotation => store.dispatch('rotate', { id: e.id, rotation }), { step: 'any', unit: '°' })]),
       el('div', { class: 'align-row', role: 'group', 'aria-label': t('insp.alignOn') }, ALIGN_EDGES.map(([edge, name]) => alignTool([e.id], edge, ICONS[name]))),
-    ]);
-    const actions = section('actions', t('inspector.actions'), [showAs(e, theme), el('div', { class: 'actions' }, [
+    ], { tool: iconButton(t('insp.fitContent'), ICONS.frame, () => host.fitContent?.(e.id), { disabled: !canFitContent(theme, e.id), class: 'quiet' }) });
+    const actions = section('actions', t('inspector.actions'), [el('div', { class: 'actions' }, [
       e.isGroup && el('button', { type: 'button', class: 'text-button', text: t('group.ungroup'), onclick: () => store.dispatch('ungroup', { ids: [e.id] }) }),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: theme.elements.length }) }, [t('inspector.front')]),
       el('button', { type: 'button', class: 'text-button', onclick: () => store.dispatch('reorder', { id: e.id, index: 0 }) }, [t('inspector.back')]),
@@ -1198,17 +1348,15 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
     ])]);
     actions.id = 'inspector-actions';
     actions.hidden = !actionsOpen;
-    // The isolated preview always sits right under the head, before the tabs
-    // (D-2026-10-15-studio-redesign-fidelity-17). Main puts geometry first and
-    // the ring's source/arc together; the standalone Graph/Player boards put
-    // data first, with geometry below.
-    const dataFirst = widget === 'graph' || widget === 'player' || widget === 'card';
+    // Identify and preview the object, establish its context, then edit its
+    // geometry. These areas stay visible independently of the active tab.
     return [
       header(e, widget, theme),
       actions,
       preview(e),
-      ...tabbed(kind, panelsOf(e, theme, assets), dataFirst ? null : position),
-      dataFirst ? position : null,
+      section('membership', t('inspector.membership'), membershipForm(e, theme)),
+      position,
+      ...tabbed(kind, panelsOf(e, theme, assets)),
     ];
   }
 
@@ -1239,6 +1387,7 @@ export function createInspector({ root, store, t, sensors, minRefresh, pickers: 
 
   /** Renders for the current store state. */
   function render(assets = []) {
+    closeSensorPicker();
     // A framing slider under the pointer stays; the form follows at its end.
     if (sliding && store.isGesturing()) return;
     sliding = false;

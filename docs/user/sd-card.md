@@ -13,37 +13,11 @@ tested with a 32 GB card.
 **Formatting erases everything on the card.** Check twice that you picked the
 card and not another disk.
 
-## Linux, with GNOME Disks
-
-1. Open **Disks** and select the card in the list on the left (check its size).
-2. In the menu at the top right, choose **Format Disk…**, pick **Compatible with
-   all systems and devices (MBR / DOS)** and confirm.
-3. Click **+** under the empty space to create a partition of the whole card,
-   type **For use with all systems and devices (FAT)**, and confirm.
-
-## Linux, in a terminal
-
-Find the card by its size and name (for example `sdb`, or `mmcblk0` for a
-built-in reader):
-
-```bash
-lsblk -o NAME,SIZE,MODEL,TRAN
-```
-
-Then, replacing `sdX` with the card (unmount it first if the desktop mounted it):
-
-```bash
-sudo parted /dev/sdX --script mklabel msdos mkpart primary fat32 1MiB 100%
-sudo mkfs.vfat -F 32 /dev/sdX1
-```
-
-For an `mmcblk0` card the partition is `/dev/mmcblk0p1`.
-
-## Windows
+## Formatting on Windows
 
 In File Explorer, right-click the card, choose **Format…**, pick **FAT32** and
 click **Start**. Windows offers FAT32 only for cards up to 32 GB; for a larger
-card, format it on Linux or with a FAT32 formatting tool.
+card, use a third-party FAT32 formatting tool.
 
 ## In the screen
 

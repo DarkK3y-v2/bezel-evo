@@ -21,6 +21,43 @@ const alphaAt = (preview, fx, fy) => preview.evaluate((canvas, [x, y]) => {
   return canvas.getContext('2d').getImageData(px, py, 1, 1).data[3];
 }, [fx, fy]);
 
+test('visible preview content stays centred when the widget text aligns left or right', async ({ page, t }) => {
+  const errors = watchErrors(page);
+  await page.goto('/index.html?demo=turing88');
+  await expect(page.locator('#theme-name')).toHaveValue('Demo');
+  await add(page, t, 'text');
+  const inspector = page.locator('#inspector');
+  await inspector.getByRole('textbox', { name: t('common.text'), exact: true }).fill('Hi');
+  await inspector.getByRole('textbox', { name: t('common.text'), exact: true }).press('Tab');
+  await tab(page, t, 'inspector.tab.look');
+  const preview = inspector.locator('.inspector-preview canvas');
+  const alignment = inspector.getByRole('group', { name: t('inspector.align'), exact: true });
+  const bounds = () => preview.evaluate(canvas => {
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    let left = canvas.width, right = -1, top = canvas.height, bottom = -1;
+    for (let y = 0; y < canvas.height; y++) for (let x = 0; x < canvas.width; x++) {
+      if (!pixels[(y * canvas.width + x) * 4 + 3]) continue;
+      left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+    const box = canvas.getBoundingClientRect(), stage = canvas.parentElement.getBoundingClientRect();
+    return { left, right, error: Math.max(
+      Math.abs(box.left + (left + right + 1) / 2 * box.width / canvas.width - (stage.left + stage.right) / 2),
+      Math.abs(box.top + (top + bottom + 1) / 2 * box.height / canvas.height - (stage.top + stage.bottom) / 2),
+    ) };
+  });
+  await alignment.getByRole('button', { name: t('common.left'), exact: true }).click();
+  await expect.poll(async () => (await bounds()).right).toBeGreaterThan(0);
+  await expect.poll(async () => (await bounds()).error).toBeLessThan(1);
+  const left = (await bounds()).left;
+  await alignment.getByRole('button', { name: t('common.right'), exact: true }).click();
+  // The actual pixels retain the object's alignment; only their display is centred.
+  await expect.poll(async () => (await bounds()).left).toBeGreaterThan(left + 10);
+  await expect.poll(async () => (await bounds()).error).toBeLessThan(1);
+  await expect(alignment.getByRole('button', { name: t('common.right'), exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expectAccessible(page);
+  expect(errors).toEqual([]);
+});
+
 test('the preview draws the object alone: an object under it is absent, and its color follows the edit', async ({ page, t }) => {
   const errors = watchErrors(page);
   await page.goto('/index.html?demo=turing88');
@@ -80,7 +117,7 @@ test('the head names the object, its kind and layer; the eye hides it and the lo
   // The source card shows the sensor's key and value now over its select.
   await expect(inspector.locator('.source-card .list-card-sub')).toHaveText('cpu.usage');
   await expect(inspector.locator('.source-card .list-card-value')).toHaveText(/%$/);
-  await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveValue('cpu.usage');
+  await expect(inspector.getByRole('combobox', { name: t('inspector.sensor'), exact: true })).toHaveAttribute('data-sensor-key', 'cpu.usage');
   const arc = inspector.locator('.arc-preview .arc-fill');
   const beforeArc = await arc.getAttribute('d');
   const sweep = inspector.getByRole('spinbutton', { name: t('inspector.sweep'), exact: true });

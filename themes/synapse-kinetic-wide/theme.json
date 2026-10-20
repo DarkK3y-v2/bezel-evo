@@ -1,0 +1,728 @@
+{
+  "schema": 1,
+  "name": "Synapse / Kinetic \u2014 Wide",
+  "canvas": {
+    "width": 1920,
+    "height": 480
+  },
+  "orientation": "landscape",
+  "refreshSeconds": 1,
+  "background": {
+    "type": "color",
+    "color": "#080c11ff"
+  },
+  "elements": [
+    {
+      "id": 1,
+      "name": "Architectural artwork",
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/architecture.svg",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 2,
+      "name": "Motion / hide this layer for a still theme",
+      "frame": {
+        "x": 720,
+        "y": 0,
+        "width": 480,
+        "height": 480
+      },
+      "kind": {
+        "type": "image",
+        "asset": "assets/motion.gif",
+        "fit": "fill"
+      },
+      "locked": true
+    },
+    {
+      "id": 3,
+      "name": "Wordmark",
+      "frame": {
+        "x": 30,
+        "y": 9,
+        "width": 610,
+        "height": 120
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "SYNAPSE"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 700
+          },
+          "size": 104,
+          "paint": "#e9f8f2ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "Edition",
+      "frame": {
+        "x": 35,
+        "y": 120,
+        "width": 570,
+        "height": 21
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "SIGNAL ARCHITECTURE / 01"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 14,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "CPU caption",
+      "frame": {
+        "x": 40,
+        "y": 168,
+        "width": 285,
+        "height": 25
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "PROCESSOR"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 16,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "CPU load",
+      "frame": {
+        "x": 34,
+        "y": 197,
+        "width": 280,
+        "height": 90
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 79,
+          "paint": "#e9f8f2ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 7,
+      "name": "CPU signal",
+      "frame": {
+        "x": 343,
+        "y": 203,
+        "width": 322,
+        "height": 89
+      },
+      "kind": {
+        "type": "graph",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "history": 90,
+        "intervalSeconds": 1,
+        "style": "area",
+        "color": "#b4ffd7ff",
+        "fill": {
+          "angle": 90,
+          "stops": [
+            [
+              0,
+              "#b4ffd750"
+            ],
+            [
+              1,
+              "#b4ffd700"
+            ]
+          ]
+        },
+        "lineWidth": 3,
+        "autoscale": false
+      }
+    },
+    {
+      "id": 8,
+      "name": "CPU segmented meter",
+      "frame": {
+        "x": 40,
+        "y": 307,
+        "width": 625,
+        "height": 12
+      },
+      "kind": {
+        "type": "bar",
+        "binding": {
+          "key": "cpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "direction": "leftToRight",
+        "fill": "#b4ffd7ff",
+        "track": "#ffffff15",
+        "radius": 2,
+        "segments": {
+          "count": 48,
+          "gap": 2
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 9,
+      "name": "Memory caption",
+      "frame": {
+        "x": 40,
+        "y": 342,
+        "width": 185,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "MEMORY"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 13,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "name": "Memory",
+      "frame": {
+        "x": 40,
+        "y": 370,
+        "width": 185,
+        "height": 47
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "memory.percent",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 38,
+          "paint": "#e9f8f2ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 11,
+      "name": "CPU thermal caption",
+      "frame": {
+        "x": 260,
+        "y": 342,
+        "width": 185,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "CPU THERMAL"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 13,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "name": "CPU temperature",
+      "frame": {
+        "x": 260,
+        "y": 370,
+        "width": 185,
+        "height": 47
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "cpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 38,
+          "paint": "#ff8098ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 13,
+      "name": "Clock",
+      "frame": {
+        "x": 474,
+        "y": 368,
+        "width": 190,
+        "height": 48
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "clock",
+          "pattern": "%H:%M"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 37,
+          "paint": "#e9f8f2ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "name": "Load arc",
+      "frame": {
+        "x": 799,
+        "y": 79,
+        "width": 322,
+        "height": 322
+      },
+      "kind": {
+        "type": "ring",
+        "binding": {
+          "key": "gpu.usage",
+          "min": 0,
+          "max": 100
+        },
+        "startAngle": -90,
+        "sweep": 360,
+        "thickness": 8,
+        "clockwise": true,
+        "fill": "#b4ffd7ff",
+        "track": "#ffffff12",
+        "roundCaps": true,
+        "segments": {
+          "count": 64,
+          "gap": 2
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 15,
+      "name": "GPU caption",
+      "frame": {
+        "x": 855,
+        "y": 177,
+        "width": 210,
+        "height": 23
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "GRAPHICS / LOAD"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 14,
+          "paint": "#6e98a0ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "name": "GPU load",
+      "frame": {
+        "x": 839,
+        "y": 212,
+        "width": 242,
+        "height": 82
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.usage",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 68,
+          "paint": "#e9f8f2ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 17,
+      "name": "GPU thermal",
+      "frame": {
+        "x": 869,
+        "y": 303,
+        "width": 182,
+        "height": 30
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "gpu.temperature",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 23,
+          "paint": "#ff8098ff",
+          "align": "center",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 18,
+      "name": "Audio wordmark",
+      "frame": {
+        "x": 1242,
+        "y": 25,
+        "width": 420,
+        "height": 63
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "AUDIO /"
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 52,
+          "paint": "#e9f8f2ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "name": "Volume",
+      "frame": {
+        "x": 1680,
+        "y": 38,
+        "width": 207,
+        "height": 43
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "sensor",
+          "key": "system.volume",
+          "format": {
+            "decimals": 0,
+            "showUnit": true
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 600
+          },
+          "size": 32,
+          "paint": "#e9f8f2ff",
+          "align": "right",
+          "valign": "middle"
+        }
+      },
+      "valueTransition": {
+        "mode": "smooth",
+        "durationMs": 500
+      }
+    },
+    {
+      "id": 20,
+      "name": "Now playing",
+      "frame": {
+        "x": 1244,
+        "y": 135,
+        "width": 610,
+        "height": 133
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "player",
+          "showCover": false,
+          "showSource": false,
+          "showProgress": true,
+          "showTime": false,
+          "emptyText": "Waiting for a signal",
+          "progressStyle": {
+            "fill": "#ff8098ff",
+            "thickness": 3,
+            "track": "#ffffff18"
+          }
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": "#e9f8f2ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "name": "Live frequency field",
+      "frame": {
+        "x": 1244,
+        "y": 301,
+        "width": 610,
+        "height": 102
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "spectrum",
+          "audio": "system",
+          "style": "line",
+          "bands": 64,
+          "motion": "smooth",
+          "peaks": false,
+          "stroke": 2,
+          "fill": true,
+          "gain": 1.2
+        },
+        "style": {
+          "font": {
+            "family": "Inter",
+            "weight": 500
+          },
+          "size": 28,
+          "paint": {
+            "angle": 0,
+            "stops": [
+              [
+                0,
+                "#7bdceeff"
+              ],
+              [
+                1,
+                "#ff8098ff"
+              ]
+            ]
+          },
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "name": "Footer",
+      "frame": {
+        "x": 34,
+        "y": 446,
+        "width": 625,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "KINETIC SYSTEMS   /   TELEMETRY + SOUND"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    },
+    {
+      "id": 23,
+      "name": "Audio footer",
+      "frame": {
+        "x": 1242,
+        "y": 446,
+        "width": 610,
+        "height": 20
+      },
+      "kind": {
+        "type": "text",
+        "content": {
+          "type": "static",
+          "text": "FREQUENCY FIELD / SYSTEM OUTPUT"
+        },
+        "style": {
+          "font": {
+            "family": "JetBrains Mono",
+            "weight": 500
+          },
+          "size": 12,
+          "paint": "#6e98a0ff",
+          "align": "left",
+          "valign": "middle"
+        }
+      }
+    }
+  ],
+  "palette": [
+    {
+      "name": "Background",
+      "color": "#080c11ff"
+    },
+    {
+      "name": "Accent",
+      "color": "#b4ffd7ff"
+    },
+    {
+      "name": "Text",
+      "color": "#e9f8f2ff"
+    },
+    {
+      "name": "Secondary",
+      "color": "#6e98a0ff"
+    }
+  ]
+}

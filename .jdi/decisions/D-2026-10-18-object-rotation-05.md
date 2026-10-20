@@ -1,0 +1,1 @@
+D-2026-10-18-object-rotation-05 (2026-10-18): Decisione tecnica — `Element` (crates/bezel-core/src/domain/theme.rs) riceve `rotation: f32` in gradi, centro = centro del `frame`, normalizzato in (-180, 180], default 0.

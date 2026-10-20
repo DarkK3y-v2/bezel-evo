@@ -1,17 +1,13 @@
 //! `gpu.fps`: the frame rate of the game being played, read from what a
 //! frame-rate overlay already publishes (D-2026-09-30-release-polish-4).
 //! Bezel never hooks or injects into a game: on Windows it reads the shared
-//! memory of RivaTuner Statistics Server ([`rtss`]), on Linux the newest CSV
-//! log of MangoHud ([`mangohud`]).
+//! memory of RivaTuner Statistics Server ([`rtss`]).
 //!
 //! A source that is absent, or whose newest value is older than
 //! [`MAX_AGE`], reads as unavailable with a reason that says how to turn it
 //! on: never 0 and never the last value seen. A live source that reports
 //! 0 fps (a loading screen) reads 0.
 
-#[cfg(target_os = "linux")]
-pub(crate) mod mangohud;
-#[cfg(any(windows, test))]
 pub(crate) mod rtss;
 
 use std::time::{Duration, Instant};
@@ -78,40 +74,24 @@ impl Provider for Fps {
 }
 
 /// This platform's `gpu.fps` provider.
-#[cfg(target_os = "linux")]
-pub(crate) fn provider(options: &SensorOptions) -> Fps {
-    let dir = options.mangohud_dir.clone().or_else(mangohud::default_dir);
-    Fps::new(mangohud::MangoHud::new(dir))
-}
-
-/// This platform's `gpu.fps` provider.
-#[cfg(windows)]
 pub(crate) fn provider(_options: &SensorOptions) -> Fps {
     Fps::new(rtss::Rtss)
 }
 
-/// This platform's `gpu.fps` provider: none is read here.
-#[cfg(not(any(target_os = "linux", windows)))]
-pub(crate) fn provider(_options: &SensorOptions) -> Fps {
-    Fps::new(Unsupported)
-}
-
 /// No frame-rate overlay Bezel reads on this system.
-#[cfg(any(not(any(target_os = "linux", windows)), test))]
+#[cfg(test)]
 pub(crate) struct Unsupported;
 
-#[cfg(any(not(any(target_os = "linux", windows)), test))]
+#[cfg(test)]
 impl FrameRateSource for Unsupported {
     fn describe(&self) -> String {
         "none on this system".to_string()
     }
 
     fn read(&mut self) -> Result<f64, String> {
-        Err(
-            "game FPS is read from MangoHud on Linux and from RivaTuner \
+        Err("game FPS is read from RivaTuner \
              Statistics Server on Windows"
-                .to_string(),
-        )
+            .to_string())
     }
 }
 
@@ -185,7 +165,9 @@ mod tests {
             Reading::Unavailable("off".into())
         );
         let mut none = Fps::new(Unsupported);
-        assert!(matches!(sample(&mut none), Reading::Unavailable(why) if why.contains("MangoHud")));
+        assert!(
+            matches!(sample(&mut none), Reading::Unavailable(why) if why.contains("RivaTuner"))
+        );
         assert_eq!(
             none.catalog()[0].source,
             "none on this system (not validated on hardware)"
@@ -196,18 +178,5 @@ mod tests {
     fn hex_fixtures_decode_offsets_and_bytes() {
         let image = hex_fixture("size 0x8\n@0x2 # skip\nab cd\n@6 01\n");
         assert_eq!(image, vec![0, 0, 0xab, 0xcd, 0, 0, 1, 0]);
-    }
-
-    #[cfg(target_os = "linux")]
-    #[test]
-    fn options_choose_the_mangohud_folder() {
-        let options = SensorOptions {
-            mangohud_dir: Some("/games/logs".into()),
-            ..SensorOptions::default()
-        };
-        assert_eq!(
-            provider(&options).catalog()[0].source,
-            "MangoHud logs in /games/logs (not validated on hardware)"
-        );
     }
 }

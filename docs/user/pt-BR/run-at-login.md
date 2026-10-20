@@ -1,93 +1,72 @@
-# Iniciar com o computador
+# Iniciar com o Windows
 
 [English](../run-at-login.md)
 
-Escolha **um** dos jeitos abaixo: só um programa controla a tela por vez, então
-o início automático do aplicativo e o serviço não podem ficar ligados juntos.
+O **Bezel Light** mantém os seus temas salvos nas telas sem o Studio. Ele fica
+na bandeja; o menu dele tem **Open Studio** e **Quit**, e um clique duplo no
+ícone também abre o Studio.
 
-## Pelo aplicativo (Linux e Windows)
+## O Light ao entrar no Windows
 
-Em **Tela → Ajustes**, marque **Iniciar com o computador, na bandeja, mostrando o
-último tema ao vivo**. Quando você entra no computador, o Bezel abre na bandeja,
-sem a janela, e mostra o último tema que estava ao vivo.
+Marque **Start Bezel Evo Light when I sign in** no Setup. Quando você entra, o Light
+começa com o tema e as telas que você salvou por último no Studio.
 
-O menu do ícone da bandeja tem **Abrir o Bezel**, **Ao vivo na tela** (liga ou
-desliga o tema ao vivo) e **Sair**.
+Com o ZIP portátil, dê dois cliques em `start-light.cmd` para iniciar o Light; o
+[guia de empacotamento para Windows](../../../packaging/windows/README.md) (em
+inglês) tem o comando que o põe na inicialização.
 
-## Como serviço, sem o aplicativo (Linux)
+**Tela → Ajustes → Iniciar com o computador**, no Studio, é outra opção: ela
+inicia o próprio Studio na bandeja. Escolha uma das duas.
 
-O `bezel-run@<tema>` é um serviço de *usuário* do systemd: ele roda
-`bezel run <tema>` enquanto você está conectado, e tenta de novo se a tela
-aparecer atrasada.
+## O Studio e o Light juntos
 
-- Os pacotes deb e rpm o instalam (`/usr/lib/systemd/user/bezel-run@.service`).
-- O `scripts/install-local.sh` (compilação do código-fonte) o instala em
-  `~/.config/systemd/user`, apontando para o `bezel` que ele instalou.
+O Light é o dono das telas: ele roda os temas, lê os sensores, guarda o
+histórico dos gráficos e os relógios, toca as transições e decodifica os vídeos
+de fundo. O Studio é o editor que conversa com ele.
 
-Ligue com o nome de um tema incluso (`turing-8.8-horizontal`,
-`turing-8.8-vertical`, `turing-5-horizontal`, `turing-3.5-vertical`,
-`turing-3.5-horizontal`, `turing-2.1-round`):
+- **Abrir o Studio** não interrompe nada: a tela mantém a imagem, e a área de
+  edição do Studio mostra exatamente o que o Light desenha. As suas mudanças vão
+  para o Light enquanto você edita, então uma tela ao vivo as acompanha.
+- **Fechar o Studio** mantém tudo andando: nada é redesenhado, os gráficos
+  guardam o histórico, um vídeo continua tocando. Se você fechar sem salvar, o
+  Studio pergunta antes, e a tela volta ao tema salvo, ainda sem recomeçar.
+- Os dois conversam por um canal local que só o seu usuário do Windows pode
+  abrir.
+- Se o Light não conseguir iniciar ou parar de responder, o Studio controla as
+  telas sozinho, como nas versões anteriores.
 
-```bash
-systemctl --user daemon-reload
-systemctl --user enable --now bezel-run@turing-8.8-horizontal
-systemctl --user status bezel-run@turing-8.8-horizontal
-journalctl --user -u bezel-run@turing-8.8-horizontal -f    # o log dele
-```
+Fechar o Studio sempre passa as telas para o Light; não há opção para manter
+o Studio na bandeja. **Quit** no menu da bandeja fecha o Light; a tela mantém a
+última imagem.
 
-Para desligar:
+## Várias telas
 
-```bash
-systemctl --user disable --now bezel-run@turing-8.8-horizontal
-```
+O seletor de telas no alto do Studio abre um documento separado para cada tela.
+Trocar de tela mantém as mudanças e o histórico de Desfazer de cada uma, e as
+outras telas continuam rodando. Salve um tema e ligue o **Ao vivo** em cada tela
+que você quer usar.
 
-**O seu próprio arquivo de tema:** dê qualquer nome à instância e troque o
-comando uma vez:
+O Light roda todas num só processo, com um só leitor de sensores e um trabalho
+por tela, então uma tela lenta não segura uma rápida.
 
-```bash
-systemctl --user edit bezel-run@meu
-```
+## Ao desligar
 
-No editor, acrescente (com o caminho do seu tema):
+Quando o Windows desliga ou reinicia, o Light para de desenhar e aplica a
+[escolha de desligamento](power-off.md) de cada tela rev C (deixar como está,
+apagar, um vídeo guardado ou o álbum de fotos). Telas sem essas escolhas, como a
+3,5" rev A, são apagadas. O Light espera no máximo 3,5 segundos; o temporizador
+da própria tela é o plano B se uma delas não responder.
 
-```ini
-[Service]
-ExecStart=
-ExecStart=/usr/bin/bezel run %h/temas/meu.bezeltheme
-```
+Depois de uma pausa longa (suspensão, hibernação), o Light reinicia o leitor de
+sensores e reconecta as telas sozinho.
 
-Depois, `systemctl --user enable --now bezel-run@meu`.
+## Sem o Studio nem o Light
 
-**AppImage ou o arquivo da linha de comando:** eles não instalam o serviço. Crie
-uma vez com `systemctl --user edit --force --full bezel-run@.service`, cole o
-texto abaixo e troque o caminho do `ExecStart` pelo lugar onde está o seu
-`bezel`:
-
-```ini
-[Unit]
-Description=Bezel theme %i on the smart screen
-After=graphical-session.target
-
-[Service]
-ExecStart=%h/.local/bin/bezel run %i
-Restart=on-failure
-RestartSec=5
-KillSignal=SIGTERM
-
-[Install]
-WantedBy=default.target
-```
-
-Quando o serviço para, o Bezel devolve a tela ao modo próprio dela.
-
-## Como tarefa de logon, sem o aplicativo (Windows)
-
-Com o `bezel.exe` descompactado em `C:\Tools\bezel`:
+O `bezel run` mostra um tema pelo terminal até Ctrl+C:
 
 ```powershell
-schtasks /Create /SC ONLOGON /TN "Bezel" /TR "C:\Tools\bezel\bezel.exe run turing-8.8-horizontal"
+bezel run turing-8.8-horizontal
 ```
 
-Uma janela de console fica aberta enquanto ele roda (fechá-la para o tema). Para
-remover a tarefa: `schtasks /Delete /TN "Bezel" /F`. O início pela bandeja do
-aplicativo não abre console.
+Ele não divide a tela: feche o Light antes, ou ele recusa a porta. Uma tarefa
+agendada pode iniciá-lo ao entrar no Windows, mas o Light é o melhor caminho.

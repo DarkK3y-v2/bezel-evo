@@ -193,14 +193,10 @@ KLIPY's share or report features.
 
 **Where your key is.** Only on this computer, with its customer id, in
 `klipy.json` in Bezel's configuration folder, next to its settings:
+`%APPDATA%\io.github.slipalison.bezel\klipy.json`.
 
-- Linux: `~/.config/io.github.slipalison.bezel/klipy.json` (or under
-  `$XDG_CONFIG_HOME`);
-- Windows: `%APPDATA%\io.github.slipalison.bezel\klipy.json`.
-
-Bezel writes the file whole each time, readable only by your user: on Linux
-its permissions are `0600`, and on Windows your profile folder's permissions
-keep it. The key is kept as plain text there, not in the system's keyring. It
+Bezel writes the file whole each time, readable only by your user: your
+profile folder's permissions keep it. The key is kept as plain text there, not in the system's keyring. It
 goes only to `api.klipy.com`, inside the request's address. Bezel's window
 never gets it back, only its last 4 characters (and nothing of a key of 8
 characters or fewer), and it never appears in Bezel's messages or logs.
@@ -211,9 +207,7 @@ the old one, gets a new customer id.
 
 **Where your collection is.** In your data folder, beside Bezel's
 [local copies](storage-and-video.md#bezels-local-copies):
-
-- Linux: `~/.local/share/bezel/collection` (or `$XDG_DATA_HOME/bezel/collection`);
-- Windows: `%APPDATA%\bezel\collection`.
+`%APPDATA%\bezel\collection`.
 
 `collection.json` lists each item's name, kind, size in pixels and in bytes,
 when you added it and where it came from (KLIPY's id and the item's page on

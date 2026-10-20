@@ -116,7 +116,10 @@
 /* An object (artboards Main, GraphData/Look, PlayerData/Look): its head
    (kind, name, layer, eye, lock, more), its preview, the tabs, position
    and size, then the sections of the open tab. */
-.inspector-head { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; }
+.inspector-head { display: grid; grid-template-columns: 34px minmax(0, 1fr) repeat(3, 28px); align-items: center; gap: 8px; margin: 2px 0 12px; }
+.inspector-type { grid-column: 1 / -1; margin: 0; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 10px; }
+.inspector-head > .icon-button { width: 28px; height: 28px; }
+.inspector-type > span { font-size: var(--fs-small); }
 .inspector-title { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .inspector-name { width: 100%; min-width: 0; padding: 1px 4px; margin-left: -5px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: var(--fs-heading); font-weight: 600; text-overflow: ellipsis; }
 .inspector-name:hover { border-color: var(--border); }
@@ -132,19 +135,57 @@
 .inspector-preview-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .inspector-preview-label { font-family: var(--font-mono); font-size: var(--fs-meta); letter-spacing: var(--caps-spacing); text-transform: uppercase; }
 .inspector-preview-value { color: var(--screen-chip-ink); font-family: var(--font-mono); font-size: var(--fs-heading); font-weight: 500; font-variant-numeric: tabular-nums; }
-.inspector-preview-stage { display: grid; place-items: center; min-height: 40px; }
+.inspector-preview-stage { display: grid; place-items: center; min-height: 40px; overflow: hidden; }
 .inspector-preview-stage canvas { display: block; max-width: 100%; }
 .inspector-preview-stage .inspector-preview-off { margin: 0; color: var(--screen-thumb-ink); font-size: var(--fs-small); }
 .inspector-preview-axis { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: var(--fs-tiny); }
 
-/* The tabs, right under the head and preview. */
-.inspector-tabs.subtabs { display: flex; margin-bottom: 0; }
-.inspector-tabs [role="tab"] { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Independent navigation, separated from the geometry toolbar above it. */
+.inspector-tabs.subtabs { display: flex; margin: var(--inspector-tabs-gap) 0 8px; padding: 3px; border: 1px solid var(--border); background: var(--well); }
+.inspector-tabs [role="tab"] { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 0; min-width: 0; height: var(--control-height); padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: none; }
+.inspector-tabs [role="tab"][aria-selected="true"] { background: var(--accent); color: var(--accent-text); box-shadow: none; }
+.inspector-tabs:has([data-tab="faces"]) .ic { display: none; }
 .inspector-tabs [role="tab"]:focus-visible { outline-offset: 0; }
 
-/* Sections: an 11px caps title (sectionTitle()), 22px apart. */
+/* Property groups have a visible boundary; short values keep a stable width. */
+.inspector .property-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.inspector .property-section .section-head { min-height: 24px; margin-bottom: 8px; }
+.inspector .section-head > .icon-button:last-child { margin-left: auto; }
+.inspector .section-title { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: var(--fs-field); line-height: 1.3; text-transform: none; letter-spacing: 0; }
+.inspector .section-head { align-items: center; }
+.inspector .section-title > .ic { color: var(--text-3); }
+.inspector .segmented button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); box-shadow: none; }
+.inspector .number-field { display: grid; grid-template-columns: minmax(0, max-content) 112px; justify-content: start; align-items: center; gap: 10px; }
+.inspector .field input[type="text"], .inspector .field select, .inspector .color-button, .inspector .font-button { min-height: var(--control-height); border-radius: var(--control-radius); }
+.inspector .number-field > .field-label { font-size: var(--fs-field); line-height: 1.4; color: var(--text-2); }
+.inspector .number-control { height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--well); }
+.inspector .number-control input { width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; font-family: var(--font-mono); font-size: var(--fs-field); }
+.inspector .number-control:focus-within { border-color: var(--accent); }
+.inspector .number-control input:focus-visible { outline: none; }
+.inspector .number-control:has(input:focus-visible) { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.inspector .field-row .number-field { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.inspector .value-color { display: flex; flex-direction: column; gap: 10px; padding: 0; border: 0; background: transparent; }
+.inspector .value-color > .switch-row { font-size: var(--fs-small); }
+.inspector .value-color .trigger-rule { padding: 8px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.inspector .corner-radii[data-mode="same"] { grid-template-columns: 64px minmax(100px, 140px); }
+.inspector .corner-radii[data-mode="each"] { grid-template-columns: minmax(0, 1fr) 96px minmax(0, 1fr); gap: 6px; }
+.inspector .corner-radii .fld { padding-inline: 8px; gap: 4px; }
+.inspector .corner-radii .fld input { width: 5ch; }
+.inspector .fld input { font-variant-numeric: tabular-nums; }
 .inspector .section-head h3 { margin: 0; }
-.inspector-tabs + .property-section, .inspector-tabs + .inspector-panel > .property-section:first-child { margin-top: 18px; }
+.inspector-panel > .property-section:first-child { margin-top: 8px; padding-top: 8px; border-top: 0; }
+.inspector .geometry-fields .fld, .inspector .geometry-rotation .fld { height: var(--control-height); padding-inline: 6px; gap: 5px; border-radius: var(--control-radius); font-size: var(--fs-compact); }
+.inspector .geometry-fields .fld-prefix, .inspector .geometry-rotation .fld-prefix { width: 55px; padding-right: 5px; border-right: 1px solid var(--border); font-family: var(--font-sans); font-size: var(--fs-small); color: var(--text-3); }
+.inspector .geometry-fields .fld input, .inspector .geometry-rotation .fld input { width: 0; }
+.inspector .geometry-rotation { width: min(100%, 180px); }
+.inspector .geometry-rotation .fld-prefix { width: auto; }
+.inspector .align-row { gap: 4px; }
+.inspector .align-row .icon-button { border-color: transparent; background: var(--surface-2); }
+.inspector .slider-field-inline { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 6px 10px; align-items: center; }
+.inspector .slider-field-inline .slider-head { display: contents; }
+.inspector .slider-field-inline .slider-head > span { grid-column: 1; grid-row: 1; }
+.inspector .slider-field-inline output { display: flex; align-items: center; justify-content: center; grid-column: 2; grid-row: 1 / span 2; min-height: var(--control-height); padding: 0 6px; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--well); font-size: var(--fs-small); }
+.inspector .slider-field-inline input[type="range"] { grid-column: 1; grid-row: 2; width: 100%; margin: 0; }
 .inspector-panel > .dashed-hint { margin-top: 22px; }
 .fld-grid.is-muted input { color: var(--text-3); }
 .align-row { display: flex; gap: 4px; }
@@ -159,11 +200,6 @@
 .graph-ruler-line .graph-ruler-tick { stroke: var(--info); }
 .graph-ruler-labels { display: flex; justify-content: space-between; gap: 8px; font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--muted); }
 .graph-ruler-labels .graph-points { color: var(--text-2); }
-
-/* The sensor a widget reads: a list card with the native select over it. */
-.source-card { position: relative; }
-.source-card:hover .list-card { border-color: var(--accent); }
-.source-card:has(select:focus-visible) .list-card { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
 /* The ring's arc in small, beside its start and sweep. */
 .arc-row { display: flex; align-items: center; gap: 14px; }

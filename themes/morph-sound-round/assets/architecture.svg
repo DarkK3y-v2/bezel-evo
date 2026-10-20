@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480"><defs><radialGradient id="bloom"><stop stop-color="#4a225b"/><stop offset="1" stop-color="#0e0a1c"/></radialGradient></defs>
+        <circle cx="240" cy="240" r="239" fill="url(#bloom)"/>
+        <circle cx="240" cy="240" r="232" fill="none" stroke="#7c517e"/>
+        </svg>

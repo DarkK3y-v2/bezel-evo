@@ -425,7 +425,8 @@ impl TextEngine {
         if style.letter_spacing.is_finite() && style.letter_spacing != 0.0 {
             attrs = attrs.letter_spacing(style.letter_spacing / size);
         }
-        buffer.set_text(job.text, &attrs, Shaping::Advanced, None);
+        let displayed = style.casing.apply(job.text);
+        buffer.set_text(&displayed, &attrs, Shaping::Advanced, None);
         buffer.shape_until_scroll(&mut self.fonts, false);
         buffer
     }
